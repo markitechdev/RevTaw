@@ -31,6 +31,12 @@ export class MockProvider implements AiProvider {
       case "regenerate_section":
         text = JSON.stringify(sectionHeuristically(userText));
         break;
+      case "generate_quiz":
+        text = JSON.stringify(quizHeuristically(rawMaterial, `${options.system ?? ""}\n${userText}`));
+        break;
+      case "grade_answers":
+        text = JSON.stringify(gradeHeuristically(userText));
+        break;
       case "ocr_image":
         text = "Mock transcription: the image was read by the mock provider. Configure a real AI provider to extract the actual text.";
         break;
@@ -198,7 +204,13 @@ export function parseTranscriptSections(transcript: string): Array<{ heading: st
     current.text.push(line);
   }
   if (current) sections.push({ heading: current.heading, text: current.text.join("\n").trim() });
-  return sections.filter((section) => section.text.length > 0);
+  // Chunks keep their heading as the first line; drop it so it does not glue onto the first sentence.
+  return sections
+    .map((section) => ({
+      heading: section.heading,
+      text: section.text.replace(new RegExp(`^${section.heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\n`, "i"), "").trim(),
+    }))
+    .filter((section) => section.text.length > 0);
 }
 
 function sentencesOf(text: string): string[] {
@@ -276,4 +288,179 @@ export function sectionHeuristically(prompt: string) {
     heading,
     content: `${shorter ? lines.slice(0, 2).join("\n") : lines.join("\n")}\n\n_Revised by the mock provider${instructions ? ` (${instructions})` : ""}._`,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Quizzes
+// ---------------------------------------------------------------------------
+
+type MockFact = { term: string | null; definition: string | null; sentence: string; heading: string; next: string | null };
+
+function stripArticle(term: string): string {
+  return term.replace(/^(the|a|an)\s+/i, "").trim();
+}
+
+function negate(sentence: string): string {
+  const negated = sentence.replace(/\b(is|are|was|were|can|does|do|has|have|will)\b(?! not)/, "$1 not");
+  return negated === sentence ? `It is false that ${sentence.charAt(0).toLowerCase()}${sentence.slice(1)}` : negated;
+}
+
+function keywordsOf(text: string): string[] {
+  return [...new Set(text.toLowerCase().match(/[a-z][a-z0-9-]{3,}/g) ?? [])].filter(
+    (word) => !/^(this|that|with|from|which|their|there|these|those|than|then|into|also|been|have|were|what|when|where|about|other|some|such|more|most|only|very|will|would|could|should|because|while|after|before|between|through|under|over|each|every)$/.test(word),
+  );
+}
+
+function collectFacts(transcript: string): MockFact[] {
+  const sections = parseTranscriptSections(transcript);
+  const facts: MockFact[] = [];
+  for (const section of sections) {
+    const sentences = sentencesOf(section.text).filter((sentence) => sentence.length <= 240);
+    sentences.forEach((sentence, index) => {
+      const match = sentence.match(/^((?:[A-Z][\w'-]*|[a-z][\w'-]*)(?:\s+[\w'-]+){0,4}?)\s+(?:is|are|refers to|means|is defined as)\s+(.+?)[.!?]?$/);
+      facts.push({
+        term: match ? stripArticle(match[1]) : null,
+        definition: match ? match[2].trim() : null,
+        sentence,
+        heading: section.heading,
+        next: sentences[index + 1] ?? null,
+      });
+    });
+  }
+  // Definitions first: they make the best objective questions.
+  return [...facts.filter((fact) => fact.term), ...facts.filter((fact) => !fact.term)];
+}
+
+/** Deterministic quiz: cycles through the material's facts per requested type. */
+export function quizHeuristically(transcript: string, prompt: string) {
+  const materialTitle = prompt.match(/Material title:\s*(.+)/)?.[1]?.trim() ?? "Material";
+  const plan = [...prompt.matchAll(/^- ([a-z_]+): (\d+)$/gm)].map((match) => ({ type: match[1], count: Number(match[2]) }));
+  const fixedDifficulty = prompt.match(/"(easy|medium|hard)" for every question/)?.[1] ?? null;
+  const facts = collectFacts(transcript);
+  const terms = [...new Set(facts.map((fact) => fact.term).filter((term): term is string => Boolean(term)))];
+  const difficulties = ["easy", "medium", "hard"] as const;
+  const questions: Array<Record<string, unknown>> = [];
+  let cursor = 0;
+
+  if (facts.length === 0) return { title: `${materialTitle} — Quiz`, questions };
+
+  for (const item of plan) {
+    for (let index = 0; index < item.count; index += 1) {
+      const fact = facts[cursor % facts.length];
+      const serial = cursor;
+      cursor += 1;
+      const topic = fact.term ?? fact.heading;
+      const base = {
+        difficulty: fixedDifficulty ?? difficulties[serial % 3],
+        explanation: `The material states: "${fact.sentence}"`,
+        concept: topic.slice(0, 60),
+        source_excerpt: fact.sentence.slice(0, 300),
+      };
+      switch (item.type) {
+        case "multiple_choice": {
+          const distractors = fact.term
+            ? terms.filter((term) => term !== fact.term).slice(0, 3)
+            : facts.filter((other) => other !== fact).slice(0, 3).map((other) => negate(other.sentence));
+          while (distractors.length < 3) distractors.push(`Not stated in the material (${distractors.length + 1})`);
+          const texts = [fact.term ?? fact.sentence, ...distractors];
+          const rotated = texts.map((_, position) => texts[(position + serial) % texts.length]);
+          const ids = ["a", "b", "c", "d"];
+          questions.push({
+            type: "multiple_choice",
+            ...base,
+            prompt: fact.term ? `Which term is described here: "${fact.definition}"?` : "Which of these statements is supported by the material?",
+            options: rotated.map((text, position) => ({ id: ids[position], text })),
+            answer: { option_id: ids[rotated.indexOf(fact.term ?? fact.sentence)] },
+          });
+          break;
+        }
+        case "true_false": {
+          const truthy = serial % 2 === 0;
+          questions.push({
+            type: "true_false",
+            ...base,
+            prompt: truthy ? fact.sentence : negate(fact.sentence),
+            answer: { value: truthy },
+          });
+          break;
+        }
+        case "identification": {
+          const term = fact.term ?? fact.heading;
+          questions.push({
+            type: "identification",
+            ...base,
+            prompt: fact.term ? `Identify the term: ${fact.definition}.` : `Which part of the material covers this: "${fact.sentence}"?`,
+            answer: { accepted: [term, `the ${term}`] },
+          });
+          break;
+        }
+        case "fill_blank": {
+          const words = fact.sentence.split(" ");
+          const target = fact.term && fact.sentence.includes(fact.term) ? fact.term : [...words].sort((a, b) => b.length - a.length)[0].replace(/[.,;:]$/, "");
+          questions.push({
+            type: "fill_blank",
+            ...base,
+            prompt: fact.sentence.replace(target, "____"),
+            answer: { accepted: [target] },
+          });
+          break;
+        }
+        case "short_answer":
+          questions.push({
+            type: "short_answer",
+            ...base,
+            prompt: fact.term ? `In your own words, what is ${topic}?` : `Summarize this point from "${fact.heading}": ${fact.sentence.split(" ").slice(0, 6).join(" ")}…`,
+            answer: { model_answer: fact.sentence, rubric: keywordsOf(fact.definition ?? fact.sentence).slice(0, 3).map((word) => `Mentions ${word}`) },
+          });
+          break;
+        default:
+          questions.push({
+            type: item.type,
+            ...base,
+            prompt:
+              item.type === "essay"
+                ? `Explain ${topic} and why it matters, using only the material.`
+                : item.type === "scenario"
+                  ? `A classmate has to apply ${topic} in a real situation. Using the material, explain what they should do and why.`
+                  : item.type === "case_based"
+                    ? `Case: a student claims that "${negate(fact.sentence)}" Evaluate the claim using the material.`
+                    : `Work through this step by step using the material: how would you apply ${topic}? State your final answer.`,
+            answer: {
+              model_answer: [fact.sentence, fact.next].filter(Boolean).join(" "),
+              rubric: keywordsOf(fact.sentence).slice(0, 3).map((word) => `Mentions ${word}`),
+            },
+          });
+      }
+    }
+  }
+
+  return { title: `${materialTitle} — ${plan.length > 1 ? "Mixed" : "Practice"} Quiz`, questions };
+}
+
+/** Deterministic grader: keyword overlap between the student's answer and the model answer/rubric. */
+export function gradeHeuristically(prompt: string) {
+  const blocks = prompt.split(/\n\n(?=Answer \d+\n)/);
+  const grades = blocks
+    .map((block) => {
+      const id = block.match(/^id:\s*(.+)$/m)?.[1]?.trim();
+      const points = Number(block.match(/^max points:\s*(\d+)$/m)?.[1] ?? "1");
+      const model = block.match(/^model answer:\s*(.+)$/m)?.[1] ?? "";
+      const rubric = block.match(/^rubric:\s*([\s\S]*?)\nstudent answer:/m)?.[1] ?? "";
+      const student = block.match(/^student answer:\s*([\s\S]*)$/m)?.[1]?.trim() ?? "";
+      if (!id) return null;
+      const expected = keywordsOf(`${model} ${rubric.replace(/Mentions /g, "")}`);
+      const given = new Set(keywordsOf(student));
+      const hits = expected.filter((word) => given.has(word));
+      const ratio = expected.length ? hits.length / expected.length : 0;
+      const score = student.length < 3 ? 0 : Math.max(ratio >= 0.5 ? 1 : 0, Math.round(points * Math.min(1, ratio * 1.5)));
+      const feedback =
+        score >= points
+          ? `Good — you covered the key ideas (${hits.slice(0, 3).join(", ")}).`
+          : score > 0
+            ? `Partly there: you mentioned ${hits.slice(0, 2).join(", ") || "some points"}, but the model answer also expects ${expected.filter((word) => !given.has(word)).slice(0, 2).join(", ")}.`
+            : `This does not yet match the material. Re-read the source and look for: ${expected.slice(0, 3).join(", ")}.`;
+      return { id, score, feedback };
+    })
+    .filter((grade): grade is { id: string; score: number; feedback: string } => Boolean(grade));
+  return { grades };
 }
