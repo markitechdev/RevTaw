@@ -4,7 +4,7 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-19 (Phase 4 complete)_
+_Last updated: 2026-10-19 (Phase 5 complete)_
 
 ## Completed
 
@@ -185,24 +185,62 @@ _Last updated: 2026-10-19 (Phase 4 complete)_
   focus time today / 7 days, flashcards due, "Due today" decks, and a
   recommendation that names the weak concept and starts the right session.
 
+### Phase 5 — AI tutor
+
+- **Schema** — `tutor_conversations` (material, optional study session,
+  mode, message count) and `tutor_messages` (role, content, quick action,
+  highlighted selection, grounding level, cited sources, additional
+  explanation, follow-up suggestions, flashcard draft)
+  (`supabase/migrations/0005_tutor.sql`).
+- **Document-aware chat** — `/tutor` and `/tutor/[id]`: conversations tied
+  to a material (or general); `POST /api/tutor/conversations` and
+  `.../[id]/messages`. The context selector (`src/lib/tutor/context.ts`,
+  unit-tested) picks the passages that match the question and the selected
+  text within a character budget, so every answer cites real sections.
+- **Source-grounded answers** (§13, §47) — each reply carries a grounding
+  badge (based on your material / material + additional explanation /
+  general / not covered), quoted sources linking back to the material's
+  Content tab, and a separate "additional explanation" block for general
+  knowledge. When the material does not cover a question the tutor says so.
+- **Quick actions and follow-ups** (§19) — explain, like I'm a beginner,
+  example, analogy (kept separate from the actual definition), step by step,
+  quiz me, guide me, why am I wrong, simplify, summarize, compare, mnemonic;
+  under every answer: explain more, example, simplify, analogy, test me, add
+  to notes (appends to a "Tutor notes" reviewer), create flashcard (saves
+  into a "Tutor cards" deck).
+- **Modes** — direct answers or guide me (hints, no answer); the mode is
+  stored per conversation.
+- **Highlight-and-ask** (§20) — selecting text in a material's Content tab
+  or in a reviewer shows Explain, Simplify, Summarize, Example, Quiz me, Ask
+  why, Compare, Mnemonic; the selection and its passage go to the material's
+  conversation.
+- **Why is my answer wrong?** — one click from any incorrect quiz question
+  or notebook entry opens the tutor with the question, the student's answer
+  and the correct answer.
+- **Tutor-based study methods** — Socratic questioning, elaborative
+  interrogation and self-explanation run as tutor conversations in a
+  dedicated mode (the tutor opens with a probing question, never hands over
+  the answer); ending the session produces an evaluation of the student's
+  reasoning (score, strengths, missing concepts, next step) stored as the
+  §29 summary.
+
 ## In Progress
 
-- Nothing at the moment. Phase 5 starts next.
+- Nothing at the moment. Phase 6 starts next.
 
 ## Next (priority order)
 
-1. **Phase 5 — AI tutor**: document-aware chat grounded in the selected
-   material, highlight-and-ask from the viewer, "explain like I'm a
-   beginner", examples, step-by-step guided tutoring, Socratic questioning,
-   elaborative interrogation and self-explanation sessions.
-2. **Phase 6 — Adaptive intelligence**: mastery and retrieval strength per
+1. **Phase 6 — Adaptive intelligence**: mastery and retrieval strength per
    concept (quiz answers, recall items and flashcard reviews already carry
    correctness, difficulty, confidence and response time), weakness
-   detection, difficulty adaptation, smart study sessions.
-3. **Phase 7 — Planner**: exam dates, availability, generated daily plans,
-   cram mode, 1-3-7-14 reviews.
-4. Phases 8–10 as listed in the spec (advanced methods such as blurting,
-   interleaving, worked examples, mind maps; analytics/gamification; export).
+   detection, confidence analysis (correct + low confidence, wrong + high
+   confidence), difficulty adaptation, smart study sessions and
+   recommendations with reasons.
+2. **Phase 7 — Planner**: exam dates, availability, generated daily plans,
+   cram mode, 1-3-7-14 reviews, plan adjustment.
+3. Phases 8–10 as listed in the spec (advanced methods such as blurting,
+   interleaving, chunking, worked examples, mind maps, dual coding,
+   teach-back; analytics/gamification; export).
 
 ## Database
 
@@ -227,12 +265,15 @@ _Last updated: 2026-10-19 (Phase 4 complete)_
 | `public.flashcard_decks` | Generated deck: title, status + detail, provider/model, card count | owner full access; cascade from material |
 | `public.flashcards` | Card: front/back/hint, concept, source, favorite, suspended, Leitner `box`, `ease`, `interval_days`, `repetitions`, `lapses`, `due_at`, last review/rating | owner full access; cascade from deck; partial index on due cards |
 | `public.flashcard_reviews` | Review log: rating, response time, box before/after, interval, due date, optional session | owner full access; cascade from card |
+| `public.tutor_conversations` | Tutor chat: material, optional study session, mode, title, message count, last message | owner full access; material/session FKs set null |
+| `public.tutor_messages` | One turn: role, content, quick action, selection, grounding, `sources` JSON, additional explanation, follow-ups, flashcard draft, provider/model | owner full access; cascade from conversation |
 | `storage.objects` (bucket `materials`) | Private files under `<user_id>/<material_id>/<file>` | policies on first path segment = `auth.uid()` |
 
 Enums: `education_level`, `study_goal`, `material_source`, `material_status`,
 `difficulty_level`, `reviewer_kind`, `generation_status`, `question_type`,
 `question_difficulty`, `quiz_mode`, `attempt_status`, `confidence_level`,
-`mistake_type`, `session_status`, `session_goal`, `flashcard_rating`. Helper functions: `public.set_updated_at()`,
+`mistake_type`, `session_status`, `session_goal`, `flashcard_rating`,
+`tutor_mode`, `tutor_role`. Helper functions: `public.set_updated_at()`,
 `public.handle_new_user()` (security definer, pinned `search_path`).
 
 Types for queries live in `src/lib/supabase/database.types.ts` (hand-written
@@ -305,6 +346,15 @@ linked).
   practice-testing sync), `queries.ts` (sessions, activity stats: streak and
   focus time), `actions.ts`. Runners live in `src/components/study/` and share
   `SessionHeader` and `SessionSummaryCard` (§52 reusable components).
+- **Tutor** — `src/lib/tutor/`: `types.ts` (actions, follow-ups, modes,
+  grounding labels), `context.ts` (keyword-scored passage selection with a
+  character budget), `ai.ts` (reply prompt with grounding rules per mode and
+  action; session evaluation), `service.ts` (conversations, `respond()` =
+  context + model + source validation + storage, add to notes, create
+  flashcard, tutor-based sessions), `queries.ts`, `actions.ts`. The chat UI
+  is `src/components/tutor/`; `HighlightToolbar` wraps any material text.
+  The default mode uses the fast model tier; guided/Socratic modes use the
+  strong tier. Replies are not streamed (one validated JSON object per turn).
 
 ## Known Issues / Limitations
 
@@ -335,6 +385,10 @@ linked).
 - The streak counts UTC days; per-user time zones arrive with the planner.
 - "Smart Study" (RevTaw picking the method automatically) and routines are
   Phase 6/8 work; the builder recommends methods per goal today.
+- Tutor replies arrive as one message (no token streaming); the context is
+  chosen by keyword overlap rather than embeddings, which is accurate for
+  materials up to a few hundred pages and cheap to run. "Visualize" from the
+  highlight menu waits for dual coding (Phase 8).
 
 ## Environment Requirements
 
@@ -393,9 +447,17 @@ Flows verified end to end against a local Supabase-compatible stack
   revealed only at the end), practice testing (timed test through the quiz
   runner, summary from the attempt), Pomodoro (countdown, pause/resume,
   refresh restore, focus time), study page and dashboard streak/focus
+- Tutor: anonymous API rejected; grounded answer with sources; follow-ups
+  (simplify, create flashcard → tutor deck, add to notes → tutor notes
+  reviewer); "not covered by your material" answer; guide-me mode; highlight
+  and ask from the Content tab reusing the material's conversation with the
+  selection stored; Socratic session (opener question, questions in reply,
+  evaluation summary, read-only afterwards); rename, delete keeps saved
+  cards; mobile layout
 - Unit tests (`npm test`): JSON extraction, chunking, content helpers,
   analysis transcript, markdown renderer, quiz distribution/grading/config,
-  the mock quiz generator and the flashcard scheduler
+  the mock quiz generator, the flashcard scheduler and the tutor context
+  selector
 
 Commands: `npm run lint`, `npx tsc --noEmit`, `npm test` (vitest unit tests),
 `npm run build`.

@@ -46,6 +46,11 @@ working.
   Feynman, practice testing, error review and Pomodoro, each with a saved
   summary; flashcards with spaced repetition (Leitner boxes), streak and
   focus-time tracking (Phase 4)
+- AI tutor grounded in your materials: answers cite their sources and say
+  when the material does not cover a question; quick actions (explain,
+  simplify, example, analogy, quiz me, guide me…), highlight-and-ask inside
+  materials and notes, Socratic / elaborative / self-explanation sessions
+  (Phase 5)
 
 ## Scripts
 
@@ -64,13 +69,13 @@ src/app/(marketing)   landing page
 src/app/(auth)        login, register, verify, forgot/reset password
 src/app/(onboarding)  first-run study profile
 src/app/(app)         signed-in app: dashboard, materials, study, methods,
-                      quiz, flashcards, notes, settings…
+                      quiz, flashcards, tutor, notes, settings…
 src/app/auth          email-link route handlers (callback, confirm)
 src/app/api           route handlers (material processing, analysis, files,
                       reviewer and quiz generation)
 src/components        ui primitives, forms, app shell, feature components
 src/lib               supabase clients, ai providers, materials pipeline,
-                      reviewers, quizzes, flashcards, study sessions,
+                      reviewers, quizzes, flashcards, study sessions, tutor,
                       concepts, validation, routes, env
 supabase/migrations   SQL migrations (apply in order)
 ```
