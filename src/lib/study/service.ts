@@ -6,10 +6,11 @@ import { getConceptPerformance } from "@/lib/quizzes/queries";
 import { createQuiz, startAttempt } from "@/lib/quizzes/service";
 import { loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
-import { METHOD_BEHAVIOUR, type BuilderMethodId } from "@/lib/study/catalog";
+import { isTutorMethod, METHOD_BEHAVIOUR, type BuilderMethodId } from "@/lib/study/catalog";
 import { completeSession, createSession, loadSession, SessionError, sessionTitle, suggestNext, updateSessionState, type SessionSummary } from "@/lib/study/sessions";
 import type { ConfidenceLevel, Json, SessionGoal, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
+import { startTutorSession } from "@/lib/tutor/service";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 
@@ -58,6 +59,18 @@ export async function startSession(userId: string, input: StartSessionInput): Pr
   const supabase = await createClient();
   const behaviour = METHOD_BEHAVIOUR[input.method];
   if (behaviour.requiresMaterial && !input.materialId) throw new SessionError("Choose a material for this method.", 400);
+
+  if (isTutorMethod(input.method)) {
+    const context = await loadMaterialContext(supabase, input.materialId!);
+    const result = await startTutorSession(userId, {
+      method: input.method,
+      materialId: context.material.id,
+      goal: input.goal,
+      plannedMinutes: input.plannedMinutes,
+      materialTitle: context.material.title,
+    });
+    return { sessionId: result.sessionId, redirect: `/tutor/${result.conversationId}` };
+  }
 
   switch (input.method) {
     case "active_recall":

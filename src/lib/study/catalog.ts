@@ -125,8 +125,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 20,
     goals: ["understand"],
     requiresMaterial: true,
-    availableIn: "Phase 5",
-    behaviour: "The tutor keeps asking why and how about each claim until the reason is clear.",
+    availableIn: "now",
+    behaviour: "A tutor conversation in why-chain mode: it states a claim from the material, asks why it is true, evaluates your reasoning and asks the next why; the session ends with a reasoning score.",
   },
   self_explanation: {
     howItHelps: "Explaining each step while solving catches misunderstandings early.",
@@ -134,8 +134,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 25,
     goals: ["understand", "practice"],
     requiresMaterial: true,
-    availableIn: "Phase 5",
-    behaviour: "You explain why each step of a solution works before moving on.",
+    availableIn: "now",
+    behaviour: "A tutor conversation that walks through a worked solution or process from the material one step at a time; you explain why each step works before the next appears.",
   },
   socratic_questioning: {
     howItHelps: "Guided questions make you reach the answer instead of being handed it.",
@@ -143,8 +143,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 20,
     goals: ["understand", "master_topic"],
     requiresMaterial: true,
-    availableIn: "Phase 5",
-    behaviour: "The AI tutor answers with questions that lead you to the idea.",
+    availableIn: "now",
+    behaviour: "A tutor conversation in Socratic mode: it answers with questions (What makes you think that? What evidence supports it? What assumption are you making?) and never hands over the answer; the session ends with feedback on your reasoning.",
   },
   dual_coding: {
     howItHelps: "Pairing words with a diagram gives memory two routes to the same idea.",
@@ -226,7 +226,25 @@ export const IMPLEMENTED_METHOD_IDS = STUDY_METHODS.filter((method) => METHOD_BE
 ];
 
 /** Methods that run through the session builder (flashcards/spaced repetition start from the Flashcards section). */
-export const BUILDER_METHOD_IDS = ["active_recall", "feynman", "practice_testing", "error_review", "pomodoro", "spaced_repetition", "flashcards"] as const;
+export const BUILDER_METHOD_IDS = [
+  "active_recall",
+  "feynman",
+  "practice_testing",
+  "error_review",
+  "pomodoro",
+  "socratic_questioning",
+  "elaborative_interrogation",
+  "self_explanation",
+  "spaced_repetition",
+  "flashcards",
+] as const;
+
+/** Methods whose session is a tutor conversation in a special mode. */
+export const TUTOR_METHOD_IDS = ["socratic_questioning", "elaborative_interrogation", "self_explanation"] as const;
+export type TutorMethodId = (typeof TUTOR_METHOD_IDS)[number];
+export function isTutorMethod(value: string): value is TutorMethodId {
+  return (TUTOR_METHOD_IDS as readonly string[]).includes(value);
+}
 export type BuilderMethodId = (typeof BUILDER_METHOD_IDS)[number];
 
 export function isBuilderMethod(value: string): value is BuilderMethodId {

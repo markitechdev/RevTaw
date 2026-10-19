@@ -10,7 +10,7 @@ import { SessionSummaryCard } from "@/components/study/session-summary";
 import { buttonClasses } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
 import { routes } from "@/lib/routes";
-import { methodName } from "@/lib/study/catalog";
+import { isTutorMethod, methodName } from "@/lib/study/catalog";
 import { getSession } from "@/lib/study/queries";
 import { syncPracticeTesting } from "@/lib/study/service";
 
@@ -60,6 +60,11 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
       );
     }
     return <ErrorState title="This session has no test attached" description="Start a new practice test from the Study page." />;
+  }
+
+  if (session.status === "in_progress" && isTutorMethod(session.method)) {
+    const conversationId = (session.state as { conversationId?: string } | null)?.conversationId;
+    if (conversationId) redirect(`${routes.tutor}/${conversationId}`);
   }
 
   if (session.status !== "in_progress") {
