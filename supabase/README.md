@@ -32,6 +32,7 @@ supabase db push
 | `0003_reviewers_quizzes.sql` | `concepts`, `reviewers` + `reviewer_sections`, `quizzes` + `quiz_questions`, `quiz_attempts` + `quiz_answers`, `mistakes` (mistake notebook); owner-only RLS, composite keys, cascades from materials |
 | `0004_study.sql` | `study_sessions` + `study_session_items` (session builder, active recall, Feynman, error review, Pomodoro state), `flashcard_decks` + `flashcards` (Leitner box, SM-2 scheduling state) + `flashcard_reviews`; owner-only RLS, composite keys |
 | `0005_tutor.sql` | `tutor_conversations` (material-grounded chats, mode, optional study session) + `tutor_messages` (role, content, action, selection, grounding, sources, follow-ups, flashcard); owner-only RLS |
+| `0006_mastery.sql` | `concept_mastery` — the adaptive engine's cached mastery, retrieval strength, confidence calibration, next difficulty and next review per concept; owner-only RLS |
 
 Migrations are additive. Never edit an applied migration; add a new numbered
 file instead.

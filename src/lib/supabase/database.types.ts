@@ -80,6 +80,8 @@ export type SessionGoal = "memorize" | "understand" | "practice" | "exam_prep" |
 export type FlashcardRating = "again" | "hard" | "good" | "easy";
 export type TutorMode = "tutor" | "guided" | "socratic" | "elaborative" | "self_explanation";
 export type TutorRole = "user" | "assistant";
+export type MasteryStatus = "new" | "weak" | "learning" | "strong" | "mastered";
+export type NextDifficulty = "easy" | "medium" | "hard" | "advanced";
 
 type ProfilesRow = {
   id: string;
@@ -419,6 +421,31 @@ type TutorMessagesRow = {
   provider: string | null;
   model: string | null;
   created_at: string;
+};
+
+type ConceptMasteryRow = {
+  id: string;
+  user_id: string;
+  concept_id: string;
+  mastery: number;
+  retrieval_strength: number;
+  status: MasteryStatus;
+  next_difficulty: NextDifficulty;
+  attempts: number;
+  correct: number;
+  incorrect: number;
+  streak: number;
+  open_mistakes: number;
+  misconceptions: number;
+  underconfident: number;
+  avg_confidence: number | null;
+  avg_response_ms: number | null;
+  trend: number;
+  last_practiced_at: string | null;
+  next_review_at: string | null;
+  computed_at: string;
+  created_at: string;
+  updated_at: string;
 };
 
 /** Insert/Update variants: every column optional except what the DB requires. */
@@ -771,6 +798,20 @@ export type Database = {
           },
         ];
       };
+      concept_mastery: {
+        Row: ConceptMasteryRow;
+        Insert: Writable<ConceptMasteryRow, "concept_id">;
+        Update: Partial<ConceptMasteryRow>;
+        Relationships: [
+          {
+            foreignKeyName: "concept_mastery_concept_fk";
+            columns: ["concept_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "concepts";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
       flashcard_reviews: {
         Row: FlashcardReviewsRow;
         Insert: Writable<FlashcardReviewsRow, "card_id" | "rating">;
@@ -814,6 +855,8 @@ export type Database = {
       flashcard_rating: FlashcardRating;
       tutor_mode: TutorMode;
       tutor_role: TutorRole;
+      mastery_status: MasteryStatus;
+      next_difficulty: NextDifficulty;
     };
     CompositeTypes: Record<string, never>;
   };
@@ -847,3 +890,4 @@ export type Flashcard = Tables<"flashcards">;
 export type FlashcardReview = Tables<"flashcard_reviews">;
 export type TutorConversation = Tables<"tutor_conversations">;
 export type TutorMessage = Tables<"tutor_messages">;
+export type ConceptMastery = Tables<"concept_mastery">;
