@@ -29,6 +29,7 @@ supabase db push
 | --- | --- |
 | `0001_profiles.sql` | `profiles` table (display name, onboarding preferences), enums, `updated_at` trigger, automatic profile creation on sign-up, RLS policies |
 | `0002_materials.sql` | `subjects`, `folders`, `materials`, `material_chunks`, `material_analyses` with owner-only RLS and composite ownership keys; private `materials` storage bucket (25 MB, allow-listed MIME types) with per-user folder policies |
+| `0003_reviewers_quizzes.sql` | `concepts`, `reviewers` + `reviewer_sections`, `quizzes` + `quiz_questions`, `quiz_attempts` + `quiz_answers`, `mistakes` (mistake notebook); owner-only RLS, composite keys, cascades from materials |
 
 Migrations are additive. Never edit an applied migration; add a new numbered
 file instead.
