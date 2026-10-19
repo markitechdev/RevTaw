@@ -78,6 +78,8 @@ export type MistakeType =
 export type SessionStatus = "in_progress" | "completed" | "abandoned";
 export type SessionGoal = "memorize" | "understand" | "practice" | "exam_prep" | "quick_review" | "master_topic";
 export type FlashcardRating = "again" | "hard" | "good" | "easy";
+export type TutorMode = "tutor" | "guided" | "socratic" | "elaborative" | "self_explanation";
+export type TutorRole = "user" | "assistant";
 
 type ProfilesRow = {
   id: string;
@@ -385,6 +387,38 @@ type FlashcardReviewsRow = {
   interval_days: number | null;
   due_at: string | null;
   reviewed_at: string;
+};
+
+type TutorConversationsRow = {
+  id: string;
+  user_id: string;
+  material_id: string | null;
+  session_id: string | null;
+  title: string;
+  mode: TutorMode;
+  message_count: number;
+  last_message_at: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type TutorMessagesRow = {
+  id: string;
+  user_id: string;
+  conversation_id: string;
+  role: TutorRole;
+  content: string;
+  action: string | null;
+  selection: string | null;
+  grounding: "material" | "partial" | "general" | "not_found" | null;
+  sources: Json;
+  additional_explanation: string | null;
+  follow_ups: Json;
+  flashcard: Json | null;
+  provider: string | null;
+  model: string | null;
+  created_at: string;
 };
 
 /** Insert/Update variants: every column optional except what the DB requires. */
@@ -702,6 +736,41 @@ export type Database = {
           },
         ];
       };
+      tutor_conversations: {
+        Row: TutorConversationsRow;
+        Insert: Writable<TutorConversationsRow, "title">;
+        Update: Partial<TutorConversationsRow>;
+        Relationships: [
+          {
+            foreignKeyName: "tutor_conversations_material_fk";
+            columns: ["material_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "tutor_conversations_session_fk";
+            columns: ["session_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "study_sessions";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      tutor_messages: {
+        Row: TutorMessagesRow;
+        Insert: Writable<TutorMessagesRow, "conversation_id" | "role" | "content">;
+        Update: Partial<TutorMessagesRow>;
+        Relationships: [
+          {
+            foreignKeyName: "tutor_messages_conversation_fk";
+            columns: ["conversation_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "tutor_conversations";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
       flashcard_reviews: {
         Row: FlashcardReviewsRow;
         Insert: Writable<FlashcardReviewsRow, "card_id" | "rating">;
@@ -743,6 +812,8 @@ export type Database = {
       session_status: SessionStatus;
       session_goal: SessionGoal;
       flashcard_rating: FlashcardRating;
+      tutor_mode: TutorMode;
+      tutor_role: TutorRole;
     };
     CompositeTypes: Record<string, never>;
   };
@@ -774,3 +845,5 @@ export type StudySessionItem = Tables<"study_session_items">;
 export type FlashcardDeck = Tables<"flashcard_decks">;
 export type Flashcard = Tables<"flashcards">;
 export type FlashcardReview = Tables<"flashcard_reviews">;
+export type TutorConversation = Tables<"tutor_conversations">;
+export type TutorMessage = Tables<"tutor_messages">;
