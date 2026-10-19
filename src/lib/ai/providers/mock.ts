@@ -40,6 +40,18 @@ export class MockProvider implements AiProvider {
       case "generate_flashcards":
         text = JSON.stringify(flashcardsHeuristically(rawMaterial, userText));
         break;
+      case "recall_questions":
+        text = JSON.stringify(recallQuestionsHeuristically(rawMaterial, userText));
+        break;
+      case "recall_compare":
+        text = JSON.stringify(recallCompareHeuristically(userText));
+        break;
+      case "feynman_concepts":
+        text = JSON.stringify(feynmanConceptsHeuristically(rawMaterial, userText));
+        break;
+      case "feynman_analyze":
+        text = JSON.stringify(feynmanAnalysisHeuristically(userText));
+        break;
       case "ocr_image":
         text = "Mock transcription: the image was read by the mock provider. Configure a real AI provider to extract the actual text.";
         break;
@@ -508,4 +520,103 @@ export function flashcardsHeuristically(transcript: string, prompt: string) {
     });
   }
   return { title: `${materialTitle} — Flashcards`, cards };
+}
+
+// ---------------------------------------------------------------------------
+// Study sessions: active recall and Feynman
+// ---------------------------------------------------------------------------
+
+function overlap(expected: string[], given: string): { hits: string[]; misses: string[]; ratio: number } {
+  const words = new Set(keywordsOf(given));
+  const hits = expected.filter((word) => words.has(word));
+  const misses = expected.filter((word) => !words.has(word));
+  return { hits, misses, ratio: expected.length ? hits.length / expected.length : 0 };
+}
+
+/** Deterministic recall prompts: definitions first, then "what does the material say" prompts. */
+export function recallQuestionsHeuristically(transcript: string, prompt: string) {
+  const count = Number(prompt.match(/Produce exactly (\d+) prompts/)?.[1] ?? "5");
+  const focus = (prompt.match(/Focus concepts[^:]*:\s*(.+)/)?.[1] ?? "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
+  const facts = collectFacts(transcript);
+  const ordered = [...facts].sort((a, b) => Number(focus.includes((b.term ?? b.heading).toLowerCase())) - Number(focus.includes((a.term ?? a.heading).toLowerCase())));
+  const questions = ordered.slice(0, count).map((fact) => ({
+    prompt: fact.term ? `From memory: what is ${fact.term}?` : `From memory: what does the material say about ${fact.sentence.split(" ").slice(0, 4).join(" ").replace(/[.,;:]$/, "")}…?`,
+    model_answer: fact.sentence,
+    key_points: keywordsOf(fact.definition ?? fact.sentence).slice(0, 4),
+    concept: (fact.term ?? fact.heading).slice(0, 60),
+    source_excerpt: fact.sentence.slice(0, 300),
+  }));
+  return { questions };
+}
+
+/** Deterministic recall check: key-point overlap decides verdict and score. */
+export function recallCompareHeuristically(prompt: string) {
+  const model = prompt.match(/^Model answer:\s*(.+)$/m)?.[1] ?? "";
+  const keyPoints = [...prompt.matchAll(/^- (.+)$/gm)].map((match) => match[1].trim()).filter((point) => !/^\(use/.test(point));
+  const student = prompt.match(/^Student answer:\s*([\s\S]*)$/m)?.[1]?.trim() ?? "";
+  const expected = keyPoints.length ? keyPoints.map((point) => point.toLowerCase()) : keywordsOf(model).slice(0, 4);
+  const { hits, misses, ratio } = overlap(expected, student);
+  const blank = student.length < 3 || /^\(blank\)$/.test(student);
+  const contradiction = /\bnot\b/i.test(student) && !/\bnot\b/i.test(model);
+  const score = blank ? 0 : Math.max(0, Math.round(ratio * 100) - (contradiction ? 30 : 0));
+  const verdict = score >= 80 ? "correct" : score >= 40 ? "partial" : "incorrect";
+  return {
+    verdict,
+    score,
+    correct_points: hits,
+    missing_points: misses,
+    incorrect_points: contradiction ? ["Your answer negates something the material states."] : [],
+    feedback:
+      verdict === "correct"
+        ? `Well recalled — you covered ${hits.join(", ") || "the key idea"}.`
+        : verdict === "partial"
+          ? `Partly there: you mentioned ${hits.join(", ") || "part of it"}; the model answer also includes ${misses.slice(0, 2).join(", ")}.`
+          : blank
+            ? "No answer yet — read the model answer, then try this prompt again later."
+            : `Not quite. Re-read the source: the answer centres on ${expected.slice(0, 3).join(", ")}.`,
+  };
+}
+
+/** Deterministic Feynman concepts: definitions with their following sentence as the ideal explanation. */
+export function feynmanConceptsHeuristically(transcript: string, prompt: string) {
+  const count = Number(prompt.match(/Produce exactly (\d+) concepts/)?.[1] ?? "3");
+  const facts = collectFacts(transcript);
+  const withTerms = facts.filter((fact) => fact.term);
+  const pool = withTerms.length ? withTerms : facts;
+  const concepts = pool.slice(0, count).map((fact) => ({
+    concept: (fact.term ?? fact.heading).slice(0, 60),
+    ideal_explanation: [fact.sentence, fact.next].filter(Boolean).join(" "),
+    key_points: keywordsOf(fact.definition ?? fact.sentence).slice(0, 4),
+    source_excerpt: fact.sentence.slice(0, 300),
+  }));
+  return { concepts };
+}
+
+/** Deterministic Feynman analysis: key-point overlap plus a length check for complexity. */
+export function feynmanAnalysisHeuristically(prompt: string) {
+  const ideal = prompt.match(/^Ideal explanation:\s*(.+)$/m)?.[1] ?? "";
+  const keyPoints = [...prompt.matchAll(/^- (.+)$/gm)].map((match) => match[1].trim());
+  const explanation = prompt.match(/^Student explanation:\s*([\s\S]*)$/m)?.[1]?.trim() ?? "";
+  const expected = keyPoints.length ? keyPoints.map((point) => point.toLowerCase()) : keywordsOf(ideal).slice(0, 4);
+  const { hits, misses, ratio } = overlap(expected, explanation);
+  const blank = explanation.length < 3 || /^\(blank\)$/.test(explanation);
+  const tooLong = explanation.length > ideal.length * 3 + 200;
+  const contradiction = /\bnot\b/i.test(explanation) && !/\bnot\b/i.test(ideal);
+  const score = blank ? 0 : Math.max(0, Math.round(ratio * 100) - (contradiction ? 25 : 0) - (tooLong ? 10 : 0));
+  return {
+    score,
+    correct_concepts: hits,
+    missing_concepts: misses,
+    incorrect_ideas: contradiction ? ["Part of the explanation negates what the material states."] : [],
+    unnecessary_complexity: tooLong ? ["The explanation is much longer than a beginner needs."] : [],
+    feedback:
+      score >= 80
+        ? "Clear and complete — a beginner could follow this."
+        : score >= 40
+          ? `Good start. You explained ${hits.join(", ") || "part of it"}, but a beginner would still ask about ${misses.slice(0, 2).join(" and ")}.`
+          : blank
+            ? "Write the explanation in your own words first — even a rough version gives us something to improve."
+            : "The core idea is missing. Start from what the concept is for, then how it works.",
+    improve_prompt: misses.length ? `Add how ${misses.slice(0, 2).join(" and ")} fit in, in one or two plain sentences.` : "Tighten the wording and add one concrete example from the material.",
+  };
 }

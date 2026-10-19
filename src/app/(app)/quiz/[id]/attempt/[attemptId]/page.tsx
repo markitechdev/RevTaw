@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, BookOpenCheck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,6 +9,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { getAttemptResults, getAttemptRunner, getQuiz } from "@/lib/quizzes/queries";
 import { expireIfNeeded } from "@/lib/quizzes/service";
 import { routes } from "@/lib/routes";
+import { getSessionForAttempt } from "@/lib/study/queries";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -40,7 +41,7 @@ export default async function AttemptPage({ params }: PageProps<"/quiz/[id]/atte
     );
   }
 
-  const results = await getAttemptResults(attemptId);
+  const [results, session] = await Promise.all([getAttemptResults(attemptId), getSessionForAttempt(attemptId)]);
   if (!results) notFound();
 
   return (
@@ -50,7 +51,15 @@ export default async function AttemptPage({ params }: PageProps<"/quiz/[id]/atte
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {quiz.title}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Results</h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight">Results</h1>
+          {session && (
+            <Link href={`${routes.study}/${session.id}`} className={buttonClasses({ size: "sm", variant: "secondary" })}>
+              <BookOpenCheck className="h-4 w-4" aria-hidden="true" />
+              Session summary
+            </Link>
+          )}
+        </div>
         {expired && <p className="text-sm text-warning">Time ran out, so this attempt was submitted automatically.</p>}
       </div>
       <AttemptResults view={results} questionCount={quiz.question_count} />

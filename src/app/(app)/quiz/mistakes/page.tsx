@@ -1,4 +1,4 @@
-import { ArrowLeft, NotebookPen } from "lucide-react";
+import { ArrowLeft, NotebookPen, RotateCcw } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -38,6 +38,13 @@ export default async function MistakesPage({ searchParams }: PageProps<"/quiz/mi
         title="Mistake notebook"
         description="Every incorrect quiz answer lands here automatically with the correct answer and the reason. Classify what went wrong, then mark it learned once you can answer it cold."
         actions={
+          <>
+            {!showResolved && mistakes.length > 0 && (
+              <Link href={`${routes.study}?method=error_review`} className={buttonClasses({ size: "sm" })}>
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                Retest these
+              </Link>
+            )}
           <nav className="flex rounded-lg border border-border p-0.5 text-sm" aria-label="Notebook view">
             <Link
               href={`${routes.quiz}/mistakes`}
@@ -54,6 +61,7 @@ export default async function MistakesPage({ searchParams }: PageProps<"/quiz/mi
               Learned
             </Link>
           </nav>
+          </>
         }
       />
 
