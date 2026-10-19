@@ -37,6 +37,9 @@ export class MockProvider implements AiProvider {
       case "grade_answers":
         text = JSON.stringify(gradeHeuristically(userText));
         break;
+      case "generate_flashcards":
+        text = JSON.stringify(flashcardsHeuristically(rawMaterial, userText));
+        break;
       case "ocr_image":
         text = "Mock transcription: the image was read by the mock provider. Configure a real AI provider to extract the actual text.";
         break;
@@ -311,11 +314,20 @@ function keywordsOf(text: string): string[] {
   );
 }
 
+function isHeadingLike(line: string): boolean {
+  return line.length <= 60 && !/[.!?:;,]$/.test(line) && /^[A-Z0-9]/.test(line) && line.split(" ").length <= 6;
+}
+
 function collectFacts(transcript: string): MockFact[] {
   const sections = parseTranscriptSections(transcript);
   const facts: MockFact[] = [];
   for (const section of sections) {
-    const sentences = sentencesOf(section.text).filter((sentence) => sentence.length <= 240);
+    // Inline headings inside a merged chunk would glue onto the next sentence; drop them.
+    const body = section.text
+      .split("\n")
+      .filter((line) => !isHeadingLike(line.trim()))
+      .join("\n");
+    const sentences = sentencesOf(body).filter((sentence) => sentence.length <= 240);
     sentences.forEach((sentence, index) => {
       const match = sentence.match(/^((?:[A-Z][\w'-]*|[a-z][\w'-]*)(?:\s+[\w'-]+){0,4}?)\s+(?:is|are|refers to|means|is defined as)\s+(.+?)[.!?]?$/);
       facts.push({
@@ -463,4 +475,37 @@ export function gradeHeuristically(prompt: string) {
     })
     .filter((grade): grade is { id: string; score: number; feedback: string } => Boolean(grade));
   return { grades };
+}
+
+// ---------------------------------------------------------------------------
+// Flashcards
+// ---------------------------------------------------------------------------
+
+/** Deterministic flashcards: definitions as term → definition, then question and cloze cards from sentences. */
+export function flashcardsHeuristically(transcript: string, prompt: string) {
+  const materialTitle = prompt.match(/Material title:\s*(.+)/)?.[1]?.trim() ?? "Material";
+  const count = Number(prompt.match(/Produce exactly (\d+) cards/)?.[1] ?? "20");
+  const facts = collectFacts(transcript);
+  const cards: Array<{ front: string; back: string; hint: string | null; concept: string; source_excerpt: string }> = [];
+  // Pass 0 writes one card per fact; later passes add a second style for the same facts.
+  for (let pass = 0; pass < 3 && cards.length < count && facts.length > 0; pass += 1) {
+    facts.forEach((fact, index) => {
+      if (cards.length >= count) return;
+      const concept = (fact.term ?? fact.heading).slice(0, 60);
+      const excerpt = fact.sentence.slice(0, 300);
+      const words = fact.sentence.split(" ");
+      const longest = [...words].sort((a, b) => b.length - a.length).map((word) => word.replace(/[.,;:]$/, ""));
+      const target = longest[Math.min(pass, longest.length - 1)];
+      if (pass === 0 && fact.term && fact.definition) {
+        cards.push({ front: fact.term, back: fact.definition.charAt(0).toUpperCase() + fact.definition.slice(1) + ".", hint: `Defined under "${fact.heading}".`, concept, source_excerpt: excerpt });
+      } else if (pass === 1 && fact.term && fact.definition) {
+        cards.push({ front: `What is ${fact.term}?`, back: fact.definition.charAt(0).toUpperCase() + fact.definition.slice(1) + ".", hint: null, concept, source_excerpt: excerpt });
+      } else if ((index + pass) % 2 === 0 && target.length > 4 && fact.sentence.includes(target)) {
+        cards.push({ front: fact.sentence.replace(target, "____"), back: target, hint: null, concept, source_excerpt: excerpt });
+      } else {
+        cards.push({ front: `According to "${fact.heading}", what is stated about ${words.slice(0, 3).join(" ").replace(/[.,;:]$/, "")}…?`, back: fact.sentence, hint: null, concept, source_excerpt: excerpt });
+      }
+    });
+  }
+  return { title: `${materialTitle} — Flashcards`, cards };
 }
