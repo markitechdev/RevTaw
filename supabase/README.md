@@ -28,6 +28,7 @@ supabase db push
 | Migration | What it adds |
 | --- | --- |
 | `0001_profiles.sql` | `profiles` table (display name, onboarding preferences), enums, `updated_at` trigger, automatic profile creation on sign-up, RLS policies |
+| `0002_materials.sql` | `subjects`, `folders`, `materials`, `material_chunks`, `material_analyses` with owner-only RLS and composite ownership keys; private `materials` storage bucket (25 MB, allow-listed MIME types) with per-user folder policies |
 
 Migrations are additive. Never edit an applied migration; add a new numbered
 file instead.
