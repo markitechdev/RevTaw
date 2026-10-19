@@ -11,6 +11,7 @@ import {
   type ActionState,
 } from "@/lib/forms/action-state";
 import { describeRetry, getClientAddress, rateLimit } from "@/lib/rate-limit";
+import { removeMaterialObjects } from "@/lib/materials/storage";
 import { routes } from "@/lib/routes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { EducationLevel, StudyGoal } from "@/lib/supabase/database.types";
@@ -222,6 +223,19 @@ export async function deleteAccountAction(
     return errorState("Your password is incorrect.", {
       fieldErrors: { password: "Your password is incorrect." },
     });
+  }
+
+  // Storage objects are not covered by database cascades: remove every file
+  // the student uploaded before the rows that reference them disappear.
+  const { data: materials } = await supabase.from("materials").select("storage_path");
+  const paths = (materials ?? []).map((row) => row.storage_path).filter((path): path is string => Boolean(path));
+  if (paths.length > 0) {
+    try {
+      await removeMaterialObjects(supabase, paths);
+    } catch (storageError) {
+      console.error("account: storage cleanup failed", storageError);
+      return errorState("We could not remove your uploaded files. Please try again.");
+    }
   }
 
   // Deleting the auth user cascades to the profile and, through foreign keys,

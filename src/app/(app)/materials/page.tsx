@@ -2,6 +2,8 @@ import { Archive, FolderOpen, Layers } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { Alert } from "@/components/forms/form-alert";
+import { ManageSubjectsButton } from "@/components/materials/manage-subjects-dialog";
 import { MaterialCard } from "@/components/materials/material-card";
 import { UploadButton } from "@/components/materials/upload-button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -23,6 +25,7 @@ export default async function MaterialsPage({ searchParams }: PageProps<"/materi
   const subjectId = param(params.subject);
   const folderId = param(params.folder);
   const archived = params.archived === "1";
+  const notice = params.notice === "deleted" ? "The material and its file were deleted." : null;
 
   const [subjects, materials] = await Promise.all([
     listSubjects(),
@@ -47,6 +50,7 @@ export default async function MaterialsPage({ searchParams }: PageProps<"/materi
 
   return (
     <div className="flex flex-col gap-6">
+      {notice && <Alert tone="success">{notice}</Alert>}
       <PageHeader
         title="Materials"
         description="Everything you upload stays private to your account. RevTaw reads each file, finds its topics and gets it ready for reviewers, quizzes and study sessions."
@@ -55,6 +59,10 @@ export default async function MaterialsPage({ searchParams }: PageProps<"/materi
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[14rem_1fr]">
         <aside className="flex flex-col gap-1" aria-label="Subjects">
+          <div className="mb-1 flex items-center justify-between pl-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Browse</h2>
+            <ManageSubjectsButton subjects={subjects} />
+          </div>
           <Link
             href={filterHref({ subject: null, folder: null })}
             aria-current={!subjectId && !archived ? "page" : undefined}

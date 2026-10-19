@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { MaterialActions } from "@/components/materials/material-actions";
 import { MaterialContent } from "@/components/materials/material-content";
 import { MaterialOriginal } from "@/components/materials/material-original";
 import { MaterialOverview } from "@/components/materials/material-overview";
@@ -12,7 +13,7 @@ import { TrackOpen } from "@/components/materials/track-open";
 import { formatRelativeDate } from "@/components/materials/material-card";
 import { buttonClasses } from "@/components/ui/button";
 import { formatBytes, SOURCE_LABEL } from "@/lib/materials/constants";
-import { getMaterial, getMaterialAnalysis, getMaterialChunks } from "@/lib/materials/queries";
+import { getMaterial, getMaterialAnalysis, getMaterialChunks, listSubjects } from "@/lib/materials/queries";
 import { routes } from "@/lib/routes";
 
 type Params = { id: string };
@@ -34,9 +35,10 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
 
   const requested = typeof query.tab === "string" ? query.tab : "overview";
   const tab: Tab = (TABS as readonly string[]).includes(requested) ? (requested as Tab) : "overview";
-  const [chunks, analysis] = await Promise.all([
+  const [chunks, analysis, subjects] = await Promise.all([
     tab === "content" ? getMaterialChunks(material.id) : Promise.resolve([]),
     tab === "overview" ? getMaterialAnalysis(material.id) : Promise.resolve(null),
+    listSubjects(),
   ]);
 
   const hrefFor = (next: string) => `${routes.materials}/${material.id}${next === "overview" ? "" : `?tab=${next}`}`;
@@ -74,7 +76,20 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
             detail={material.status_detail}
             showDetail
           />
+          {material.archived_at && (
+            <p className="text-sm text-muted-foreground">
+              Archived {formatRelativeDate(material.archived_at)}. Unarchive it to see it in your lists again.
+            </p>
+          )}
         </div>
+        <MaterialActions
+          materialId={material.id}
+          title={material.title}
+          subjectId={material.subject_id}
+          folderId={material.folder_id}
+          archived={Boolean(material.archived_at)}
+          subjects={subjects}
+        />
       </div>
 
       <MaterialTabs
