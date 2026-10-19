@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import { isAiError } from "@/lib/ai";
+import { analyzeMaterial, type AnalysisChunkInput } from "@/lib/materials/analyze";
 import { chunkSections, countWords } from "@/lib/materials/chunk";
 import { MAX_FILE_BYTES } from "@/lib/materials/constants";
 import { detectMaterialType } from "@/lib/materials/detect";
@@ -10,6 +11,9 @@ import { ExtractionError, extractText } from "@/lib/materials/extract";
 import { downloadMaterialBytes } from "@/lib/materials/storage";
 import type { Material, MaterialStatus } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
+
+export const ANALYSIS_UNAVAILABLE_DETAIL =
+  "Text extracted. AI analysis will run once an AI provider is configured for RevTaw.";
 
 export type ProcessOutcome = {
   status: MaterialStatus;
@@ -24,7 +28,7 @@ type Client = Awaited<ReturnType<typeof createClient>>;
 /**
  * Runs the processing pipeline for one material owned by the signed-in user:
  *
- *   verify bytes → extract text → chunk → (analysis added in a later step)
+ *   verify bytes → extract text → chunk → analyze with AI → ready
  *
  * The function is idempotent: it can be called again after a failure ("Retry")
  * and refuses to double-process a material that is already in flight.
@@ -92,7 +96,7 @@ export async function processMaterial(
     await replaceChunks(supabase, material.id, material.user_id, chunks);
 
     const wordCount = countWords(extraction.sections.map((section) => section.text).join("\n"));
-    await setStatus(supabase, material.id, "ready", null, {
+    await setStatus(supabase, material.id, "analyzing", null, {
       content_hash: contentHash,
       mime_type: detected.mime,
       file_size: byteLength,
@@ -100,11 +104,112 @@ export async function processMaterial(
       word_count: wordCount,
     });
 
-    return { status: "ready", detail: null };
+    const analysisDetail = await runAnalysis(supabase, material, chunks);
+    await setStatus(supabase, material.id, "ready", analysisDetail);
+    return { status: "ready", detail: analysisDetail };
   } catch (error) {
     const detail = friendlyFailure(error);
     console.error(`materials: processing ${material.id} failed`, error);
     return fail(supabase, material.id, detail);
+  }
+}
+
+/**
+ * Re-runs only the AI analysis for a material whose text is already
+ * extracted (the "Re-analyze" button). Returns the student-facing detail.
+ */
+export async function reanalyzeMaterial(materialId: string): Promise<ProcessOutcome> {
+  const supabase = await createClient();
+  const { data: material, error } = await supabase
+    .from("materials")
+    .select("*")
+    .eq("id", materialId)
+    .maybeSingle();
+  if (error) throw new Error(`materials: load failed: ${error.message}`);
+  if (!material) throw new MaterialNotFoundError();
+
+  if (material.status !== "ready" && material.status !== "failed") {
+    return { status: material.status, detail: material.status_detail };
+  }
+
+  const { data: chunkRows } = await supabase
+    .from("material_chunks")
+    .select("position, heading, page_start, page_end, content")
+    .eq("material_id", material.id)
+    .order("position");
+  if (!chunkRows || chunkRows.length === 0) {
+    return processMaterial(materialId, { force: true });
+  }
+
+  await setStatus(supabase, material.id, "analyzing", null, {
+    last_processed_at: new Date().toISOString(),
+  });
+  const detail = await runAnalysis(
+    supabase,
+    material,
+    chunkRows.map((row) => ({
+      position: row.position,
+      heading: row.heading,
+      pageStart: row.page_start,
+      pageEnd: row.page_end,
+      content: row.content,
+    })),
+  );
+  await setStatus(supabase, material.id, "ready", detail);
+  return { status: "ready", detail };
+}
+
+/**
+ * Analysis step. Failures here never lose the extracted text: the material
+ * still becomes "ready" and the detail explains that analysis is missing.
+ */
+async function runAnalysis(
+  supabase: Client,
+  material: Material,
+  chunks: Array<{ position: number; heading: string | null; pageStart: number | null; pageEnd: number | null; content: string }>,
+): Promise<string | null> {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("education_level, main_goal")
+    .eq("id", material.user_id)
+    .maybeSingle();
+
+  const input: AnalysisChunkInput[] = chunks.map((chunk) => ({
+    position: chunk.position,
+    heading: chunk.heading,
+    pageStart: chunk.pageStart,
+    pageEnd: chunk.pageEnd,
+    content: chunk.content,
+  }));
+
+  try {
+    const result = await analyzeMaterial(material.title, input, {
+      educationLevel: profile?.education_level ?? null,
+      mainGoal: profile?.main_goal ?? null,
+    });
+    const { summary, difficulty, estimated_study_minutes, ...data } = result.response;
+    const { error } = await supabase.from("material_analyses").upsert({
+      material_id: material.id,
+      user_id: material.user_id,
+      summary,
+      difficulty,
+      estimated_study_minutes,
+      coverage_ratio: Number(result.coverageRatio.toFixed(3)),
+      data,
+      provider: result.provider,
+      model: result.model,
+    });
+    if (error) throw new Error(`material_analyses: upsert failed: ${error.message}`);
+    return result.coverageRatio < 1
+      ? `Analyzed the first ${Math.round(result.coverageRatio * 100)}% of a very long material.`
+      : null;
+  } catch (error) {
+    if (isAiError(error) && error.code === "not_configured") {
+      return ANALYSIS_UNAVAILABLE_DETAIL;
+    }
+    console.error(`materials: analysis for ${material.id} failed`, error);
+    const reason = isAiError(error) ? error.message : "Something went wrong while analyzing.";
+    return `Text extracted, but the AI analysis did not complete: ${reason} Use Re-analyze to try again.`;
   }
 }
 

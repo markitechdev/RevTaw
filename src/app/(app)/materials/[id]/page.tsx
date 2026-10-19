@@ -5,13 +5,14 @@ import { notFound } from "next/navigation";
 
 import { MaterialContent } from "@/components/materials/material-content";
 import { MaterialOriginal } from "@/components/materials/material-original";
+import { MaterialOverview } from "@/components/materials/material-overview";
 import { MaterialStatusBadge } from "@/components/materials/material-status";
 import { MaterialTabs } from "@/components/materials/material-tabs";
 import { TrackOpen } from "@/components/materials/track-open";
 import { formatRelativeDate } from "@/components/materials/material-card";
 import { buttonClasses } from "@/components/ui/button";
 import { formatBytes, SOURCE_LABEL } from "@/lib/materials/constants";
-import { getMaterial, getMaterialChunks } from "@/lib/materials/queries";
+import { getMaterial, getMaterialAnalysis, getMaterialChunks } from "@/lib/materials/queries";
 import { routes } from "@/lib/routes";
 
 type Params = { id: string };
@@ -22,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   return { title: material?.title ?? "Material" };
 }
 
-const TABS = ["content", "original"] as const;
+const TABS = ["overview", "content", "original"] as const;
 type Tab = (typeof TABS)[number];
 
 export default async function MaterialPage({ params, searchParams }: PageProps<"/materials/[id]">) {
@@ -31,11 +32,14 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
   const material = await getMaterial(id);
   if (!material) notFound();
 
-  const requested = typeof query.tab === "string" ? query.tab : "content";
-  const tab: Tab = (TABS as readonly string[]).includes(requested) ? (requested as Tab) : "content";
-  const chunks = tab === "content" ? await getMaterialChunks(material.id) : [];
+  const requested = typeof query.tab === "string" ? query.tab : "overview";
+  const tab: Tab = (TABS as readonly string[]).includes(requested) ? (requested as Tab) : "overview";
+  const [chunks, analysis] = await Promise.all([
+    tab === "content" ? getMaterialChunks(material.id) : Promise.resolve([]),
+    tab === "overview" ? getMaterialAnalysis(material.id) : Promise.resolve(null),
+  ]);
 
-  const hrefFor = (next: string) => `${routes.materials}/${material.id}${next === "content" ? "" : `?tab=${next}`}`;
+  const hrefFor = (next: string) => `${routes.materials}/${material.id}${next === "overview" ? "" : `?tab=${next}`}`;
   const meta = [
     SOURCE_LABEL[material.source],
     material.page_count ? `${material.page_count} page${material.page_count === 1 ? "" : "s"}` : null,
@@ -75,6 +79,7 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
 
       <MaterialTabs
         tabs={[
+          { id: "overview", label: "Overview" },
           { id: "content", label: "Content" },
           { id: "original", label: material.source === "text" ? "Original notes" : "Original file" },
         ]}
@@ -82,7 +87,14 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
         hrefFor={hrefFor}
       />
 
-      {tab === "content" ? (
+      {tab === "overview" ? (
+        <MaterialOverview
+          materialId={material.id}
+          status={material.status}
+          statusDetail={material.status_detail}
+          analysis={analysis}
+        />
+      ) : tab === "content" ? (
         <div className="max-w-3xl">
           <MaterialContent chunks={chunks} />
         </div>

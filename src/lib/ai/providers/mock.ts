@@ -15,7 +15,8 @@ export class MockProvider implements AiProvider {
 
   async generate(options: AiGenerateOptions): Promise<AiGenerateResult> {
     const userText = lastUserText(options);
-    const material = extractTag(userText, "material") ?? userText;
+    // Drop the transcript's bracketed section labels so they don't leak into "facts".
+    const material = (extractTag(userText, "material") ?? userText).replace(/^\[(?:Section|Not included)[^\]]*\]\s*$/gm, "");
     const task = options.task ?? inferTask(options);
 
     let text: string;

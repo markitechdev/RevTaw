@@ -2,7 +2,8 @@ import "server-only";
 
 import { cache } from "react";
 
-import type { Folder, Material, MaterialChunk, Subject } from "@/lib/supabase/database.types";
+import { parseAnalysisData, type AnalysisData } from "@/lib/materials/analysis-schema";
+import type { Folder, Material, MaterialAnalysis, MaterialChunk, Subject } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 export type SubjectWithFolders = Pick<Subject, "id" | "name" | "color" | "archived_at"> & {
@@ -149,4 +150,39 @@ export const getMaterialChunks = cache(async (materialId: string): Promise<Mater
     return [];
   }
   return data ?? [];
+});
+
+export type MaterialAnalysisView = {
+  summary: string;
+  difficulty: MaterialAnalysis["difficulty"];
+  estimatedStudyMinutes: number;
+  coverageRatio: number;
+  provider: string;
+  model: string;
+  updatedAt: string;
+  data: AnalysisData;
+};
+
+export const getMaterialAnalysis = cache(async (materialId: string): Promise<MaterialAnalysisView | null> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("material_analyses")
+    .select("summary, difficulty, estimated_study_minutes, coverage_ratio, provider, model, updated_at, data")
+    .eq("material_id", materialId)
+    .maybeSingle();
+  if (error) {
+    console.error("material_analyses: get failed", error.message);
+    return null;
+  }
+  if (!data) return null;
+  return {
+    summary: data.summary,
+    difficulty: data.difficulty,
+    estimatedStudyMinutes: data.estimated_study_minutes,
+    coverageRatio: Number(data.coverage_ratio),
+    provider: data.provider,
+    model: data.model,
+    updatedAt: data.updated_at,
+    data: parseAnalysisData(data.data),
+  };
 });
