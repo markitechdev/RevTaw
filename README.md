@@ -26,6 +26,11 @@ Open http://localhost:3000. Create a Supabase project and apply the migrations
 in `supabase/migrations/` first — see [`supabase/README.md`](./supabase/README.md)
 for the dashboard settings (email confirmation, redirect URLs, templates).
 
+AI features (material analysis, image transcription) need one provider key
+in `.env.local` (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or
+`GOOGLE_AI_API_KEY`). Without a key, development uses a built-in mock
+provider so the rest of the app keeps working.
+
 ## Scripts
 
 | Command | What it does |
@@ -34,6 +39,7 @@ for the dashboard settings (email confirmation, redirect URLs, templates).
 | `npm run build` | Production build (also type-checks) |
 | `npm run start` | Serve the production build |
 | `npm run lint` | ESLint |
+| `npm test` | Unit tests (vitest) |
 
 ## Structure
 
@@ -43,8 +49,10 @@ src/app/(auth)        login, register, verify, forgot/reset password
 src/app/(onboarding)  first-run study profile
 src/app/(app)         signed-in app: dashboard, materials, study, settings…
 src/app/auth          email-link route handlers (callback, confirm)
+src/app/api           route handlers (material processing, analysis, files)
 src/components        ui primitives, forms, app shell, feature components
-src/lib               supabase clients, validation, actions, routes, env
+src/lib               supabase clients, ai providers, materials pipeline,
+                      validation, actions, routes, env
 supabase/migrations   SQL migrations (apply in order)
 ```
 

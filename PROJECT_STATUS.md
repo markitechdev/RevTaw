@@ -4,7 +4,7 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-19 (Phase 1 complete)_
+_Last updated: 2026-10-19 (Phase 2 complete)_
 
 ## Completed
 
@@ -40,28 +40,64 @@ _Last updated: 2026-10-19 (Phase 1 complete)_
   the spec (Continue studying, RevTaw recommendation, streak/focus/flashcards
   due/materials, Due today, Upcoming exams, Recent materials, Weak/Strong
   topics) rendered with useful empty states until later phases provide data.
-- **Section placeholders** — Materials, Study, Study Methods, Quiz,
-  Flashcards, AI Tutor, Notes, Progress, Planner each explain what is coming
-  and in which phase.
+- **Section placeholders** — Study, Study Methods, Quiz, Flashcards, AI
+  Tutor, Notes, Progress, Planner each explain what is coming and in which
+  phase.
+
+### Phase 2 — Materials
+
+- **Schema** — `subjects`, `folders`, `materials`, `material_chunks`,
+  `material_analyses` with owner-only RLS and composite ownership keys;
+  private `materials` bucket (25 MB, allow-listed MIME types) with per-user
+  folder policies (`supabase/migrations/0002_materials.sql`).
+- **AI provider abstraction** — `src/lib/ai`: Anthropic, OpenAI, Google and a
+  deterministic mock behind one interface; fast/strong tiers; JSON helper
+  with zod validation and a one-shot repair prompt; keys never reach the
+  browser.
+- **Upload** — add-material dialog with drag-and-drop (progress, cancel) and
+  paste-notes tab; browser uploads straight to the bucket through a signed
+  URL; pasted notes become a private text file; subject/folder placement with
+  inline subject creation.
+- **Processing pipeline** — `POST /api/materials/[id]/process`: byte-level type
+  check (magic numbers), SHA-256 deduplication (identical uploads reuse text
+  and analysis), extraction (PDF via pdf-parse, DOCX via mammoth, DOC via
+  word-extractor, text, images via the vision-capable provider), chunking
+  by heading and page, status machine uploading → extracting → analyzing →
+  ready/failed with student-facing detail and Retry.
+- **AI analysis** — source-grounded prompt producing summary, main topics,
+  key concepts by category, definitions, formulas, important facts, exam
+  topics, difficulty, study time and 2–4 recommended study methods; coverage
+  reported for very long materials; `POST /api/materials/[id]/analyze`
+  re-runs it. Materials stay usable when AI is unavailable.
+- **Materials page** — subject/folder sidebar with counts, archived view,
+  live status badges with polling, empty states; subjects/folders manager
+  (create, rename, delete).
+- **Viewer** — `/materials/[id]` with Overview (analysis), Content (chunks
+  with page ranges) and Original (pdf.js canvas viewer, images, text,
+  document download through the same-origin file route) tabs; rename, move,
+  archive/unarchive, delete; `last_opened_at` tracking.
+- **Dashboard** — last opened material, recent materials, real counts.
+- **Data ownership** — deleting a material or the whole account removes the
+  stored files as well as the rows.
 
 ## In Progress
 
-- Nothing at the moment. Phase 2 starts next.
+- Nothing at the moment. Phase 3 starts next.
 
 ## Next (priority order)
 
-1. **Phase 2 — Materials**: migration `0002` (subjects, folders, materials,
-   chunks, analysis, storage policies), private bucket, drag-and-drop upload
-   with MIME/magic-byte/size validation, processing pipeline
-   (uploading → extracting → analyzing → ready/failed with retry), text
-   extraction (PDF, DOCX, images via multimodal AI, pasted text), AI provider
-   abstraction (server-side keys only), material organisation and viewer.
-2. **Phase 3 — Reviewer and Quiz**: editable reviewers with per-section
-   regeneration, quiz generation, attempts, scoring, results, concept-level
-   mistake tracking.
-3. **Phase 4 — Core study**: session builder, study methods that change
-   session behaviour, flashcards with spaced repetition.
-4. Phases 5–10 as listed in the spec (AI tutor, adaptive learning, planner,
+1. **Phase 3 — Reviewer and Quiz**: migration `0003` (reviewers with
+   sections, quizzes, questions, attempts, answers, concepts); reviewer
+   generator (complete reviewer, summary, bullet notes, key concepts,
+   definitions, formula sheet, Q&A, Cornell, cheat sheet, exam reviewer)
+   with editable, individually regenerable sections; quiz generator
+   (identification, multiple choice, true/false, fill-blank, short answer,
+   essay, scenario, case, problem solving, mixed) with attempts, scoring,
+   results and concept-level mistake tracking; Notes and Quiz pages.
+2. **Phase 4 — Core study**: session builder, study methods that change
+   session behaviour, flashcards with spaced repetition, Pomodoro, mistake
+   notebook.
+3. Phases 5–10 as listed in the spec (AI tutor, adaptive learning, planner,
    advanced methods, analytics/gamification, export).
 
 ## Database
@@ -69,10 +105,16 @@ _Last updated: 2026-10-19 (Phase 1 complete)_
 | Table | Purpose | Ownership |
 | --- | --- | --- |
 | `public.profiles` | One row per `auth.users` row: display name, education level, main goal, preferred session minutes, onboarding timestamp | RLS: owner may select/insert/update; no delete policy (cascade from `auth.users`) |
+| `public.subjects` | Top-level organisation (name, colour, archived_at) | owner full access; `(id, user_id)` unique for composite FKs |
+| `public.folders` | Grouping inside a subject (chapter, topic…) | owner full access; FK `(subject_id, user_id)` |
+| `public.materials` | One upload or note: title, source, file metadata, `storage_path`, `content_hash`, status + detail, counts, `last_opened_at`, `archived_at` | owner full access; composite FKs to subject and folder (folder must belong to the subject) |
+| `public.material_chunks` | Ordered extracted text with heading and page range | owner full access; cascade from material |
+| `public.material_analyses` | One AI analysis per material: summary, difficulty, minutes, coverage, validated `data` JSON, provider/model | owner full access; cascade from material |
+| `storage.objects` (bucket `materials`) | Private files under `<user_id>/<material_id>/<file>` | policies on first path segment = `auth.uid()` |
 
-Enums: `education_level`, `study_goal`. Helper functions:
-`public.set_updated_at()`, `public.handle_new_user()` (security definer,
-pinned `search_path`).
+Enums: `education_level`, `study_goal`, `material_source`, `material_status`,
+`difficulty_level`. Helper functions: `public.set_updated_at()`,
+`public.handle_new_user()` (security definer, pinned `search_path`).
 
 Types for queries live in `src/lib/supabase/database.types.ts` (hand-written
 in `supabase gen types` format; regenerate with the CLI when the project is
@@ -102,6 +144,21 @@ linked).
   (`token_hash`). The latter works across browsers/devices; see
   `supabase/README.md` for email templates. Redirects use
   `NEXT_PUBLIC_SITE_URL`, never the internal request origin.
+- **Materials pipeline** — `src/lib/materials/`: `detect.ts` (magic numbers),
+  `extract.ts` (per-type extraction), `chunk.ts` (heading/page aware
+  chunking), `analyze.ts` (prompt + transcript budget), `pipeline.ts`
+  (status machine, dedup, analysis step), `storage.ts` (object paths,
+  signed uploads, removal). Processing runs inside route handlers with
+  `maxDuration = 120`; move it to a queue/edge function if materials
+  regularly exceed that.
+- **AI** — `src/lib/ai/`: provider chosen by `AI_PROVIDER` or the first key
+  present; `mock` is automatic in development without keys and must be set
+  explicitly in production. `generateJson()` validates with zod and asks the
+  model to repair once. Student context (education level, goal) is passed
+  to prompts.
+- **Files to the browser** — never public or signed download URLs; the
+  same-origin route `/api/materials/[id]/file` checks ownership and streams
+  the object with `no-store`, `nosniff` and a sandboxed CSP.
 
 ## Known Issues / Limitations
 
@@ -110,7 +167,15 @@ linked).
   already supports `email_change`).
 - Account deletion is disabled until `SUPABASE_SECRET_KEY` is configured; the
   UI says so.
-- Material/storage clean-up on account deletion will be added with Phase 2.
+- Analysis sends at most ~140k characters of a material to the model; longer
+  materials are analyzed partially and the coverage is shown. Map-reduce
+  analysis for very long books is a later improvement.
+- Image materials need a vision-capable provider (all three real providers
+  qualify); without AI they fail with a clear message.
+- The Content tab renders every chunk at once; very large materials would
+  benefit from pagination.
+- Scanned PDFs without a text layer are rejected with guidance to upload
+  pages as images (OCR of PDF pages is a later improvement).
 
 ## Environment Requirements
 
@@ -122,6 +187,9 @@ Copy `.env.example` to `.env.local`. Never commit real values.
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | yes | Publishable/anon key (public; RLS protects data) |
 | `SUPABASE_SECRET_KEY` | optional | Server-only privileged client (account deletion) |
 | `NEXT_PUBLIC_SITE_URL` | recommended | Absolute origin for email links and auth redirects |
+| `AI_PROVIDER` | optional | `anthropic`, `openai`, `google` or `mock`; auto-detected from keys when empty |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GOOGLE_AI_API_KEY` | one needed for AI features | Server-only provider keys |
+| `AI_MODEL_FAST` / `AI_MODEL_STRONG` | optional | Override the default model per tier |
 
 Supabase dashboard settings needed: email confirmations on, Site URL and
 `/auth/callback` redirect URL (see `supabase/README.md`).
@@ -135,8 +203,14 @@ Flows verified end to end against a local Supabase-compatible stack
 - Unconfirmed sign-in, resend verification with rate limit, expired/used links
 - Open-redirect protection on `next`
 - Onboarding gating and validation, preference edits, profile edits
-- Change password (re-auth, other sessions revoked), delete account (cascade)
-- RLS: a user cannot read, update or insert another user's profile; anon has
-  no access
+- Change password (re-auth, other sessions revoked), delete account (cascade
+  plus storage clean-up)
+- RLS: a user cannot read, update or insert another user's profile,
+  materials, chunks, analyses or storage objects; composite keys reject
+  cross-user subject/folder links; anon has no access
+- Materials: PDF (real multi-page), DOCX, pasted notes, image (vision), fake
+  PDF rejected by byte check, retry, deduplication, subject filter, viewer
+  tabs, re-analyze, rename/move/archive/delete, subjects/folders manager
 
-Commands: `npm run lint`, `npx tsc --noEmit`, `npm run build`.
+Commands: `npm run lint`, `npx tsc --noEmit`, `npm test` (vitest unit tests),
+`npm run build`.
