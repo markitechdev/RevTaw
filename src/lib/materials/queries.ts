@@ -186,3 +186,24 @@ export const getMaterialAnalysis = cache(async (materialId: string): Promise<Mat
     data: parseAnalysisData(data.data),
   };
 });
+
+export type RecentMaterial = Pick<Material, "id" | "title" | "source" | "status" | "last_opened_at" | "updated_at"> & {
+  subject: { name: string } | null;
+};
+
+/** Most recently opened (then added) materials for the dashboard. */
+export const listRecentMaterials = cache(async (limit = 5): Promise<RecentMaterial[]> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("materials")
+    .select("id, title, source, status, last_opened_at, updated_at, subject:subjects!materials_subject_fk(name)")
+    .is("archived_at", null)
+    .order("last_opened_at", { ascending: false, nullsFirst: false })
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error("materials: recent failed", error.message);
+    return [];
+  }
+  return (data ?? []) as unknown as RecentMaterial[];
+});
