@@ -9,11 +9,13 @@ import { MaterialOriginal } from "@/components/materials/material-original";
 import { MaterialOverview } from "@/components/materials/material-overview";
 import { MaterialStatusBadge } from "@/components/materials/material-status";
 import { MaterialTabs } from "@/components/materials/material-tabs";
+import { StudyTools } from "@/components/materials/study-tools";
 import { TrackOpen } from "@/components/materials/track-open";
 import { formatRelativeDate } from "@/components/materials/material-card";
 import { buttonClasses } from "@/components/ui/button";
 import { formatBytes, SOURCE_LABEL } from "@/lib/materials/constants";
 import { getMaterial, getMaterialAnalysis, getMaterialChunks, listSubjects } from "@/lib/materials/queries";
+import { listReviewers } from "@/lib/reviewers/queries";
 import { routes } from "@/lib/routes";
 
 type Params = { id: string };
@@ -35,10 +37,11 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
 
   const requested = typeof query.tab === "string" ? query.tab : "overview";
   const tab: Tab = (TABS as readonly string[]).includes(requested) ? (requested as Tab) : "overview";
-  const [chunks, analysis, subjects] = await Promise.all([
+  const [chunks, analysis, subjects, reviewers] = await Promise.all([
     tab === "content" ? getMaterialChunks(material.id) : Promise.resolve([]),
     tab === "overview" ? getMaterialAnalysis(material.id) : Promise.resolve(null),
     listSubjects(),
+    tab === "overview" ? listReviewers({ materialId: material.id }) : Promise.resolve([]),
   ]);
 
   const hrefFor = (next: string) => `${routes.materials}/${material.id}${next === "overview" ? "" : `?tab=${next}`}`;
@@ -103,12 +106,15 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
       />
 
       {tab === "overview" ? (
-        <MaterialOverview
-          materialId={material.id}
-          status={material.status}
-          statusDetail={material.status_detail}
-          analysis={analysis}
-        />
+        <div className="flex flex-col gap-4">
+          <StudyTools materialId={material.id} status={material.status} reviewers={reviewers} />
+          <MaterialOverview
+            materialId={material.id}
+            status={material.status}
+            statusDetail={material.status_detail}
+            analysis={analysis}
+          />
+        </div>
       ) : tab === "content" ? (
         <div className="max-w-3xl">
           <MaterialContent chunks={chunks} />

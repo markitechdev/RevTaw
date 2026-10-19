@@ -15,14 +15,21 @@ export class MockProvider implements AiProvider {
 
   async generate(options: AiGenerateOptions): Promise<AiGenerateResult> {
     const userText = lastUserText(options);
+    const rawMaterial = extractTag(userText, "material") ?? userText;
     // Drop the transcript's bracketed section labels so they don't leak into "facts".
-    const material = (extractTag(userText, "material") ?? userText).replace(/^\[(?:Section|Not included)[^\]]*\]\s*$/gm, "");
+    const material = rawMaterial.replace(/^\[(?:Section|Not included)[^\]]*\]\s*$/gm, "");
     const task = options.task ?? inferTask(options);
 
     let text: string;
     switch (task) {
       case "analyze_material":
         text = JSON.stringify(analyzeHeuristically(material));
+        break;
+      case "generate_reviewer":
+        text = JSON.stringify(reviewerHeuristically(rawMaterial, `${options.system ?? ""}\n${userText}`));
+        break;
+      case "regenerate_section":
+        text = JSON.stringify(sectionHeuristically(userText));
         break;
       case "ocr_image":
         text = "Mock transcription: the image was read by the mock provider. Configure a real AI provider to extract the actual text.";
@@ -172,5 +179,101 @@ export function analyzeHeuristically(material: string) {
               : "The material is concept-heavy, so explaining ideas in your own words deepens understanding.",
     })),
     language: "en",
+  };
+}
+
+/** Splits a RevTaw transcript into its labelled sections. */
+export function parseTranscriptSections(transcript: string): Array<{ heading: string; text: string }> {
+  const sections: Array<{ heading: string; text: string }> = [];
+  let current: { heading: string; text: string[] } | null = null;
+  for (const line of transcript.split("\n")) {
+    const label = line.match(/^\[Section(?::\s*(.+?))?(?:,\s*pages?\s[^\]]+)?\]$/);
+    if (label) {
+      if (current) sections.push({ heading: current.heading, text: current.text.join("\n").trim() });
+      current = { heading: (label[1] ?? `Section ${sections.length + 1}`).trim(), text: [] };
+      continue;
+    }
+    if (/^\[Not included/.test(line)) continue;
+    if (!current) current = { heading: "Overview", text: [] };
+    current.text.push(line);
+  }
+  if (current) sections.push({ heading: current.heading, text: current.text.join("\n").trim() });
+  return sections.filter((section) => section.text.length > 0);
+}
+
+function sentencesOf(text: string): string[] {
+  return text
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length > 15);
+}
+
+/** Deterministic reviewer: one section per transcript section, kind-aware. */
+export function reviewerHeuristically(transcript: string, prompt: string) {
+  const sections = parseTranscriptSections(transcript);
+  const titleMatch = prompt.match(/Material title:\s*(.+)/);
+  const materialTitle = titleMatch ? titleMatch[1].trim() : "Material";
+  const kindMatch = prompt.match(/into a "([^"]+)"/) ?? prompt.match(/a "([^"]+)" \(/);
+  const kindName = kindMatch ? kindMatch[1] : "Reviewer";
+  const analysis = analyzeHeuristically(sections.map((section) => section.text).join("\n"));
+
+  if (/Cue Column/.test(prompt)) {
+    return {
+      title: `${materialTitle} — Cornell Notes`,
+      sections: [
+        { heading: "Cue Column", content: sections.map((section) => `- What is covered in "${section.heading}"?`).join("\n") },
+        {
+          heading: "Main Notes",
+          content: sections.map((section) => `**${section.heading}**\n${sentencesOf(section.text).slice(0, 4).map((line) => `- ${line}`).join("\n")}`).join("\n\n"),
+        },
+        { heading: "Summary", content: sentencesOf(sections.map((section) => section.text).join(" ")).slice(0, 3).join(" ") },
+      ],
+    };
+  }
+
+  if (/Q&A/.test(kindName)) {
+    return {
+      title: `${materialTitle} — Q&A`,
+      sections: sections.map((section) => ({
+        heading: section.heading,
+        content: sentencesOf(section.text)
+          .slice(0, 4)
+          .map((sentence) => `**Q:** What does the material say about this: "${sentence.split(" ").slice(0, 6).join(" ")}…"?\n**A:** ${sentence}`)
+          .join("\n\n"),
+      })),
+    };
+  }
+
+  if (/Definitions/.test(kindName)) {
+    const items = analysis.definitions.map((item) => `- **${item.term}** — ${item.definition}`);
+    return {
+      title: `${materialTitle} — Definitions`,
+      sections: [{ heading: "Glossary", content: items.length ? items.join("\n") : "The material does not state explicit definitions." }],
+    };
+  }
+
+  return {
+    title: `${materialTitle} — ${kindName}`,
+    sections: sections.map((section) => ({
+      heading: section.heading,
+      content:
+        sentencesOf(section.text)
+          .slice(0, 6)
+          .map((sentence) => `- ${sentence}`)
+          .join("\n") + `\n\n**Remember:** ${sentencesOf(section.text)[0] ?? section.heading}`,
+    })),
+  };
+}
+
+export function sectionHeuristically(prompt: string) {
+  const heading = prompt.match(/Heading:\s*(.+)/)?.[1]?.trim() ?? "Section";
+  const instructions = prompt.match(/Student's instructions:\s*(.+)/)?.[1]?.trim() ?? "";
+  const current = prompt.match(/Current content:\n([\s\S]*?)\n\n(?:Student's instructions|JSON schema)/)?.[1]?.trim() ?? "";
+  const shorter = /short/i.test(instructions);
+  const lines = current.split("\n").filter(Boolean);
+  return {
+    heading,
+    content: `${shorter ? lines.slice(0, 2).join("\n") : lines.join("\n")}\n\n_Revised by the mock provider${instructions ? ` (${instructions})` : ""}._`,
   };
 }
