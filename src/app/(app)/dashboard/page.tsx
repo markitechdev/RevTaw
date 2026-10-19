@@ -32,6 +32,7 @@ import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { countOpenMistakes, getConceptPerformance, listRecentAttempts } from "@/lib/quizzes/queries";
 import { QUIZ_MODE_LABEL } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
+import { getActivityStats } from "@/lib/study/queries";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -54,7 +55,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const { user, profile } = await getCurrentUserWithProfile();
   if (!user) redirect(routes.login);
 
-  const [materialCount, recentMaterials, concepts, recentAttempts, openMistakes, dueCards, decks, nextDue] = await Promise.all([
+  const [materialCount, recentMaterials, concepts, recentAttempts, openMistakes, dueCards, decks, nextDue, activity] = await Promise.all([
     countMaterials(),
     listRecentMaterials(5),
     getConceptPerformance(),
@@ -63,6 +64,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
     countDueCards(),
     listDecks(),
     nextDueAt(),
+    getActivityStats(),
   ]);
   const dueDecks = decks.filter((deck) => deck.dueCount > 0).slice(0, 5);
   const lastOpened = recentMaterials.find((material) => material.last_opened_at) ?? recentMaterials[0];
@@ -140,33 +142,59 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
                 concepts need work and suggest a study method instead of guessing.
               </p>
             ) : weakConcepts.length > 0 ? (
-              <p>
-                You missed questions on{" "}
-                <span className="font-medium text-foreground">{weakConcepts.slice(0, 3).map((concept) => concept.name).join(", ")}</span>.
-                Re-read those sections, work through the{" "}
-                <Link href={`${routes.quiz}/mistakes`} className="font-medium text-primary hover:underline">
-                  {openMistakes} open {openMistakes === 1 ? "mistake" : "mistakes"}
+              <div className="flex flex-col gap-3">
+                <p>
+                  You missed {weakConcepts[0].total - weakConcepts[0].correct} of your last {weakConcepts[0].total}{" "}
+                  <span className="font-medium text-foreground">{weakConcepts[0].name}</span> questions
+                  {weakConcepts.length > 1 ? `, and ${weakConcepts.slice(1, 3).map((concept) => concept.name).join(" and ")} need work too` : ""}. Try a
+                  10-minute Active Recall session on it, then retest your{" "}
+                  <Link href={`${routes.quiz}/mistakes`} className="font-medium text-primary hover:underline">
+                    {openMistakes} open {openMistakes === 1 ? "mistake" : "mistakes"}
+                  </Link>
+                  .
+                </p>
+                <Link href={`${routes.study}?method=active_recall`} className={buttonClasses({ size: "sm" })}>
+                  Start Active Recall
                 </Link>
-                , then retake the quiz to confirm the fix.
-              </p>
+              </div>
             ) : recentAttempts.length > 0 ? (
-              <p>
-                Your recent quizzes look solid. Generate a harder quiz or an exam simulation from the same material to
-                check that the concepts hold under pressure, and keep the reviewer handy for a quick re-read.
-              </p>
+              <div className="flex flex-col gap-3">
+                <p>
+                  Your recent quizzes look solid. Run a practice test under exam conditions to check that the concepts
+                  hold under pressure, and keep your flashcards on schedule.
+                </p>
+                <Link href={`${routes.study}?method=practice_testing`} className={buttonClasses({ size: "sm" })}>
+                  Start practice testing
+                </Link>
+              </div>
             ) : (
-              <p>
-                Open a material&apos;s overview and take a short quiz from it. That is when RevTaw starts
-                tracking what you get wrong and can recommend what to study next instead of guessing.
-              </p>
+              <div className="flex flex-col gap-3">
+                <p>
+                  Start with a short Active Recall session on a material. That is when RevTaw begins tracking
+                  what you get wrong and can recommend what to study next instead of guessing.
+                </p>
+                <Link href={routes.study} className={buttonClasses({ size: "sm" })}>
+                  Build a session
+                </Link>
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard icon={Flame} label="Study streak" value="0 days" caption="Finish a session to start one." />
-        <StatCard icon={Clock} label="Focus time today" value="0 min" caption="Sessions count toward this." />
+        <StatCard
+          icon={Flame}
+          label="Study streak"
+          value={`${activity.streakDays} day${activity.streakDays === 1 ? "" : "s"}`}
+          caption={activity.streakDays === 0 ? "Finish a session to start one." : "Sessions, quizzes and reviews keep it going."}
+        />
+        <StatCard
+          icon={Clock}
+          label="Focus time today"
+          value={`${Math.round(activity.focusSecondsToday / 60)} min`}
+          caption={`${Math.round(activity.focusSecondsWeek / 60)} min in the last 7 days.`}
+        />
         <StatCard
           icon={Layers}
           label="Flashcards due"
