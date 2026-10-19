@@ -4,7 +4,7 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-19 (Phase 3 complete)_
+_Last updated: 2026-10-19 (Phase 4 complete)_
 
 ## Completed
 
@@ -132,25 +132,77 @@ _Last updated: 2026-10-19 (Phase 3 complete)_
 - **Material overview** — Study tools card with Create reviewer / Create quiz
   and the reviewers and quizzes already built from that material.
 
+### Phase 4 — Core study
+
+- **Schema** — `study_sessions` (method, goal, planned minutes, persisted
+  `state`, `summary`, focus time, item counters, optional quiz attempt),
+  `study_session_items` (recall prompts, Feynman concepts, retested mistakes
+  with response, AI analysis, confidence, time), `flashcard_decks`,
+  `flashcards` (Leitner box, ease, interval, repetitions, lapses, due date,
+  favorite, suspended) and `flashcard_reviews`
+  (`supabase/migrations/0004_study.sql`).
+- **Flashcards** — `POST /api/flashcards` writes term/definition, question
+  and fill-in cards grounded in a material; decks page, deck detail with box
+  distribution, editable cards, favorites, suspend, rename/delete; review
+  runner (flip, Don't know / Hard / Medium / Easy with the interval each
+  rating would set, keyboard shortcuts, hints, repeats within the session,
+  shuffle, favorites-only); `/flashcards/review` for everything due across
+  decks. `src/lib/flashcards/`.
+- **Spaced repetition** — SM-2 style ease/interval on a five-box Leitner
+  ladder (today, 1, 3, 7… days; lapses reset to box 1), unit-tested
+  (`scheduler.ts`); every rating is saved at once with a review log; the
+  dashboard shows cards due and the decks they belong to.
+- **Study session builder** (§26) — `/study`: material → time (presets or
+  custom, default from the profile) → goal → method, with recommendations
+  per goal and methods disabled when they cannot run; in-progress sessions
+  resume; recent sessions with accuracy. `src/lib/study/`.
+- **Active recall** — prompts generated from the material and weighted
+  toward weak concepts and recent mistakes; the answer stays hidden until
+  the student writes theirs; the AI lists correct, missing and incorrect
+  points with a score; confidence and response time recorded; misses go to
+  the mistake notebook.
+- **Error review** — open notebook entries come back as recall prompts; a
+  correct retest marks the mistake learned (notebook has a Retest button).
+- **Feynman technique** — explain a concept for a beginner, receive
+  correct/missing/incorrect/unnecessary-complexity analysis, improve once,
+  then see the ideal explanation; low final scores are filed as
+  "misunderstood concept" mistakes.
+- **Practice testing** — generates a mixed test (multiple choice,
+  identification, true/false, short answer) with deferred feedback and an
+  optional timer, run through the quiz runner; the session closes with a
+  summary derived from the attempt and links back to the full review.
+- **Pomodoro** — presets 15/5, 25/5, 45/10, 50/10, 60/15 or custom, long
+  break every four rounds, pause/resume/skip break, progress restored after
+  a refresh, completed rounds credited to focus time.
+- **Session summary** (§29) — duration, topics, answered/correct/incorrect,
+  accuracy, improvement vs. the previous session of the same kind, weak and
+  strong concepts, suggested next activity, next scheduled review; saved on
+  every session.
+- **Study Methods page** (§15) — every method with explanation, how it
+  helps, best use cases, suggested duration, what changes in a session and a
+  real Start button; unimplemented methods say which phase adds them.
+- **Dashboard** — study streak (sessions, quiz attempts, flashcard reviews),
+  focus time today / 7 days, flashcards due, "Due today" decks, and a
+  recommendation that names the weak concept and starts the right session.
+
 ## In Progress
 
-- Nothing at the moment. Phase 4 starts next.
+- Nothing at the moment. Phase 5 starts next.
 
 ## Next (priority order)
 
-1. **Phase 4 — Core study**: study session builder (material, time, goal,
-   method), study methods that change session behaviour (active recall,
-   flashcards with spaced repetition, Feynman, practice testing, Pomodoro),
-   flashcard generation and review scheduling, richer mistake notebook
-   actions (retry similar questions, review concept).
-2. **Phase 5 — AI tutor**: document-aware chat, highlight-and-ask,
-   simplification, examples, guided tutoring.
-3. **Phase 6 — Adaptive intelligence**: mastery and retrieval strength per
-   concept (the quiz answer data already carries correctness, difficulty,
-   confidence and response time), weakness detection, difficulty adaptation,
-   recommendations.
-4. Phases 7–10 as listed in the spec (planner, advanced methods,
-   analytics/gamification, export).
+1. **Phase 5 — AI tutor**: document-aware chat grounded in the selected
+   material, highlight-and-ask from the viewer, "explain like I'm a
+   beginner", examples, step-by-step guided tutoring, Socratic questioning,
+   elaborative interrogation and self-explanation sessions.
+2. **Phase 6 — Adaptive intelligence**: mastery and retrieval strength per
+   concept (quiz answers, recall items and flashcard reviews already carry
+   correctness, difficulty, confidence and response time), weakness
+   detection, difficulty adaptation, smart study sessions.
+3. **Phase 7 — Planner**: exam dates, availability, generated daily plans,
+   cram mode, 1-3-7-14 reviews.
+4. Phases 8–10 as listed in the spec (advanced methods such as blurting,
+   interleaving, worked examples, mind maps; analytics/gamification; export).
 
 ## Database
 
@@ -170,12 +222,17 @@ _Last updated: 2026-10-19 (Phase 3 complete)_
 | `public.quiz_attempts` | One run of a quiz: mode, status, time limit, `question_order`, score/max/correct, timestamps | owner full access; cascade from quiz |
 | `public.quiz_answers` | One answer per attempt+question: `response` JSON, correctness, score, feedback, `graded_by` (auto/ai/self), confidence, response time | owner full access; unique `(attempt_id, question_id)` |
 | `public.mistakes` | Mistake notebook entry: question/answer text, explanation, error type, `resolved_at`; links to question/attempt/concept/material are set null when those go away | owner full access |
+| `public.study_sessions` | One study session: method, goal, planned minutes, title, status, `state` (resume data), `summary` (§29), focus seconds, item counters, optional `quiz_attempt_id` | owner full access; material/subject/attempt FKs set null |
+| `public.study_session_items` | Prompts worked through in a session (recall, feynman, mistake): model answer, key points, response, AI `analysis`, correctness, score, confidence, time, attempts | owner full access; cascade from session; concept/mistake FKs set null |
+| `public.flashcard_decks` | Generated deck: title, status + detail, provider/model, card count | owner full access; cascade from material |
+| `public.flashcards` | Card: front/back/hint, concept, source, favorite, suspended, Leitner `box`, `ease`, `interval_days`, `repetitions`, `lapses`, `due_at`, last review/rating | owner full access; cascade from deck; partial index on due cards |
+| `public.flashcard_reviews` | Review log: rating, response time, box before/after, interval, due date, optional session | owner full access; cascade from card |
 | `storage.objects` (bucket `materials`) | Private files under `<user_id>/<material_id>/<file>` | policies on first path segment = `auth.uid()` |
 
 Enums: `education_level`, `study_goal`, `material_source`, `material_status`,
 `difficulty_level`, `reviewer_kind`, `generation_status`, `question_type`,
 `question_difficulty`, `quiz_mode`, `attempt_status`, `confidence_level`,
-`mistake_type`. Helper functions: `public.set_updated_at()`,
+`mistake_type`, `session_status`, `session_goal`, `flashcard_rating`. Helper functions: `public.set_updated_at()`,
 `public.handle_new_user()` (security definer, pinned `search_path`).
 
 Types for queries live in `src/lib/supabase/database.types.ts` (hand-written
@@ -236,6 +293,18 @@ linked).
 - **Concepts** — `src/lib/concepts/service.ts` upserts names generated by
   the model into the per-student `concepts` table; every later system
   (mistakes, mastery) points at those rows (spec §51/§56 consistency rule).
+- **Flashcards** — `src/lib/flashcards/`: `scheduler.ts` (pure, tested
+  SM-2/Leitner scheduling), `generate.ts`, `service.ts` (deck generation,
+  `reviewCard` = reschedule + log + session counters), `queries.ts` (decks
+  with due counts, review queues, due counts), `actions.ts`.
+- **Study sessions** — `src/lib/study/`: `methods.ts` (catalog), `catalog.ts`
+  (per-method behaviour, goals, availability, builder recommendations),
+  `sessions.ts` (create/complete/summary, improvement vs. previous session),
+  `ai.ts` (recall prompts, recall comparison, Feynman concepts and
+  analysis), `service.ts` (starting each method, item flows, Pomodoro state,
+  practice-testing sync), `queries.ts` (sessions, activity stats: streak and
+  focus time), `actions.ts`. Runners live in `src/components/study/` and share
+  `SessionHeader` and `SessionSummaryCard` (§52 reusable components).
 
 ## Known Issues / Limitations
 
@@ -260,8 +329,12 @@ linked).
   a later refinement.
 - Concept performance on the dashboard is accuracy over recent answers;
   mastery, retrieval strength and difficulty adaptation arrive in Phase 6.
-- Mistake notebook entries can be classified and resolved; "retry similar
-  questions" and concept review sessions come with Phase 4.
+- Session items and flashcard generation also run inside a single request
+  (`maxDuration = 120` for routes; Server Actions for sessions). Very long
+  materials rely on the transcript budget.
+- The streak counts UTC days; per-user time zones arrive with the planner.
+- "Smart Study" (RevTaw picking the method automatically) and routines are
+  Phase 6/8 work; the builder recommends methods per goal today.
 
 ## Environment Requirements
 
@@ -308,9 +381,21 @@ Flows verified end to end against a local Supabase-compatible stack
   blank questions confirmed and filed; submitted attempts always render
   results; mistake notebook classify/resolve/learned view; dashboard weak
   topics and recent scores; rename; delete keeps notebook entries
+- Flashcards: deck generation from the material page, card edit, favorite,
+  review with keyboard shortcuts (Don't know repeats within the session),
+  summary and session row, review log, boxes/due dates updated, review-all
+  empty state, dashboard due count, study-all with shuffle, favorites mode,
+  rename, delete keeps sessions
+- Study sessions: builder from the methods page, active recall (prompt
+  matching, hidden model answers, correct/missing comparison, confidence and
+  time, summary, mistake filed, refresh resumes, early end), error review
+  (retest marks the mistake learned), Feynman (two rounds, ideal explanation
+  revealed only at the end), practice testing (timed test through the quiz
+  runner, summary from the attempt), Pomodoro (countdown, pause/resume,
+  refresh restore, focus time), study page and dashboard streak/focus
 - Unit tests (`npm test`): JSON extraction, chunking, content helpers,
-  analysis transcript, markdown renderer, quiz distribution/grading/config
-  and the mock quiz generator
+  analysis transcript, markdown renderer, quiz distribution/grading/config,
+  the mock quiz generator and the flashcard scheduler
 
 Commands: `npm run lint`, `npx tsc --noEmit`, `npm test` (vitest unit tests),
 `npm run build`.

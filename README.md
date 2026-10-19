@@ -42,6 +42,10 @@ working.
 - Quizzes with nine question types, practice and exam modes, timers,
   server-side grading, results by concept and an automatic mistake notebook
   (Phase 3)
+- Study sessions: builder by material, time, goal and method; active recall,
+  Feynman, practice testing, error review and Pomodoro, each with a saved
+  summary; flashcards with spaced repetition (Leitner boxes), streak and
+  focus-time tracking (Phase 4)
 
 ## Scripts
 
@@ -59,13 +63,15 @@ working.
 src/app/(marketing)   landing page
 src/app/(auth)        login, register, verify, forgot/reset password
 src/app/(onboarding)  first-run study profile
-src/app/(app)         signed-in app: dashboard, materials, notes, quiz, settings…
+src/app/(app)         signed-in app: dashboard, materials, study, methods,
+                      quiz, flashcards, notes, settings…
 src/app/auth          email-link route handlers (callback, confirm)
 src/app/api           route handlers (material processing, analysis, files,
                       reviewer and quiz generation)
 src/components        ui primitives, forms, app shell, feature components
 src/lib               supabase clients, ai providers, materials pipeline,
-                      reviewers, quizzes, concepts, validation, routes, env
+                      reviewers, quizzes, flashcards, study sessions,
+                      concepts, validation, routes, env
 supabase/migrations   SQL migrations (apply in order)
 ```
 
