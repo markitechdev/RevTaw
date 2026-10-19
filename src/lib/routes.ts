@@ -42,7 +42,6 @@ export const PROTECTED_PREFIXES = [
   routes.progress,
   routes.planner,
   routes.settings,
-  routes.resetPassword,
 ] as const;
 
 /** Pages that only make sense for signed-out visitors. */
