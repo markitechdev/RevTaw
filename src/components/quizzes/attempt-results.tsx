@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { SelfGradeControls } from "@/components/quizzes/self-grade";
 import { StartAttemptButton } from "@/components/quizzes/start-attempt";
+import { AskWhyWrongButton } from "@/components/tutor/ask-why-wrong";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -233,6 +234,11 @@ export function AttemptResults({ view, questionCount }: { view: AttemptResultsVi
                 )}
                 {ungraded && question.answerId && (
                   <SelfGradeControls answerId={question.answerId} quizId={quiz.id} attemptId={attempt.id} points={question.points} />
+                )}
+                {question.isCorrect === false && (
+                  <div className="mt-3">
+                    <AskWhyWrongButton materialId={quiz.material_id} question={question.prompt} studentAnswer={question.studentAnswer} correctAnswer={question.correctAnswer} />
+                  </div>
                 )}
               </li>
             );

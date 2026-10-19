@@ -9,6 +9,7 @@ import { formatRelativeDate } from "@/components/materials/material-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { AskWhyWrongButton } from "@/components/tutor/ask-why-wrong";
 import { updateMistakeAction } from "@/lib/quizzes/actions";
 import type { MistakeListItem } from "@/lib/quizzes/queries";
 import { routes } from "@/lib/routes";
@@ -84,10 +85,15 @@ export function MistakeItem({ mistake }: { mistake: MistakeListItem }) {
             ))}
           </Select>
         </div>
-        <Button type="button" size="sm" variant={resolved ? "ghost" : "secondary"} className="ml-auto" loading={pending} onClick={() => update({ resolved: !resolved })}>
+        <span className="ml-auto flex flex-wrap gap-2">
+        {mistake.material && !resolved && (
+          <AskWhyWrongButton materialId={mistake.material.id} question={mistake.question_text} studentAnswer={mistake.student_answer} correctAnswer={mistake.correct_answer} />
+        )}
+        <Button type="button" size="sm" variant={resolved ? "ghost" : "secondary"} loading={pending} onClick={() => update({ resolved: !resolved })}>
           {!pending && (resolved ? <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> : <Check className="h-3.5 w-3.5" aria-hidden="true" />)}
           {resolved ? "Reopen" : "Mark as learned"}
         </Button>
+        </span>
       </div>
       {error && (
         <p className="text-sm text-danger" role="alert">
