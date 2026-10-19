@@ -24,6 +24,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { countDueCards, listDecks, nextDueAt } from "@/lib/flashcards/queries";
 import { SOURCE_LABEL } from "@/lib/materials/constants";
 import { countMaterials, listRecentMaterials } from "@/lib/materials/queries";
 import { formatSessionMinutes, STUDY_GOAL_LABEL } from "@/lib/profile/options";
@@ -53,13 +54,17 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const { user, profile } = await getCurrentUserWithProfile();
   if (!user) redirect(routes.login);
 
-  const [materialCount, recentMaterials, concepts, recentAttempts, openMistakes] = await Promise.all([
+  const [materialCount, recentMaterials, concepts, recentAttempts, openMistakes, dueCards, decks, nextDue] = await Promise.all([
     countMaterials(),
     listRecentMaterials(5),
     getConceptPerformance(),
     listRecentAttempts(4),
     countOpenMistakes(),
+    countDueCards(),
+    listDecks(),
+    nextDueAt(),
   ]);
+  const dueDecks = decks.filter((deck) => deck.dueCount > 0).slice(0, 5);
   const lastOpened = recentMaterials.find((material) => material.last_opened_at) ?? recentMaterials[0];
   const weakConcepts = concepts.filter((concept) => concept.accuracy < 0.6).sort((a, b) => a.accuracy - b.accuracy || b.total - a.total).slice(0, 6);
   const strongConcepts = concepts.filter((concept) => concept.accuracy >= 0.8 && concept.total >= 2).sort((a, b) => b.accuracy - a.accuracy || b.total - a.total).slice(0, 6);
@@ -162,7 +167,12 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatCard icon={Flame} label="Study streak" value="0 days" caption="Finish a session to start one." />
         <StatCard icon={Clock} label="Focus time today" value="0 min" caption="Sessions count toward this." />
-        <StatCard icon={Layers} label="Flashcards due" value="0" caption="Generate flashcards from a reviewer." />
+        <StatCard
+          icon={Layers}
+          label="Flashcards due"
+          value={String(dueCards)}
+          caption={dueCards > 0 ? "Review them before they fade." : decks.length === 0 ? "Generate a deck from a material." : nextDue ? "Nothing due right now." : "All caught up."}
+        />
         <StatCard
           icon={FolderOpen}
           label="Materials"
@@ -178,12 +188,38 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
             <CardDescription>Spaced repetition and scheduled reviews.</CardDescription>
           </CardHeader>
           <CardContent>
-            <EmptyState
-              compact
-              icon={CalendarDays}
-              title="Nothing due"
-              description="Reviews appear here once you rate flashcards or finish a quiz."
-            />
+            {dueDecks.length === 0 ? (
+              <EmptyState
+                compact
+                icon={CalendarDays}
+                title="Nothing due"
+                description={decks.length === 0 ? "Reviews appear here once you rate flashcards." : "Every card is scheduled for later. Come back when the next review is due."}
+                action={
+                  decks.length === 0 ? (
+                    <Link href={routes.flashcards} className={buttonClasses({ variant: "secondary", size: "sm" })}>
+                      Open Flashcards
+                    </Link>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <div className="flex flex-col gap-3">
+                <ul className="flex flex-col divide-y divide-border">
+                  {dueDecks.map((deck) => (
+                    <li key={deck.id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
+                      <Link href={`${routes.flashcards}/${deck.id}/review?mode=due`} className="truncate text-sm font-medium hover:underline">
+                        {deck.title}
+                      </Link>
+                      <span className="shrink-0 text-xs text-muted-foreground">{deck.dueCount} due</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link href={`${routes.flashcards}/review`} className={buttonClasses({ size: "sm" })}>
+                  <Layers className="h-4 w-4" aria-hidden="true" />
+                  Review all due ({dueCards})
+                </Link>
+              </div>
+            )}
           </CardContent>
         </Card>
 
