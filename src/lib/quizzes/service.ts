@@ -285,6 +285,17 @@ export async function saveAnswer(input: {
   const response = validateResponse(question.type, input.response, options);
   const immediate = attempt.mode === "practice" && config.feedback === "immediate";
 
+  if (immediate) {
+    // Once the correct answer has been shown, the question is locked.
+    const { data: existing } = await supabase
+      .from("quiz_answers")
+      .select("graded_by")
+      .eq("attempt_id", attempt.id)
+      .eq("question_id", question.id)
+      .maybeSingle();
+    if (existing?.graded_by) throw new ServiceError("This question was already checked and cannot be changed.", 409);
+  }
+
   let grade: GradeResult | null = gradeObjective(question.type, answer, response, question.points);
   if (!grade && response && "text" in response && immediate && "model_answer" in answer) {
     try {
