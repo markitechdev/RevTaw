@@ -4,7 +4,7 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-19 (Phase 2 complete)_
+_Last updated: 2026-10-19 (Phase 3 complete)_
 
 ## Completed
 
@@ -80,25 +80,77 @@ _Last updated: 2026-10-19 (Phase 2 complete)_
 - **Data ownership** — deleting a material or the whole account removes the
   stored files as well as the rows.
 
+### Phase 3 — Reviewer and Quiz
+
+- **Schema** — `concepts` (master concept model, one row per distinct name
+  per student), `reviewers` + `reviewer_sections`, `quizzes` +
+  `quiz_questions`, `quiz_attempts` + `quiz_answers`, `mistakes`; owner-only
+  RLS, composite ownership keys so a question/answer/mistake can never point
+  at another student's rows (`supabase/migrations/0003_reviewers_quizzes.sql`).
+- **Reviewer generator** — `POST /api/reviewers` turns a processed material
+  into one of ten formats (complete, summary, bullet notes, key concepts,
+  definitions, formula sheet, Q&A, Cornell with fixed Cue/Main/Summary
+  sections, cheat sheet, exam reviewer) using the strong model and a
+  grounding prompt; failed generations keep a retryable row with a plain
+  explanation. `src/lib/reviewers/`.
+- **Notes** — `/notes` list and `/notes/[id]` reader with sticky section
+  navigation; every section can be edited by hand (markdown) or regenerated
+  on its own with optional instructions while the rest stays intact; rename
+  and delete; `last_opened_at`. Markdown is rendered by a small safe renderer
+  (`src/components/content/markdown.tsx`, no raw HTML or links).
+- **Quiz generator** — `POST /api/quizzes` with a configuration dialog:
+  question types (identification, multiple choice, true/false, fill in the
+  blank, short answer, essay, scenario, case-based, problem solving — any
+  mix), count (5/10/20/50/custom), difficulty (easy/medium/hard/mixed),
+  default mode, timer, shuffling, feedback timing and an optional topic
+  focus. Every question stores its answer, explanation, concept, source
+  excerpt and (when found) source chunk; duplicates and malformed items are
+  dropped; concepts are upserted into `concepts`. `src/lib/quizzes/`.
+- **Attempts** — `/quiz/[id]` (settings, attempt history, start dialog) and
+  `/quiz/[id]/attempt/[attemptId]` runner: one question at a time with a
+  navigator, per-question server-saved answers with confidence and response
+  time, practice mode with immediate feedback (question locked once the
+  answer is shown) or deferred feedback, exam mode with countdown, forced
+  shuffling, no hints, auto-submission on expiry (also on reload after the
+  deadline). Correct answers are never sent to the browser before grading.
+- **Grading** — objective types graded on the server (lenient text matching
+  for identification/fill-ins); open types graded in one model call against
+  the model answer and rubric with partial credit; if the AI is unavailable
+  the student self-checks against the model answer on the results page.
+- **Results** — score and percentage, correct count, duration, concept
+  breakdown (needs work / solid), full question review with the student's
+  answer, correct/model answer, rubric, feedback, explanation, source quote,
+  confidence and time; retake in one click.
+- **Mistake notebook** — `/quiz/mistakes`: every incorrect (or blank) answer
+  is filed automatically with concept and material, repeated concepts are
+  called out, each entry can be classified (misunderstood, forgotten,
+  calculation, misread, confused concepts) and marked learned/reopened.
+  Deleting a quiz keeps notebook entries.
+- **Dashboard** — weak topics (accuracy < 60%), strong topics, recent quiz
+  scores, open-mistake count, and a recommendation that names the weak
+  concepts.
+- **Material overview** — Study tools card with Create reviewer / Create quiz
+  and the reviewers and quizzes already built from that material.
+
 ## In Progress
 
-- Nothing at the moment. Phase 3 starts next.
+- Nothing at the moment. Phase 4 starts next.
 
 ## Next (priority order)
 
-1. **Phase 3 — Reviewer and Quiz**: migration `0003` (reviewers with
-   sections, quizzes, questions, attempts, answers, concepts); reviewer
-   generator (complete reviewer, summary, bullet notes, key concepts,
-   definitions, formula sheet, Q&A, Cornell, cheat sheet, exam reviewer)
-   with editable, individually regenerable sections; quiz generator
-   (identification, multiple choice, true/false, fill-blank, short answer,
-   essay, scenario, case, problem solving, mixed) with attempts, scoring,
-   results and concept-level mistake tracking; Notes and Quiz pages.
-2. **Phase 4 — Core study**: session builder, study methods that change
-   session behaviour, flashcards with spaced repetition, Pomodoro, mistake
-   notebook.
-3. Phases 5–10 as listed in the spec (AI tutor, adaptive learning, planner,
-   advanced methods, analytics/gamification, export).
+1. **Phase 4 — Core study**: study session builder (material, time, goal,
+   method), study methods that change session behaviour (active recall,
+   flashcards with spaced repetition, Feynman, practice testing, Pomodoro),
+   flashcard generation and review scheduling, richer mistake notebook
+   actions (retry similar questions, review concept).
+2. **Phase 5 — AI tutor**: document-aware chat, highlight-and-ask,
+   simplification, examples, guided tutoring.
+3. **Phase 6 — Adaptive intelligence**: mastery and retrieval strength per
+   concept (the quiz answer data already carries correctness, difficulty,
+   confidence and response time), weakness detection, difficulty adaptation,
+   recommendations.
+4. Phases 7–10 as listed in the spec (planner, advanced methods,
+   analytics/gamification, export).
 
 ## Database
 
@@ -110,10 +162,20 @@ _Last updated: 2026-10-19 (Phase 2 complete)_
 | `public.materials` | One upload or note: title, source, file metadata, `storage_path`, `content_hash`, status + detail, counts, `last_opened_at`, `archived_at` | owner full access; composite FKs to subject and folder (folder must belong to the subject) |
 | `public.material_chunks` | Ordered extracted text with heading and page range | owner full access; cascade from material |
 | `public.material_analyses` | One AI analysis per material: summary, difficulty, minutes, coverage, validated `data` JSON, provider/model | owner full access; cascade from material |
+| `public.concepts` | Master concept list per student (`name`, `normalized_name`, origin material/subject) | owner full access; unique `(user_id, normalized_name)` |
+| `public.reviewers` | Generated reviewer: kind, title, status + detail, provider/model, `last_opened_at`, `archived_at` | owner full access; cascade from material |
+| `public.reviewer_sections` | Ordered sections (heading, markdown content, `edited_at`, `regenerated_at`) | owner full access; cascade from reviewer |
+| `public.quizzes` | Generated quiz: title, `config` JSON, status + detail, provider/model, `question_count` | owner full access; cascade from material |
+| `public.quiz_questions` | Question: type, difficulty, prompt, `options`, `answer` JSON, explanation, concept, source excerpt/chunk, points | owner full access; cascade from quiz; concept FK set null |
+| `public.quiz_attempts` | One run of a quiz: mode, status, time limit, `question_order`, score/max/correct, timestamps | owner full access; cascade from quiz |
+| `public.quiz_answers` | One answer per attempt+question: `response` JSON, correctness, score, feedback, `graded_by` (auto/ai/self), confidence, response time | owner full access; unique `(attempt_id, question_id)` |
+| `public.mistakes` | Mistake notebook entry: question/answer text, explanation, error type, `resolved_at`; links to question/attempt/concept/material are set null when those go away | owner full access |
 | `storage.objects` (bucket `materials`) | Private files under `<user_id>/<material_id>/<file>` | policies on first path segment = `auth.uid()` |
 
 Enums: `education_level`, `study_goal`, `material_source`, `material_status`,
-`difficulty_level`. Helper functions: `public.set_updated_at()`,
+`difficulty_level`, `reviewer_kind`, `generation_status`, `question_type`,
+`question_difficulty`, `quiz_mode`, `attempt_status`, `confidence_level`,
+`mistake_type`. Helper functions: `public.set_updated_at()`,
 `public.handle_new_user()` (security definer, pinned `search_path`).
 
 Types for queries live in `src/lib/supabase/database.types.ts` (hand-written
@@ -159,6 +221,21 @@ linked).
 - **Files to the browser** — never public or signed download URLs; the
   same-origin route `/api/materials/[id]/file` checks ownership and streams
   the object with `no-store`, `nosniff` and a sandboxed CSP.
+- **Reviewers** — `src/lib/reviewers/`: `kinds.ts` (catalog + guidance),
+  `generate.ts` (prompts, zod schemas), `service.ts` (create/retry/regenerate
+  section), `queries.ts`, `actions.ts` (edit, rename, delete). Generation runs
+  in route handlers (`maxDuration = 120`).
+- **Quizzes** — `src/lib/quizzes/`: `types.ts` (type catalog, config schema,
+  answer/response JSON shapes, shared by client and server), `generate.ts`
+  (prompt + per-type validation + clean-up), `grade.ts` (objective grading,
+  lenient text matching, batched AI grading), `service.ts` (create/retry,
+  start attempt, save answer, submit, self-grade, expiry), `queries.ts`
+  (list/detail, runner view without answers, results view, mistakes, concept
+  performance), `actions.ts` (Server Actions). Option order is shuffled per
+  attempt with a seeded shuffle so results match what the student saw.
+- **Concepts** — `src/lib/concepts/service.ts` upserts names generated by
+  the model into the per-student `concepts` table; every later system
+  (mistakes, mastery) points at those rows (spec §51/§56 consistency rule).
 
 ## Known Issues / Limitations
 
@@ -176,6 +253,15 @@ linked).
   benefit from pagination.
 - Scanned PDFs without a text layer are rejected with guidance to upload
   pages as images (OCR of PDF pages is a later improvement).
+- Reviewer and quiz generation run inside a single request (up to 120 s).
+  Very large question counts on long materials may need a background job.
+- Quiz questions are generated from the whole material (optionally focused
+  by a free-text topic); picking individual chapters/chunks as the source is
+  a later refinement.
+- Concept performance on the dashboard is accuracy over recent answers;
+  mastery, retrieval strength and difficulty adaptation arrive in Phase 6.
+- Mistake notebook entries can be classified and resolved; "retry similar
+  questions" and concept review sessions come with Phase 4.
 
 ## Environment Requirements
 
@@ -211,6 +297,20 @@ Flows verified end to end against a local Supabase-compatible stack
 - Materials: PDF (real multi-page), DOCX, pasted notes, image (vision), fake
   PDF rejected by byte check, retry, deduplication, subject filter, viewer
   tabs, re-analyze, rename/move/archive/delete, subjects/folders manager
+- Reviewers: generate (complete, Cornell with fixed sections, Q&A,
+  definitions), edit a section, regenerate a section with instructions,
+  rename, delete, unknown material rejected, mobile layout
+- Quizzes: anonymous/invalid/unknown-material requests rejected; mixed quiz
+  of five types; practice attempt with immediate feedback (wrong answer shows
+  the correct answer and explanation, checked question locked on revisit,
+  confidence and response time stored, AI-graded short answer); results
+  score/percentage/concept breakdown; mistake filed; exam attempt with timer,
+  blank questions confirmed and filed; submitted attempts always render
+  results; mistake notebook classify/resolve/learned view; dashboard weak
+  topics and recent scores; rename; delete keeps notebook entries
+- Unit tests (`npm test`): JSON extraction, chunking, content helpers,
+  analysis transcript, markdown renderer, quiz distribution/grading/config
+  and the mock quiz generator
 
 Commands: `npm run lint`, `npx tsc --noEmit`, `npm test` (vitest unit tests),
 `npm run build`.

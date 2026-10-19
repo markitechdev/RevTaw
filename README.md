@@ -26,10 +26,22 @@ Open http://localhost:3000. Create a Supabase project and apply the migrations
 in `supabase/migrations/` first — see [`supabase/README.md`](./supabase/README.md)
 for the dashboard settings (email confirmation, redirect URLs, templates).
 
-AI features (material analysis, image transcription) need one provider key
-in `.env.local` (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or
-`GOOGLE_AI_API_KEY`). Without a key, development uses a built-in mock
-provider so the rest of the app keeps working.
+AI features (material analysis, image transcription, reviewer and quiz
+generation, grading of open answers) need one provider key in `.env.local`
+(`ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `GOOGLE_AI_API_KEY`). Without a
+key, development uses a built-in mock provider so the rest of the app keeps
+working.
+
+## What works today
+
+- Accounts, onboarding and settings (Phase 1)
+- Materials: upload PDF/DOCX/images/notes, extraction, AI analysis with
+  study-method recommendations, organisation by subject and folder (Phase 2)
+- Reviewers in ten formats with editable, individually regenerable sections
+  (Phase 3)
+- Quizzes with nine question types, practice and exam modes, timers,
+  server-side grading, results by concept and an automatic mistake notebook
+  (Phase 3)
 
 ## Scripts
 
@@ -47,12 +59,13 @@ provider so the rest of the app keeps working.
 src/app/(marketing)   landing page
 src/app/(auth)        login, register, verify, forgot/reset password
 src/app/(onboarding)  first-run study profile
-src/app/(app)         signed-in app: dashboard, materials, study, settings…
+src/app/(app)         signed-in app: dashboard, materials, notes, quiz, settings…
 src/app/auth          email-link route handlers (callback, confirm)
-src/app/api           route handlers (material processing, analysis, files)
+src/app/api           route handlers (material processing, analysis, files,
+                      reviewer and quiz generation)
 src/components        ui primitives, forms, app shell, feature components
 src/lib               supabase clients, ai providers, materials pipeline,
-                      validation, actions, routes, env
+                      reviewers, quizzes, concepts, validation, routes, env
 supabase/migrations   SQL migrations (apply in order)
 ```
 
