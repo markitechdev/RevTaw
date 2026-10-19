@@ -42,8 +42,9 @@ export async function registerAction(
     email: formString(formData, "email"),
   };
 
+  // Generous per-IP limit: whole classrooms often share one address.
   const ip = await getClientAddress();
-  const limit = rateLimit(`register:${ip}`, 5, 15 * MINUTE);
+  const limit = rateLimit(`register:${ip}`, 20, 15 * MINUTE);
   if (!limit.ok) {
     return errorState(tooManyAttempts(limit.retryAfterSeconds, "sign-up attempts"), { values });
   }
@@ -147,7 +148,7 @@ export async function forgotPasswordAction(
   const values = { email: formString(formData, "email") };
 
   const ip = await getClientAddress();
-  const limit = rateLimit(`forgot:${ip}`, 5, 15 * MINUTE);
+  const limit = rateLimit(`forgot:${ip}`, 10, 15 * MINUTE);
   if (!limit.ok) {
     return errorState(tooManyAttempts(limit.retryAfterSeconds, "reset requests"), { values });
   }

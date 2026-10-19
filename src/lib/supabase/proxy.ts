@@ -13,14 +13,22 @@ export type SessionResult = {
  * Refreshes the Supabase session for the incoming request and returns both the
  * response that carries any rotated auth cookies and the verified user id.
  *
+ * `requestHeaders` are forwarded to the rendered route (used for the CSP
+ * nonce); refreshed auth cookies are mirrored into them so Server Components
+ * in the same request already see the new session.
+ *
  * Important: the returned `response` object must be the one sent back to the
  * browser (or its cookies copied onto a redirect), otherwise refreshed tokens
  * are lost and users get logged out at random.
  */
-export async function updateSession(request: NextRequest): Promise<SessionResult> {
+export async function updateSession(
+  request: NextRequest,
+  requestHeaders: Headers = new Headers(request.headers),
+): Promise<SessionResult> {
   const env = getPublicEnv();
 
-  let response = NextResponse.next({ request });
+  const nextResponse = () => NextResponse.next({ request: { headers: requestHeaders } });
+  let response = nextResponse();
 
   const supabase = createServerClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -34,7 +42,8 @@ export async function updateSession(request: NextRequest): Promise<SessionResult
           for (const { name, value } of cookiesToSet) {
             request.cookies.set(name, value);
           }
-          response = NextResponse.next({ request });
+          requestHeaders.set("cookie", request.cookies.toString());
+          response = nextResponse();
           for (const { name, value, options } of cookiesToSet) {
             response.cookies.set(name, value, options);
           }
