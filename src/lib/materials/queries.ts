@@ -1,0 +1,110 @@
+import "server-only";
+
+import { cache } from "react";
+
+import type { Folder, Material, Subject } from "@/lib/supabase/database.types";
+import { createClient } from "@/lib/supabase/server";
+
+export type SubjectWithFolders = Pick<Subject, "id" | "name" | "color" | "archived_at"> & {
+  folders: Pick<Folder, "id" | "name" | "position">[];
+  materialCount: number;
+};
+
+export type MaterialListItem = Pick<
+  Material,
+  | "id"
+  | "title"
+  | "source"
+  | "status"
+  | "status_detail"
+  | "subject_id"
+  | "folder_id"
+  | "file_size"
+  | "page_count"
+  | "word_count"
+  | "archived_at"
+  | "created_at"
+  | "updated_at"
+  | "last_opened_at"
+> & {
+  subject: { id: string; name: string; color: string | null } | null;
+  folder: { id: string; name: string } | null;
+};
+
+const MATERIAL_LIST_COLUMNS =
+  "id, title, source, status, status_detail, subject_id, folder_id, file_size, page_count, word_count, archived_at, created_at, updated_at, last_opened_at, " +
+  "subject:subjects!materials_subject_fk(id, name, color), folder:folders!materials_folder_fk(id, name)";
+
+/** Subjects (with their folders) for pickers and the materials sidebar. */
+export const listSubjects = cache(async (): Promise<SubjectWithFolders[]> => {
+  const supabase = await createClient();
+  const [{ data: subjects, error }, { data: folders }, { data: counts }] = await Promise.all([
+    supabase
+      .from("subjects")
+      .select("id, name, color, archived_at")
+      .is("archived_at", null)
+      .order("name"),
+    supabase
+      .from("folders")
+      .select("id, subject_id, name, position")
+      .is("archived_at", null)
+      .order("position")
+      .order("name"),
+    supabase.from("materials").select("subject_id").is("archived_at", null),
+  ]);
+
+  if (error) {
+    console.error("subjects: list failed", error.message);
+    return [];
+  }
+
+  const countBySubject = new Map<string, number>();
+  for (const row of counts ?? []) {
+    if (row.subject_id) countBySubject.set(row.subject_id, (countBySubject.get(row.subject_id) ?? 0) + 1);
+  }
+
+  return (subjects ?? []).map((subject) => ({
+    ...subject,
+    folders: (folders ?? [])
+      .filter((folder) => folder.subject_id === subject.id)
+      .map(({ id, name, position }) => ({ id, name, position })),
+    materialCount: countBySubject.get(subject.id) ?? 0,
+  }));
+});
+
+export type MaterialFilters = {
+  subjectId?: string | null;
+  folderId?: string | null;
+  archived?: boolean;
+  search?: string;
+};
+
+export async function listMaterials(filters: MaterialFilters = {}): Promise<MaterialListItem[]> {
+  const supabase = await createClient();
+  let query = supabase.from("materials").select(MATERIAL_LIST_COLUMNS).order("updated_at", { ascending: false }).limit(200);
+
+  query = filters.archived ? query.not("archived_at", "is", null) : query.is("archived_at", null);
+  if (filters.subjectId) query = query.eq("subject_id", filters.subjectId);
+  if (filters.folderId) query = query.eq("folder_id", filters.folderId);
+  if (filters.search) query = query.ilike("title", `%${escapeLike(filters.search)}%`);
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("materials: list failed", error.message);
+    return [];
+  }
+  return (data ?? []) as unknown as MaterialListItem[];
+}
+
+export const countMaterials = cache(async (): Promise<number> => {
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("materials")
+    .select("id", { count: "exact", head: true })
+    .is("archived_at", null);
+  return count ?? 0;
+});
+
+function escapeLike(value: string): string {
+  return value.replace(/[%_\\]/g, (char) => `\\${char}`);
+}

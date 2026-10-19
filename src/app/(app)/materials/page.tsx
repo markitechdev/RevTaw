@@ -1,27 +1,169 @@
-import { FolderOpen } from "lucide-react";
+import { Archive, FolderOpen, Layers } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { SectionPlaceholder } from "@/components/app/section-placeholder";
-import { buttonClasses } from "@/components/ui/button";
+import { MaterialCard } from "@/components/materials/material-card";
+import { UploadButton } from "@/components/materials/upload-button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { listMaterials, listSubjects } from "@/lib/materials/queries";
 import { routes } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Materials",
 };
 
-export default function MaterialsPage() {
+function param(value: string | string[] | undefined): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+export default async function MaterialsPage({ searchParams }: PageProps<"/materials">) {
+  const params = await searchParams;
+  const subjectId = param(params.subject);
+  const folderId = param(params.folder);
+  const archived = params.archived === "1";
+
+  const [subjects, materials] = await Promise.all([
+    listSubjects(),
+    listMaterials({ subjectId, folderId, archived }),
+  ]);
+
+  const activeSubject = subjects.find((subject) => subject.id === subjectId) ?? null;
+  const activeFolder = activeSubject?.folders.find((folder) => folder.id === folderId) ?? null;
+  const totalMaterials = subjects.reduce((sum, subject) => sum + subject.materialCount, 0);
+
+  const filterHref = (next: { subject?: string | null; folder?: string | null; archived?: boolean }) => {
+    const query = new URLSearchParams();
+    const subject = next.subject === undefined ? subjectId : next.subject;
+    const folder = next.folder === undefined ? folderId : next.folder;
+    const showArchived = next.archived === undefined ? archived : next.archived;
+    if (subject) query.set("subject", subject);
+    if (folder) query.set("folder", folder);
+    if (showArchived) query.set("archived", "1");
+    const string = query.toString();
+    return string ? `${routes.materials}?${string}` : routes.materials;
+  };
+
   return (
-    <SectionPlaceholder
-      title="Materials"
-      description="Upload PDFs, DOCX files, images, screenshots and typed notes. RevTaw extracts the text, analyzes the content and keeps everything private to you."
-      icon={FolderOpen}
-      phase="Phase 2"
-      emptyTitle="Uploads arrive in the next phase"
-      emptyDescription="Drag-and-drop upload with processing status, private storage and AI analysis are the next thing being built. Your study preferences are already saved and will shape what RevTaw generates."
-      action={
-        <Link href={routes.settingsPreferences} className={buttonClasses({ variant: "secondary", size: "sm" })}>Review study preferences</Link>
-      }
-    />
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Materials"
+        description="Everything you upload stays private to your account. RevTaw reads each file, finds its topics and gets it ready for reviewers, quizzes and study sessions."
+        actions={<UploadButton subjects={subjects} initialSubjectId={subjectId} />}
+      />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[14rem_1fr]">
+        <aside className="flex flex-col gap-1" aria-label="Subjects">
+          <Link
+            href={filterHref({ subject: null, folder: null })}
+            aria-current={!subjectId && !archived ? "page" : undefined}
+            className={cn(
+              "flex items-center justify-between rounded-lg px-3 py-2 text-sm",
+              !subjectId && !archived ? "bg-primary-soft font-medium text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            <span className="flex items-center gap-2">
+              <Layers className="h-4 w-4" aria-hidden="true" />
+              All materials
+            </span>
+            <span className="text-xs">{totalMaterials}</span>
+          </Link>
+
+          {subjects.map((subject) => {
+            const active = subject.id === subjectId;
+            return (
+              <div key={subject.id}>
+                <Link
+                  href={filterHref({ subject: subject.id, folder: null, archived: false })}
+                  aria-current={active && !folderId ? "page" : undefined}
+                  className={cn(
+                    "flex items-center justify-between rounded-lg px-3 py-2 text-sm",
+                    active && !folderId ? "bg-primary-soft font-medium text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: subject.color ?? "var(--primary)" }}
+                    />
+                    <span className="truncate">{subject.name}</span>
+                  </span>
+                  <span className="text-xs">{subject.materialCount}</span>
+                </Link>
+                {active && subject.folders.length > 0 && (
+                  <ul className="ml-5 mt-0.5 flex flex-col gap-0.5 border-l border-border pl-2">
+                    {subject.folders.map((folder) => (
+                      <li key={folder.id}>
+                        <Link
+                          href={filterHref({ subject: subject.id, folder: folder.id, archived: false })}
+                          aria-current={folder.id === folderId ? "page" : undefined}
+                          className={cn(
+                            "block truncate rounded-md px-2 py-1.5 text-sm",
+                            folder.id === folderId ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {folder.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+
+          <Link
+            href={filterHref({ subject: null, folder: null, archived: !archived })}
+            aria-current={archived ? "page" : undefined}
+            className={cn(
+              "mt-2 flex items-center gap-2 rounded-lg px-3 py-2 text-sm",
+              archived ? "bg-primary-soft font-medium text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            <Archive className="h-4 w-4" aria-hidden="true" />
+            Archived
+          </Link>
+        </aside>
+
+        <section aria-label="Material list" className="min-w-0">
+          {(activeSubject || archived) && (
+            <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+              {archived
+                ? "Archived materials"
+                : activeFolder
+                  ? `${activeSubject?.name} · ${activeFolder.name}`
+                  : activeSubject?.name}
+            </h2>
+          )}
+
+          {materials.length === 0 ? (
+            archived ? (
+              <EmptyState
+                icon={Archive}
+                title="No archived materials"
+                description="Archived materials stay out of the way but keep their reviewers, quizzes and progress."
+              />
+            ) : (
+              <EmptyState
+                icon={FolderOpen}
+                title={activeSubject ? `Nothing in ${activeSubject.name} yet` : "Upload your first study material"}
+                description="RevTaw can turn it into reviewers, quizzes, flashcards and personalized study sessions. PDFs, Word documents, photos of notes, or just paste text."
+                action={<UploadButton subjects={subjects} initialSubjectId={subjectId} size="sm" />}
+              />
+            )
+          ) : (
+            <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {materials.map((material) => (
+                <li key={material.id}>
+                  <MaterialCard material={material} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    </div>
   );
 }

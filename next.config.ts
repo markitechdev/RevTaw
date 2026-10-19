@@ -32,6 +32,9 @@ const nextConfig: NextConfig = {
   // multi-session build. Re-enable later per the Next.js migration guide.
   cacheComponents: false,
   poweredByHeader: false,
+  // Document parsers ship their own workers/native bindings; keep them out of
+  // the bundler and load them from node_modules at runtime.
+  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "@napi-rs/canvas", "mammoth", "word-extractor"],
   turbopack: {
     rules: {
       "*.css": {
