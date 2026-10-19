@@ -1,10 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { SignOutButton } from "@/components/auth/sign-out-button";
-import { Logo } from "@/components/brand/logo";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { buttonClasses } from "@/components/ui/button";
+import { AppShell } from "@/components/app/app-shell";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { routes } from "@/lib/routes";
 
@@ -24,23 +20,8 @@ export default async function AppLayout({ children }: LayoutProps<"/"> ) {
   }
 
   return (
-    <div className="flex min-h-full flex-col">
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <Logo href={routes.dashboard} />
-          <div className="flex items-center gap-2">
-            <Link
-              href={routes.settings}
-              className={buttonClasses({ variant: "ghost", size: "sm" })}
-            >
-              {profile?.display_name || "Settings"}
-            </Link>
-            <ThemeToggle />
-            <SignOutButton variant="ghost" size="sm" />
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">{children}</main>
-    </div>
+    <AppShell displayName={profile?.display_name ?? ""} email={user.email}>
+      {children}
+    </AppShell>
   );
 }
