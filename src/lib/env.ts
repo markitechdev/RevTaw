@@ -25,6 +25,13 @@ const publicSchema = z.object({
 const serverSchema = z.object({
   SUPABASE_SECRET_KEY: z.string().min(1).optional(),
   NEXT_PUBLIC_SITE_URL: z.url().optional(),
+  // AI provider selection (see src/lib/ai). Keys never leave the server.
+  AI_PROVIDER: z.enum(["anthropic", "openai", "google", "mock"]).optional(),
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  OPENAI_API_KEY: z.string().min(1).optional(),
+  GOOGLE_AI_API_KEY: z.string().min(1).optional(),
+  AI_MODEL_FAST: z.string().min(1).optional(),
+  AI_MODEL_STRONG: z.string().min(1).optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicSchema>;
@@ -61,6 +68,12 @@ export function getServerEnv(): ServerEnv {
   const parsed = serverSchema.safeParse({
     SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY || undefined,
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || undefined,
+    AI_PROVIDER: process.env.AI_PROVIDER || undefined,
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || undefined,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY || undefined,
+    GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY || undefined,
+    AI_MODEL_FAST: process.env.AI_MODEL_FAST || undefined,
+    AI_MODEL_STRONG: process.env.AI_MODEL_STRONG || undefined,
   });
 
   if (!parsed.success) {
