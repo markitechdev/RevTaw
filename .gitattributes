@@ -1,0 +1,7 @@
+# Normalise line endings so Windows and Unix checkouts stay identical.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
