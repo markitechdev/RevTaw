@@ -75,6 +75,9 @@ export type MistakeType =
   | "misread_question"
   | "confused_concepts"
   | "unclassified";
+export type SessionStatus = "in_progress" | "completed" | "abandoned";
+export type SessionGoal = "memorize" | "understand" | "practice" | "exam_prep" | "quick_review" | "master_topic";
+export type FlashcardRating = "again" | "hard" | "good" | "easy";
 
 type ProfilesRow = {
   id: string;
@@ -281,6 +284,107 @@ type MistakesRow = {
   resolved_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type StudySessionsRow = {
+  id: string;
+  user_id: string;
+  material_id: string | null;
+  subject_id: string | null;
+  method: string;
+  goal: SessionGoal | null;
+  planned_minutes: number | null;
+  title: string;
+  status: SessionStatus;
+  state: Json;
+  summary: Json | null;
+  focus_seconds: number;
+  items_total: number;
+  items_correct: number;
+  items_incorrect: number;
+  quiz_attempt_id: string | null;
+  started_at: string;
+  last_active_at: string;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type StudySessionItemsRow = {
+  id: string;
+  user_id: string;
+  session_id: string;
+  position: number;
+  kind: "recall" | "feynman" | "mistake";
+  concept_id: string | null;
+  prompt: string;
+  model_answer: string | null;
+  key_points: Json;
+  source_excerpt: string | null;
+  source_mistake_id: string | null;
+  response: string | null;
+  analysis: Json | null;
+  is_correct: boolean | null;
+  score: number | null;
+  confidence: ConfidenceLevel | null;
+  response_ms: number | null;
+  attempts: number;
+  answered_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type FlashcardDecksRow = {
+  id: string;
+  user_id: string;
+  material_id: string;
+  title: string;
+  status: GenerationStatus;
+  status_detail: string | null;
+  provider: string | null;
+  model: string | null;
+  card_count: number;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type FlashcardsRow = {
+  id: string;
+  user_id: string;
+  deck_id: string;
+  position: number;
+  front: string;
+  back: string;
+  hint: string | null;
+  concept_id: string | null;
+  source_excerpt: string | null;
+  favorite: boolean;
+  suspended: boolean;
+  box: number;
+  ease: number;
+  interval_days: number;
+  repetitions: number;
+  lapses: number;
+  due_at: string;
+  last_reviewed_at: string | null;
+  last_rating: FlashcardRating | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type FlashcardReviewsRow = {
+  id: string;
+  user_id: string;
+  card_id: string;
+  session_id: string | null;
+  rating: FlashcardRating;
+  response_ms: number | null;
+  box_before: number | null;
+  box_after: number | null;
+  interval_days: number | null;
+  due_at: string | null;
+  reviewed_at: string;
 };
 
 /** Insert/Update variants: every column optional except what the DB requires. */
@@ -507,6 +611,118 @@ export type Database = {
           },
         ];
       };
+      study_sessions: {
+        Row: StudySessionsRow;
+        Insert: Writable<StudySessionsRow, "method" | "title">;
+        Update: Partial<StudySessionsRow>;
+        Relationships: [
+          {
+            foreignKeyName: "study_sessions_material_fk";
+            columns: ["material_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "study_sessions_subject_fk";
+            columns: ["subject_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "subjects";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "study_sessions_attempt_fk";
+            columns: ["quiz_attempt_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "quiz_attempts";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      study_session_items: {
+        Row: StudySessionItemsRow;
+        Insert: Writable<StudySessionItemsRow, "session_id" | "position" | "kind" | "prompt">;
+        Update: Partial<StudySessionItemsRow>;
+        Relationships: [
+          {
+            foreignKeyName: "study_session_items_session_fk";
+            columns: ["session_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "study_sessions";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "study_session_items_concept_fk";
+            columns: ["concept_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "concepts";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "study_session_items_mistake_fk";
+            columns: ["source_mistake_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "mistakes";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      flashcard_decks: {
+        Row: FlashcardDecksRow;
+        Insert: Writable<FlashcardDecksRow, "material_id" | "title">;
+        Update: Partial<FlashcardDecksRow>;
+        Relationships: [
+          {
+            foreignKeyName: "flashcard_decks_material_fk";
+            columns: ["material_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      flashcards: {
+        Row: FlashcardsRow;
+        Insert: Writable<FlashcardsRow, "deck_id" | "position" | "front" | "back">;
+        Update: Partial<FlashcardsRow>;
+        Relationships: [
+          {
+            foreignKeyName: "flashcards_deck_fk";
+            columns: ["deck_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "flashcard_decks";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "flashcards_concept_fk";
+            columns: ["concept_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "concepts";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      flashcard_reviews: {
+        Row: FlashcardReviewsRow;
+        Insert: Writable<FlashcardReviewsRow, "card_id" | "rating">;
+        Update: Partial<FlashcardReviewsRow>;
+        Relationships: [
+          {
+            foreignKeyName: "flashcard_reviews_card_fk";
+            columns: ["card_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "flashcards";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "flashcard_reviews_session_fk";
+            columns: ["session_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "study_sessions";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -524,6 +740,9 @@ export type Database = {
       attempt_status: AttemptStatus;
       confidence_level: ConfidenceLevel;
       mistake_type: MistakeType;
+      session_status: SessionStatus;
+      session_goal: SessionGoal;
+      flashcard_rating: FlashcardRating;
     };
     CompositeTypes: Record<string, never>;
   };
@@ -550,3 +769,8 @@ export type QuizQuestion = Tables<"quiz_questions">;
 export type QuizAttempt = Tables<"quiz_attempts">;
 export type QuizAnswer = Tables<"quiz_answers">;
 export type Mistake = Tables<"mistakes">;
+export type StudySession = Tables<"study_sessions">;
+export type StudySessionItem = Tables<"study_session_items">;
+export type FlashcardDeck = Tables<"flashcard_decks">;
+export type Flashcard = Tables<"flashcards">;
+export type FlashcardReview = Tables<"flashcard_reviews">;
