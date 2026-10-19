@@ -6,7 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
@@ -24,67 +24,69 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function readStoredTheme(): Theme {
-  if (typeof window === "undefined") return "system";
+/* ------------------------------------------------------------------ */
+/* A tiny external store over localStorage so React can subscribe to  */
+/* it with useSyncExternalStore (hydration-safe, no setState in effect) */
+/* ------------------------------------------------------------------ */
+const listeners = new Set<() => void>();
+
+function isTheme(v: unknown): v is Theme {
+  return v === "light" || v === "dark" || v === "system";
+}
+
+function getStoredTheme(): Theme {
   try {
     const v = window.localStorage.getItem(THEME_STORAGE_KEY);
-    return v === "light" || v === "dark" || v === "system" ? v : "system";
+    return isTheme(v) ? v : "system";
   } catch {
     return "system";
   }
 }
 
-function systemPrefersDark() {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches
-  );
+function subscribeTheme(cb: () => void) {
+  listeners.add(cb);
+  // Changes made in another tab arrive as storage events.
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === THEME_STORAGE_KEY) cb();
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    listeners.delete(cb);
+    window.removeEventListener("storage", onStorage);
+  };
 }
 
-function applyTheme(resolved: "light" | "dark") {
-  const root = document.documentElement;
-  root.classList.toggle("dark", resolved === "dark");
-  root.style.colorScheme = resolved;
+function subscribeSystem(cb: () => void) {
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
 }
 
-export function ThemeProvider({
-  children,
-  initialTheme,
-}: {
-  children: ReactNode;
-  /** Server-known preference (e.g. from the user's profile), if any. */
-  initialTheme?: Theme;
-}) {
-  const [theme, setThemeState] = useState<Theme>(initialTheme ?? "system");
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
+const getSystemDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-  // On mount, prefer what the user stored in this browser; fall back to the
-  // server-provided preference. The inline script in <head> already applied
-  // the right class before first paint, so this never causes a flash.
-  useEffect(() => {
-    const stored = initialTheme ?? readStoredTheme();
-    setThemeState(stored);
-  }, [initialTheme]);
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  // Server snapshot is always "system" / light; the inline <head> script has
+  // already applied the correct class before hydration, so there is no flash.
+  const theme = useSyncExternalStore(subscribeTheme, getStoredTheme, () => "system" as Theme);
+  const systemDark = useSyncExternalStore(subscribeSystem, getSystemDark, () => false);
 
+  const resolvedTheme: "light" | "dark" =
+    theme === "system" ? (systemDark ? "dark" : "light") : theme;
+
+  // Keep the DOM in sync. This effect only touches the DOM, never state.
   useEffect(() => {
-    const resolve = () => {
-      const r = theme === "system" ? (systemPrefersDark() ? "dark" : "light") : theme;
-      setResolvedTheme(r);
-      applyTheme(r);
-    };
-    resolve();
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    mq.addEventListener("change", resolve);
-    return () => mq.removeEventListener("change", resolve);
-  }, [theme]);
+    const root = document.documentElement;
+    root.classList.toggle("dark", resolvedTheme === "dark");
+    root.style.colorScheme = resolvedTheme;
+  }, [resolvedTheme]);
 
   const setTheme = useCallback((next: Theme) => {
-    setThemeState(next);
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, next);
     } catch {
-      /* storage unavailable (private mode) — in-memory only */
+      /* storage unavailable (private mode) — nothing to persist */
     }
+    listeners.forEach((l) => l());
   }, []);
 
   const value = useMemo(
