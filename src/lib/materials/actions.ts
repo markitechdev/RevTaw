@@ -21,6 +21,7 @@ import { fieldErrorsFrom } from "@/lib/validation/auth";
 import {
   createFileMaterialSchema,
   createTextMaterialSchema,
+  materialIdSchema,
   type CreateFileMaterialInput,
 } from "@/lib/validation/materials";
 
@@ -250,4 +251,18 @@ async function resolvePlacement(
   }
 
   return { subjectId: input.subjectId, folderId: input.folderId };
+}
+
+/** Records that the student opened a material (feeds "Recent materials"). */
+export async function markMaterialOpenedAction(materialId: string): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) return;
+  const parsed = materialIdSchema.safeParse({ materialId });
+  if (!parsed.success) return;
+
+  const supabase = await createClient();
+  await supabase
+    .from("materials")
+    .update({ last_opened_at: new Date().toISOString() })
+    .eq("id", parsed.data.materialId);
 }

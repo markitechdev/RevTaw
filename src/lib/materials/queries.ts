@@ -2,7 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
-import type { Folder, Material, Subject } from "@/lib/supabase/database.types";
+import type { Folder, Material, MaterialChunk, Subject } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 export type SubjectWithFolders = Pick<Subject, "id" | "name" | "color" | "archived_at"> & {
@@ -108,3 +108,45 @@ export const countMaterials = cache(async (): Promise<number> => {
 function escapeLike(value: string): string {
   return value.replace(/[%_\\]/g, (char) => `\\${char}`);
 }
+
+export type MaterialDetail = Material & {
+  subject: { id: string; name: string; color: string | null } | null;
+  folder: { id: string; name: string } | null;
+};
+
+export type MaterialChunkView = Pick<
+  MaterialChunk,
+  "id" | "position" | "heading" | "page_start" | "page_end" | "content" | "char_count"
+>;
+
+const MATERIAL_DETAIL_COLUMNS =
+  "*, subject:subjects!materials_subject_fk(id, name, color), folder:folders!materials_folder_fk(id, name)";
+
+/** One material with its organisation; null when it does not exist or is not the user's. */
+export const getMaterial = cache(async (materialId: string): Promise<MaterialDetail | null> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("materials")
+    .select(MATERIAL_DETAIL_COLUMNS)
+    .eq("id", materialId)
+    .maybeSingle();
+  if (error) {
+    console.error("materials: get failed", error.message);
+    return null;
+  }
+  return (data as unknown as MaterialDetail | null) ?? null;
+});
+
+export const getMaterialChunks = cache(async (materialId: string): Promise<MaterialChunkView[]> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("material_chunks")
+    .select("id, position, heading, page_start, page_end, content, char_count")
+    .eq("material_id", materialId)
+    .order("position");
+  if (error) {
+    console.error("material_chunks: list failed", error.message);
+    return [];
+  }
+  return data ?? [];
+});

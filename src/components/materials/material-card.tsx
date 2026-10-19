@@ -1,9 +1,11 @@
 import { FileImage, FileText, FileType, NotebookPen } from "lucide-react";
+import Link from "next/link";
 
 import { MaterialStatusBadge } from "@/components/materials/material-status";
 import { Card } from "@/components/ui/card";
 import { formatBytes, SOURCE_LABEL } from "@/lib/materials/constants";
 import type { MaterialListItem } from "@/lib/materials/queries";
+import { routes } from "@/lib/routes";
 import type { MaterialSource } from "@/lib/supabase/database.types";
 
 const SOURCE_ICON: Record<MaterialSource, typeof FileText> = {
@@ -43,7 +45,12 @@ export function MaterialCard({ material }: { material: MaterialListItem }) {
           <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="line-clamp-2 font-medium text-foreground">{material.title}</p>
+          <Link
+            href={`${routes.materials}/${material.id}`}
+            className="line-clamp-2 font-medium text-foreground hover:underline"
+          >
+            {material.title}
+          </Link>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             {material.subject ? material.subject.name : "No subject"}
             {material.folder ? ` · ${material.folder.name}` : ""}
