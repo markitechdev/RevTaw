@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 
 import { MaterialActions } from "@/components/materials/material-actions";
 import { MaterialContent } from "@/components/materials/material-content";
+import { HighlightToolbar } from "@/components/tutor/highlight-toolbar";
 import { MaterialOriginal } from "@/components/materials/material-original";
 import { MaterialOverview } from "@/components/materials/material-overview";
 import { MaterialStatusBadge } from "@/components/materials/material-status";
@@ -121,7 +122,10 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
         </div>
       ) : tab === "content" ? (
         <div className="max-w-3xl">
-          <MaterialContent chunks={chunks} />
+          <HighlightToolbar materialId={material.id}>
+            <p className="mb-4 text-xs text-muted-foreground">Select any sentence to ask the tutor about it — explain, simplify, example, quiz me, ask why.</p>
+            <MaterialContent chunks={chunks} />
+          </HighlightToolbar>
         </div>
       ) : (
         <MaterialOriginal material={material} />

@@ -7,6 +7,7 @@ import { formatRelativeDate } from "@/components/materials/material-card";
 import { ReviewerActions } from "@/components/reviewers/reviewer-actions";
 import { ReviewerSectionView } from "@/components/reviewers/reviewer-section";
 import { TrackReviewerOpen } from "@/components/reviewers/track-open";
+import { HighlightToolbar } from "@/components/tutor/highlight-toolbar";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
@@ -91,12 +92,20 @@ export default async function ReviewerPage({ params }: PageProps<"/notes/[id]">)
             </ol>
           </nav>
           <div className="flex min-w-0 max-w-3xl flex-col gap-4">
-            {reviewer.sections.map((section) => (
-              <ReviewerSectionView key={section.id} reviewerId={reviewer.id} section={section} />
-            ))}
+            {reviewer.material ? (
+              <HighlightToolbar materialId={reviewer.material.id}>
+                <div className="flex flex-col gap-4">
+                  {reviewer.sections.map((section) => (
+                    <ReviewerSectionView key={section.id} reviewerId={reviewer.id} section={section} />
+                  ))}
+                </div>
+              </HighlightToolbar>
+            ) : (
+              reviewer.sections.map((section) => <ReviewerSectionView key={section.id} reviewerId={reviewer.id} section={section} />)
+            )}
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <FileText className="h-3.5 w-3.5" aria-hidden="true" />
-              Generated only from your material. Facts outside it are not added.
+              Generated only from your material. Facts outside it are not added.{reviewer.material ? " Select any text to ask the tutor about it." : ""}
             </p>
           </div>
         </div>
