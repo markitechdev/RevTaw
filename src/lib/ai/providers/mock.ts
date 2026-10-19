@@ -52,6 +52,15 @@ export class MockProvider implements AiProvider {
       case "feynman_analyze":
         text = JSON.stringify(feynmanAnalysisHeuristically(userText));
         break;
+      case "tutor_reply": {
+        const previous = [...options.messages].reverse().find((message) => message.role === "assistant");
+        const previousText = previous ? (typeof previous.content === "string" ? previous.content : previous.content.map((part) => (part.type === "text" ? part.text : "")).join(" ")) : "";
+        text = JSON.stringify(tutorReplyHeuristically(rawMaterial, userText, options.system ?? "", previousText));
+        break;
+      }
+      case "tutor_evaluate":
+        text = JSON.stringify(tutorEvaluationHeuristically(userText));
+        break;
       case "ocr_image":
         text = "Mock transcription: the image was read by the mock provider. Configure a real AI provider to extract the actual text.";
         break;
@@ -618,5 +627,142 @@ export function feynmanAnalysisHeuristically(prompt: string) {
             ? "Write the explanation in your own words first — even a rough version gives us something to improve."
             : "The core idea is missing. Start from what the concept is for, then how it works.",
     improve_prompt: misses.length ? `Add how ${misses.slice(0, 2).join(" and ")} fit in, in one or two plain sentences.` : "Tighten the wording and add one concrete example from the material.",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// AI tutor
+// ---------------------------------------------------------------------------
+
+type MockPassage = { position: number; heading: string | null; pages: string | null; sentences: string[] };
+
+function parsePassages(material: string): MockPassage[] {
+  const passages: MockPassage[] = [];
+  let current: MockPassage | null = null;
+  for (const line of material.split("\n")) {
+    const label = line.match(/^\[Section (\d+)(?::\s*([^,\]]+))?(?:,\s*pages?\s([^\]]+))?\]$/);
+    if (label) {
+      current = { position: Number(label[1]), heading: label[2]?.trim() ?? null, pages: label[3]?.trim() ?? null, sentences: [] };
+      passages.push(current);
+      continue;
+    }
+    if (!line.trim()) continue;
+    if (!current) {
+      current = { position: 0, heading: null, pages: null, sentences: [] };
+      passages.push(current);
+    }
+    if (isHeadingLike(line.trim())) continue;
+    current.sentences.push(...sentencesOf(line));
+  }
+  return passages;
+}
+
+/** Deterministic tutor: finds the sentences that share keywords with the question and answers from them. */
+export function tutorReplyHeuristically(material: string, prompt: string, system: string, previousAnswer = "") {
+  const message = prompt.match(/^Student message:\s*(.+)$/m)?.[1]?.trim() ?? "";
+  const selection = prompt.match(/Highlighted text the student selected:\n"""\n([\s\S]*?)\n"""/)?.[1]?.trim() ?? "";
+  const action = prompt.match(/^Requested action:\s*([^—\n]+)/m)?.[1]?.trim().toLowerCase() ?? "";
+  const noMaterial = /no material selected/.test(prompt) || /\(none\)/.test(material.trim()) || material.trim().length === 0;
+  const mode = /Socratic mode/.test(system) ? "socratic" : /Guided mode/.test(system) ? "guided" : /Elaborative interrogation mode/.test(system) ? "elaborative" : /Self-explanation mode/.test(system) ? "self_explanation" : "tutor";
+
+  const passages = noMaterial ? [] : parsePassages(material);
+  // Follow-ups ("Simplify this.") carry no topic words of their own; fall back to the previous answer's keywords.
+  const ownTerms = keywordsOf(`${selection} ${message}`).filter((word) => !/^(explain|simplify|summarize|example|analogy|step|quiz|guide|material|answer|wrong|more|like|beginner|mnemonic|compare|related|ideas|give|keep|asking|until|reason|clear|true|without|giving|this)$/.test(word));
+  const terms = new Set(ownTerms.length ? ownTerms : keywordsOf(previousAnswer));
+  const scored = passages
+    .flatMap((passage) => passage.sentences.map((sentence) => ({ passage, sentence, score: keywordsOf(sentence).filter((word) => terms.has(word)).length })))
+    .filter((entry) => entry.score > 0 || (selection && entry.sentence.includes(selection.slice(0, 40))))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+  const best = scored[0];
+  const flashcard = best ? { front: `What does the material say about ${keywordsOf(best.sentence)[0] ?? "this"}?`, back: best.sentence } : null;
+  const sources = scored.map((entry) => ({ position: entry.passage.position, heading: entry.passage.heading, pages: entry.passage.pages, quote: entry.sentence.slice(0, 200) }));
+
+  if (mode === "socratic" || mode === "guided" || mode === "elaborative" || mode === "self_explanation") {
+    const topic = best ? keywordsOf(best.sentence)[0] ?? "this idea" : "this idea";
+    const question =
+      mode === "socratic"
+        ? `What makes you think that? Which part of the material supports your view of ${topic}, and is there another explanation?`
+        : mode === "elaborative"
+          ? `Why is that true? What causes ${topic} to work the way the material describes?`
+          : mode === "self_explanation"
+            ? `Look at this step: "${best?.sentence ?? "the first step of the process"}". Why does this step work, and what should happen next?`
+            : `Here is a hint instead of the answer: look for where the material mentions ${topic}. What do you think the key idea is?`;
+    return {
+      answer: `${/^Start this/.test(message) ? "Let's begin. " : "Good — let's reason through it together. "}${question}`,
+      grounding: best ? "material" : "general",
+      sources,
+      additional_explanation: null,
+      follow_ups: ["explain_more", "example"],
+      flashcard: null,
+    };
+  }
+
+  if (/quiz/.test(action)) {
+    return {
+      answer: best ? `Quick check: based on the material, what is stated about ${keywordsOf(best.sentence).slice(0, 2).join(" ")}? Answer in one or two sentences and I will check it.` : "What would you like to be quizzed on? Pick a section of the material first.",
+      grounding: best ? "material" : "not_found",
+      sources,
+      additional_explanation: null,
+      follow_ups: ["explain_more", "simplify"],
+      flashcard: null,
+    };
+  }
+
+  if (!best) {
+    return {
+      answer: noMaterial
+        ? `Here is a general explanation of "${message.slice(0, 80)}": the mock tutor cannot look anything up, so configure a real AI provider for full answers.`
+        : "I couldn't verify this from your uploaded material. The passages I have do not mention it — try rephrasing, or ask about a section you can see in the Content tab.",
+      grounding: noMaterial ? "general" : "not_found",
+      sources: [],
+      additional_explanation: noMaterial ? "This answer comes from general knowledge, not from an uploaded material." : null,
+      follow_ups: ["simplify", "example"],
+      flashcard: null,
+    };
+  }
+
+  const lead =
+    /simplify|beginner/.test(action)
+      ? `In simple words: ${best.sentence}`
+      : /example/.test(action)
+        ? `Example from the material: ${best.sentence}`
+        : /analogy/.test(action)
+          ? `**Analogy:** think of it like a kitchen recipe — ingredients go in, a product comes out.\n\n**Actual definition:** ${best.sentence}`
+          : /step/.test(action)
+            ? scored.map((entry, index) => `${index + 1}. ${entry.sentence}`).join("\n")
+            : /summar/.test(action)
+              ? scored.map((entry) => `- ${entry.sentence}`).join("\n")
+              : /mnemonic/.test(action)
+                ? `Mnemonic: **${keywordsOf(best.sentence).slice(0, 3).map((word) => word[0].toUpperCase()).join("")}** — ${keywordsOf(best.sentence).slice(0, 3).join(", ")}.\n\nFrom the material: ${best.sentence}`
+                : /compare/.test(action)
+                  ? scored.length > 1
+                    ? `Compared side by side:\n- ${scored[0].sentence}\n- ${scored[1].sentence}`
+                    : `The material only covers one side here: ${best.sentence}`
+                  : /why/.test(action)
+                    ? `According to the material: ${best.sentence}\n\nNow you: why do you think that is the case?`
+                    : best.sentence;
+  return {
+    answer: lead,
+    grounding: "material",
+    sources,
+    additional_explanation: /analogy/.test(action) ? "The analogy is a general illustration, not part of your material." : null,
+    follow_ups: ["explain_more", "example", "simplify", "test_me"],
+    flashcard,
+  };
+}
+
+/** Deterministic coach evaluation: counts substantive student turns. */
+export function tutorEvaluationHeuristically(prompt: string) {
+  const turns = [...prompt.matchAll(/^Student:\s*([\s\S]*?)(?=\n\n(?:Student|Tutor):|$)/gm)].map((match) => match[1].trim()).filter((turn) => turn && turn !== "(no messages)");
+  const substantive = turns.filter((turn) => keywordsOf(turn).length >= 3);
+  const score = turns.length === 0 ? 0 : Math.min(100, Math.round((substantive.length / turns.length) * 70 + Math.min(30, turns.length * 10)));
+  const concepts = [...new Set(turns.flatMap((turn) => keywordsOf(turn).slice(0, 2)))].slice(0, 6);
+  return {
+    score,
+    strengths: substantive.length ? [`Gave ${substantive.length} reasoned answer${substantive.length === 1 ? "" : "s"} in your own words.`] : [],
+    missing_concepts: substantive.length < turns.length ? ["Some replies were too short to show reasoning."] : [],
+    suggestion: score >= 70 ? "Strong reasoning — try a practice test on this material next." : "Answer each question with a reason, not just a word; the tutor can only help with what you explain.",
+    concepts_covered: concepts,
   };
 }

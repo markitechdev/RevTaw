@@ -1,0 +1,51 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+
+import { getClientAddress, rateLimit } from "@/lib/rate-limit";
+import { getCurrentUser } from "@/lib/supabase/server";
+import { sendMessage, ServiceError } from "@/lib/tutor/service";
+import { TUTOR_ACTION_IDS } from "@/lib/tutor/types";
+
+export const maxDuration = 120;
+export const runtime = "nodejs";
+
+const paramsSchema = z.object({ id: z.uuid() });
+const bodySchema = z.object({
+  message: z.string().trim().max(6000).default(""),
+  action: z.enum(TUTOR_ACTION_IDS).nullable().default(null),
+  selection: z.string().trim().max(4000).nullable().default(null),
+});
+
+/** Sends a student message and returns the tutor's grounded reply. */
+export async function POST(request: Request, context: RouteContext<"/api/tutor/conversations/[id]/messages">) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
+  }
+  const params = paramsSchema.safeParse(await context.params);
+  if (!params.success) {
+    return NextResponse.json({ error: "Invalid conversation id." }, { status: 400 });
+  }
+  const body = bodySchema.safeParse(await request.json().catch(() => null));
+  if (!body.success) {
+    return NextResponse.json({ error: "Type a question or pick an action." }, { status: 400 });
+  }
+  if (!body.data.message && !body.data.action) {
+    return NextResponse.json({ error: "Type a question or pick an action." }, { status: 400 });
+  }
+  const ip = await getClientAddress();
+  const limit = rateLimit(`tutor:${user.id}:${ip}`, 120, 60 * 60_000);
+  if (!limit.ok) {
+    return NextResponse.json({ error: "You have sent a lot of messages. Please wait a little." }, { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } });
+  }
+  try {
+    const result = await sendMessage({ conversationId: params.data.id, content: body.data.message, action: body.data.action, selection: body.data.selection });
+    return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
+  } catch (error) {
+    if (error instanceof ServiceError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("tutor: send message failed", error);
+    return NextResponse.json({ error: "The tutor could not reply. Please try again." }, { status: 500 });
+  }
+}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { NewDeckButton } from "@/components/flashcards/new-deck-dialog";
 import { NewQuizButton } from "@/components/quizzes/new-quiz-dialog";
 import { GenerateReviewerButton } from "@/components/reviewers/generate-reviewer-dialog";
+import { NewConversationButton } from "@/components/tutor/new-conversation-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { DeckListItem } from "@/lib/flashcards/queries";
@@ -44,6 +45,9 @@ export function StudyTools({
           <GenerateReviewerButton materialId={materialId} disabled={!ready} size="sm" />
           <NewQuizButton materialId={materialId} disabled={!ready} size="sm" variant="secondary" />
           <NewDeckButton materialId={materialId} disabled={!ready} size="sm" variant="secondary" />
+          <NewConversationButton materialId={materialId} disabled={!ready} size="sm" variant="secondary">
+            Ask the tutor
+          </NewConversationButton>
         </div>
 
         {reviewers.length > 0 && (
