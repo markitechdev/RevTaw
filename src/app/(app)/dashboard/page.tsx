@@ -5,8 +5,11 @@ import {
   Flame,
   FolderOpen,
   Layers,
+  ListChecks,
+  NotebookPen,
   Sparkles,
   Target,
+  TrendingDown,
   TrendingUp,
   Upload,
 } from "lucide-react";
@@ -25,6 +28,8 @@ import { SOURCE_LABEL } from "@/lib/materials/constants";
 import { countMaterials, listRecentMaterials } from "@/lib/materials/queries";
 import { formatSessionMinutes, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
+import { countOpenMistakes, getConceptPerformance, listRecentAttempts } from "@/lib/quizzes/queries";
+import { QUIZ_MODE_LABEL } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = {
@@ -48,8 +53,16 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const { user, profile } = await getCurrentUserWithProfile();
   if (!user) redirect(routes.login);
 
-  const [materialCount, recentMaterials] = await Promise.all([countMaterials(), listRecentMaterials(5)]);
+  const [materialCount, recentMaterials, concepts, recentAttempts, openMistakes] = await Promise.all([
+    countMaterials(),
+    listRecentMaterials(5),
+    getConceptPerformance(),
+    listRecentAttempts(4),
+    countOpenMistakes(),
+  ]);
   const lastOpened = recentMaterials.find((material) => material.last_opened_at) ?? recentMaterials[0];
+  const weakConcepts = concepts.filter((concept) => concept.accuracy < 0.6).sort((a, b) => a.accuracy - b.accuracy || b.total - a.total).slice(0, 6);
+  const strongConcepts = concepts.filter((concept) => concept.accuracy >= 0.8 && concept.total >= 2).sort((a, b) => b.accuracy - a.accuracy || b.total - a.total).slice(0, 6);
 
   const notice = typeof params.notice === "string" ? NOTICES[params.notice] : undefined;
   const firstName = profile?.display_name?.split(" ")[0];
@@ -121,11 +134,25 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
                 Upload one material and take a short quiz on it. After that, RevTaw can tell you which
                 concepts need work and suggest a study method instead of guessing.
               </p>
+            ) : weakConcepts.length > 0 ? (
+              <p>
+                You missed questions on{" "}
+                <span className="font-medium text-foreground">{weakConcepts.slice(0, 3).map((concept) => concept.name).join(", ")}</span>.
+                Re-read those sections, work through the{" "}
+                <Link href={`${routes.quiz}/mistakes`} className="font-medium text-primary hover:underline">
+                  {openMistakes} open {openMistakes === 1 ? "mistake" : "mistakes"}
+                </Link>
+                , then retake the quiz to confirm the fix.
+              </p>
+            ) : recentAttempts.length > 0 ? (
+              <p>
+                Your recent quizzes look solid. Generate a harder quiz or an exam simulation from the same material to
+                check that the concepts hold under pressure, and keep the reviewer handy for a quick re-read.
+              </p>
             ) : (
               <p>
-                Open a material&apos;s overview to see its recommended study methods. Quizzes and
-                guided sessions built from your materials arrive in the next phases, and that is when
-                RevTaw starts tracking what you get wrong.
+                Open a material&apos;s overview and take a short quiz from it. That is when RevTaw starts
+                tracking what you get wrong and can recommend what to study next instead of guessing.
               </p>
             )}
           </CardContent>
@@ -217,34 +244,115 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Weak topics</CardTitle>
             <CardDescription>Concepts that need attention.</CardDescription>
           </CardHeader>
           <CardContent>
-            <EmptyState
-              compact
-              icon={TrendingUp}
-              title="Not enough data yet"
-              description="RevTaw tracks mistakes at the concept level, so a couple of quizzes are enough to see patterns."
-            />
+            {weakConcepts.length === 0 ? (
+              <EmptyState
+                compact
+                icon={TrendingDown}
+                title={concepts.length === 0 ? "Not enough data yet" : "No weak topics right now"}
+                description={
+                  concepts.length === 0
+                    ? "RevTaw tracks mistakes at the concept level, so a couple of quizzes are enough to see patterns."
+                    : "Every concept you have been quizzed on is above 60% accuracy."
+                }
+              />
+            ) : (
+              <ul className="flex flex-col divide-y divide-border">
+                {weakConcepts.map((concept) => (
+                  <li key={concept.id} className="flex items-center justify-between gap-3 py-2 text-sm first:pt-0 last:pb-0">
+                    <span className="truncate">{concept.name}</span>
+                    <span className="shrink-0 tabular-nums text-danger">
+                      {concept.correct}/{concept.total}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
             <CardTitle>Strong topics</CardTitle>
-            <CardDescription>High-mastery concepts.</CardDescription>
+            <CardDescription>High-accuracy concepts.</CardDescription>
           </CardHeader>
           <CardContent>
-            <EmptyState
-              compact
-              icon={TrendingUp}
-              title="Nothing mastered yet"
-              description="Topics move here once you answer their questions correctly across several sessions."
-            />
+            {strongConcepts.length === 0 ? (
+              <EmptyState
+                compact
+                icon={TrendingUp}
+                title="Nothing mastered yet"
+                description="Topics move here once you answer their questions correctly more than once."
+              />
+            ) : (
+              <ul className="flex flex-col divide-y divide-border">
+                {strongConcepts.map((concept) => (
+                  <li key={concept.id} className="flex items-center justify-between gap-3 py-2 text-sm first:pt-0 last:pb-0">
+                    <span className="truncate">{concept.name}</span>
+                    <span className="shrink-0 tabular-nums text-success">
+                      {concept.correct}/{concept.total}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent quizzes</CardTitle>
+            <CardDescription>
+              {openMistakes > 0 ? (
+                <Link href={`${routes.quiz}/mistakes`} className="hover:underline">
+                  <NotebookPen className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
+                  {openMistakes} {openMistakes === 1 ? "mistake" : "mistakes"} to review
+                </Link>
+              ) : (
+                "Latest scores."
+              )}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {recentAttempts.length === 0 ? (
+              <EmptyState
+                compact
+                icon={ListChecks}
+                title="No quizzes taken yet"
+                description="Generate one from a material to start tracking concepts."
+                action={
+                  <Link href={routes.quiz} className={buttonClasses({ variant: "secondary", size: "sm" })}>
+                    Open Quiz
+                  </Link>
+                }
+              />
+            ) : (
+              <ul className="flex flex-col divide-y divide-border">
+                {recentAttempts.map((attempt) => {
+                  const percent = attempt.max_score ? Math.round(((attempt.score ?? 0) / attempt.max_score) * 100) : 0;
+                  return (
+                    <li key={attempt.id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
+                      <div className="min-w-0">
+                        <Link href={`${routes.quiz}/${attempt.quiz_id}/attempt/${attempt.id}`} className="block truncate text-sm font-medium hover:underline">
+                          {attempt.quiz?.title ?? "Quiz"}
+                        </Link>
+                        <p className="text-xs text-muted-foreground">
+                          {QUIZ_MODE_LABEL[attempt.mode]} · {attempt.correct_count ?? 0}/{attempt.question_count} correct
+                          {attempt.submitted_at ? ` · ${formatRelativeDate(attempt.submitted_at)}` : ""}
+                        </p>
+                      </div>
+                      <span className={`shrink-0 text-sm font-semibold tabular-nums ${percent >= 80 ? "text-success" : percent >= 60 ? "text-warning" : "text-danger"}`}>{percent}%</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </CardContent>
         </Card>
       </div>
