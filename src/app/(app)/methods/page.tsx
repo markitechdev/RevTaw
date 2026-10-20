@@ -43,7 +43,7 @@ export default function MethodsPage() {
 
       <section aria-labelledby="available-heading" className="flex flex-col gap-3">
         <h2 id="available-heading" className="text-lg font-semibold">
-          Available now
+          {upcoming.length > 0 ? "Available now" : `All ${available.length} methods`}
         </h2>
         <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {available.map((method) => {
@@ -92,26 +92,28 @@ export default function MethodsPage() {
         </ul>
       </section>
 
-      <section aria-labelledby="upcoming-heading" className="flex flex-col gap-3">
-        <h2 id="upcoming-heading" className="text-lg font-semibold">
-          Coming in later phases
-        </h2>
-        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {upcoming.map((method) => {
-            const behaviour = METHOD_BEHAVIOUR[method.id];
-            return (
-              <li key={method.id} className="rounded-xl border border-dashed border-border p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-medium">{method.name}</h3>
-                  <Badge tone="neutral">{behaviour.availableIn}</Badge>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">{method.summary}</p>
-                <p className="mt-1 text-xs text-muted-foreground">Best for: {behaviour.bestUseCases}</p>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+      {upcoming.length > 0 && (
+        <section aria-labelledby="upcoming-heading" className="flex flex-col gap-3">
+          <h2 id="upcoming-heading" className="text-lg font-semibold">
+            Coming in later phases
+          </h2>
+          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {upcoming.map((method) => {
+              const behaviour = METHOD_BEHAVIOUR[method.id];
+              return (
+                <li key={method.id} className="rounded-xl border border-dashed border-border p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-medium">{method.name}</h3>
+                    <Badge tone="neutral">{behaviour.availableIn}</Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">{method.summary}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Best for: {behaviour.bestUseCases}</p>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }
