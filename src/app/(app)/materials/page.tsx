@@ -54,7 +54,7 @@ export default async function MaterialsPage({ searchParams }: PageProps<"/materi
       <PageHeader
         title="Materials"
         description="Everything you upload stays private to your account. RevTaw reads each file, finds its topics and gets it ready for reviewers, quizzes and study sessions."
-        actions={<UploadButton subjects={subjects} initialSubjectId={subjectId} />}
+        actions={<UploadButton subjects={subjects} initialSubjectId={subjectId} defaultOpen={params.upload === "1"} />}
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[14rem_1fr]">

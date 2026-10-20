@@ -7,19 +7,35 @@ import { UploadDialog } from "@/components/materials/upload-dialog";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import type { SubjectWithFolders } from "@/lib/materials/queries";
 
-/** Opens the add-material dialog; used in the toolbar and in empty states. */
+/**
+ * Opens the add-material dialog; used in the toolbar and in empty states.
+ * `defaultOpen` opens it on arrival (links such as /materials?upload=1 from
+ * the dashboard and the command menu); closing it drops the parameter so a
+ * reload does not reopen it.
+ */
 export function UploadButton({
   subjects,
   initialSubjectId,
+  defaultOpen = false,
   children = "Upload material",
   ...props
 }: Omit<ButtonProps, "onClick" | "type"> & {
   subjects: SubjectWithFolders[];
   initialSubjectId?: string | null;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   // Remount the dialog on every open so a previous upload's form state is gone.
-  const [session, setSession] = useState(0);
+  const [session, setSession] = useState(defaultOpen ? 1 : 0);
+
+  const close = () => {
+    setOpen(false);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("upload")) {
+      url.searchParams.delete("upload");
+      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+  };
 
   return (
     <>
@@ -37,7 +53,7 @@ export function UploadButton({
       <UploadDialog
         key={session}
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={close}
         subjects={subjects}
         initialSubjectId={initialSubjectId}
       />

@@ -104,6 +104,8 @@ export type ActivityStats = {
   streakDays: number;
   focusSecondsToday: number;
   focusSecondsWeek: number;
+  /** Focus seconds for each of the last seven days, oldest first, ending today. */
+  focusByDay: Array<{ date: string; seconds: number }>;
   sessionsCompleted: number;
   activeDates: string[];
 };
@@ -131,6 +133,10 @@ export const getActivityStats = cache(async (): Promise<ActivityStats> => {
   const todayKey = dayKey(now.toISOString());
   const weekStart = addDays(todayKey, -6);
   const days = new Set<string>();
+  const byDay = new Map<string, number>();
+  const addFocus = (key: string, seconds: number) => {
+    if (key >= weekStart) byDay.set(key, (byDay.get(key) ?? 0) + seconds);
+  };
   let focusToday = 0;
   let focusWeek = 0;
   let completed = 0;
@@ -141,6 +147,7 @@ export const getActivityStats = cache(async (): Promise<ActivityStats> => {
     if (session.status === "completed") completed += 1;
     if (key === todayKey) focusToday += session.focus_seconds;
     if (key >= weekStart) focusWeek += session.focus_seconds;
+    addFocus(key, session.focus_seconds);
   }
   for (const attempt of attempts ?? []) {
     if (!attempt.submitted_at) continue;
@@ -152,6 +159,7 @@ export const getActivityStats = cache(async (): Promise<ActivityStats> => {
     );
     if (key === todayKey) focusToday += seconds;
     if (key >= weekStart) focusWeek += seconds;
+    addFocus(key, seconds);
   }
   for (const review of reviews ?? []) days.add(dayKey(review.reviewed_at));
 
@@ -164,5 +172,9 @@ export const getActivityStats = cache(async (): Promise<ActivityStats> => {
     cursor = addDays(cursor, -1);
   }
 
-  return { streakDays: streak, focusSecondsToday: focusToday, focusSecondsWeek: focusWeek, sessionsCompleted: completed, activeDates: [...days].sort() };
+  const focusByDay = Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(weekStart, index);
+    return { date, seconds: byDay.get(date) ?? 0 };
+  });
+  return { streakDays: streak, focusSecondsToday: focusToday, focusSecondsWeek: focusWeek, focusByDay, sessionsCompleted: completed, activeDates: [...days].sort() };
 });
