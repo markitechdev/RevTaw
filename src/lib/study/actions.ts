@@ -9,6 +9,7 @@ import { isAiError } from "@/lib/ai";
 import { routes } from "@/lib/routes";
 import { compareBlurtItem, evaluateQuestionItem, type BlurtResult, type EvaluatedQuestion } from "@/lib/study/advanced";
 import { BUILDER_METHOD_IDS } from "@/lib/study/catalog";
+import { deleteRoutine, saveRoutine, startRoutine, type RoutineFormInput } from "@/lib/study/routines";
 import {
   analyzeFeynmanItem,
   answerRecallItem,
@@ -87,6 +88,46 @@ export async function answerRecallAction(input: { itemId: string; response: stri
     return { ok: true, data: result };
   } catch (error) {
     return failure(error, "Your answer could not be checked. Please try again.");
+  }
+}
+
+export async function saveRoutineAction(input: RoutineFormInput, routineId: string | null): Promise<StudyActionResult<{ routineId: string }>> {
+  const user = await getCurrentUser();
+  if (!user) redirect(routes.login);
+  if (routineId && !uuid.safeParse(routineId).success) return { ok: false, message: "Invalid routine." };
+  try {
+    const data = await saveRoutine(input, routineId);
+    revalidate();
+    return { ok: true, data };
+  } catch (error) {
+    return failure(error, "The routine could not be saved.");
+  }
+}
+
+export async function deleteRoutineAction(routineId: string): Promise<StudyActionResult> {
+  const user = await getCurrentUser();
+  if (!user) redirect(routes.login);
+  if (!uuid.safeParse(routineId).success) return { ok: false, message: "Invalid routine." };
+  try {
+    await deleteRoutine(routineId);
+    revalidate();
+    return { ok: true };
+  } catch (error) {
+    return failure(error, "The routine could not be deleted.");
+  }
+}
+
+export async function startRoutineAction(input: { routineId: string; materialId: string | null }): Promise<StudyActionResult<{ redirect: string }>> {
+  const user = await getCurrentUser();
+  if (!user) redirect(routes.login);
+  const parsed = z.object({ routineId: uuid, materialId: uuid.nullable() }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Invalid routine." };
+  try {
+    const { sessionId } = await startRoutine(user.id, parsed.data.routineId, { materialId: parsed.data.materialId, goal: null });
+    revalidate(sessionId);
+    return { ok: true, data: { redirect: `${routes.study}/${sessionId}` } };
+  } catch (error) {
+    return failure(error, "The routine could not be started.");
   }
 }
 
@@ -204,7 +245,7 @@ export async function startSmartBlockAction(input: { sessionId: string; key: str
     }
     const result = await startSession(user.id, {
       method: block.method,
-      materialId: plan.materialId,
+      materialId: block.materialId ?? plan.materialId,
       goal: session.goal,
       plannedMinutes: block.minutes,
       questionCount: block.questionCount,

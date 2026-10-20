@@ -19,7 +19,7 @@ import type { SessionSummary } from "@/lib/study/sessions";
 import { cn } from "@/lib/utils";
 
 /** The smart session plan: blocks with their reasons, run one at a time, then one combined summary. */
-export function SmartSessionView({ session, view }: { session: SessionDetail; view: SmartView }) {
+export function SmartSessionView({ session, view, methodName: displayName = "Smart Study", routine = false }: { session: SessionDetail; view: SmartView; methodName?: string; routine?: boolean }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -71,7 +71,7 @@ export function SmartSessionView({ session, view }: { session: SessionDetail; vi
     const blocksDone = (summary.extra as { blocksDone?: number } | undefined)?.blocksDone ?? 0;
     return (
       <SessionSummaryCard
-        title={blocksDone === 0 ? "Smart Study stopped early" : "Smart Study complete"}
+        title={blocksDone === 0 ? `${displayName} stopped early` : `${displayName} complete`}
         summary={summary}
         extraStats={[{ label: "Blocks done", value: `${blocksDone}/${view.blocks.length}` }]}
         actions={
@@ -90,7 +90,7 @@ export function SmartSessionView({ session, view }: { session: SessionDetail; vi
     <div className="flex flex-col gap-4">
       <SessionHeader
         title={session.title}
-        methodName="Smart Study"
+        methodName={displayName}
         startedAt={session.started_at}
         plannedMinutes={session.planned_minutes}
         progressLabel={`${done} of ${view.blocks.length} blocks`}
@@ -104,7 +104,10 @@ export function SmartSessionView({ session, view }: { session: SessionDetail; vi
         <p className="flex items-start gap-2">
           <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
           <span>
-            RevTaw planned {view.blocks.length} block{view.blocks.length === 1 ? "" : "s"} for your {session.planned_minutes} minutes from your mastery, mistakes and due reviews. Run them in order — each one is a normal session with its own summary, and this page keeps the plan.
+            {routine
+              ? `Your routine has ${view.blocks.length} block${view.blocks.length === 1 ? "" : "s"} (${session.planned_minutes} minutes).`
+              : `RevTaw planned ${view.blocks.length} block${view.blocks.length === 1 ? "" : "s"} for your ${session.planned_minutes} minutes from your mastery, mistakes and due reviews.`}{" "}
+            Run them in order — each one is a normal session with its own summary, and this page keeps the plan.
           </span>
         </p>
       </div>

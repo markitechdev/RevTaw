@@ -629,7 +629,7 @@ export async function completePomodoro(sessionId: string, focusSeconds: number, 
   });
 }
 
-/** Closes the practice-test blocks of a smart session whose attempt has been submitted. */
+/** Closes the practice-test blocks of a smart session or routine whose attempt has been submitted. */
 export async function syncPlanChildren(parentId: string): Promise<void> {
   const supabase = await createClient();
   const { data: children } = await supabase

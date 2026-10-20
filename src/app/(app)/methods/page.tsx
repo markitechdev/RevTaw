@@ -18,6 +18,7 @@ function startHref(id: string): string | null {
   if (id === "flashcards") return routes.flashcards;
   if (id === "spaced_repetition") return `${routes.flashcards}/review`;
   if (id === "cornell_notes") return routes.notes;
+  if (id === "custom_routine") return `${routes.study}#routines`;
   if (isBuilderMethod(id)) return `${routes.study}?method=${id}`;
   return null;
 }

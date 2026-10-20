@@ -278,7 +278,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 45,
     goals: ["memorize", "understand", "practice", "exam_prep", "quick_review", "master_topic"],
     requiresMaterial: false,
-    availableIn: "Phase 8",
+    availableIn: "now",
     behaviour: "Save an ordered combination of methods and minutes (e.g. 25-minute Pomodoro, 10 recall prompts, 10 flashcards, mistake review) and run it as one session with a combined summary.",
   },
   sq3r: {

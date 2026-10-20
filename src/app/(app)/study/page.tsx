@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { formatRelativeDate } from "@/components/materials/material-card";
+import { RoutinesCard } from "@/components/study/routines";
 import { SessionBuilder } from "@/components/study/session-builder";
 import { formatSeconds } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,7 @@ import { countOpenMistakes } from "@/lib/quizzes/queries";
 import { routes } from "@/lib/routes";
 import { methodName } from "@/lib/study/catalog";
 import { getActivityStats, listSessions } from "@/lib/study/queries";
+import { listRoutines } from "@/lib/study/routines";
 
 export const metadata: Metadata = {
   title: "Study",
@@ -27,7 +29,7 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
   const params = await searchParams;
   const { user, profile } = await getCurrentUserWithProfile();
   if (!user) redirect(routes.login);
-  const [materials, sessions, openMistakes, dueCards, activity] = await Promise.all([listMaterials(), listSessions({ limit: 20 }), countOpenMistakes(), countDueCards(), getActivityStats()]);
+  const [materials, sessions, openMistakes, dueCards, activity, routines] = await Promise.all([listMaterials(), listSessions({ limit: 20 }), countOpenMistakes(), countDueCards(), getActivityStats(), listRoutines()]);
   const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title, subject: material.subject?.name ?? null }));
   const inProgress = sessions.filter((session) => session.status === "in_progress");
   const finished = sessions.filter((session) => session.status !== "in_progress");
@@ -95,6 +97,7 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
           />
         </div>
         <div className="flex flex-col gap-4">
+          <RoutinesCard routines={routines.map((routine) => ({ id: routine.id, title: routine.title, description: routine.description, blocks: routine.blocks, totalMinutes: routine.totalMinutes, last_used_at: routine.last_used_at }))} materials={readyMaterials.map((material) => ({ id: material.id, title: material.title }))} />
           <Card>
             <CardHeader>
               <CardTitle>This week</CardTitle>

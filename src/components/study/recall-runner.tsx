@@ -49,7 +49,7 @@ function formatPlaceholder(format: string | null): string {
  * student writes theirs; the comparison then shows what was right, missing
  * and wrong. Progress is saved per item, so a refresh resumes.
  */
-export function RecallRunner({ session, methodName, parentSessionId = null }: { session: SessionDetail; methodName: string; parentSessionId?: string | null }) {
+export function RecallRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: { session: SessionDetail; methodName: string; parentSessionId?: string | null; parentLabel?: string }) {
   const router = useRouter();
   const items = session.items;
   const [index, setIndex] = useState(() => {
@@ -133,7 +133,7 @@ export function RecallRunner({ session, methodName, parentSessionId = null }: { 
             <>
               {parentSessionId && (
                 <Link href={`${routes.study}/${parentSessionId}`} className={buttonClasses({ size: "sm" })}>
-                  Back to smart session
+                  {parentLabel}
                 </Link>
               )}
               <Link href={routes.study} className={buttonClasses({ size: "sm", variant: parentSessionId ? "secondary" : "primary" })}>

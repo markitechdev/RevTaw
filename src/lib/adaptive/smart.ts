@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { getMasterySummary } from "@/lib/adaptive/engine";
 import { countDueCards } from "@/lib/flashcards/queries";
+import { BUILDER_METHOD_IDS } from "@/lib/study/catalog";
 import { completeSession, createSession, loadSession, SessionError, updateSessionState, type SessionSummary, parseSessionSummary } from "@/lib/study/sessions";
 import type { Json, SessionGoal } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -17,13 +18,15 @@ import { createClient } from "@/lib/supabase/server";
 
 export const smartBlockSchema = z.object({
   key: z.string(),
-  method: z.enum(["error_review", "active_recall", "feynman", "spaced_repetition", "practice_testing", "pomodoro"]),
+  method: z.enum(BUILDER_METHOD_IDS),
   minutes: z.number().int().min(1).max(240),
   reason: z.string().max(400),
   concepts: z.array(z.string().max(120)).max(8),
   status: z.enum(["pending", "in_progress", "done", "skipped"]).default("pending"),
   childSessionId: z.string().nullable().default(null),
   questionCount: z.number().int().min(3).max(50).optional(),
+  /** Custom routines: a block can target its own material. */
+  materialId: z.string().nullable().optional(),
 });
 
 export type SmartBlock = z.infer<typeof smartBlockSchema>;

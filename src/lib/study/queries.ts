@@ -51,6 +51,13 @@ export type SessionDetail = StudySession & {
   parsedSummary: SessionSummary | null;
 };
 
+/** Just the method of a session (for labels such as "Back to routine"). */
+export async function getSessionMethod(sessionId: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("study_sessions").select("method").eq("id", sessionId).maybeSingle();
+  return data?.method ?? null;
+}
+
 export const getSession = cache(async (sessionId: string): Promise<SessionDetail | null> => {
   const supabase = await createClient();
   const [{ data: session, error }, { data: items }] = await Promise.all([

@@ -16,7 +16,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { getSmartSessionView } from "@/lib/adaptive/smart";
 import { routes } from "@/lib/routes";
 import { isRecallMethod, isTestMethod, isTutorMethod, methodName } from "@/lib/study/catalog";
-import { getSession } from "@/lib/study/queries";
+import { getSession, getSessionMethod } from "@/lib/study/queries";
 import { syncPlanChildren, syncPracticeTesting } from "@/lib/study/service";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -32,18 +32,19 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
   const name = methodName(session.method);
   // Blocks of a smart session link back to their plan.
   const parentId = (session.state as { parentId?: string } | null)?.parentId ?? null;
+  const parentLabel = parentId ? ((await getSessionMethod(parentId)) === "custom_routine" ? "Back to routine" : "Back to smart session") : "Back to smart session";
   const parentLink = parentId ? (
     <Link href={`${routes.study}/${parentId}`} className={buttonClasses({ size: "sm" })}>
-      Back to smart session
+      {parentLabel}
     </Link>
   ) : null;
 
-  if (session.method === "smart_study" && session.status === "in_progress") {
+  if ((session.method === "smart_study" || session.method === "custom_routine") && session.status === "in_progress") {
     // Practice-test blocks close when their attempt is submitted; settle them before reading the plan.
     await syncPlanChildren(session.id);
     const view = await getSmartSessionView(session.id);
-    if (!view) return <ErrorState title="This smart session has no plan" description="Start a new one from the Study page." />;
-    return <SmartSessionView key={session.id} session={session} view={view} />;
+    if (!view) return <ErrorState title="This session has no plan" description="Start a new one from the Study page." />;
+    return <SmartSessionView key={session.id} session={session} view={view} methodName={name} routine={session.method === "custom_routine"} />;
   }
 
   // Practice tests, mixed practice and exam simulations live in the quiz runner; the session closes once the attempt is submitted.
@@ -93,7 +94,7 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
     const blocks = (summary?.extra as { blocksDone?: number; blocksTotal?: number } | undefined) ?? {};
     const tutorScore = isTutorMethod(session.method) ? (summary?.extra as { score?: number } | undefined)?.score : undefined;
     const extraStats = [
-      ...(session.method === "smart_study" && blocks.blocksTotal ? [{ label: "Blocks done", value: `${blocks.blocksDone ?? 0}/${blocks.blocksTotal}` }] : []),
+      ...((session.method === "smart_study" || session.method === "custom_routine") && blocks.blocksTotal ? [{ label: "Blocks done", value: `${blocks.blocksDone ?? 0}/${blocks.blocksTotal}` }] : []),
       ...(typeof tutorScore === "number" ? [{ label: session.method === "teach_back" ? "Teaching score" : "Reasoning score", value: `${Math.round(tutorScore)}%` }] : []),
     ];
     return (
@@ -123,18 +124,18 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
     );
   }
 
-  if (isRecallMethod(session.method)) return <RecallRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
+  if (isRecallMethod(session.method)) return <RecallRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
   switch (session.method) {
     case "feynman":
-      return <FeynmanRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
+      return <FeynmanRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "blurting":
-      return <BlurtingRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
+      return <BlurtingRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "chunking":
-      return <ChunkRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
+      return <ChunkRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "question_generation":
-      return <QuestionGenRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
+      return <QuestionGenRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "pomodoro":
-      return <PomodoroRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
+      return <PomodoroRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     default:
       return <ErrorState title="This method has no runner yet" description={`${name} sessions arrive in a later phase.`} />;
   }
