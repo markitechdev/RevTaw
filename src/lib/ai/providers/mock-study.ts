@@ -390,3 +390,49 @@ export function associationsHeuristically(prompt: string) {
   }));
   return { associations };
 }
+
+const STORY_HEROES = ["Mira", "Tomas", "Ana"];
+
+/** Story method: one story per section, each sentence of the section a fact carried by its own paragraph. */
+export function storiesHeuristically(transcript: string, prompt: string) {
+  const count = Number(prompt.match(/Produce exactly (\d+) stories/)?.[1] ?? "2");
+  const groups = splitInlineSections(transcript)
+    .map((section) => ({ heading: section.heading, facts: sentencesOf(section.text).slice(0, 6) }))
+    .filter((group) => group.facts.length >= 2);
+  const fallback = sentencesOf(transcript).slice(0, 6);
+  const chosen = groups.length ? groups.slice(0, Math.max(1, count)) : [{ heading: "the material", facts: fallback.length >= 2 ? fallback : [...fallback, "The material says more than this."] }];
+  const stories = chosen.map((group, storyIndex) => {
+    const hero = STORY_HEROES[storyIndex % STORY_HEROES.length];
+    return {
+      title: `${hero} and the ${group.heading}`,
+      concept: group.heading.slice(0, 60),
+      facts: group.facts,
+      paragraphs: group.facts.map((fact, index) => ({
+        text: `${index === 0 ? `${hero} stepped through a door marked "${group.heading}".` : index === group.facts.length - 1 ? "At the end of the path," : "Further along,"} A guide in a lab coat told ${hero}: "${fact}"`,
+        facts: [index + 1],
+      })),
+      accuracy_note: null,
+    };
+  });
+  return { stories };
+}
+
+/** Retell check: a fact counts as recalled when most of its key words come back. */
+export function retellCheckHeuristically(prompt: string) {
+  const facts = [...(prompt.match(/Facts:\n([\s\S]*?)\nRetelling:/)?.[1] ?? "").matchAll(/^(\d+)\. (.+)$/gm)].map((match) => ({ index: Number(match[1]), text: match[2] }));
+  const retell = (prompt.match(/Retelling:\n"""\n([\s\S]*?)\n"""/)?.[1] ?? "").trim();
+  const blank = retell.length < 3 || retell === "(blank)";
+  const lower = retell.toLowerCase();
+  const marks = facts.map((fact) => {
+    const words = keywordsOf(fact.text);
+    const present = words.filter((word) => lower.includes(word)).length;
+    return { index: fact.index, recalled: !blank && words.length > 0 && present / words.length >= 0.5 };
+  });
+  const recalled = marks.filter((mark) => mark.recalled).length;
+  const contradiction = !blank && /\bnot\b/i.test(retell) && !facts.some((fact) => /\bnot\b/i.test(fact.text));
+  return {
+    facts: marks,
+    incorrect: contradiction ? ["Your retelling negates something the notes state."] : [],
+    feedback: blank ? "Nothing written yet — retell whatever you remember of the story, even a few words." : recalled === facts.length ? "Every fact made it into your retelling." : `You kept ${recalled} of ${facts.length} facts. Picture the scenes you skipped and retell them next time.`,
+  };
+}

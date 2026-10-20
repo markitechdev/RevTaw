@@ -18,6 +18,7 @@ import { ReadingRunner } from "@/components/study/reading-runner";
 import { RecallRunner } from "@/components/study/recall-runner";
 import { ScenarioRunner } from "@/components/study/scenario-runner";
 import { SessionSummaryCard } from "@/components/study/session-summary";
+import { StoryRunner } from "@/components/study/story-runner";
 import { SmartSessionView } from "@/components/study/smart-session";
 import { buttonClasses } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
@@ -181,6 +182,8 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
       return <MnemonicRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "memory_palace":
       return <PalaceRunner key={session.id} session={session} methodName={name} palaces={await listPalaces()} parentSessionId={parentId} parentLabel={parentLabel} />;
+    case "story_method":
+      return <StoryRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "pomodoro":
       return <PomodoroRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     default:

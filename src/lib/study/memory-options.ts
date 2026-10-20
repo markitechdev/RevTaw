@@ -3,7 +3,7 @@ import { z } from "zod";
 import { normalizeText } from "@/lib/quizzes/text-match";
 import type { MnemonicKind } from "@/lib/supabase/database.types";
 
-/** Memory techniques (spec §16): mnemonics, memory palaces — shapes, checks and the pure graders. Client-safe. */
+/** Memory techniques (spec §16): mnemonics, memory palaces and the story method — shapes, checks and the pure graders. Client-safe. */
 
 export const MNEMONIC_KINDS = ["acronym", "acrostic", "rhyme", "phrase", "association", "story", "custom"] as const satisfies ReadonlyArray<MnemonicKind>;
 
@@ -184,4 +184,54 @@ export function palaceStopCount(minutes: number, locations: number, concepts: nu
 /** Same place on a route, whatever the case and spacing. */
 export function sameLocation(a: string, b: string): boolean {
   return tidy(a) === tidy(b);
+}
+
+// ---------------------------------------------------------------------------
+// Story method
+// ---------------------------------------------------------------------------
+
+export type StoryParagraph = { text: string; facts: number[] };
+/** What a story item shows: the original notes (facts) beside the story version, and what the story simplifies. */
+export type StoryView = { title: string; facts: string[]; paragraphs: StoryParagraph[]; accuracyNote: string | null };
+export type StoryResult = { score: number; isCorrect: boolean; recalled: boolean[]; incorrect: string[]; feedback: string };
+
+/** Stories per session: about one per seven minutes, 1-3. */
+export function storyCount(minutes: number): number {
+  return Math.max(1, Math.min(3, Math.round(minutes / 7)));
+}
+
+/**
+ * Keeps a generated story honest: fact references must point at real facts,
+ * and only facts the story actually carries are kept (renumbered), so a
+ * retelling is never graded on a fact the story left out. Null when fewer
+ * than two facts remain.
+ */
+export function tidyStory(story: { title: string; facts: string[]; paragraphs: StoryParagraph[]; accuracy_note?: string | null }): StoryView | null {
+  const valid = (value: number) => Number.isInteger(value) && value >= 1 && value <= story.facts.length;
+  const carried = [...new Set(story.paragraphs.flatMap((paragraph) => paragraph.facts.filter(valid)))].sort((a, b) => a - b);
+  if (carried.length < 2) return null;
+  const renumber = new Map(carried.map((value, index) => [value, index + 1]));
+  return {
+    title: story.title,
+    facts: carried.map((value) => story.facts[value - 1]),
+    paragraphs: story.paragraphs.map((paragraph) => ({ text: paragraph.text, facts: [...new Set(paragraph.facts.filter(valid))].map((value) => renumber.get(value)!).sort((a, b) => a - b) })),
+    accuracyNote: story.accuracy_note?.trim() || null,
+  };
+}
+
+export function storyViewOf(analysis: unknown): StoryView | null {
+  const view = analysis as Partial<StoryView> | null;
+  if (!view || typeof view.title !== "string" || !Array.isArray(view.facts) || !Array.isArray(view.paragraphs)) return null;
+  return { title: view.title, facts: view.facts, paragraphs: view.paragraphs, accuracyNote: view.accuracyNote ?? null };
+}
+
+export function storyResultOf(analysis: unknown): StoryResult | null {
+  const result = (analysis as { result?: StoryResult } | null)?.result;
+  return result && typeof result.score === "number" && Array.isArray(result.recalled) ? result : null;
+}
+
+/** Retelling score: the share of facts recalled, minus 15 points per statement that contradicts the notes. */
+export function retellScore(recalled: boolean[], contradictions: number): number {
+  const share = recalled.length ? recalled.filter(Boolean).length / recalled.length : 0;
+  return Math.max(0, Math.min(100, Math.round(share * 100) - 15 * contradictions));
 }

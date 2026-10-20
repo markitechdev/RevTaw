@@ -350,8 +350,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 15,
     goals: ["memorize"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
-    behaviour: "Original notes and an academically accurate story version side by side.",
+    availableIn: "now",
+    behaviour: "Related facts from the material become a short story — characters and scenes may be invented, the facts may not. The original notes and the story version sit side by side, each paragraph marked with the facts it carries; then you retell the story from memory and RevTaw checks every fact and flags anything that contradicts the notes.",
   },
 };
 
@@ -387,6 +387,7 @@ export const BUILDER_METHOD_IDS = [
   "concept_mapping",
   "mnemonics",
   "memory_palace",
+  "story_method",
   "error_review",
   "pomodoro",
   "socratic_questioning",

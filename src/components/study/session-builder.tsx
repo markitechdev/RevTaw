@@ -55,6 +55,7 @@ const PREPARING: Partial<Record<BuilderMethodId, string>> = {
   concept_mapping: "drawing the map",
   mnemonics: "writing the mnemonics",
   memory_palace: "setting up",
+  story_method: "writing the stories",
 };
 
 const POMODORO_PRESETS: ReadonlyArray<{ work: number; rest: number }> = [

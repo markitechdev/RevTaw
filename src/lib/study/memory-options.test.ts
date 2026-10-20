@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { associationsHeuristically, mnemonicsHeuristically } from "@/lib/ai/providers/mock-study";
+import { associationsHeuristically, mnemonicsHeuristically, retellCheckHeuristically, storiesHeuristically } from "@/lib/ai/providers/mock-study";
 import {
   deviceMatchesItems,
   gradeListRecall,
@@ -15,9 +15,14 @@ import {
   palaceInputSchema,
   palaceStateOf,
   palaceStopCount,
+  retellScore,
   sameLocation,
   splitRecalledList,
+  storyCount,
+  storyResultOf,
+  storyViewOf,
   targetIsOrdered,
+  tidyStory,
 } from "@/lib/study/memory-options";
 
 const stages = ["Prophase", "Metaphase", "Anaphase", "Telophase"];
@@ -151,5 +156,53 @@ describe("memory palace helpers", () => {
     expect(associations[0].association).toMatch(/front door/);
     expect(associations[0].association).toMatch(/ATP/);
     expect(associations[0].association).toMatch(/energy currency of the cell/);
+  });
+});
+
+describe("story method helpers", () => {
+  const story = { title: "Mira and the cycle", facts: ["Fact one", "Fact two", "Fact three"], paragraphs: [{ text: "P1", facts: [1, 9] }, { text: "P2", facts: [3, 3] }], accuracy_note: " " };
+
+  it("keeps only the facts the story carries and renumbers them", () => {
+    const tidy = tidyStory(story);
+    expect(tidy?.facts).toEqual(["Fact one", "Fact three"]);
+    expect(tidy?.paragraphs).toEqual([{ text: "P1", facts: [1] }, { text: "P2", facts: [2] }]);
+    expect(tidy?.accuracyNote).toBeNull();
+    expect(tidyStory({ ...story, paragraphs: [{ text: "P1", facts: [1] }] })).toBeNull();
+    expect(tidyStory({ ...story, paragraphs: [{ text: "P1", facts: [] }] })).toBeNull();
+  });
+
+  it("scores a retelling by facts kept and contradictions", () => {
+    expect(retellScore([true, true, true, true], 0)).toBe(100);
+    expect(retellScore([true, true, false, false], 0)).toBe(50);
+    expect(retellScore([true, true, true, true], 2)).toBe(70);
+    expect(retellScore([], 0)).toBe(0);
+    expect(storyCount(5)).toBe(1);
+    expect(storyCount(15)).toBe(2);
+    expect(storyCount(45)).toBe(3);
+  });
+
+  it("reads a story item and its result defensively", () => {
+    expect(storyViewOf({ title: "T", facts: ["a", "b"], paragraphs: [] })).toEqual({ title: "T", facts: ["a", "b"], paragraphs: [], accuracyNote: null });
+    expect(storyViewOf({ facts: [] })).toBeNull();
+    expect(storyResultOf({ result: { score: 50, isCorrect: false, recalled: [true, false], incorrect: [], feedback: "" } })?.score).toBe(50);
+    expect(storyResultOf({ result: { score: "x" } })).toBeNull();
+  });
+
+  it("mock: writes one story per section, every fact carried by a paragraph, and checks a retelling fact by fact", () => {
+    const transcript = `[Section: Calvin Cycle]
+Calvin Cycle
+The Calvin cycle is the set of reactions that fixes carbon dioxide into sugar using ATP and NADPH.
+It takes place in the stroma of the chloroplast and was discovered in 1950 by Melvin Calvin.`;
+    const { stories } = storiesHeuristically(transcript, "Produce exactly 2 stories.");
+    expect(stories).toHaveLength(1);
+    expect(stories[0].facts).toHaveLength(2);
+    expect(stories[0].paragraphs.flatMap((paragraph) => paragraph.facts)).toEqual([1, 2]);
+    expect(stories[0].paragraphs[0].text).toContain(stories[0].facts[0]);
+    const prompt = (retell: string) => `Story: ${stories[0].title}\nFacts:\n${stories[0].facts.map((fact, index) => `${index + 1}. ${fact}`).join("\n")}\nRetelling:\n"""\n${retell}\n"""`;
+    const partial = retellCheckHeuristically(prompt("The Calvin cycle fixes carbon dioxide into sugar using ATP and NADPH."));
+    expect(partial.facts).toEqual([{ index: 1, recalled: true }, { index: 2, recalled: false }]);
+    expect(partial.incorrect).toEqual([]);
+    expect(retellCheckHeuristically(prompt("(blank)")).facts.every((fact) => !fact.recalled)).toBe(true);
+    expect(retellCheckHeuristically(prompt("It does not take place in the stroma of the chloroplast, Melvin Calvin discovered it in 1950.")).incorrect).toHaveLength(1);
   });
 });

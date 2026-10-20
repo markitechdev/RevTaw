@@ -10,11 +10,11 @@ import { evaluateCaseItem, evaluateScenarioItem, type CaseResult, type ScenarioR
 import { evaluateProblemItem, type ProblemResult } from "@/lib/study/flows/problems";
 import { advanceReading, markSectionRead, submitReadingSummary, type ReadingSummaryResult } from "@/lib/study/flows/reading";
 import { answerLink, quizBranch, saveMap, startLinkTest, type BranchQuestion, type LinkQuestion, type LinkResult } from "@/lib/study/flows/maps";
-import { addOwnMnemonic, answerLoci, createMnemonic, deleteMnemonic, deletePalace, placeConcepts, practiceMnemonic, savePalace, saveMnemonicOption, setMnemonicFavorite, startWalk, updateMnemonic } from "@/lib/study/flows/memory";
+import { addOwnMnemonic, answerLoci, checkStoryRetell, createMnemonic, deleteMnemonic, deletePalace, placeConcepts, practiceMnemonic, savePalace, saveMnemonicOption, setMnemonicFavorite, startWalk, updateMnemonic } from "@/lib/study/flows/memory";
 import { checkVisualItem, type VisualCheck } from "@/lib/study/flows/visual";
 import { saveItemDraft } from "@/lib/study/items";
 import { CONCEPT_RELATIONS, type ConceptRelation } from "@/lib/study/maps";
-import { MNEMONIC_KINDS, palaceInputSchema, type LociResult, type MnemonicOption, type MnemonicPracticeResult, type PalaceInput, type PalaceState } from "@/lib/study/memory-options";
+import { MNEMONIC_KINDS, palaceInputSchema, type LociResult, type MnemonicOption, type MnemonicPracticeResult, type PalaceInput, type PalaceState, type StoryResult } from "@/lib/study/memory-options";
 import type { ReadingStage } from "@/lib/study/reading-options";
 import type { VisualAnswer } from "@/lib/study/visuals";
 import { getCurrentUser } from "@/lib/supabase/server";
@@ -367,5 +367,20 @@ export async function deletePalaceAction(input: { id: string }): Promise<StudyAc
     return { ok: true };
   } catch (error) {
     return actionFailure(error, "The memory palace could not be deleted.");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Story method
+// ---------------------------------------------------------------------------
+
+export async function checkStoryRetellAction(input: { itemId: string; retell: string; responseMs: number | null }): Promise<StudyActionResult<StoryResult>> {
+  await requireUser();
+  const parsed = z.object({ itemId: uuid, retell: z.string().max(8000), responseMs }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "That retelling could not be checked." };
+  try {
+    return { ok: true, data: await checkStoryRetell(parsed.data) };
+  } catch (error) {
+    return actionFailure(error, "Your retelling could not be checked. Please try again.");
   }
 }

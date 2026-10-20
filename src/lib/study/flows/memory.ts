@@ -16,7 +16,12 @@ import {
   palaceLocationSchema,
   palaceStateOf,
   palaceStopCount,
+  retellScore,
   sameLocation,
+  storyCount,
+  storyResultOf,
+  storyViewOf,
+  tidyStory,
   mnemonicCount,
   mnemonicViewOf,
   MNEMONIC_KIND_LABEL,
@@ -32,8 +37,10 @@ import {
   type PalacePlacement,
   type PalaceState,
   type PalaceSummary,
+  type StoryResult,
+  type StoryView,
 } from "@/lib/study/memory-options";
-import { generateAssociations, generateMnemonics } from "@/lib/study/prompts/memory";
+import { checkRetell, generateAssociations, generateMnemonics, generateStories } from "@/lib/study/prompts/memory";
 import { loadSession, SessionError, sessionTitle, updateSessionState } from "@/lib/study/sessions";
 import type { Json, Mnemonic, MnemonicKind, StudySession } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -46,6 +53,8 @@ import { createClient } from "@/lib/supabase/server";
  * back for practice. Memory palace: the student defines a route of familiar
  * locations (`memory_palaces`), RevTaw places the material's key concepts
  * along it with a vivid image each, and the walk asks what sits at each stop.
+ * Story method: related facts become an accurate story shown beside the
+ * original notes; the student retells it and every fact is checked.
  */
 
 const MAX_OPTIONS = 6;
@@ -505,6 +514,73 @@ export async function answerLoci(input: { itemId: string; answer: string; respon
     isCorrect,
     responseMs: input.responseMs,
     mistake: { question: `Memory palace: what did you place at the ${view.location}?`, correctAnswer: `${key.concept} — ${key.definition}`, explanation: `Your image: ${key.association}`, errorType: "forgotten_information" },
+  });
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Story method
+// ---------------------------------------------------------------------------
+
+export async function startStories(supabase: Client, userId: string, input: FlowStartInput): Promise<FlowStartResult> {
+  const context = await loadMaterialContext(supabase, input.materialId!);
+  const generated = await generateStories({ materialTitle: context.material.title, chunks: context.chunks, student: context.student, count: storyCount(input.plannedMinutes) });
+  const stories = generated.stories
+    .map((story) => ({ concept: story.concept, view: tidyStory(story) }))
+    .filter((story): story is { concept: string; view: StoryView } => story.view !== null);
+  if (stories.length === 0) throw new SessionError("No accurate stories could be written from this material. Try again or pick another method.", 422);
+  const sessionId = await openSession(supabase, userId, {
+    method: "story_method",
+    materialId: context.material.id,
+    subjectId: context.material.subject_id,
+    goal: input.goal ?? "memorize",
+    plannedMinutes: input.plannedMinutes,
+    title: sessionTitle("story_method", context.material.title),
+    state: { index: 0, provider: generated.provider },
+  });
+  const concepts = await conceptsFor(supabase, userId, context, stories.map((story) => story.concept));
+  await insertItems(
+    supabase,
+    stories.map(({ concept, view }, position) => ({
+      session_id: sessionId,
+      user_id: userId,
+      position,
+      kind: "story" as const,
+      concept_id: concepts.get(normalizeConceptName(concept)) ?? null,
+      prompt: view.title,
+      model_answer: view.facts.map((fact, index) => `${index + 1}. ${fact}`).join("\n"),
+      key_points: view.facts as unknown as Json,
+      source_excerpt: null,
+      format: "story",
+      analysis: view as unknown as Json,
+    })),
+  );
+  return { sessionId, redirect: `/study/${sessionId}` };
+}
+
+/** Retell the story from memory; every original fact is checked, and contradictions cost points. */
+export async function checkStoryRetell(input: { itemId: string; retell: string; responseMs: number | null }): Promise<StoryResult> {
+  const supabase = await createClient();
+  const { item, session } = await loadOpenItem(supabase, input.itemId);
+  if (item.kind !== "story") throw new SessionError("This item is not a story.", 400);
+  const view = storyViewOf(item.analysis);
+  if (!view) throw new SessionError("This story is incomplete.", 422);
+  const stored = storyResultOf(item.analysis);
+  if (item.answered_at && stored) return stored;
+  const blank = input.retell.trim().length < 3;
+  const check = blank
+    ? { facts: [], incorrect: [], feedback: "Nothing was retold this time. Read the story once more, then retell whatever you remember — even a few scenes." }
+    : await checkRetell({ title: view.title, facts: view.facts, retell: input.retell });
+  const recalled = view.facts.map((_, index) => check.facts.find((fact) => fact.index === index + 1)?.recalled ?? false);
+  const score = retellScore(recalled, check.incorrect.length);
+  const result: StoryResult = { score, isCorrect: score >= 80, recalled, incorrect: check.incorrect, feedback: check.feedback };
+  await recordItemResult(supabase, item, session, {
+    response: input.retell,
+    analysis: { ...view, result } as unknown as Json,
+    score,
+    isCorrect: result.isCorrect,
+    responseMs: input.responseMs,
+    mistake: { question: `Retell the story: ${view.title}`, correctAnswer: view.facts.map((fact, index) => `${index + 1}. ${fact}`).join("\n"), explanation: check.feedback, errorType: "forgotten_information" },
   });
   return result;
 }

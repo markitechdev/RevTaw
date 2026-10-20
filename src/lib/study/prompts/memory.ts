@@ -74,3 +74,71 @@ Respond with JSON only: { "associations": [{ "index": number, "association": str
   const result = await generateJson(provider, associationsSchema, { task: "palace_associations", system, messages: [{ role: "user", content: user }], maxTokens: 3000, temperature: 0.7 });
   return { associations: new Map(result.data.associations.map((entry) => [entry.index, entry.association])), provider: result.raw.provider, model: result.raw.model };
 }
+
+export const storySetSchema = z.object({
+  stories: z
+    .array(
+      z.object({
+        title: text(160),
+        concept: text(120),
+        facts: z.array(text(400)).min(2).max(10),
+        paragraphs: z.array(z.object({ text: text(1500), facts: z.array(z.number().int()).max(10) })).min(1).max(8),
+        accuracy_note: z.string().trim().max(400).nullable().optional(),
+      }),
+    )
+    .min(1)
+    .max(3),
+});
+
+export type GeneratedStory = z.infer<typeof storySetSchema>["stories"][number];
+
+/** Story method: related facts woven into one memorable — and academically accurate — story. */
+export async function generateStories(input: { materialTitle: string; chunks: AnalysisChunkInput[]; student: StudentContext; count: number }): Promise<{ stories: GeneratedStory[]; provider: string; model: string }> {
+  const provider = getAiProvider("strong");
+  const { transcript } = buildTranscript(input.chunks);
+  const system = `You are RevTaw's storyteller. Turn groups of related facts from the material into short, memorable stories that stay academically accurate.
+
+Rules:
+- "facts": 3-8 related facts from one part of the material, in the material's words (the "Original Notes").
+- "paragraphs": the story, 2-5 short paragraphs; "facts" lists the numbers (1-based) of the facts each paragraph carries. Every fact appears in the story at least once.
+- Characters and settings may be invented; the facts may not be changed. ${ACCURACY_RULE}
+- "accuracy_note": anything the story simplifies, or null.
+- "concept": the 1-4 word concept. ${GROUNDING_RULE}
+- Respond with a single JSON object: { "stories": [{ "title": string, "concept": string, "facts": string[], "paragraphs": [{ "text": string, "facts": number[] }], "accuracy_note": string | null }] }`;
+  const user = `Material title: ${input.materialTitle}
+Student: ${studentLine(input.student)}
+Produce exactly ${input.count} stories.
+
+<material>
+${transcript}
+</material>`;
+  const result = await generateJson(provider, storySetSchema, { task: "generate_stories", system, messages: [{ role: "user", content: user }], maxTokens: 5000, temperature: 0.7 });
+  return { stories: result.data.stories.slice(0, Math.max(1, input.count)), provider: result.raw.provider, model: result.raw.model };
+}
+
+export const retellCheckSchema = z.object({
+  facts: z.array(z.object({ index: z.number().int(), recalled: z.boolean() })).max(10),
+  incorrect: z.array(z.string().trim().min(1).max(300)).max(10).default([]),
+  feedback: text(800),
+});
+
+export type RetellCheck = z.infer<typeof retellCheckSchema>;
+
+/** Checks a retelling fact by fact: which original notes it carries, and what it gets wrong. */
+export async function checkRetell(input: { title: string; facts: string[]; retell: string }): Promise<RetellCheck> {
+  const provider = getAiProvider("fast");
+  const system = `You check a student's retelling of a study story against the original notes. The student retold the story from memory.
+- For EACH fact, "recalled": true when the retelling states it in any words, false when it is missing.
+- "incorrect": statements in the retelling that contradict the notes. Story decoration — characters, places, events around the facts — is fine; only contradictions of the facts count.
+- "feedback": 1-3 encouraging, specific sentences on what to keep and what to add next time.
+Respond with JSON only: { "facts": [{ "index": number (1-based), "recalled": boolean }], "incorrect": string[], "feedback": string }`;
+  const user = `Story: ${input.title}
+Facts:
+${input.facts.map((fact, index) => `${index + 1}. ${fact}`).join("\n")}
+Retelling:
+"""
+${input.retell.trim() || "(blank)"}
+"""`;
+  const result = await generateJson(provider, retellCheckSchema, { task: "story_retell_check", system, messages: [{ role: "user", content: user }], maxTokens: 1500, temperature: 0.1 });
+  return result.data;
+}

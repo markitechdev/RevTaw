@@ -12,7 +12,7 @@ import { startBlurting, startChunking, startCumulativeReview, startInterleaving,
 import { startCases, startScenarios } from "@/lib/study/flows/applied";
 import { startGuidedReading } from "@/lib/study/flows/reading";
 import { startConceptMapping, startMindMapping } from "@/lib/study/flows/maps";
-import { startMemoryPalace, startMnemonics } from "@/lib/study/flows/memory";
+import { startMemoryPalace, startMnemonics, startStories } from "@/lib/study/flows/memory";
 import { startDualCoding } from "@/lib/study/flows/visual";
 import { startFadedExamples, startPracticeProblems, startWorkedExamples } from "@/lib/study/flows/problems";
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
@@ -184,6 +184,8 @@ async function startSessionInner(userId: string, input: StartSessionInput): Prom
       return startMnemonics(supabase, userId, input);
     case "memory_palace":
       return startMemoryPalace(supabase, userId, input);
+    case "story_method":
+      return startStories(supabase, userId, input);
   }
 }
 
@@ -601,6 +603,8 @@ function itemSessionNext(method: StudyMethodId, accuracy: number | null, weak: s
       return accuracy !== null && accuracy >= 0.8 ? "Your mnemonics work. Practice the saved ones again in three days, before you look at the lists." : "Practice the lists you missed again tomorrow — if a device does not stick, write your own and save it.";
     case "memory_palace":
       return accuracy === null ? "Walk the route next time — naming what sits at each stop is what makes the palace work." : accuracy >= 0.8 ? "Your palace holds. Walk it again in three days without looking at the images first." : "Look at the images for the stops you missed, picture them at their places, then walk the route again tomorrow.";
+    case "story_method":
+      return accuracy !== null && accuracy >= 0.8 ? "Your retellings kept the facts. Retell the stories again in three days, before you reread them." : "Read the original notes beside the story for the facts you dropped, then retell it again tomorrow.";
     case "dual_coding":
       return accuracy !== null && accuracy >= 0.8 ? "You can rebuild these visuals from memory. Sketch one yourself next time before you look." : "Study the visuals you missed in the Combined view, then rebuild them again tomorrow.";
     case "sq3r":
