@@ -30,9 +30,9 @@ export const metadata: Metadata = {
 };
 
 export default async function ProgressPage() {
-  // Active days and badges settle before the page reads them (§31).
-  await syncGamification();
-  const [rows, summary, recommendations, activity, analytics, gamification, goals, materials, clock] = await Promise.all([listMastery(), getMasterySummary(), getRecommendations(3), getActivityStats(), getAnalyticsOverview(), getGamificationView(), listGoalsWithProgress(), listMaterials(), plannerClock()]);
+  // Active days and badges settle alongside the page's reads; only the level card waits for them (§31).
+  const [, rows, summary, recommendations, activity, analytics, goals, materials, clock] = await Promise.all([syncGamification(), listMastery(), getMasterySummary(), getRecommendations(3), getActivityStats(), getAnalyticsOverview(), listGoalsWithProgress(), listMaterials(), plannerClock()]);
+  const gamification = await getGamificationView();
   const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title }));
   const practiced = rows.filter((row) => row.attempts > 0);
   const hasActivity = analytics.totals.questions > 0 || analytics.totals.sessions > 0 || analytics.totals.cards > 0;

@@ -30,6 +30,7 @@ export default async function PlannerPage() {
   // Daily adjustment first so what is shown already reflects missed days and new scores.
   await rebalanceAllPlans();
   const { today, timezone } = await plannerClock();
+  // The notification sync shares these reads (cached per request) and only writes to the bell.
   const [due, exams, goals, materials, subjects, upcoming] = await Promise.all([
     getDueToday(),
     listExams(),
@@ -37,8 +38,8 @@ export default async function PlannerPage() {
     listMaterials(),
     listSubjects(),
     listTasks({ from: addDays(today, 1), to: addDays(today, 7) }),
+    syncNotifications(),
   ]);
-  await syncNotifications();
   const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title, subject: material.subject?.name ?? null }));
   const subjectOptions = subjects.filter((subject) => !subject.archived_at).map((subject) => ({ id: subject.id, name: subject.name }));
   const upcomingByDay = new Map<string, typeof upcoming>();

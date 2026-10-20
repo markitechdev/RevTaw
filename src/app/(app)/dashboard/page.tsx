@@ -67,10 +67,13 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const { user, profile } = await getCurrentUserWithProfile();
   if (!user) redirect(routes.login);
 
+  // Plans adjust first (today's tasks are read below); the XP/badge and notification
+  // syncs only write what the level card and the bell read, so they run alongside the
+  // page's own reads, and the gamification view is read once they are done (§31).
   await rebalanceAllPlans();
-  // Active days and badges settle before the page reads them (§31).
-  await syncGamification();
-  const [materialCount, recentMaterials, mastery, recommendations, recentAttempts, openMistakes, dueCards, decks, nextDue, activity, due, nextExam, clock] = await Promise.all([
+  const [, , materialCount, recentMaterials, mastery, recommendations, recentAttempts, openMistakes, dueCards, decks, nextDue, activity, due, nextExam, clock] = await Promise.all([
+    syncGamification(),
+    syncNotifications(),
     countMaterials(),
     listRecentMaterials(5),
     getMasterySummary(),
@@ -85,7 +88,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
     getNextExam(),
     plannerClock(),
   ]);
-  await syncNotifications();
   const gamification = await getGamificationView();
   const lastOpened = recentMaterials.find((material) => material.last_opened_at) ?? recentMaterials[0];
   // Weak = status weak or learning (needs attention); strong = strong or mastered (§23, §28).
