@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { downloadMaterialBytes, safeFilename } from "@/lib/materials/storage";
+import { rateLimit } from "@/lib/rate-limit";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 const paramsSchema = z.object({ id: z.uuid() });
@@ -19,6 +20,11 @@ export async function GET(_request: Request, context: RouteContext<"/api/materia
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
+  }
+  // Each hit streams a whole file out of the bucket; a viewer needs a handful a minute, not hundreds.
+  const limit = rateLimit(`material-file:${user.id}`, 60, 60_000);
+  if (!limit.ok) {
+    return NextResponse.json({ error: "Too many file requests. Try again in a minute." }, { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } });
   }
 
   const params = paramsSchema.safeParse(await context.params);
