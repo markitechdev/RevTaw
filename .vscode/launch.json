@@ -1,0 +1,37 @@
+{
+  // Run and Debug (Ctrl+Shift+D) → choose a configuration → ▶ Start, or press F5.
+  // RevTaw opens in your browser as soon as the dev server is ready.
+  // Fill in .env.local first (copy .env.example; see supabase/README.md).
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Start RevTaw",
+      "type": "node",
+      "request": "launch",
+      "preLaunchTask": "Install dependencies",
+      "program": "${workspaceFolder}/node_modules/next/dist/bin/next",
+      "args": ["dev"],
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"],
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "- Local:\\s+(https?://\\S+)",
+        "uriFormat": "%s"
+      }
+    },
+    {
+      "name": "Start RevTaw (skip install)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/next/dist/bin/next",
+      "args": ["dev"],
+      "cwd": "${workspaceFolder}",
+      "skipFiles": ["<node_internals>/**"],
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "- Local:\\s+(https?://\\S+)",
+        "uriFormat": "%s"
+      }
+    }
+  ]
+}

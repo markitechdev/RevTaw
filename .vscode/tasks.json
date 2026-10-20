@@ -1,0 +1,20 @@
+{
+  // Tasks used by the launch configurations in launch.json.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Install dependencies",
+      "detail": "npm install (fast when nothing changed)",
+      "type": "shell",
+      "command": "npm install --no-audit --no-fund",
+      // cmd.exe on Windows, so a restricted PowerShell execution policy cannot block npm.
+      "windows": {
+        "options": {
+          "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+        }
+      },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+    }
+  ]
+}

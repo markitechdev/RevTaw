@@ -26,6 +26,10 @@ Open http://localhost:3000. Create a Supabase project and apply the migrations
 in `supabase/migrations/` first — see [`supabase/README.md`](./supabase/README.md)
 for the dashboard settings (email confirmation, redirect URLs, templates).
 
+In VS Code, **Run and Debug → Start RevTaw** does the same with one click: it
+runs `npm install`, starts the dev server and opens the app in your browser
+(`.vscode/launch.json`; "skip install" restarts faster).
+
 AI features (material analysis, image transcription, reviewer and quiz
 generation, grading of open answers) need one provider key in `.env.local`
 (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `GOOGLE_AI_API_KEY`). Without a
