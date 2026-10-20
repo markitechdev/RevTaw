@@ -5,27 +5,13 @@ import { z } from "zod";
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
-import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
+import { points, studentLine, text } from "@/lib/study/prompts/shared";
 
 /**
  * Prompts behind the Phase 4 study methods. Every prompt is grounded in the
  * material transcript and returns validated JSON.
  */
-
-const text = (max: number) => z.string().trim().min(1).max(max);
-const points = z.array(z.string().trim().min(1).max(300)).max(10);
-
-function studentLine(student: StudentContext): string {
-  return (
-    [
-      student.educationLevel ? `education level: ${EDUCATION_LEVEL_LABEL[student.educationLevel]}` : null,
-      student.mainGoal ? `main goal: ${STUDY_GOAL_LABEL[student.mainGoal]}` : null,
-    ]
-      .filter(Boolean)
-      .join(", ") || "not specified"
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Active recall

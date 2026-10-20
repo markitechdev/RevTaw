@@ -1,12 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { completeSmartSession, markSmartBlock, parseSmartPlan } from "@/lib/adaptive/smart";
-import { isAiError } from "@/lib/ai";
 import { routes } from "@/lib/routes";
+import { actionFailure, revalidateStudy, uuid, type StudyActionResult } from "@/lib/study/action-helpers";
 import { compareBlurtItem, evaluateQuestionItem, type BlurtResult, type EvaluatedQuestion } from "@/lib/study/advanced";
 import { BUILDER_METHOD_IDS } from "@/lib/study/catalog";
 import { deleteRoutine, saveRoutine, startRoutine, type RoutineFormInput } from "@/lib/study/routines";
@@ -16,8 +15,6 @@ import {
   completeItemSession,
   completePomodoro,
   savePomodoro,
-  ServiceError,
-  SessionError,
   startSession,
   type FeynmanRoundResult,
   type RecallItemResult,
@@ -26,23 +23,10 @@ import {
 import { loadSession, type SessionSummary } from "@/lib/study/sessions";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
-export type StudyActionResult<T = undefined> = ({ ok: true } & (T extends undefined ? { data?: undefined } : { data: T })) | { ok: false; message: string };
+export type { StudyActionResult } from "@/lib/study/action-helpers";
 
-const uuid = z.uuid();
-
-function revalidate(sessionId?: string) {
-  revalidatePath(routes.study);
-  revalidatePath(routes.dashboard);
-  revalidatePath(`${routes.quiz}/mistakes`);
-  if (sessionId) revalidatePath(`${routes.study}/${sessionId}`);
-}
-
-function failure(error: unknown, fallback: string): { ok: false; message: string } {
-  if (error instanceof SessionError || error instanceof ServiceError) return { ok: false, message: error.message };
-  if (isAiError(error)) return { ok: false, message: error.message };
-  console.error(fallback, error);
-  return { ok: false, message: fallback };
-}
+const revalidate = revalidateStudy;
+const failure = actionFailure;
 
 const startSchema = z.object({
   method: z.enum(BUILDER_METHOD_IDS),
