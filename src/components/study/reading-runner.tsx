@@ -179,7 +179,7 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
   const router = useRouter();
   const method = session.method as ReadingMethod;
   const initial = readReadingState(session.state);
-  const { summary, ending, error, setError, finish, pending, startTransition } = useSessionCompletion(session);
+  const { summary, stoppedEarly, ending, error, setError, finish, pending, startTransition } = useSessionCompletion(session);
   const [stage, setStage] = useState<ReadingStage>(initial?.stage ?? "survey");
   const [expectations, setExpectations] = useState(initial?.expectations ?? "");
   const [questions, setQuestions] = useState<string[][]>(() => (initial?.sections ?? []).map(() => [""]));
@@ -201,7 +201,7 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
   }, [stage]);
 
   if (summary) {
-    return <RunnerSummary methodName={methodName} summary={summary} parentSessionId={parentSessionId} parentLabel={parentLabel} />;
+    return <RunnerSummary methodName={methodName} summary={summary} stoppedEarly={stoppedEarly} parentSessionId={parentSessionId} parentLabel={parentLabel} />;
   }
   if (!initial) return <Alert tone="error">This reading session has no sections.</Alert>;
   const state = initial;

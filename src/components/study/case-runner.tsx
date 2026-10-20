@@ -66,7 +66,7 @@ function expertText(result: CaseResult, field: CaseField): string {
  */
 export function CaseRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: RunnerProps) {
   const items = session.items;
-  const { summary, ending, error, setError, finish, pending, startTransition } = useSessionCompletion(session);
+  const { summary, stoppedEarly, ending, error, setError, finish, pending, startTransition } = useSessionCompletion(session);
   const [index, setIndex] = useState(() => {
     const first = items.findIndex((entry) => !entry.answered_at);
     return first === -1 ? items.length : first;
@@ -80,7 +80,7 @@ export function CaseRunner({ session, methodName, parentSessionId = null, parent
     shownAt.current = Date.now();
   }, [item?.id]);
 
-  if (summary) return <RunnerSummary methodName={methodName} summary={summary} parentSessionId={parentSessionId} parentLabel={parentLabel} />;
+  if (summary) return <RunnerSummary methodName={methodName} summary={summary} stoppedEarly={stoppedEarly} parentSessionId={parentSessionId} parentLabel={parentLabel} />;
   const view = viewOf(item);
   if (!item || !view) return <RunnerDone session={session} methodName={methodName} message="Every case is analysed." ending={ending} onFinish={() => finish()} />;
 

@@ -24,6 +24,7 @@ export type RunnerProps = { session: SessionDetail; methodName: string; parentSe
 export function useSessionCompletion(session: SessionDetail) {
   const router = useRouter();
   const [summary, setSummary] = useState<SessionSummary | null>(null);
+  const [stoppedEarly, setStoppedEarly] = useState(false);
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -37,17 +38,19 @@ export function useSessionCompletion(session: SessionDetail) {
         setEnding(false);
         return;
       }
+      setStoppedEarly(abandoned);
       setSummary(result.data);
       router.refresh();
     });
   };
 
-  return { summary, ending, error, setError, finish, pending, startTransition };
+  return { summary, stoppedEarly, ending, error, setError, finish, pending, startTransition };
 }
 
 export function RunnerSummary({
   methodName,
   summary,
+  stoppedEarly = false,
   parentSessionId = null,
   parentLabel = "Back to smart session",
   extraStats,
@@ -55,6 +58,8 @@ export function RunnerSummary({
 }: {
   methodName: string;
   summary: SessionSummary;
+  /** Matches the server-rendered title after the refresh ("stopped early" for an abandoned session). */
+  stoppedEarly?: boolean;
   parentSessionId?: string | null;
   parentLabel?: string;
   extraStats?: Array<{ label: string; value: string }>;
@@ -62,7 +67,7 @@ export function RunnerSummary({
 }) {
   return (
     <SessionSummaryCard
-      title={`${methodName} complete`}
+      title={stoppedEarly ? `${methodName} stopped early` : `${methodName} complete`}
       summary={summary}
       extraStats={extraStats}
       actions={

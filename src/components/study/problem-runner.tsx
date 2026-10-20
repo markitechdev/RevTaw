@@ -56,7 +56,7 @@ function StepList({ steps, given = 0, start = 0 }: { steps: SolutionView["steps"
 export function ProblemRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: RunnerProps) {
   const router = useRouter();
   const items = session.items;
-  const { summary, ending, error, setError, finish, pending, startTransition } = useSessionCompletion(session);
+  const { summary, stoppedEarly, ending, error, setError, finish, pending, startTransition } = useSessionCompletion(session);
   const [index, setIndex] = useState(() => {
     const first = items.findIndex((entry) => !entry.answered_at);
     return first === -1 ? items.length : first;
@@ -76,7 +76,7 @@ export function ProblemRunner({ session, methodName, parentSessionId = null, par
   }, [item?.id, item?.response]);
 
   if (summary) {
-    return <RunnerSummary methodName={methodName} summary={summary} parentSessionId={parentSessionId} parentLabel={parentLabel} />;
+    return <RunnerSummary methodName={methodName} summary={summary} stoppedEarly={stoppedEarly} parentSessionId={parentSessionId} parentLabel={parentLabel} />;
   }
   if (!item) return <RunnerDone session={session} methodName={methodName} message="Every problem is done." ending={ending} onFinish={() => finish()} />;
 
