@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { formatRelativeDate } from "@/components/materials/material-card";
+import { ExportMenu } from "@/components/export/export-menu";
 import { QuizActions } from "@/components/quizzes/quiz-actions";
 import { StartAttemptButton } from "@/components/quizzes/start-attempt";
 import { Badge } from "@/components/ui/badge";
@@ -65,7 +66,15 @@ export default async function QuizDetailPage({ params }: PageProps<"/quiz/[id]">
           </p>
           {quiz.status_detail && quiz.status !== "failed" && <p className="text-sm text-muted-foreground">{quiz.status_detail}</p>}
         </div>
-        <QuizActions quizId={quiz.id} title={quiz.title} status={quiz.status} />
+        <div className="flex flex-wrap items-center gap-2">
+          {quiz.status === "ready" && quiz.question_count > 0 && (
+            <>
+              <ExportMenu target={{ kind: "quiz", id: quiz.id }} label="Export questions" />
+              <ExportMenu target={{ kind: "quiz", id: quiz.id, query: { answers: "1" } }} label="With answer key" />
+            </>
+          )}
+          <QuizActions quizId={quiz.id} title={quiz.title} status={quiz.status} />
+        </div>
       </div>
 
       {quiz.status === "failed" ? (

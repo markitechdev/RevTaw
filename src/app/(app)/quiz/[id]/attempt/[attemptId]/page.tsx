@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ExportMenu } from "@/components/export/export-menu";
 import { AttemptResults } from "@/components/quizzes/attempt-results";
 import { QuizRunner } from "@/components/quizzes/quiz-runner";
 import { buttonClasses } from "@/components/ui/button";
@@ -53,12 +54,15 @@ export default async function AttemptPage({ params }: PageProps<"/quiz/[id]/atte
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-2xl font-semibold tracking-tight">Results</h1>
-          {session && (
-            <Link href={`${routes.study}/${session.id}`} className={buttonClasses({ size: "sm", variant: "secondary" })}>
-              <BookOpenCheck className="h-4 w-4" aria-hidden="true" />
-              Session summary
-            </Link>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportMenu target={{ kind: "results", id: attemptId }} label="Export results" />
+            {session && (
+              <Link href={`${routes.study}/${session.id}`} className={buttonClasses({ size: "sm", variant: "secondary" })}>
+                <BookOpenCheck className="h-4 w-4" aria-hidden="true" />
+                Session summary
+              </Link>
+            )}
+          </div>
         </div>
         {expired && <p className="text-sm text-warning">Time ran out, so this attempt was submitted automatically.</p>}
       </div>

@@ -6,6 +6,7 @@ import { MasteryTable } from "@/components/adaptive/mastery-table";
 import { RecommendationList } from "@/components/adaptive/recommendation-list";
 import { DailyColumns, PercentBars, ScoreColumns, StatusStrip } from "@/components/analytics/charts";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { ExportMenu } from "@/components/export/export-menu";
 import { LevelCard } from "@/components/gamification/badges";
 import { GoalList, NewGoalButton } from "@/components/planner/goals";
 import { buttonClasses } from "@/components/ui/button";
@@ -43,6 +44,7 @@ export default async function ProgressPage() {
         description={`What your studying adds up to: scores, accuracy, time, mastery per concept and where you stand. A concept counts as mastered at ${MASTERY_THRESHOLD}%; nothing is ever locked — RevTaw just recommends more practice.`}
         actions={
           <>
+            <ExportMenu target={{ kind: "progress" }} label="Export report" />
             <Link href={`${routes.progress}/map`} className={buttonClasses({ size: "sm", variant: "secondary" })}>
               <Map className="h-4 w-4" aria-hidden="true" />
               Mastery map

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { BoxBar, CardList } from "@/components/flashcards/card-list";
+import { ExportMenu } from "@/components/export/export-menu";
 import { DeckActions } from "@/components/flashcards/deck-actions";
 import { formatRelativeDate } from "@/components/materials/material-card";
 import { formatDue } from "@/components/study/session-summary";
@@ -58,7 +59,10 @@ export default async function DeckPage({ params }: PageProps<"/flashcards/[deckI
           </p>
           {deck.status_detail && deck.status !== "failed" && <p className="text-sm text-muted-foreground">{deck.status_detail}</p>}
         </div>
-        <DeckActions deckId={deck.id} title={deck.title} status={deck.status} />
+        <div className="flex flex-wrap items-center gap-2">
+          {deck.status === "ready" && deck.cards.length > 0 && <ExportMenu target={{ kind: "deck", id: deck.id }} />}
+          <DeckActions deckId={deck.id} title={deck.title} status={deck.status} />
+        </div>
       </div>
 
       {deck.status === "failed" ? (

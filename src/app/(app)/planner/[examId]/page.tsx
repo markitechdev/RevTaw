@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { AddTaskButton } from "@/components/planner/custom-task-dialog";
 import { ExamDangerActions, PlanSettings } from "@/components/planner/exam-actions";
+import { ExportMenu } from "@/components/export/export-menu";
 import { ExamCard } from "@/components/planner/exam-card";
 import { ExamDialogButton } from "@/components/planner/exam-dialog";
 import { TaskItem } from "@/components/planner/task-item";
@@ -88,6 +89,7 @@ export default async function ExamPlanPage({ params }: PageProps<"/planner/[exam
         actions={
           <>
             {editButton}
+            <ExportMenu target={{ kind: "plan", id: exam.id }} label="Export plan" />
             <ExamDangerActions examId={exam.id} archived={Boolean(exam.archived_at)} />
           </>
         }

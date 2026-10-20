@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { formatRelativeDate } from "@/components/materials/material-card";
+import { ExportMenu } from "@/components/export/export-menu";
 import { ReviewerActions } from "@/components/reviewers/reviewer-actions";
 import { ReviewerSectionView } from "@/components/reviewers/reviewer-section";
 import { TrackReviewerOpen } from "@/components/reviewers/track-open";
@@ -62,7 +63,10 @@ export default async function ReviewerPage({ params }: PageProps<"/notes/[id]">)
             <p className="text-sm text-muted-foreground">{reviewer.status_detail}</p>
           )}
         </div>
-        <ReviewerActions reviewerId={reviewer.id} title={reviewer.title} status={reviewer.status} />
+        <div className="flex flex-wrap items-center gap-2">
+          {reviewer.status === "ready" && reviewer.sections.length > 0 && <ExportMenu target={{ kind: "reviewer", id: reviewer.id }} />}
+          <ReviewerActions reviewerId={reviewer.id} title={reviewer.title} status={reviewer.status} />
+        </div>
       </div>
 
       {reviewer.status === "failed" ? (

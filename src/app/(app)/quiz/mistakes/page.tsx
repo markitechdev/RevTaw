@@ -2,6 +2,7 @@ import { ArrowLeft, NotebookPen, RotateCcw } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { ExportMenu } from "@/components/export/export-menu";
 import { MistakeItem } from "@/components/quizzes/mistake-item";
 import { buttonClasses } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -45,6 +46,7 @@ export default async function MistakesPage({ searchParams }: PageProps<"/quiz/mi
                 Retest these
               </Link>
             )}
+            {mistakes.length > 0 && <ExportMenu target={{ kind: "mistakes", query: { view: showResolved ? "learned" : "open" } }} />}
           <nav className="flex rounded-lg border border-border p-0.5 text-sm" aria-label="Notebook view">
             <Link
               href={`${routes.quiz}/mistakes`}
