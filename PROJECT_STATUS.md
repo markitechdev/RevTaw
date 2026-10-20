@@ -4,7 +4,7 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-19 (Phase 5 complete)_
+_Last updated: 2026-10-20 (Phase 6 complete)_
 
 ## Completed
 
@@ -224,21 +224,57 @@ _Last updated: 2026-10-19 (Phase 5 complete)_
   reasoning (score, strengths, missing concepts, next step) stored as the
   §29 summary.
 
+### Phase 6 — Adaptive intelligence
+
+- **Schema** — `concept_mastery` (`supabase/migrations/0006_mastery.sql`):
+  one cached row per student and concept with mastery, retrieval strength,
+  status, next difficulty, attempt/correct/incorrect counters, streak, open
+  mistakes, misconceptions, underconfident answers, average confidence and
+  response time, trend, last practised and next review timestamps.
+- **Mastery model** (§28) — `computeMastery()` in `src/lib/adaptive/mastery.ts`
+  is pure and unit-tested: recency- and difficulty-weighted accuracy scaled
+  by how much evidence exists, minus penalties for unresolved mistakes and
+  confident wrong answers; a forgetting-curve retrieval strength whose
+  stability grows with the correct streak; the next review date; status
+  thresholds (weak < 40, learning < 60, strong < 80, mastered ≥ 80, never
+  locked); progressive difficulty (easy → medium → hard → advanced).
+- **Evidence** — `recomputeMastery()` rebuilds rows from quiz answers,
+  study session items (recall, Feynman, error review), flashcard reviews and
+  the mistake notebook; every grading path calls `refreshMastery()` for the
+  concepts it touched (§51 consistency: one answer updates results, concept
+  performance, mastery, the notebook, confidence analysis and
+  recommendations).
+- **Adaptive difficulty** (§28) — quizzes default to "Adaptive": the
+  generator receives per-concept targets from mastery plus the weak
+  concepts to emphasise; practice-testing sessions use it too.
+- **Progress page** (§23) — concepts tracked, average mastery,
+  misconceptions, sessions completed; per-concept mastery table (status,
+  bar, recall strength, answers with confident misses, trend, next
+  difficulty, next review); confidence check (wrong but confident / right
+  but unsure); "what to do next".
+- **Recommendations with reasons** (§15, §22) — `getRecommendations()` ranks
+  Feynman for misconceptions, active recall for weak concepts, error review
+  for open mistakes, recall for fading concepts, spaced repetition for due
+  cards, timed practice for underconfident concepts and an exam simulation
+  when everything is strong; shown on the dashboard, the progress page and
+  the material overview ("Your mastery of this material").
+- **Smart Study** (spec flagship) — the builder's first method: RevTaw
+  budgets the chosen minutes into blocks (error review, active recall,
+  Feynman, spaced repetition, a short adaptive test) with the reason for
+  each; blocks run as ordinary child sessions linked to the parent plan, the
+  plan page tracks status (start/resume/skip/view summary) and the session
+  ends with one combined summary.
+
 ## In Progress
 
-- Nothing at the moment. Phase 6 starts next.
+- Nothing at the moment. Phase 7 starts next.
 
 ## Next (priority order)
 
-1. **Phase 6 — Adaptive intelligence**: mastery and retrieval strength per
-   concept (quiz answers, recall items and flashcard reviews already carry
-   correctness, difficulty, confidence and response time), weakness
-   detection, confidence analysis (correct + low confidence, wrong + high
-   confidence), difficulty adaptation, smart study sessions and
-   recommendations with reasons.
-2. **Phase 7 — Planner**: exam dates, availability, generated daily plans,
-   cram mode, 1-3-7-14 reviews, plan adjustment.
-3. Phases 8–10 as listed in the spec (advanced methods such as blurting,
+1. **Phase 7 — Planner**: exam dates, availability, generated daily plans,
+   cram mode, 1-3-7-14 reviews, plan adjustment (mastery and due reviews
+   are already available as inputs).
+2. Phases 8–10 as listed in the spec (advanced methods such as blurting,
    interleaving, chunking, worked examples, mind maps, dual coding,
    teach-back; analytics/gamification; export).
 
@@ -267,13 +303,14 @@ _Last updated: 2026-10-19 (Phase 5 complete)_
 | `public.flashcard_reviews` | Review log: rating, response time, box before/after, interval, due date, optional session | owner full access; cascade from card |
 | `public.tutor_conversations` | Tutor chat: material, optional study session, mode, title, message count, last message | owner full access; material/session FKs set null |
 | `public.tutor_messages` | One turn: role, content, quick action, selection, grounding, `sources` JSON, additional explanation, follow-ups, flashcard draft, provider/model | owner full access; cascade from conversation |
+| `public.concept_mastery` | Recomputable cache per student and concept: mastery, retrieval strength, status, next difficulty, counters, streak, open mistakes, misconceptions, underconfident, average confidence/response time, trend, last practised, next review | owner full access; unique `(user_id, concept_id)`; cascade from concept |
 | `storage.objects` (bucket `materials`) | Private files under `<user_id>/<material_id>/<file>` | policies on first path segment = `auth.uid()` |
 
 Enums: `education_level`, `study_goal`, `material_source`, `material_status`,
 `difficulty_level`, `reviewer_kind`, `generation_status`, `question_type`,
 `question_difficulty`, `quiz_mode`, `attempt_status`, `confidence_level`,
 `mistake_type`, `session_status`, `session_goal`, `flashcard_rating`,
-`tutor_mode`, `tutor_role`. Helper functions: `public.set_updated_at()`,
+`tutor_mode`, `tutor_role`, `mastery_status`, `next_difficulty`. Helper functions: `public.set_updated_at()`,
 `public.handle_new_user()` (security definer, pinned `search_path`).
 
 Types for queries live in `src/lib/supabase/database.types.ts` (hand-written
@@ -355,6 +392,15 @@ linked).
   is `src/components/tutor/`; `HighlightToolbar` wraps any material text.
   The default mode uses the fast model tier; guided/Socratic modes use the
   strong tier. Replies are not streamed (one validated JSON object per turn).
+- **Adaptive engine** — `src/lib/adaptive/`: `mastery.ts` (pure model,
+  thresholds, labels), `engine.ts` (evidence collection, recompute/refresh,
+  mastery views and summary, weak concepts, difficulty targets),
+  `recommend.ts` (ranked recommendations with reasons), `smart.ts` (Smart
+  Study planner, plan schema in `study_sessions.state`, block bookkeeping,
+  combined summary). UI in `src/components/adaptive/` (mastery bar/table,
+  recommendation list, material mastery) and
+  `src/components/study/smart-session.tsx`. Mastery is a cache: deleting
+  the rows and answering anything rebuilds them.
 
 ## Known Issues / Limitations
 
@@ -377,14 +423,17 @@ linked).
 - Quiz questions are generated from the whole material (optionally focused
   by a free-text topic); picking individual chapters/chunks as the source is
   a later refinement.
-- Concept performance on the dashboard is accuracy over recent answers;
-  mastery, retrieval strength and difficulty adaptation arrive in Phase 6.
+- Mastery is recomputed from evidence on every graded answer (one query
+  per evidence table scoped to the touched concepts); very large histories
+  would benefit from incremental updates. Rows for answers given before
+  Phase 6 appear the next time one of their concepts is practised.
 - Session items and flashcard generation also run inside a single request
   (`maxDuration = 120` for routes; Server Actions for sessions). Very long
   materials rely on the transcript budget.
 - The streak counts UTC days; per-user time zones arrive with the planner.
-- "Smart Study" (RevTaw picking the method automatically) and routines are
-  Phase 6/8 work; the builder recommends methods per goal today.
+- Smart Study plans are rule-based (budget split by what the data shows);
+  routines/habits and the exam-aware pacing of blocks arrive with the
+  planner (Phase 7) and Phase 8.
 - Tutor replies arrive as one message (no token streaming); the context is
   chosen by keyword overlap rather than embeddings, which is accurate for
   materials up to a few hundred pages and cheap to run. "Visualize" from the
@@ -454,10 +503,21 @@ Flows verified end to end against a local Supabase-compatible stack
   selection stored; Socratic session (opener question, questions in reply,
   evaluation summary, read-only afterwards); rename, delete keeps saved
   cards; mobile layout
+- Adaptive: progress empty state; adaptive quiz badge and default; a quiz
+  with confident and unsure misses produces one mastery row per concept
+  (misconception, underconfident, open mistake, next review, retrieval
+  strength, attempts add up); progress page stats, table, confidence check
+  and top recommendation; dashboard recommendations with the Smart Study
+  CTA and mastery bars; material mastery card; Smart Study plan of four
+  blocks using the whole budget, child sessions carrying the parent id,
+  error review block resolving mistakes and feeding mastery, recall block,
+  skip, combined summary (persisted after reload), a second plan that picks
+  the material itself and drops error review; the next quiz follows each
+  concept's next difficulty; anonymous progress page redirects
 - Unit tests (`npm test`): JSON extraction, chunking, content helpers,
   analysis transcript, markdown renderer, quiz distribution/grading/config,
-  the mock quiz generator, the flashcard scheduler and the tutor context
-  selector
+  the mock quiz generator, the flashcard scheduler, the tutor context
+  selector and the mastery model
 
 Commands: `npm run lint`, `npx tsc --noEmit`, `npm test` (vitest unit tests),
 `npm run build`.
