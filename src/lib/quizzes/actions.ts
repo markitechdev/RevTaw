@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { refreshMastery } from "@/lib/adaptive/engine";
 import { saveAnswer, selfGradeAnswer, ServiceError, startAttempt, submitAttempt, type SaveAnswerResult } from "@/lib/quizzes/service";
 import { routes } from "@/lib/routes";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
@@ -148,8 +149,9 @@ export async function updateMistakeAction(input: z.input<typeof mistakeUpdateSch
   const patch: { resolved_at?: string | null; error_type?: z.infer<typeof mistakeUpdateSchema>["errorType"] } = {};
   if (parsed.data.resolved !== undefined) patch.resolved_at = parsed.data.resolved ? new Date().toISOString() : null;
   if (parsed.data.errorType) patch.error_type = parsed.data.errorType;
-  const { error } = await supabase.from("mistakes").update(patch).eq("id", parsed.data.mistakeId);
+  const { data, error } = await supabase.from("mistakes").update(patch).eq("id", parsed.data.mistakeId).select("concept_id").maybeSingle();
   if (error) return { ok: false, message: "The mistake could not be updated." };
+  if (data?.concept_id && parsed.data.resolved !== undefined) await refreshMastery([data.concept_id]);
   revalidatePath(`${routes.quiz}/mistakes`);
   revalidatePath(routes.dashboard);
   return { ok: true };

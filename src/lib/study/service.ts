@@ -1,5 +1,6 @@
 import "server-only";
 
+import { refreshMastery, weakConceptNames as masteryWeakConcepts } from "@/lib/adaptive/engine";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { isAiError } from "@/lib/ai";
 import { getConceptPerformance } from "@/lib/quizzes/queries";
@@ -41,7 +42,9 @@ function feynmanCount(minutes: number): number {
   return Math.max(1, Math.min(4, Math.round(minutes / 8)));
 }
 
-async function weakConceptNames(limit = 6): Promise<string[]> {
+async function weakConceptNames(materialId: string | null = null, limit = 6): Promise<string[]> {
+  const fromMastery = await masteryWeakConcepts(materialId, limit);
+  if (fromMastery.length) return fromMastery;
   const performance = await getConceptPerformance();
   return performance
     .filter((concept) => concept.accuracy < 0.7)
@@ -93,7 +96,7 @@ export async function startSession(userId: string, input: StartSessionInput): Pr
 async function startRecallSession(supabase: Client, userId: string, input: StartSessionInput): Promise<StartSessionResult> {
   const context = await loadMaterialContext(supabase, input.materialId!);
   const [weak, { data: mistakes }] = await Promise.all([
-    weakConceptNames(),
+    weakConceptNames(context.material.id),
     supabase.from("mistakes").select("question_text").eq("material_id", context.material.id).is("resolved_at", null).order("created_at", { ascending: false }).limit(5),
   ]);
   const count = recallCount(input.plannedMinutes);
@@ -139,7 +142,7 @@ async function startRecallSession(supabase: Client, userId: string, input: Start
 
 async function startFeynmanSession(supabase: Client, userId: string, input: StartSessionInput): Promise<StartSessionResult> {
   const context = await loadMaterialContext(supabase, input.materialId!);
-  const weak = await weakConceptNames();
+  const weak = await weakConceptNames(context.material.id);
   const generated = await pickFeynmanConcepts({
     materialTitle: context.material.title,
     chunks: context.chunks,
@@ -364,6 +367,7 @@ export async function answerRecallItem(input: { itemId: string; response: string
     });
   }
 
+  if (item.concept_id) await refreshMastery([item.concept_id]);
   return { comparison, isCorrect, modelAnswer: item.model_answer ?? "", sourceExcerpt: item.source_excerpt };
 }
 
@@ -457,6 +461,7 @@ export async function analyzeFeynmanItem(input: { itemId: string; explanation: s
   } else {
     await supabase.from("study_sessions").update({ last_active_at: now }).eq("id", session.id);
   }
+  if (final && item.concept_id) await refreshMastery([item.concept_id]);
 
   return { analysis, round, final, idealExplanation: final ? item.model_answer : null, sourceExcerpt: final ? item.source_excerpt : null };
 }

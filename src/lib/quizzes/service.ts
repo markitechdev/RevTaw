@@ -1,5 +1,6 @@
 import "server-only";
 
+import { refreshMastery } from "@/lib/adaptive/engine";
 import { isAiError } from "@/lib/ai";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { gradeObjective, gradeOpenAnswers, normalizeText, type GradeResult, type OpenAnswerItem } from "@/lib/quizzes/grade";
@@ -511,6 +512,7 @@ export async function submitAttempt(attemptId: string): Promise<{ submitted: boo
     .eq("id", attempt.id)
     .eq("status", "in_progress");
   if (error) throw new Error(`quiz_attempts: submit failed: ${error.message}`);
+  await refreshMastery(questions.map((question) => question.concept_id).filter((id): id is string => Boolean(id)));
   return { submitted: true, needsSelfCheck };
 }
 
@@ -554,6 +556,7 @@ export async function selfGradeAnswer(answerId: string, verdict: "correct" | "pa
   const total = (rows ?? []).reduce((sum, row) => sum + (row.score ?? 0), 0);
   const correct = (rows ?? []).filter((row) => row.is_correct).length;
   await supabase.from("quiz_attempts").update({ score: total, correct_count: correct }).eq("id", attempt.id);
+  if (question.concept_id) await refreshMastery([question.concept_id]);
 }
 
 /** Auto-submits an attempt whose time ran out while the student was away. */

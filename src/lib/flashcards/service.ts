@@ -1,5 +1,6 @@
 import "server-only";
 
+import { refreshMastery } from "@/lib/adaptive/engine";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { generateFlashcards } from "@/lib/flashcards/generate";
 import { schedule, type SchedulerState } from "@/lib/flashcards/scheduler";
@@ -91,7 +92,7 @@ export async function reviewCard(input: { cardId: string; rating: FlashcardRatin
   const supabase = await createClient();
   const { data: card } = await supabase
     .from("flashcards")
-    .select("id, user_id, box, ease, interval_days, repetitions, lapses, suspended")
+    .select("id, user_id, box, ease, interval_days, repetitions, lapses, suspended, concept_id")
     .eq("id", input.cardId)
     .maybeSingle();
   if (!card) throw new ServiceError("Card not found.", 404);
@@ -145,5 +146,6 @@ export async function reviewCard(input: { cardId: string; rating: FlashcardRatin
     }
   }
 
+  if (card.concept_id) await refreshMastery([card.concept_id]);
   return { box: next.box, intervalDays: next.interval_days, dueAt: next.due_at };
 }
