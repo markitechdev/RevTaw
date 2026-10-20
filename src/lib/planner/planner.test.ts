@@ -93,9 +93,11 @@ describe("plan generator", () => {
     expect(reviews.map((task) => task.reason)).toEqual(expect.arrayContaining([expect.stringContaining("Day 1 review"), expect.stringContaining("Day 3 review"), expect.stringContaining("Day 7 review")]));
     // Final days: mistake review + exam simulation, then rapid review on the eve and on exam day.
     const eve = plan.tasks.filter((task) => task.scheduledFor === "2026-11-01");
-    expect(eve.map((task) => task.method)).toEqual(expect.arrayContaining(["error_review", "practice_testing"]));
+    expect(eve.map((task) => task.method)).toEqual(expect.arrayContaining(["error_review", "exam_simulation"]));
+    const dayBefore = plan.tasks.filter((task) => task.scheduledFor === "2026-11-02");
+    expect(dayBefore.find((task) => /Rapid review/.test(task.title))).toMatchObject({ method: "rapid_review", minutes: 15 });
     expect(plan.tasks.filter((task) => task.scheduledFor === "2026-11-03")).toHaveLength(1);
-    expect(plan.tasks.find((task) => task.scheduledFor === "2026-11-03")?.title).toMatch(/Rapid review/);
+    expect(plan.tasks.find((task) => task.scheduledFor === "2026-11-03")).toMatchObject({ method: "rapid_review", title: expect.stringMatching(/Rapid review/) });
     expect(plan.warnings).toEqual([]);
   });
 

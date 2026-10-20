@@ -26,7 +26,7 @@ import {
 } from "@/lib/planner/service";
 import type { CustomTaskInput, ExamFormInput, GoalFormInput } from "@/lib/planner/types";
 import { routes } from "@/lib/routes";
-import { isBuilderMethod, type BuilderMethodId } from "@/lib/study/catalog";
+import { isBuilderMethod, isTestMethod, type BuilderMethodId } from "@/lib/study/catalog";
 import { ServiceError, SessionError, startSession } from "@/lib/study/service";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -166,10 +166,10 @@ export async function startTaskAction(taskId: string): Promise<PlannerActionResu
     const result = await startSession(user.id, {
       method,
       materialId: task.material_id,
-      goal: task.method === "review" ? "quick_review" : method === "practice_testing" ? "exam_prep" : "practice",
+      goal: task.method === "review" ? "quick_review" : isTestMethod(method) || method === "rapid_review" ? "exam_prep" : "practice",
       plannedMinutes: minutes,
-      questionCount: method === "practice_testing" ? Math.max(5, Math.min(30, Math.round(minutes / 1.5))) : undefined,
-      timed: method === "practice_testing" ? true : undefined,
+      questionCount: isTestMethod(method) ? Math.max(5, Math.min(30, Math.round(minutes / 1.5))) : undefined,
+      timed: isTestMethod(method) ? true : undefined,
       workMinutes: method === "pomodoro" ? Math.min(60, minutes) : undefined,
       breakMinutes: method === "pomodoro" ? 5 : undefined,
       topic: method === "pomodoro" ? task.title.replace(/^Focused study:\s*/, "").slice(0, 120) : undefined,

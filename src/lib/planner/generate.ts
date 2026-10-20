@@ -333,15 +333,15 @@ export function generatePlan(input: PlanInput): GeneratedPlan {
     if (finalDays.length === 2) {
       const [eve, last] = finalDays;
       if (totalMistakes > 0) push(eve, { method: "error_review", title: "Mistake review", reason: "Clear the notebook before the simulation.", minutes: Math.min(15, slot, free(eve)), materialId: null, concepts: [], phase: "final" });
-      if (simulationMaterial && free(eve) >= 5) push(eve, { method: "practice_testing", title: `Exam simulation: ${simulationMaterial.title}`, reason: "Timed, shuffled, no hints — the closest thing to the real exam.", minutes: free(eve), materialId: simulationMaterial.id, concepts: [], phase: "final" });
+      if (simulationMaterial && free(eve) >= 5) push(eve, { method: "exam_simulation", title: `Exam simulation: ${simulationMaterial.title}`, reason: "Timed, shuffled, no hints — the closest thing to the real exam.", minutes: free(eve), materialId: simulationMaterial.id, concepts: [], phase: "final" });
       else if (free(eve) >= 5) push(eve, { method: "pomodoro", title: titleFor("pomodoro", null, input.examTitle), reason: "Final focused review.", minutes: free(eve), materialId: null, concepts: input.topics.slice(0, 6), phase: "final" });
-      if (simulationMaterial) push(last, { method: "active_recall", title: `Rapid review: ${simulationMaterial.title}`, reason: "Weak concepts and definitions only — no new material the day before.", minutes: Math.min(slot, free(last)), materialId: simulationMaterial.id, concepts: simulationMaterial.weakConcepts.slice(0, 6), phase: "final" });
+      if (simulationMaterial) push(last, { method: "rapid_review", title: `Rapid review: ${simulationMaterial.title}`, reason: "Weak concepts and definitions only — no new material the day before.", minutes: Math.min(15, slot, free(last)), materialId: simulationMaterial.id, concepts: simulationMaterial.weakConcepts.slice(0, 6), phase: "final" });
       if (anyFlashcards && free(last) >= 5) push(last, { method: "spaced_repetition", title: "Flashcard sweep", reason: "A last pass over every due card.", minutes: Math.min(slot, free(last)), materialId: null, concepts: [], phase: "final" });
       if (!simulationMaterial && free(last) >= 5) push(last, { method: "pomodoro", title: titleFor("pomodoro", null, input.examTitle), reason: "Light review the day before.", minutes: Math.min(slot, free(last)), materialId: null, concepts: input.topics.slice(0, 6), phase: "final" });
     } else if (finalDays.length === 1) {
       const [last] = finalDays;
       if (totalMistakes > 0) push(last, { method: "error_review", title: "Mistake review", reason: "Clear the notebook before the simulation.", minutes: Math.min(10, slot, free(last)), materialId: null, concepts: [], phase: "final" });
-      if (simulationMaterial && free(last) >= 5) push(last, { method: "practice_testing", title: `Exam simulation: ${simulationMaterial.title}`, reason: "Timed, shuffled, no hints — the closest thing to the real exam.", minutes: free(last), materialId: simulationMaterial.id, concepts: [], phase: "final" });
+      if (simulationMaterial && free(last) >= 5) push(last, { method: "exam_simulation", title: `Exam simulation: ${simulationMaterial.title}`, reason: "Timed, shuffled, no hints — the closest thing to the real exam.", minutes: free(last), materialId: simulationMaterial.id, concepts: [], phase: "final" });
       else if (free(last) >= 5) push(last, { method: "pomodoro", title: titleFor("pomodoro", null, input.examTitle), reason: "Final focused review.", minutes: free(last), materialId: null, concepts: input.topics.slice(0, 6), phase: "final" });
     }
   }
@@ -351,7 +351,7 @@ export function generatePlan(input: PlanInput): GeneratedPlan {
   if (!byDate.has(input.examDate)) days.push(examDay);
   const rapidMaterial = weakest[0] ?? null;
   push(examDay, {
-    method: rapidMaterial ? "active_recall" : "pomodoro",
+    method: rapidMaterial ? "rapid_review" : "pomodoro",
     title: rapidMaterial ? `Rapid review: ${rapidMaterial.title}` : `Rapid review: ${input.examTitle}`,
     reason: "Exam day: five to fifteen minutes on weak concepts and definitions, then stop.",
     minutes: Math.min(15, Math.max(5, slot)),
