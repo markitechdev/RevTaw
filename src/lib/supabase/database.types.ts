@@ -79,6 +79,7 @@ export type SessionStatus = "in_progress" | "completed" | "abandoned";
 export type SessionGoal = "memorize" | "understand" | "practice" | "exam_prep" | "quick_review" | "master_topic";
 export type FlashcardRating = "again" | "hard" | "good" | "easy";
 export type TutorMode = "tutor" | "guided" | "socratic" | "elaborative" | "self_explanation";
+export type SessionItemKind = "recall" | "feynman" | "mistake" | "blurt" | "chunk" | "question" | "problem" | "scenario" | "case" | "stage";
 export type TutorRole = "user" | "assistant";
 export type MasteryStatus = "new" | "weak" | "learning" | "strong" | "mastered";
 export type NextDifficulty = "easy" | "medium" | "hard" | "advanced";
@@ -329,7 +330,7 @@ type StudySessionItemsRow = {
   user_id: string;
   session_id: string;
   position: number;
-  kind: "recall" | "feynman" | "mistake";
+  kind: SessionItemKind;
   concept_id: string | null;
   prompt: string;
   model_answer: string | null;
@@ -343,6 +344,8 @@ type StudySessionItemsRow = {
   confidence: ConfidenceLevel | null;
   response_ms: number | null;
   attempts: number;
+  format: string | null;
+  material_id: string | null;
   answered_at: string | null;
   created_at: string;
   updated_at: string;
@@ -532,6 +535,17 @@ type StudyGoalsRow = {
   due_date: string | null;
   status: GoalStatus;
   completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type RoutinesRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  blocks: Json;
+  last_used_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -826,6 +840,13 @@ export type Database = {
             referencedRelation: "mistakes";
             referencedColumns: ["id", "user_id"];
           },
+          {
+            foreignKeyName: "study_session_items_material_fk";
+            columns: ["material_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id", "user_id"];
+          },
         ];
       };
       flashcard_decks: {
@@ -1044,6 +1065,12 @@ export type Database = {
         Update: Partial<NotificationsRow>;
         Relationships: [];
       };
+      routines: {
+        Row: RoutinesRow;
+        Insert: Writable<RoutinesRow, "title">;
+        Update: Partial<RoutinesRow>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -1117,3 +1144,4 @@ export type StudyPlan = Tables<"study_plans">;
 export type StudyTask = Tables<"study_tasks">;
 export type StudyGoalRow = Tables<"study_goals">;
 export type Notification = Tables<"notifications">;
+export type Routine = Tables<"routines">;

@@ -34,6 +34,7 @@ supabase db push
 | `0005_tutor.sql` | `tutor_conversations` (material-grounded chats, mode, optional study session) + `tutor_messages` (role, content, action, selection, grounding, sources, follow-ups, flashcard); owner-only RLS |
 | `0006_mastery.sql` | `concept_mastery` — the adaptive engine's cached mastery, retrieval strength, confidence calibration, next difficulty and next review per concept; owner-only RLS |
 | `0007_planner.sql` | `profiles.timezone`; `exams`, `exam_materials`, `study_plans`, `study_tasks` (plan tasks, 1-3-7-14 reviews, custom tasks), `study_goals`, `notifications`; owner-only RLS |
+| `0008_methods.sql` | more `study_session_items` kinds plus `format` and `material_id`; `tutor_mode` gains `teach_back`; `routines` (custom study routines); owner-only RLS |
 
 Migrations are additive. Never edit an applied migration; add a new numbered
 file instead.
