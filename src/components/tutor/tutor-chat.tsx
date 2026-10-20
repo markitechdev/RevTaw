@@ -57,6 +57,7 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
       additional_explanation: null,
       follow_ups: [],
       flashcard: null,
+      visual: null,
       created_at: "",
     };
     setMessages((state) => [...state, optimistic]);
@@ -74,7 +75,7 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
         setError(body.error ?? "The tutor could not reply.");
         return;
       }
-      const reply = body.reply as unknown as { answer: string; grounding: MessageView["grounding"]; sources: MessageView["sources"]; additional_explanation: string | null; follow_ups: FollowUpId[]; flashcard: MessageView["flashcard"] };
+      const reply = body.reply as unknown as { answer: string; grounding: MessageView["grounding"]; sources: MessageView["sources"]; additional_explanation: string | null; follow_ups: FollowUpId[]; flashcard: MessageView["flashcard"]; visual?: MessageView["visual"] };
       setMessages((state) => [
         ...state.map((message) => (message.id === optimistic.id ? { ...message, id: body.userMessageId ?? message.id } : message)),
         {
@@ -88,6 +89,7 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
           additional_explanation: reply.additional_explanation,
           follow_ups: reply.follow_ups,
           flashcard: reply.flashcard,
+          visual: reply.visual ?? null,
           created_at: "",
         },
       ]);

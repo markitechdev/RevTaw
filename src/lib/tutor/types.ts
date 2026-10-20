@@ -15,6 +15,7 @@ export type TutorActionId =
   | "why"
   | "compare"
   | "mnemonic"
+  | "visualize"
   | "beginner"
   | "why_wrong"
   | "explain_more";
@@ -37,6 +38,7 @@ export const TUTOR_ACTIONS: readonly TutorAction[] = [
   { id: "why", label: "Ask why", prompt: "Why is this true? Keep asking me why until the reason is clear.", highlight: true },
   { id: "compare", label: "Compare", prompt: "Compare this with the related ideas in the material.", highlight: true },
   { id: "mnemonic", label: "Mnemonic", prompt: "Give me a mnemonic for this.", highlight: true },
+  { id: "visualize", label: "Visualize", prompt: "Visualize this.", highlight: true },
   { id: "analogy", label: "Analogy", prompt: "Give me an analogy.", highlight: false },
   { id: "step_by_step", label: "Step by step", prompt: "Explain this step by step.", highlight: false },
   { id: "beginner", label: "Like I'm a beginner", prompt: "Explain this like I'm a beginner.", highlight: false },

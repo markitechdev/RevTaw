@@ -135,6 +135,7 @@ async function respond(
       additional_explanation: null,
       follow_ups: [],
       flashcard: null,
+      visual: null,
     };
   }
 
@@ -164,6 +165,7 @@ async function respond(
       additional_explanation: reply.additional_explanation,
       follow_ups: reply.follow_ups as unknown as Json,
       flashcard: reply.flashcard as unknown as Json | null,
+      visual: (reply.visual ?? null) as unknown as Json | null,
       provider,
       model,
     })

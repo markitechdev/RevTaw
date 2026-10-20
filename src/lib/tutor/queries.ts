@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import type { Visual } from "@/lib/study/visuals";
 import type { TutorConversation, TutorMessage } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import type { FlashcardDraft, FollowUpId, TutorSource } from "@/lib/tutor/types";
@@ -31,6 +32,7 @@ export type MessageView = Pick<TutorMessage, "id" | "role" | "content" | "action
   sources: TutorSource[];
   follow_ups: FollowUpId[];
   flashcard: FlashcardDraft | null;
+  visual: Visual | null;
 };
 
 export type ConversationDetail = TutorConversation & {
@@ -49,7 +51,7 @@ export const getConversation = cache(async (conversationId: string): Promise<Con
       .maybeSingle(),
     supabase
       .from("tutor_messages")
-      .select("id, role, content, action, selection, grounding, sources, additional_explanation, follow_ups, flashcard, created_at")
+      .select("id, role, content, action, selection, grounding, sources, additional_explanation, follow_ups, flashcard, visual, created_at")
       .eq("conversation_id", conversationId)
       .order("created_at")
       .limit(400),
@@ -66,6 +68,7 @@ export const getConversation = cache(async (conversationId: string): Promise<Con
       sources: Array.isArray(message.sources) ? (message.sources as unknown as TutorSource[]) : [],
       follow_ups: Array.isArray(message.follow_ups) ? (message.follow_ups as unknown as FollowUpId[]) : [],
       flashcard: (message.flashcard as unknown as FlashcardDraft | null) ?? null,
+      visual: (message.visual as unknown as Visual | null) ?? null,
     })),
   };
 });

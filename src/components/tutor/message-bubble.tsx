@@ -4,6 +4,7 @@ import { BookOpen, Layers, NotebookPen, Quote } from "lucide-react";
 import Link from "next/link";
 
 import { Markdown } from "@/components/content/markdown";
+import { VisualView } from "@/components/study/visual-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
@@ -57,6 +58,11 @@ export function MessageBubble({
           </Badge>
         </div>
         <Markdown source={message.content} className="text-sm" />
+        {message.visual && (
+          <div className="rounded-lg border border-border bg-background p-3">
+            <VisualView visual={message.visual} title="Visual" />
+          </div>
+        )}
         {message.additional_explanation && (
           <div className="rounded-lg border border-dashed border-border bg-muted/50 px-3 py-2 text-xs">
             <p className="font-semibold uppercase tracking-wide text-muted-foreground">Additional explanation (general knowledge)</p>

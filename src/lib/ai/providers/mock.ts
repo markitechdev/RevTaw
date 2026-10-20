@@ -1,4 +1,4 @@
-import { caseEvaluationHeuristically, casesHeuristically, problemEvaluationHeuristically, problemsHeuristically, readingAnswersHeuristically, reflectQuestionsHeuristically, scenarioEvaluationHeuristically, scenariosHeuristically, visualsHeuristically } from "@/lib/ai/providers/mock-study";
+import { caseEvaluationHeuristically, casesHeuristically, problemEvaluationHeuristically, problemsHeuristically, readingAnswersHeuristically, reflectQuestionsHeuristically, scenarioEvaluationHeuristically, scenariosHeuristically, visualForSection, visualsHeuristically } from "@/lib/ai/providers/mock-study";
 import { collectFacts, isHeadingLike, keywordsOf, overlap, parseTranscriptSections, sentencesOf, splitInlineSections } from "@/lib/ai/providers/mock-text";
 import type { AiGenerateOptions, AiGenerateResult, AiProvider } from "@/lib/ai/types";
 
@@ -784,6 +784,20 @@ export function tutorReplyHeuristically(material: string, prompt: string, system
       additional_explanation: null,
       follow_ups: ["explain_more", "simplify"],
       flashcard: null,
+    };
+  }
+
+  if (/visualize/.test(action)) {
+    const source = selection || scored.map((entry) => entry.sentence).join(" ") || best?.sentence || message;
+    const visual = visualForSection(best?.passage.heading ?? "Selection", source, 1);
+    return {
+      answer: `Here is the highlighted idea as a ${visual.type === "hierarchy" ? "diagram" : visual.type}, built from your material.`,
+      grounding: best ? "material" : "general",
+      sources,
+      additional_explanation: null,
+      follow_ups: ["explain_more", "example"],
+      flashcard: null,
+      visual,
     };
   }
 

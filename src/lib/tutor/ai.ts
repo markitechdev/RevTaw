@@ -8,6 +8,7 @@ import type { AiMessage } from "@/lib/ai/types";
 import type { StudentContext } from "@/lib/materials/analyze";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import type { TutorMode } from "@/lib/supabase/database.types";
+import { tidyVisual, visualSchema, VISUAL_RULES } from "@/lib/study/prompts/visual";
 import { labelChunk, type ContextChunk } from "@/lib/tutor/context";
 import { flashcardDraftSchema, FOLLOW_UP_IDS, sourceSchema, TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
 
@@ -18,6 +19,8 @@ export const tutorReplySchema = z.object({
   additional_explanation: z.string().trim().max(2000).nullable().default(null),
   follow_ups: z.array(z.enum(FOLLOW_UP_IDS)).max(5).default([]),
   flashcard: flashcardDraftSchema.nullable().default(null),
+  // "Visualize": one dual-coding visual of the highlighted content (§20).
+  visual: visualSchema.nullable().optional().catch(null).transform((value) => (value ? tidyVisual(value) : null)),
 });
 
 export type TutorReply = z.infer<typeof tutorReplySchema>;
@@ -60,6 +63,7 @@ const ACTION_RULES: Partial<Record<TutorActionId, string>> = {
   why: "Ask 'why' about the claim; give the first why-answer from the material and end with the next why question for the student.",
   compare: "Compare the idea with the related concepts in the material: similarities, differences, when each applies.",
   mnemonic: "Propose a mnemonic (acronym, rhyme or short story) for the list or sequence, then restate what each part stands for.",
+  visualize: `Draw ONE visual of the highlighted content in "visual". ${VISUAL_RULES} In "answer", say in 2-4 sentences what the visual shows. Build the visual only from the material.`,
   beginner: "Explain as if to a complete beginner: everyday words, one idea at a time, a tiny example.",
   why_wrong: "Explain why the student's answer is wrong and what the correct reasoning is, kindly and specifically.",
   explain_more: "Expand the previous answer with more depth and a second example.",
@@ -104,7 +108,7 @@ Style:
     input.selection ? `Highlighted text the student selected:\n"""\n${input.selection.slice(0, 4000)}\n"""` : null,
     action ? `Requested action: ${TUTOR_ACTION_BY_ID[input.action!].label} — ${action}` : null,
     `Student message: ${input.message.slice(0, 6000)}`,
-    `JSON schema: { "answer": string, "grounding": "material" | "partial" | "general" | "not_found", "sources": [{ "position": number, "heading": string | null, "pages": string | null, "quote": string }], "additional_explanation": string | null, "follow_ups": string[], "flashcard": { "front": string, "back": string } | null }`,
+    `JSON schema: { "answer": string, "grounding": "material" | "partial" | "general" | "not_found", "sources": [{ "position": number, "heading": string | null, "pages": string | null, "quote": string }], "additional_explanation": string | null, "follow_ups": string[], "flashcard": { "front": string, "back": string } | null${input.action === "visualize" ? ', "visual": { "type": "table" | "flowchart" | "timeline" | "hierarchy" | "relationships", ... }' : ""} }`,
     transcript ? `<material>\n${transcript}\n</material>` : "<material>\n(none)\n</material>",
   ]
     .filter(Boolean)
