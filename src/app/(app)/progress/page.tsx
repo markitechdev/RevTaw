@@ -1,4 +1,4 @@
-import { Brain, CheckCircle2, Clock, Gauge, Layers, ListChecks, Map, ShieldAlert, Sparkles, Target, TrendingUp } from "lucide-react";
+import { Brain, CheckCircle2, Clock, Flag, Gauge, Layers, ListChecks, Map, ShieldAlert, Sparkles, Target, TrendingUp } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -7,6 +7,7 @@ import { RecommendationList } from "@/components/adaptive/recommendation-list";
 import { DailyColumns, PercentBars, ScoreColumns, StatusStrip } from "@/components/analytics/charts";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { LevelCard } from "@/components/gamification/badges";
+import { GoalList, NewGoalButton } from "@/components/planner/goals";
 import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -17,6 +18,9 @@ import { getRecommendations } from "@/lib/adaptive/recommend";
 import { ANALYTICS_DAYS, getAnalyticsOverview } from "@/lib/analytics/queries";
 import { ACHIEVEMENTS } from "@/lib/gamification/achievements";
 import { getGamificationView, syncGamification } from "@/lib/gamification/sync";
+import { listMaterials } from "@/lib/materials/queries";
+import { listGoalsWithProgress } from "@/lib/planner/goals";
+import { plannerClock } from "@/lib/planner/service";
 import { routes } from "@/lib/routes";
 import { getActivityStats } from "@/lib/study/queries";
 
@@ -27,7 +31,8 @@ export const metadata: Metadata = {
 export default async function ProgressPage() {
   // Active days and badges settle before the page reads them (§31).
   await syncGamification();
-  const [rows, summary, recommendations, activity, analytics, gamification] = await Promise.all([listMastery(), getMasterySummary(), getRecommendations(3), getActivityStats(), getAnalyticsOverview(), getGamificationView()]);
+  const [rows, summary, recommendations, activity, analytics, gamification, goals, materials, clock] = await Promise.all([listMastery(), getMasterySummary(), getRecommendations(3), getActivityStats(), getAnalyticsOverview(), getGamificationView(), listGoalsWithProgress(), listMaterials(), plannerClock()]);
+  const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title }));
   const practiced = rows.filter((row) => row.attempts > 0);
   const hasActivity = analytics.totals.questions > 0 || analytics.totals.sessions > 0 || analytics.totals.cards > 0;
 
@@ -122,7 +127,7 @@ export default async function ProgressPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card>
           <CardHeader>
             <CardTitle>Mastery overview</CardTitle>
             <CardDescription>How your practiced concepts are spread across the statuses.</CardDescription>
@@ -132,6 +137,24 @@ export default async function ProgressPage() {
           </CardContent>
         </Card>
         <LevelCard xp={gamification.xp} level={gamification.level} streakDays={gamification.streakDays} unlockedCount={gamification.unlockedCount} total={ACHIEVEMENTS.length} />
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Flag className="h-4 w-4 text-primary" aria-hidden="true" />
+              Daily and weekly goals
+            </CardTitle>
+            <CardDescription>Measured from your sessions, reviews, answers and mastery; a reached goal earns XP.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {goals.length === 0 ? <p className="text-sm text-muted-foreground">No goals yet. Study 60 minutes today, review 50 flashcards this week, reach 80% mastery of a material…</p> : <GoalList goals={goals.slice(0, 5)} compact />}
+            <div className="flex flex-wrap gap-2">
+              <NewGoalButton materials={readyMaterials} today={clock.today} />
+              <Link href={routes.planner} className={buttonClasses({ size: "sm", variant: "ghost" })}>
+                Manage in Planner
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
