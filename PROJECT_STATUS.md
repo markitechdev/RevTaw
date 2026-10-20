@@ -4,7 +4,7 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-20 (Phase 9 complete)_
+_Last updated: 2026-10-20 (Phase 10 complete — all planned phases done)_
 
 ## Completed
 
@@ -480,14 +480,93 @@ no longer has a "coming later" section.
   page and earn XP when reached; the dashboard shows the level card (level,
   XP bar, streak, badge count).
 
+### Phase 10 — Export, search and refinement
+
+- **Export** (§34) — reviewers, quizzes (optionally with the answer key),
+  attempt results, flashcard decks, exam plans, the mistake notebook (open
+  or learned) and the progress report (30 days) export as **PDF**, **Word**
+  (`.docx`) or a **printable page**. One document model
+  (`src/lib/export/model.ts`: headings, paragraphs with inline runs, lists,
+  tables, key-value grids, callouts, code, page breaks; markdown converted
+  with the app's own parser) feeds three renderers: `html.ts` (standalone
+  printable page, everything escaped, a nonce'd print button that also
+  auto-prints with `?print=1`), `docx.ts` (`docx` package: real headings,
+  numbered and bulleted lists, tables, footer with page numbers) and
+  `pdf.tsx` (`@react-pdf/renderer`, A4, standard Helvetica fonts, page
+  numbers). `GET /api/export/<kind>?id=…&format=pdf|docx|html` builds the
+  document through the signed-in client (RLS decides what can be exported),
+  is rate-limited (30 a minute per user) and answers with `no-store`,
+  `nosniff` and a dated attachment filename. `ExportMenu` (print / PDF /
+  Word) sits on notes, quizzes, results, decks, exam plans, the notebook and
+  the progress page.
+- **Global search** (§33, `/search`) — one query across documents (titles
+  and extracted text), notes and reviewers (titles and sections), topics
+  (concepts with their mastery), quiz questions, flashcards and AI
+  conversations (titles and messages), grouped with snippets around the
+  first match and the place the hit comes from. PostgreSQL full-text search
+  with English stemming and websearch syntax (quotes, OR, minus), backed by
+  GIN indexes and generated `search_text` columns
+  (`supabase/migrations/0011_search.sql`); the signed-in client runs the
+  queries so RLS scopes them. The sidebar box submits from anywhere and
+  `/` focuses it; the mobile header links to the page.
+- **Accessibility review** — axe-core (WCAG 2.1 A/AA + best practices) over
+  35 signed-out and signed-in states, in light and dark mode, now reports no
+  violations. Fixed along the way: card titles are `h2` under the page `h1`
+  (`CardTitle as=…` for deeper levels); progress bars carry their own
+  accessible name and value text; charts are groups of focusable, labelled
+  bars (no interactive content inside an image role); the logo and the
+  flashcard flip button are named by their visible text; quiz, study, tutor
+  and flashcard-review pages have a level-one heading; the sidebar and the
+  quiz navigator are uniquely labelled landmarks; the sidebar and search-page
+  boxes have distinct ids and names; the light danger colour is red-700
+  (5.9:1 on its tint) and the "Recommended" chip uses the solid tint; the
+  export menu is a disclosure (Tab through the links, Escape returns focus).
+  Already in place from earlier phases: skip link, `:focus-visible` ring,
+  `prefers-reduced-motion`, native `<dialog>` focus trapping, labelled
+  form fields with `aria-describedby` errors, live regions for status.
+- **Hydration review** — countdowns (quiz timer, Pomodoro) read the clock
+  through `useNow()` (`src/lib/hooks/use-now.ts`, a `useSyncExternalStore`
+  with a `null` server snapshot), so the server and client markup match and
+  the first client render fills the time in; "3 min ago" labels in client
+  components are marked `suppressHydrationWarning`; number and date
+  formatting pins the `en-US` locale so a browser locale with other
+  separators no longer breaks hydration.
+- **Security review** — headers re-checked (nonce CSP with
+  `strict-dynamic`, `frame-ancestors 'none'`, `X-Content-Type-Options`,
+  `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, HSTS in
+  production, no `X-Powered-By`); every API route checks the user and is
+  rate-limited per user (the material file and status routes were the two
+  without a limit); exports and files are served `no-store`/`nosniff`; the
+  printable page is fully escaped and its only script carries the request
+  nonce; search terms go through PostgREST's `websearch` parser, never into
+  SQL; secret scan of the history clean. `npm audit`: vitest upgraded to 5
+  (clears the `@vitest/mocker` and `tinypool` advisories); the two remaining
+  advisories have no fixed release and are not reachable at runtime —
+  `braces` (lint-time, via `eslint-config-next`) and `sprintf-js` (only via
+  the `argparse` CLI of `mammoth`, which the app never runs).
+- **Performance pass** — the dashboard, progress and planner pages run the
+  XP/badge and notification syncs alongside their own reads instead of
+  before and after them (only the level card waits for the syncs); the
+  search indexes above; measured on the local stack every signed-in page
+  answers in about 50–140 ms time to first byte with the test data set
+  (the dashboard ~110 ms after this change). Shared client JavaScript is ~430 KB
+  (React, Next runtime, app shell); the PDF.js viewer (~420 KB) loads only
+  on the material page.
+
 ## In Progress
 
-- Nothing at the moment. Phase 10 starts next.
+- Nothing at the moment. All ten phases of the specification are
+  implemented.
 
 ## Next (priority order)
 
-1. **Phase 10 — Export and refinement**: PDF/Word/print export, global
-   search, accessibility, security and performance reviews.
+1. Background jobs for long generations (reviewers, quizzes, analysis of very
+   long materials) and a scheduler for daily plan adjustment and reminders
+   (today both run on page load).
+2. Email/push delivery of the reminder feed.
+3. Pagination of the Content tab for very large materials; map-reduce
+   analysis for books.
+4. A Redis-backed rate limiter when running several instances.
 
 ## Database
 
@@ -501,7 +580,7 @@ no longer has a "coming later" section.
 | `public.material_analyses` | One AI analysis per material: summary, difficulty, minutes, coverage, validated `data` JSON, provider/model | owner full access; cascade from material |
 | `public.concepts` | Master concept list per student (`name`, `normalized_name`, origin material/subject) | owner full access; unique `(user_id, normalized_name)` |
 | `public.reviewers` | Generated reviewer: kind, title, status + detail, provider/model, `last_opened_at`, `archived_at` | owner full access; cascade from material |
-| `public.reviewer_sections` | Ordered sections (heading, markdown content, `edited_at`, `regenerated_at`) | owner full access; cascade from reviewer |
+| `public.reviewer_sections` | Ordered sections (heading, markdown content, `edited_at`, `regenerated_at`, generated `search_text`) | owner full access; cascade from reviewer; GIN full-text index |
 | `public.quizzes` | Generated quiz: title, `config` JSON, status + detail, provider/model, `question_count` | owner full access; cascade from material |
 | `public.quiz_questions` | Question: type, difficulty, prompt, `options`, `answer` JSON, explanation, concept, source excerpt/chunk, points | owner full access; cascade from quiz; concept FK set null |
 | `public.quiz_attempts` | One run of a quiz: mode, status, time limit, `question_order`, score/max/correct, timestamps | owner full access; cascade from quiz |
@@ -514,7 +593,7 @@ no longer has a "coming later" section.
 | `public.mnemonics` | Saved memory devices: kind (acronym, acrostic, rhyme, phrase, association, story, custom), target, ordered `items`, content, explanation, source (ai/user), favorite, `last_practiced_at` | owner full access; material/concept FKs set null |
 | `public.memory_palaces` | Routes of locations for the method of loci: title, `locations` JSON (name, detail), `last_used_at` | owner full access |
 | `public.flashcard_decks` | Generated deck: title, status + detail, provider/model, card count | owner full access; cascade from material |
-| `public.flashcards` | Card: front/back/hint, concept, source, favorite, suspended, Leitner `box`, `ease`, `interval_days`, `repetitions`, `lapses`, `due_at`, last review/rating | owner full access; cascade from deck; partial index on due cards |
+| `public.flashcards` | Card: front/back/hint, concept, source, favorite, suspended, Leitner `box`, `ease`, `interval_days`, `repetitions`, `lapses`, `due_at`, last review/rating, generated `search_text` | owner full access; cascade from deck; partial index on due cards; GIN full-text index |
 | `public.flashcard_reviews` | Review log: rating, response time, box before/after, interval, due date, optional session | owner full access; cascade from card |
 | `public.tutor_conversations` | Tutor chat: material, optional study session, mode, title, message count, last message | owner full access; material/session FKs set null |
 | `public.tutor_messages` | One turn: role, content, quick action, selection, grounding, `sources` JSON, additional explanation, follow-ups, flashcard draft, optional `visual`, provider/model | owner full access; cascade from conversation |
@@ -537,6 +616,12 @@ Enums: `education_level`, `study_goal`, `material_source`, `material_status`,
 `exam_priority`, `plan_mode`, `plan_status`, `task_kind`, `task_status`,
 `goal_kind`, `goal_period`, `goal_status`, `notification_kind`. Helper functions: `public.set_updated_at()`,
 `public.handle_new_user()` and `public.apply_xp_event()` (security definer, pinned `search_path`).
+
+Full-text search (migration 0011): GIN indexes on
+`to_tsvector('english', …)` over `materials.title`, `material_chunks.content`,
+`reviewers.title`, `reviewer_sections.search_text`, `quiz_questions.prompt`,
+`flashcards.search_text`, `concepts.name`, `tutor_conversations.title` and
+`tutor_messages.content`; queries use PostgREST's `wfts` (websearch) operator.
 
 Types for queries live in `src/lib/supabase/database.types.ts` (hand-written
 in `supabase gen types` format; regenerate with the CLI when the project is
@@ -668,6 +753,19 @@ linked).
   unlocks, notifications; `getGamificationView()`). UI in
   `src/components/gamification/badges.tsx`. Next.js internals thrown inside
   these best-effort paths are re-thrown with `unstable_rethrow`.
+- **Export** — `src/lib/export/`: `model.ts` (the document model and
+  markdown → blocks), `sources.ts` (one builder per export kind, reading
+  through the signed-in client), `html.ts`, `docx.ts`, `pdf.tsx` (the three
+  renderers; `@react-pdf/renderer` is a server external package), and the
+  route `src/app/api/export/[kind]/route.ts`. `src/components/export/
+  export-menu.tsx` is the shared menu.
+- **Search** — `src/lib/search/queries.ts` (`globalSearch()`: six grouped
+  full-text queries in parallel, snippets, links), `src/components/app/
+  search-box.tsx` (sidebar and page boxes, `/` shortcut) and
+  `src/app/(app)/search/page.tsx`.
+- **Client clock** — `src/lib/hooks/use-now.ts` is the only way client
+  components read the current time during render (see the hydration review
+  in Phase 10).
 - **Planner** — `src/lib/planner/`: `dates.ts` (time-zone aware calendar
   helpers), `generate.ts` (pure plan generator, readiness score),
   `types.ts` (labels, zod schemas shared with the client), `service.ts`
@@ -750,6 +848,15 @@ linked).
 - XP is append-only (nothing subtracts); deleting a quiz or session keeps
   the points it earned. Badges unlock when the dashboard, progress or
   achievements page loads, not the instant the rule is met.
+- PDF exports use the standard Helvetica/Courier fonts (Latin text; no
+  embedded font files), so scripts outside Latin-1 may not render in the
+  PDF — the Word and printable exports are unaffected. Exports are limited
+  to 30 a minute per user.
+- Search stems in English; a material in another language is still found
+  by exact words. Each group shows its first eight hits (no paging) and a
+  query is capped at 120 characters.
+- Dates and numbers are formatted in `en-US` throughout (the UI is
+  English); a per-user locale is a later refinement.
 
 ## Environment Requirements
 
@@ -883,6 +990,19 @@ Flows verified end to end against a local Supabase-compatible stack
   earns 15 XP once; the mastery map groups concepts by material and
   subject and its recommended session opens the builder with the method
   and material preselected; mobile layouts
+- Export and search: the export menu offers print, PDF and Word and closes
+  on Escape; reviewer, quiz (with and without the answer key), results,
+  deck, plan, notebook and progress exports download as real PDFs and
+  `.docx` files (unzipped and checked for their headings and tables) and
+  the printable page renders without a CSP refusal; unknown ids, bad
+  formats and anonymous requests are rejected; the sidebar box and `/`
+  shortcut, grouped results with snippets and links, an exact phrase
+  finding quiz questions, the empty result and the empty query, the mobile
+  search icon
+- Accessibility: `~/preview/a11y-audit.mjs` (axe-core, 35 states, light)
+  and `a11y-dark.mjs` (dark) report no violations; keyboard paths are
+  exercised by the suites above (flashcard flip with Space, rating keys,
+  Escape on dialogs and menus)
 - Unit tests (`npm test`): JSON extraction, chunking, content helpers,
   analysis transcript, markdown renderer, quiz distribution/grading/config,
   the mock quiz generator, the flashcard scheduler, the tutor context
@@ -893,7 +1013,8 @@ Flows verified end to end against a local Supabase-compatible stack
   visual grading (order, cells, hierarchy, relations), map structure rules
   and layout, list-recall grading, mnemonic accuracy checks, palace and
   story helpers, summary stats, the pre-test plan layout, XP rules and
-  levels, badge rules and the longest-streak helper
+  levels, badge rules and the longest-streak helper, the export document
+  model (markdown → blocks, file slugs) and search snippets
 
 Commands: `npm run lint`, `npx tsc --noEmit`, `npm test` (vitest unit tests),
 `npm run build`.

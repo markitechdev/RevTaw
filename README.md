@@ -75,6 +75,12 @@ working.
   difficulty and confidence), a mastery map with a recommended session per
   concept, XP and levels earned from evidence of learning, badges and
   milestones, streaks and daily/weekly goals (Phase 9)
+- Export any reviewer, quiz (with or without the answer key), result sheet,
+  flashcard deck, exam plan, the mistake notebook or a progress report as
+  PDF, Word or a printable page; global search across documents, notes,
+  topics, questions, flashcards and tutor conversations; accessibility
+  (axe-clean, keyboard and screen-reader friendly), security and
+  performance reviews (Phase 10)
 
 ## Scripts
 
@@ -97,13 +103,14 @@ src/app/(app)         signed-in app: dashboard, materials, study (sessions,
                       progress, planner, settings…
 src/app/auth          email-link route handlers (callback, confirm)
 src/app/api           route handlers (material processing, analysis, files,
-                      reviewer and quiz generation)
+                      reviewer, quiz and flashcard generation, tutor, export)
 src/components        ui primitives, forms, app shell, feature components
 src/lib               supabase clients, ai providers, materials pipeline,
                       reviewers, quizzes, flashcards, study sessions, tutor,
                       adaptive engine (mastery, recommendations, smart study),
                       planner (exams, plans, tasks, goals), notifications,
-                      concepts, validation, routes, env
+                      analytics, gamification, export, search, concepts,
+                      validation, routes, env
 supabase/migrations   SQL migrations (apply in order)
 ```
 
