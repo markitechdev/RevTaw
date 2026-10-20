@@ -4,7 +4,7 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-20 (Phase 8 complete)_
+_Last updated: 2026-10-20 (Phase 9 complete)_
 
 ## Completed
 
@@ -442,22 +442,58 @@ no longer has a "coming later" section.
 - **Recommendations** — a weak calculation concept is sent to worked
   examples and a weak memorization concept to mnemonics, with the reason.
 
+### Phase 9 — Analytics and gamification
+
+- **Schema** — `xp_events` (an append-only XP ledger, one row per rewarded
+  source, idempotent by `source_key`) with a trigger that keeps
+  `profiles.xp` in step; `achievements` (unlocked badges);
+  `notification_kind` gains `achievement` and `level_up`
+  (`supabase/migrations/0010_gamification.sql`).
+- **Progress analytics** (§23) — the Progress page leads with average quiz
+  score, accuracy, study time and flashcards for the last 30 days, concepts
+  tracked, average mastery, retrieval strength and possible misconceptions;
+  charts of study minutes, questions answered (with the correct share), quiz
+  scores and flashcards reviewed per day; performance by subject, by topic
+  (material), by difficulty and by confidence (calibration); a mastery
+  status strip. Every chart has a hover/keyboard readout and a table view.
+- **Mastery map** (§24, `/progress/map`) — subject → material → concept with
+  the percentage and status; every concept carries the session RevTaw
+  recommends for it (misconception → Feynman, weak calculation concept →
+  worked examples, weak memorization concept → mnemonics, open mistakes →
+  error review, fading → active recall, unsure → practice test, mastered →
+  flashcard review) one click from the builder with the material preselected.
+- **XP and levels** (§31) — 1 XP per answered question plus 1 per correct
+  answer (quiz attempts and session items), 10 for a finished session, 1 per
+  flashcard reviewed, 25 the first time a concept reaches mastered, 15 per
+  reached goal and period, 5 per active day, 20 per badge; levels cost 100
+  more XP each (0, 100, 300, 600…). A level-up is announced in the reminder
+  feed once.
+- **Badges and milestones** — 28 plain rules over the evidence (first
+  session, ten and fifty sessions, Active Recall Beginner/Regular, method
+  explorer, exam rehearsal, memory architect, measured improvement, 100/500/
+  1,000 questions, top marks, 100/500 cards, memory aids, 3/7/14/30-day
+  streaks, first/five/twenty topics mastered, first material, ten and fifty
+  hours of focus, goal getter). They unlock on dashboard and progress loads,
+  earn XP and a notification once, and `/progress/achievements` lists every
+  badge with its rule and progress plus the XP history.
+- **Goals** — daily and weekly goals (Phase 7) now appear on the Progress
+  page and earn XP when reached; the dashboard shows the level card (level,
+  XP bar, streak, badge count).
+
 ## In Progress
 
-- Nothing at the moment. Phase 9 starts next.
+- Nothing at the moment. Phase 10 starts next.
 
 ## Next (priority order)
 
-1. **Phase 9 — Analytics and gamification**: detailed progress charts,
-   mastery map, XP, levels, badges, daily/weekly goals as milestones.
-2. **Phase 10 — Export and refinement**: PDF/Word/print export, global
+1. **Phase 10 — Export and refinement**: PDF/Word/print export, global
    search, accessibility, security and performance reviews.
 
 ## Database
 
 | Table | Purpose | Ownership |
 | --- | --- | --- |
-| `public.profiles` | One row per `auth.users` row: display name, education level, main goal, preferred session minutes, onboarding timestamp | RLS: owner may select/insert/update; no delete policy (cascade from `auth.users`) |
+| `public.profiles` | One row per `auth.users` row: display name, education level, main goal, preferred session minutes, onboarding timestamp, time zone, `xp` (kept in step with the ledger by trigger) | RLS: owner may select/insert/update; no delete policy (cascade from `auth.users`) |
 | `public.subjects` | Top-level organisation (name, colour, archived_at) | owner full access; `(id, user_id)` unique for composite FKs |
 | `public.folders` | Grouping inside a subject (chapter, topic…) | owner full access; FK `(subject_id, user_id)` |
 | `public.materials` | One upload or note: title, source, file metadata, `storage_path`, `content_hash`, status + detail, counts, `last_opened_at`, `archived_at` | owner full access; composite FKs to subject and folder (folder must belong to the subject) |
@@ -488,7 +524,9 @@ no longer has a "coming later" section.
 | `public.study_plans` | One plan per exam: mode (exam/cram), status, start/end, `available_days`, `minutes_per_day`, `settings` (warnings), `generated_at`, `adjusted_at`, `adjustment_note` | owner full access; unique `exam_id`; cascade from exam |
 | `public.study_tasks` | A scheduled activity: kind (plan/review/custom), method, title, reason, `scheduled_for`, position, minutes, concepts, status (pending/done/skipped/missed), `session_id`, `completed_at` | owner full access; cascade from plan/exam; material and session FKs set null |
 | `public.study_goals` | A goal: kind, period (day/week/once), target, optional material/subject, title, `due_date`, status | owner full access; cascade from material/subject |
-| `public.notifications` | Reminder feed: kind, title, body, href, `dedupe_key`, `read_at` | owner full access; unique `(user_id, dedupe_key)` |
+| `public.notifications` | Reminder feed: kind (incl. `achievement`, `level_up`), title, body, href, `dedupe_key`, `read_at` | owner full access; unique `(user_id, dedupe_key)` |
+| `public.xp_events` | XP ledger: source (answers, session, reviews, mastered, goal, streak_day, achievement), `source_key` (idempotent award), points, label | owner full access; unique `(user_id, source_key)`; trigger `apply_xp_event` adds to `profiles.xp` |
+| `public.achievements` | Unlocked badges: key, `unlocked_at`, `seen_at` (definitions live in `src/lib/gamification/achievements.ts`) | owner full access; unique `(user_id, key)` |
 | `storage.objects` (bucket `materials`) | Private files under `<user_id>/<material_id>/<file>` | policies on first path segment = `auth.uid()` |
 
 Enums: `education_level`, `study_goal`, `material_source`, `material_status`,
@@ -498,7 +536,7 @@ Enums: `education_level`, `study_goal`, `material_source`, `material_status`,
 `tutor_mode` (incl. `teach_back`), `tutor_role`, `mastery_status`, `next_difficulty`,
 `exam_priority`, `plan_mode`, `plan_status`, `task_kind`, `task_status`,
 `goal_kind`, `goal_period`, `goal_status`, `notification_kind`. Helper functions: `public.set_updated_at()`,
-`public.handle_new_user()` (security definer, pinned `search_path`).
+`public.handle_new_user()` and `public.apply_xp_event()` (security definer, pinned `search_path`).
 
 Types for queries live in `src/lib/supabase/database.types.ts` (hand-written
 in `supabase gen types` format; regenerate with the CLI when the project is
@@ -613,6 +651,23 @@ linked).
   recommendation list, material mastery) and
   `src/components/study/smart-session.tsx`. Mastery is a cache: deleting
   the rows and answering anything rebuilds them.
+- **Analytics** — `src/lib/analytics/`: `queries.ts` (the 30-day daily
+  series, totals, quiz scores, breakdowns by difficulty, confidence, subject
+  and material, mastery distribution, retrieval strength — all from the
+  evidence tables in the student's time zone) and `map.ts` (the mastery map
+  grouped by subject and material, with `recommendForConcept()`). Charts
+  are plain SVG/markup in `src/components/analytics/charts.tsx` (one hue
+  for magnitude, status colours only for status, hover/keyboard readout,
+  table view); the map UI is `mastery-map.tsx`.
+- **Gamification** — `src/lib/gamification/`: `xp.ts` (pure rules and
+  levels), `achievements.ts` (pure badge rules over a stats snapshot),
+  `service.ts` (`awardXp()` — idempotent per source key, announces
+  level-ups — and the hooks called from `completeSession()`,
+  `submitAttempt()`, `recomputeMastery()` and the goal check in the
+  reminder sync), `sync.ts` (`syncGamification()`: active days, badge
+  unlocks, notifications; `getGamificationView()`). UI in
+  `src/components/gamification/badges.tsx`. Next.js internals thrown inside
+  these best-effort paths are re-thrown with `unstable_rethrow`.
 - **Planner** — `src/lib/planner/`: `dates.ts` (time-zone aware calendar
   helpers), `generate.ts` (pure plan generator, readiness score),
   `types.ts` (labels, zod schemas shared with the client), `service.ts`
@@ -688,6 +743,13 @@ linked).
 - Pre-testing's post-test asks the generator to stay on the pre-test's
   concepts; the questions themselves are new, so the per-concept table can
   include a concept only one of the tests reached.
+- Analytics read up to the most recent 3,000 answers per table and 200
+  attempts; the daily charts cover 30 days. Statistics are computed on
+  each load (no materialised rollups), which is fine for a student's own
+  history.
+- XP is append-only (nothing subtracts); deleting a quiz or session keeps
+  the points it earned. Badges unlock when the dashboard, progress or
+  achievements page loads, not the instant the rule is met.
 
 ## Environment Requirements
 
@@ -810,6 +872,17 @@ Flows verified end to end against a local Supabase-compatible stack
   exam mode; routines (create, start, run a block, back to routine, finish,
   edit, delete); Smart Study opening blurt; planner exam-simulation and
   exam-day rapid-review tasks start their own methods; mobile layouts
+- Analytics and gamification: level card and badge grid empty states; a
+  submitted attempt and a finished session earn the right XP and the
+  profile total follows the ledger; active day and first badges awarded on
+  a dashboard load, badge and level-up notifications, nothing awarded
+  twice on a second load; achievements page lists unlocked badges and the
+  XP history; progress stats (average quiz score by points, accuracy over
+  quiz answers and session items), charts with table views (30 daily
+  rows), mastery overview, level and goals cards; a reached daily goal
+  earns 15 XP once; the mastery map groups concepts by material and
+  subject and its recommended session opens the builder with the method
+  and material preselected; mobile layouts
 - Unit tests (`npm test`): JSON extraction, chunking, content helpers,
   analysis transcript, markdown renderer, quiz distribution/grading/config,
   the mock quiz generator, the flashcard scheduler, the tutor context
@@ -819,7 +892,8 @@ Flows verified end to end against a local Supabase-compatible stack
   mnemonics, palace images, stories); the fade schedule, reading stages,
   visual grading (order, cells, hierarchy, relations), map structure rules
   and layout, list-recall grading, mnemonic accuracy checks, palace and
-  story helpers, summary stats and the pre-test plan layout
+  story helpers, summary stats, the pre-test plan layout, XP rules and
+  levels, badge rules and the longest-streak helper
 
 Commands: `npm run lint`, `npx tsc --noEmit`, `npm test` (vitest unit tests),
 `npm run build`.

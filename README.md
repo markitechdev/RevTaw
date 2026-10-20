@@ -70,6 +70,11 @@ working.
   editable mind and concept maps with quizzes, mnemonics with a memory aids
   library, memory palaces, the story method and pre-test → study →
   post-test with the improvement shown (Phase 8, part 2)
+- Analytics and gamification: a progress page with understandable charts
+  (study time, answers, quiz scores, reviews, performance by subject, topic,
+  difficulty and confidence), a mastery map with a recommended session per
+  concept, XP and levels earned from evidence of learning, badges and
+  milestones, streaks and daily/weekly goals (Phase 9)
 
 ## Scripts
 
