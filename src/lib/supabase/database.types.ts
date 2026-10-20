@@ -82,6 +82,15 @@ export type TutorMode = "tutor" | "guided" | "socratic" | "elaborative" | "self_
 export type TutorRole = "user" | "assistant";
 export type MasteryStatus = "new" | "weak" | "learning" | "strong" | "mastered";
 export type NextDifficulty = "easy" | "medium" | "hard" | "advanced";
+export type ExamPriority = "low" | "normal" | "high";
+export type PlanMode = "exam" | "cram";
+export type PlanStatus = "active" | "completed" | "archived";
+export type TaskKind = "plan" | "review" | "custom";
+export type TaskStatus = "pending" | "done" | "skipped" | "missed";
+export type GoalKind = "focus_minutes" | "flashcards_reviewed" | "questions_answered" | "mastery" | "finish_material";
+export type GoalPeriod = "day" | "week" | "once";
+export type GoalStatus = "active" | "completed" | "archived";
+export type NotificationKind = "review_due" | "exam_upcoming" | "plan_reminder" | "plan_adjusted" | "daily_goal" | "streak";
 
 type ProfilesRow = {
   id: string;
@@ -90,6 +99,7 @@ type ProfilesRow = {
   main_goal: StudyGoal | null;
   preferred_session_minutes: number | null;
   onboarding_completed_at: string | null;
+  timezone: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -446,6 +456,96 @@ type ConceptMasteryRow = {
   computed_at: string;
   created_at: string;
   updated_at: string;
+};
+
+type ExamsRow = {
+  id: string;
+  user_id: string;
+  subject_id: string | null;
+  title: string;
+  exam_date: string;
+  priority: ExamPriority;
+  confidence: ConfidenceLevel | null;
+  topics: string[];
+  notes: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ExamMaterialsRow = {
+  exam_id: string;
+  material_id: string;
+  user_id: string;
+  position: number;
+  created_at: string;
+};
+
+type StudyPlansRow = {
+  id: string;
+  user_id: string;
+  exam_id: string;
+  mode: PlanMode;
+  status: PlanStatus;
+  start_date: string;
+  end_date: string;
+  available_days: number[];
+  minutes_per_day: number;
+  settings: Json;
+  generated_at: string;
+  adjusted_at: string | null;
+  adjustment_note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type StudyTasksRow = {
+  id: string;
+  user_id: string;
+  plan_id: string | null;
+  exam_id: string | null;
+  material_id: string | null;
+  kind: TaskKind;
+  method: string;
+  title: string;
+  reason: string | null;
+  scheduled_for: string;
+  position: number;
+  minutes: number;
+  concepts: string[];
+  status: TaskStatus;
+  session_id: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type StudyGoalsRow = {
+  id: string;
+  user_id: string;
+  kind: GoalKind;
+  period: GoalPeriod;
+  target: number;
+  material_id: string | null;
+  subject_id: string | null;
+  title: string | null;
+  due_date: string | null;
+  status: GoalStatus;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type NotificationsRow = {
+  id: string;
+  user_id: string;
+  kind: NotificationKind;
+  title: string;
+  body: string | null;
+  href: string | null;
+  dedupe_key: string;
+  read_at: string | null;
+  created_at: string;
 };
 
 /** Insert/Update variants: every column optional except what the DB requires. */
@@ -833,6 +933,117 @@ export type Database = {
           },
         ];
       };
+      exams: {
+        Row: ExamsRow;
+        Insert: Writable<ExamsRow, "title" | "exam_date">;
+        Update: Partial<ExamsRow>;
+        Relationships: [
+          {
+            foreignKeyName: "exams_subject_fk";
+            columns: ["subject_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "subjects";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      exam_materials: {
+        Row: ExamMaterialsRow;
+        Insert: Writable<ExamMaterialsRow, "exam_id" | "material_id">;
+        Update: Partial<ExamMaterialsRow>;
+        Relationships: [
+          {
+            foreignKeyName: "exam_materials_exam_fk";
+            columns: ["exam_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "exams";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "exam_materials_material_fk";
+            columns: ["material_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      study_plans: {
+        Row: StudyPlansRow;
+        Insert: Writable<StudyPlansRow, "exam_id" | "start_date" | "end_date">;
+        Update: Partial<StudyPlansRow>;
+        Relationships: [
+          {
+            foreignKeyName: "study_plans_exam_fk";
+            columns: ["exam_id", "user_id"];
+            isOneToOne: true;
+            referencedRelation: "exams";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      study_tasks: {
+        Row: StudyTasksRow;
+        Insert: Writable<StudyTasksRow, "method" | "title" | "scheduled_for">;
+        Update: Partial<StudyTasksRow>;
+        Relationships: [
+          {
+            foreignKeyName: "study_tasks_plan_fk";
+            columns: ["plan_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "study_plans";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "study_tasks_exam_fk";
+            columns: ["exam_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "exams";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "study_tasks_material_fk";
+            columns: ["material_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "study_tasks_session_fk";
+            columns: ["session_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "study_sessions";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      study_goals: {
+        Row: StudyGoalsRow;
+        Insert: Writable<StudyGoalsRow, "kind" | "target">;
+        Update: Partial<StudyGoalsRow>;
+        Relationships: [
+          {
+            foreignKeyName: "study_goals_material_fk";
+            columns: ["material_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "study_goals_subject_fk";
+            columns: ["subject_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "subjects";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      notifications: {
+        Row: NotificationsRow;
+        Insert: Writable<NotificationsRow, "kind" | "title" | "dedupe_key">;
+        Update: Partial<NotificationsRow>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -857,6 +1068,15 @@ export type Database = {
       tutor_role: TutorRole;
       mastery_status: MasteryStatus;
       next_difficulty: NextDifficulty;
+      exam_priority: ExamPriority;
+      plan_mode: PlanMode;
+      plan_status: PlanStatus;
+      task_kind: TaskKind;
+      task_status: TaskStatus;
+      goal_kind: GoalKind;
+      goal_period: GoalPeriod;
+      goal_status: GoalStatus;
+      notification_kind: NotificationKind;
     };
     CompositeTypes: Record<string, never>;
   };
@@ -891,3 +1111,9 @@ export type FlashcardReview = Tables<"flashcard_reviews">;
 export type TutorConversation = Tables<"tutor_conversations">;
 export type TutorMessage = Tables<"tutor_messages">;
 export type ConceptMastery = Tables<"concept_mastery">;
+export type Exam = Tables<"exams">;
+export type ExamMaterial = Tables<"exam_materials">;
+export type StudyPlan = Tables<"study_plans">;
+export type StudyTask = Tables<"study_tasks">;
+export type StudyGoalRow = Tables<"study_goals">;
+export type Notification = Tables<"notifications">;
