@@ -46,7 +46,9 @@ export function MistakeItem({ mistake }: { mistake: MistakeListItem }) {
             {mistake.material.title}
           </Link>
         )}
-        <span className="ml-auto text-muted-foreground">{formatRelativeDate(mistake.created_at)}</span>
+        <span className="ml-auto text-muted-foreground" suppressHydrationWarning>
+          {formatRelativeDate(mistake.created_at)}
+        </span>
       </div>
       <p className="whitespace-pre-wrap font-medium leading-snug">{mistake.question_text}</p>
       <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">

@@ -9,6 +9,7 @@ import { Alert } from "@/components/forms/form-alert";
 import { formatClock, SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Button, buttonClasses } from "@/components/ui/button";
+import { useNow } from "@/lib/hooks/use-now";
 import { routes } from "@/lib/routes";
 import { completePomodoroAction, savePomodoroAction } from "@/lib/study/actions";
 import type { SessionDetail } from "@/lib/study/queries";
@@ -78,8 +79,11 @@ function settle(timer: TimerState, settings: Settings, now: number): TimerState 
 export function PomodoroRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: { session: SessionDetail; methodName: string; parentSessionId?: string | null; parentLabel?: string }) {
   const router = useRouter();
   const settings = readSettings((session.state as Record<string, unknown>) ?? {});
-  const [timer, setTimer] = useState<TimerState>(() => settle(readTimer((session.state as Record<string, unknown>) ?? {}), settings, Date.now()));
-  const [now, setNow] = useState(() => Date.now());
+  const [stored, setStored] = useState<TimerState>(() => readTimer((session.state as Record<string, unknown>) ?? {}));
+  // null on the server and while hydrating, so the countdown renders the same markup on both sides.
+  const now = useNow();
+  // Phases that have ended (also after a refresh) are settled from the stored state and the clock, during render.
+  const timer = now === null ? stored : settle(stored, settings, now);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [pending, startTransition] = useTransition();
@@ -98,23 +102,13 @@ export function PomodoroRunner({ session, methodName, parentSessionId = null, pa
     [session.id],
   );
 
-  // Tick once a second; phase changes are settled and saved.
+  // A settled phase change is saved once (persist ignores repeats of the same state).
   useEffect(() => {
-    const interval = window.setInterval(() => {
-      const current = Date.now();
-      setNow(current);
-      setTimer((state) => {
-        const next = settle(state, settings, current);
-        if (next !== state) persist(next);
-        return next;
-      });
-    }, 1000);
-    return () => window.clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persist, settings.workMinutes, settings.breakMinutes, settings.longBreakMinutes]);
+    if (timer !== stored) persist(timer);
+  }, [timer, stored, persist]);
 
   const update = (next: TimerState) => {
-    setTimer(next);
+    setStored(next);
     persist(next);
   };
 
@@ -184,12 +178,13 @@ export function PomodoroRunner({ session, methodName, parentSessionId = null, pa
     );
   }
 
-  const remaining = timer.phase === "paused" ? (timer.pausedRemainingSeconds ?? 0) : timer.phaseEndsAt ? Math.max(0, Math.round((new Date(timer.phaseEndsAt).getTime() - now) / 1000)) : settings.workMinutes * 60;
   const activePhase = timer.phase === "paused" ? timer.pausedPhase : timer.phase;
   const phaseLabel = activePhase === "work" ? "Focus" : activePhase === "long_break" ? "Long break" : activePhase === "break" ? "Break" : "Ready";
   const phaseTotal = activePhase === "work" ? settings.workMinutes * 60 : activePhase === "long_break" ? settings.longBreakMinutes * 60 : activePhase === "break" ? settings.breakMinutes * 60 : settings.workMinutes * 60;
+  // Before the clock is available (server render, hydration) a running phase shows its full length; the first tick corrects it.
+  const remaining = timer.phase === "paused" ? (timer.pausedRemainingSeconds ?? 0) : timer.phaseEndsAt ? (now === null ? phaseTotal : Math.max(0, Math.round((new Date(timer.phaseEndsAt).getTime() - now) / 1000))) : settings.workMinutes * 60;
   const percent = Math.min(100, Math.round(((phaseTotal - remaining) / Math.max(1, phaseTotal)) * 100));
-  const totalFocus = timer.focusSeconds + partialWorkSeconds(now);
+  const totalFocus = timer.focusSeconds + (now === null ? 0 : partialWorkSeconds(now));
 
   return (
     <div className="flex flex-col gap-4">

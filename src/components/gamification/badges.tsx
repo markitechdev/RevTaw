@@ -105,7 +105,7 @@ export function BadgeTile({ view }: { view: BadgeView }) {
         </p>
         <p className="text-sm text-muted-foreground">{achievement.description}</p>
         {unlockedAt ? (
-          <p className="text-xs text-muted-foreground">{new Date(unlockedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</p>
+          <p className="text-xs text-muted-foreground">{new Date(unlockedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
         ) : (
           <div className="flex items-center gap-2">
             <div className="h-1.5 w-28 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={`${achievement.title} progress`} aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
@@ -164,7 +164,7 @@ export function XpHistory({ events }: { events: XpEvent[] }) {
           <div className="min-w-0">
             <p className="truncate font-medium">{event.label ?? SOURCE_LABEL[event.source]}</p>
             <p className="text-xs text-muted-foreground">
-              {SOURCE_LABEL[event.source]} · {new Date(event.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              {SOURCE_LABEL[event.source]} · {new Date(event.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
             </p>
           </div>
           <span className="shrink-0 font-semibold tabular-nums text-primary">+{event.points} XP</span>

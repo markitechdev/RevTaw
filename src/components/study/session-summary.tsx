@@ -24,7 +24,7 @@ export function formatDue(value: string | null): string {
   const days = Math.round(hours / 24);
   if (days === 1) return "Tomorrow";
   if (days < 30) return `In ${days} days`;
-  return due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return due.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 /** Study session summary (§29): the same card closes every kind of session. */

@@ -86,7 +86,9 @@ export function NotificationsMenu({ notifications, unread, align = "left" }: { n
                     <span className="min-w-0">
                       <span className={cn("block text-sm", !item.read_at && "font-medium")}>{item.title}</span>
                       {item.body && <span className="block text-xs text-muted-foreground">{item.body}</span>}
-                      <span className="block text-[11px] text-muted-foreground">{formatRelativeDate(item.created_at)}</span>
+                      <span className="block text-[11px] text-muted-foreground" suppressHydrationWarning>
+                        {formatRelativeDate(item.created_at)}
+                      </span>
                     </span>
                   </>
                 );

@@ -9,6 +9,7 @@ import { Alert } from "@/components/forms/form-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { useNow } from "@/lib/hooks/use-now";
 import { answerQuestionAction, submitAttemptAction } from "@/lib/quizzes/actions";
 import type { AttemptRunnerView } from "@/lib/quizzes/queries";
 import type { AnswerFeedback } from "@/lib/quizzes/service";
@@ -61,7 +62,8 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [remaining, setRemaining] = useState<number | null>(() => (deadline ? Math.round((new Date(deadline).getTime() - Date.now()) / 1000) : null));
+  const now = useNow();
+  const remaining = deadline && now !== null ? Math.round((new Date(deadline).getTime() - now) / 1000) : null;
 
   const shownAt = useRef<number>(0);
   const elapsed = useRef<Record<string, number>>({});
@@ -135,18 +137,10 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
     [attempt.id, quiz.id, persist, question.id, router],
   );
 
-  // Countdown and auto-submit.
+  // Auto-submit when the countdown reaches zero (submit ignores repeats).
   useEffect(() => {
-    if (!deadline) return;
-    const tick = () => {
-      const seconds = Math.round((new Date(deadline).getTime() - Date.now()) / 1000);
-      setRemaining(seconds);
-      if (seconds <= 0) submit(true);
-    };
-    tick();
-    const timer = window.setInterval(tick, 1000);
-    return () => window.clearInterval(timer);
-  }, [deadline, submit]);
+    if (remaining !== null && remaining <= 0) submit(true);
+  }, [remaining, submit]);
 
   // Warn before leaving with unsaved changes.
   useEffect(() => {

@@ -410,7 +410,7 @@ function PasteNotesPanel({
         id="notes-text"
         label="Notes"
         error={errors.text}
-        hint={`${length.toLocaleString()} / ${MAX_TEXT_CHARS.toLocaleString()} characters`}
+        hint={`${length.toLocaleString("en-US")} / ${MAX_TEXT_CHARS.toLocaleString("en-US")} characters`}
         required
       >
         <Textarea

@@ -58,6 +58,8 @@ export type DeckDetail = Omit<FlashcardDeck, "material_id"> & {
   dueCount: number;
   boxes: number[];
   nextDueAt: string | null;
+  /** When the deck was read (ISO), the reference time for "due in N days" labels. */
+  fetchedAt: string;
 };
 
 const CARD_COLUMNS =
@@ -84,11 +86,12 @@ export const getDeck = cache(async (deckId: string): Promise<DeckDetail | null> 
   for (const card of active) boxes[Math.min(5, Math.max(1, card.box)) - 1] += 1;
   const future = active.filter((card) => card.due_at > now).map((card) => card.due_at).sort();
   return {
-    ...(deck as unknown as Omit<DeckDetail, "cards" | "dueCount" | "boxes" | "nextDueAt">),
+    ...(deck as unknown as Omit<DeckDetail, "cards" | "dueCount" | "boxes" | "nextDueAt" | "fetchedAt">),
     cards: (cards ?? []) as unknown as CardView[],
     dueCount: active.filter((card) => card.due_at <= now).length,
     boxes,
     nextDueAt: future[0] ?? null,
+    fetchedAt: now,
   };
 });
 

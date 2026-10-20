@@ -113,7 +113,7 @@ export default async function DeckPage({ params }: PageProps<"/flashcards/[deckI
             <h2 id="cards-heading" className="text-lg font-semibold">
               Cards
             </h2>
-            <CardList cards={deck.cards} />
+            <CardList cards={deck.cards} renderedAt={deck.fetchedAt} />
           </section>
         </>
       )}

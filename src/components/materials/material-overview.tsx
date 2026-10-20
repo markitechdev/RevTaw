@@ -211,7 +211,7 @@ export function MaterialOverview({
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
         <span>
           Analyzed with {analysis.provider} ({analysis.model}) ·{" "}
-          {new Date(analysis.updatedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+          {new Date(analysis.updatedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
           {statusDetail ? ` · ${statusDetail}` : ""}
         </span>
         <ReanalyzeButton materialId={materialId} />

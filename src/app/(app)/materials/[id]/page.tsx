@@ -58,7 +58,7 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
   const meta = [
     SOURCE_LABEL[material.source],
     material.page_count ? `${material.page_count} page${material.page_count === 1 ? "" : "s"}` : null,
-    material.word_count ? `${material.word_count.toLocaleString()} words` : null,
+    material.word_count ? `${material.word_count.toLocaleString("en-US")} words` : null,
     material.source !== "text" ? formatBytes(material.file_size) : null,
     `added ${formatRelativeDate(material.created_at)}`,
   ].filter(Boolean);

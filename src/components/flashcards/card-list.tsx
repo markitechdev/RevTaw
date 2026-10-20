@@ -11,22 +11,24 @@ import { Input, Textarea } from "@/components/ui/input";
 import { toggleFavoriteAction, updateCardAction } from "@/lib/flashcards/actions";
 import type { CardView } from "@/lib/flashcards/queries";
 import { BOX_LABELS } from "@/lib/flashcards/scheduler";
+import { useNow } from "@/lib/hooks/use-now";
 import { cn } from "@/lib/utils";
 
 const BOX_TONES: Record<number, "danger" | "warning" | "neutral" | "primary" | "success"> = { 1: "danger", 2: "warning", 3: "neutral", 4: "primary", 5: "success" };
 
-function dueLabel(card: CardView): string {
+function dueLabel(card: CardView, now: number): string {
   if (card.suspended) return "Suspended";
   const due = new Date(card.due_at).getTime();
-  const diff = due - Date.now();
+  const diff = due - now;
   if (diff <= 0) return "Due now";
   const days = Math.ceil(diff / 86_400_000);
   return days === 1 ? "Due tomorrow" : `Due in ${days} days`;
 }
 
 /** Editable list of a deck's cards with box, due date and favorite. */
-export function CardList({ cards }: { cards: CardView[] }) {
+export function CardList({ cards, renderedAt }: { cards: CardView[]; /** Server time of the read (ISO), so "due in N days" hydrates identically; the live clock takes over afterwards. */ renderedAt: string }) {
   const router = useRouter();
+  const now = useNow() ?? new Date(renderedAt).getTime();
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState({ front: "", back: "", hint: "" });
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +102,7 @@ export function CardList({ cards }: { cards: CardView[] }) {
                     Box {card.box} · {BOX_LABELS[card.box]}
                   </Badge>
                   {card.concept && <Badge tone="primary">{card.concept.name}</Badge>}
-                  <span className="text-muted-foreground">{dueLabel(card)}</span>
+                  <span className="text-muted-foreground">{dueLabel(card, now)}</span>
                   {card.lapses > 0 && <span className="text-muted-foreground">· {card.lapses} lapse{card.lapses === 1 ? "" : "s"}</span>}
                   <span className="ml-auto flex items-center gap-1">
                     <button

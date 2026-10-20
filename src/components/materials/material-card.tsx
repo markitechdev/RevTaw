@@ -16,6 +16,12 @@ const SOURCE_ICON: Record<MaterialSource, typeof FileText> = {
   text: NotebookPen,
 };
 
+/**
+ * "3 min ago" style dates. Client components that render this during
+ * hydration mark the element with `suppressHydrationWarning`, since a minute
+ * can pass between the server render and the client one; the locale is
+ * pinned so server and browser agree on the format.
+ */
 export function formatRelativeDate(value: string): string {
   const date = new Date(value);
   const diffMs = Date.now() - date.getTime();
@@ -26,7 +32,7 @@ export function formatRelativeDate(value: string): string {
   if (hours < 24) return `${hours} h ago`;
   const days = Math.round(hours / 24);
   if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 export function MaterialCard({ material }: { material: MaterialListItem }) {
@@ -34,7 +40,7 @@ export function MaterialCard({ material }: { material: MaterialListItem }) {
   const meta = [
     SOURCE_LABEL[material.source],
     material.page_count ? `${material.page_count} page${material.page_count === 1 ? "" : "s"}` : null,
-    material.word_count ? `${material.word_count.toLocaleString()} words` : null,
+    material.word_count ? `${material.word_count.toLocaleString("en-US")} words` : null,
     material.source !== "text" ? formatBytes(material.file_size) : null,
   ].filter(Boolean);
 

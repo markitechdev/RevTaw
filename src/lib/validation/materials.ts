@@ -72,7 +72,7 @@ export const createTextMaterialSchema = placementSchema.extend({
       z
         .string()
         .min(MIN_TEXT_CHARS, `Add at least ${MIN_TEXT_CHARS} characters so there is something to study.`)
-        .max(MAX_TEXT_CHARS, `Notes are limited to ${MAX_TEXT_CHARS.toLocaleString()} characters.`),
+        .max(MAX_TEXT_CHARS, `Notes are limited to ${MAX_TEXT_CHARS.toLocaleString("en-US")} characters.`),
     ),
 });
 

@@ -66,7 +66,7 @@ export function MaterialContent({ chunks }: { chunks: MaterialChunkView[] }) {
                 {chunk.heading ?? `Section ${chunk.position + 1}`}
               </h2>
               <span className="text-xs text-muted-foreground">
-                {[page, `${chunk.char_count.toLocaleString()} characters`].filter(Boolean).join(" · ")}
+                {[page, `${chunk.char_count.toLocaleString("en-US")} characters`].filter(Boolean).join(" · ")}
               </span>
             </div>
             <div className="flex flex-col gap-3 text-[15px] leading-relaxed text-foreground/90">
