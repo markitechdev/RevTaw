@@ -381,3 +381,12 @@ export function mnemonicsHeuristically(transcript: string, prompt: string) {
   }
   return { targets: candidates.slice(0, Math.max(1, count)).map((candidate) => ({ ...candidate, options: mnemonicOptionsFor(candidate.items) })) };
 }
+
+/** Memory palace: one image per "index. Location: … — Concept: … — Meaning: …" line. */
+export function associationsHeuristically(prompt: string) {
+  const associations = [...prompt.matchAll(/^(\d+)\. Location: (.+?) — Concept: (.+?) — Meaning: (.+)$/gm)].map((match) => ({
+    index: Number(match[1]),
+    association: `At the ${match[2].trim().toLowerCase()}, a giant glowing sign reading "${match[3].trim()}" blocks your way; touching it reminds you that ${match[4].trim().replace(/[.]$/, "")}.`,
+  }));
+  return { associations };
+}

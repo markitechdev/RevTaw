@@ -1,7 +1,24 @@
 import { describe, expect, it } from "vitest";
 
-import { mnemonicsHeuristically } from "@/lib/ai/providers/mock-study";
-import { deviceMatchesItems, gradeListRecall, initials, itemMatches, listScore, mnemonicCount, mnemonicResultOf, mnemonicViewOf, splitRecalledList, targetIsOrdered } from "@/lib/study/memory-options";
+import { associationsHeuristically, mnemonicsHeuristically } from "@/lib/ai/providers/mock-study";
+import {
+  deviceMatchesItems,
+  gradeListRecall,
+  initials,
+  itemMatches,
+  listScore,
+  lociResultOf,
+  lociViewOf,
+  mnemonicCount,
+  mnemonicResultOf,
+  mnemonicViewOf,
+  palaceInputSchema,
+  palaceStateOf,
+  palaceStopCount,
+  sameLocation,
+  splitRecalledList,
+  targetIsOrdered,
+} from "@/lib/study/memory-options";
 
 const stages = ["Prophase", "Metaphase", "Anaphase", "Telophase"];
 
@@ -91,5 +108,48 @@ It takes place in the stroma of the chloroplast.`;
       expect(target.options.map((option) => option.kind)).toEqual(["acronym", "acrostic", "phrase"]);
       expect(target.options.every((option) => deviceMatchesItems(option, target.items))).toBe(true);
     }
+  });
+});
+
+describe("memory palace helpers", () => {
+  it("validates a route: a name and three to thirty named locations", () => {
+    const route = (count: number) => Array.from({ length: count }, (_, index) => ({ name: `Place ${index + 1}`, detail: null }));
+    expect(palaceInputSchema.safeParse({ title: "My home", locations: route(3) }).success).toBe(true);
+    expect(palaceInputSchema.safeParse({ title: "My home", locations: route(2) }).success).toBe(false);
+    expect(palaceInputSchema.safeParse({ title: "My home", locations: route(31) }).success).toBe(false);
+    expect(palaceInputSchema.safeParse({ title: " ", locations: route(3) }).success).toBe(false);
+    expect(palaceInputSchema.safeParse({ title: "x", locations: [...route(2), { name: "  ", detail: null }] }).success).toBe(false);
+  });
+
+  it("sizes the walk by time, route and concepts", () => {
+    expect(palaceStopCount(15, 20, 20)).toBe(10);
+    expect(palaceStopCount(5, 20, 20)).toBe(3);
+    expect(palaceStopCount(60, 20, 20)).toBe(12);
+    expect(palaceStopCount(15, 4, 20)).toBe(4);
+    expect(palaceStopCount(15, 20, 2)).toBe(2);
+  });
+
+  it("reads session state and stops defensively", () => {
+    expect(palaceStateOf(null)).toEqual({ index: 0, stage: "setup", palaceId: null, palaceTitle: null, placements: [] });
+    expect(palaceStateOf({ stage: "walk", palaceId: "p" }).stage).toBe("walk");
+    expect(palaceStateOf({ stage: "weird" }).stage).toBe("setup");
+    expect(lociViewOf({ stop: 2, location: "Hallway" })).toEqual({ stop: 2, total: 2, location: "Hallway", detail: null, previous: null });
+    expect(lociViewOf({ location: "Hallway" })).toBeNull();
+    expect(lociResultOf({ result: { concept: "ATP", definition: "", association: "", isCorrect: true, given: "atp" } })?.isCorrect).toBe(true);
+    expect(lociResultOf({ result: { concept: "ATP" } })).toBeNull();
+  });
+
+  it("treats a location as the same place whatever the case or hyphens", () => {
+    expect(sameLocation("Front door", "front  door")).toBe(true);
+    expect(sameLocation("Living-room sofa", "living room sofa")).toBe(true);
+    expect(sameLocation("Front door", "Back door")).toBe(false);
+  });
+
+  it("mock: writes one image per pair that keeps the meaning", () => {
+    const { associations } = associationsHeuristically("0. Location: Front door — Concept: ATP — Meaning: The energy currency of the cell.\n1. Location: Hallway — Concept: Chlorophyll — Meaning: A green pigment.");
+    expect(associations.map((entry) => entry.index)).toEqual([0, 1]);
+    expect(associations[0].association).toMatch(/front door/);
+    expect(associations[0].association).toMatch(/ATP/);
+    expect(associations[0].association).toMatch(/energy currency of the cell/);
   });
 });

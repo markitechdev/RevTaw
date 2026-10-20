@@ -10,11 +10,11 @@ import { evaluateCaseItem, evaluateScenarioItem, type CaseResult, type ScenarioR
 import { evaluateProblemItem, type ProblemResult } from "@/lib/study/flows/problems";
 import { advanceReading, markSectionRead, submitReadingSummary, type ReadingSummaryResult } from "@/lib/study/flows/reading";
 import { answerLink, quizBranch, saveMap, startLinkTest, type BranchQuestion, type LinkQuestion, type LinkResult } from "@/lib/study/flows/maps";
-import { addOwnMnemonic, createMnemonic, deleteMnemonic, practiceMnemonic, saveMnemonicOption, setMnemonicFavorite, updateMnemonic } from "@/lib/study/flows/memory";
+import { addOwnMnemonic, answerLoci, createMnemonic, deleteMnemonic, deletePalace, placeConcepts, practiceMnemonic, savePalace, saveMnemonicOption, setMnemonicFavorite, startWalk, updateMnemonic } from "@/lib/study/flows/memory";
 import { checkVisualItem, type VisualCheck } from "@/lib/study/flows/visual";
 import { saveItemDraft } from "@/lib/study/items";
 import { CONCEPT_RELATIONS, type ConceptRelation } from "@/lib/study/maps";
-import { MNEMONIC_KINDS, type MnemonicOption, type MnemonicPracticeResult } from "@/lib/study/memory-options";
+import { MNEMONIC_KINDS, palaceInputSchema, type LociResult, type MnemonicOption, type MnemonicPracticeResult, type PalaceInput, type PalaceState } from "@/lib/study/memory-options";
 import type { ReadingStage } from "@/lib/study/reading-options";
 import type { VisualAnswer } from "@/lib/study/visuals";
 import { getCurrentUser } from "@/lib/supabase/server";
@@ -297,5 +297,75 @@ export async function deleteMnemonicAction(input: { id: string }): Promise<Study
     return { ok: true };
   } catch (error) {
     return actionFailure(error, "The mnemonic could not be deleted.");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Memory palaces
+// ---------------------------------------------------------------------------
+
+const palaceInput = palaceInputSchema.extend({ id: uuid.nullable() });
+
+export async function placeConceptsAction(input: { sessionId: string; palace: z.input<typeof palaceInputSchema> & { id: string | null }; fresh: boolean }): Promise<StudyActionResult<PalaceState>> {
+  await requireUser();
+  const parsed = z.object({ sessionId: uuid, palace: palaceInput, fresh: z.boolean() }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the route." };
+  try {
+    const data = await placeConcepts(parsed.data);
+    revalidateStudy(parsed.data.sessionId);
+    revalidatePath(routes.memoryAids);
+    return { ok: true, data };
+  } catch (error) {
+    return actionFailure(error, "The concepts could not be placed. Please try again.");
+  }
+}
+
+export async function startWalkAction(input: { sessionId: string }): Promise<StudyActionResult> {
+  await requireUser();
+  const parsed = z.object({ sessionId: uuid }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "The walk could not start." };
+  try {
+    await startWalk(parsed.data);
+    revalidateStudy(parsed.data.sessionId);
+    return { ok: true };
+  } catch (error) {
+    return actionFailure(error, "The walk could not start. Please try again.");
+  }
+}
+
+export async function answerLociAction(input: { itemId: string; answer: string; responseMs: number | null }): Promise<StudyActionResult<LociResult>> {
+  await requireUser();
+  const parsed = z.object({ itemId: uuid, answer: z.string().max(300), responseMs }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "That answer could not be checked." };
+  try {
+    return { ok: true, data: await answerLoci(parsed.data) };
+  } catch (error) {
+    return actionFailure(error, "That answer could not be checked.");
+  }
+}
+
+export async function savePalaceAction(input: PalaceInput & { id: string | null }): Promise<StudyActionResult<{ id: string }>> {
+  const user = await requireUser();
+  const parsed = palaceInput.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the route." };
+  try {
+    const id = await savePalace(user.id, parsed.data);
+    revalidatePath(routes.memoryAids);
+    return { ok: true, data: { id } };
+  } catch (error) {
+    return actionFailure(error, "The memory palace could not be saved.");
+  }
+}
+
+export async function deletePalaceAction(input: { id: string }): Promise<StudyActionResult> {
+  await requireUser();
+  const parsed = z.object({ id: uuid }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Memory palace not found." };
+  try {
+    await deletePalace(parsed.data.id);
+    revalidatePath(routes.memoryAids);
+    return { ok: true };
+  } catch (error) {
+    return actionFailure(error, "The memory palace could not be deleted.");
   }
 }

@@ -341,8 +341,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 15,
     goals: ["memorize"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
-    behaviour: "Define locations, attach concepts to them, then walk the route and recall each one.",
+    availableIn: "now",
+    behaviour: "Define a route of places you know — or reuse a saved palace — and RevTaw places the material's key concepts along it, one vivid image per stop that still says what the concept means. Then walk the route: at each stop you name what you placed there, and the image and meaning come back after you answer.",
   },
   story_method: {
     howItHelps: "A story gives unrelated facts a sequence and a reason.",
@@ -386,6 +386,7 @@ export const BUILDER_METHOD_IDS = [
   "mind_mapping",
   "concept_mapping",
   "mnemonics",
+  "memory_palace",
   "error_review",
   "pomodoro",
   "socratic_questioning",

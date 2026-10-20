@@ -10,6 +10,7 @@ import { ChunkRunner } from "@/components/study/chunk-runner";
 import { FeynmanRunner } from "@/components/study/feynman-runner";
 import { ConceptMapRunner, MindMapRunner } from "@/components/study/map-runners";
 import { MnemonicRunner } from "@/components/study/mnemonic-runner";
+import { PalaceRunner } from "@/components/study/palace-runner";
 import { PomodoroRunner } from "@/components/study/pomodoro-runner";
 import { ProblemRunner } from "@/components/study/problem-runner";
 import { QuestionGenRunner } from "@/components/study/question-gen-runner";
@@ -24,6 +25,7 @@ import { getSmartSessionView } from "@/lib/adaptive/smart";
 import { routes } from "@/lib/routes";
 import { isRecallMethod, isTestMethod, isTutorMethod, methodName } from "@/lib/study/catalog";
 import { getSessionMap, type MapView } from "@/lib/study/flows/maps";
+import { listPalaces } from "@/lib/study/flows/memory";
 import type { ConceptMapData, MindMapData } from "@/lib/study/maps";
 import { getSession, getSessionMethod } from "@/lib/study/queries";
 import { syncPlanChildren, syncPracticeTesting } from "@/lib/study/service";
@@ -133,7 +135,7 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
                 <Link href={routes.study} className={buttonClasses({ size: "sm", variant: parentLink ? "secondary" : "primary" })}>
                   Back to Study
                 </Link>
-                {session.method === "mnemonics" && (
+                {(session.method === "mnemonics" || session.method === "memory_palace") && (
                   <Link href={routes.memoryAids} className={buttonClasses({ size: "sm", variant: "secondary" })}>
                     Open memory aids
                   </Link>
@@ -177,6 +179,8 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
       return <ConceptMapRunner key={session.id} session={session} methodName={name} map={(await getSessionMap(session)) as MapView<ConceptMapData> | null} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "mnemonics":
       return <MnemonicRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
+    case "memory_palace":
+      return <PalaceRunner key={session.id} session={session} methodName={name} palaces={await listPalaces()} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "pomodoro":
       return <PomodoroRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     default:

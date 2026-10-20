@@ -1,7 +1,9 @@
+import { z } from "zod";
+
 import { normalizeText } from "@/lib/quizzes/text-match";
 import type { MnemonicKind } from "@/lib/supabase/database.types";
 
-/** Memory techniques (spec §16): mnemonic kinds, the device checks and the pure list-recall grader. Client-safe. */
+/** Memory techniques (spec §16): mnemonics, memory palaces — shapes, checks and the pure graders. Client-safe. */
 
 export const MNEMONIC_KINDS = ["acronym", "acrostic", "rhyme", "phrase", "association", "story", "custom"] as const satisfies ReadonlyArray<MnemonicKind>;
 
@@ -124,4 +126,62 @@ export function deviceMatchesItems(option: Pick<MnemonicOption, "kind" | "conten
     return firsts.includes(letters);
   }
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Memory palace (method of loci)
+// ---------------------------------------------------------------------------
+
+export const palaceLocationSchema = z.object({
+  name: z.string().trim().min(1, "Name every location.").max(80, "Keep location names under 80 characters."),
+  detail: z.string().trim().max(160).nullable().default(null),
+});
+
+export const palaceInputSchema = z.object({
+  title: z.string().trim().min(1, "Give the palace a name.").max(120),
+  locations: z.array(palaceLocationSchema).min(3, "A route needs at least three locations.").max(30, "A route can have up to 30 locations."),
+});
+
+export type PalaceLocation = z.infer<typeof palaceLocationSchema>;
+export type PalaceInput = z.infer<typeof palaceInputSchema>;
+export type PalaceSummary = { id: string; title: string; locations: PalaceLocation[]; lastUsedAt: string | null };
+
+/** Places most homes have, to start a route quickly. */
+export const PALACE_SUGGESTIONS = ["Front door", "Doormat", "Hallway mirror", "Coat rack", "Sofa", "Television", "Kitchen table", "Fridge", "Sink", "Stairs", "Bathroom door", "Bed", "Desk", "Window"] as const;
+
+export type PalacePlacement = { stop: number; location: string; detail: string | null; concept: string; definition: string; association: string };
+export type PalaceStage = "setup" | "place" | "walk";
+/** A memory-palace session's state: the stage, the palace, and — while placing only — the placements. */
+export type PalaceState = { index: number; stage: PalaceStage; palaceId: string | null; palaceTitle: string | null; placements: PalacePlacement[] };
+
+export function palaceStateOf(state: unknown): PalaceState {
+  const value = (state ?? {}) as Partial<PalaceState>;
+  const stage: PalaceStage = value.stage === "place" || value.stage === "walk" ? value.stage : "setup";
+  return { index: typeof value.index === "number" ? value.index : 0, stage, palaceId: value.palaceId ?? null, palaceTitle: value.palaceTitle ?? null, placements: Array.isArray(value.placements) ? value.placements : [] };
+}
+
+/** What a walk stop shows before it is answered (the concept stays on the server). */
+export type LociView = { stop: number; total: number; location: string; detail: string | null; previous: string | null };
+export type LociKey = { concept: string; definition: string; association: string };
+export type LociResult = LociKey & { isCorrect: boolean; given: string };
+
+export function lociViewOf(analysis: unknown): LociView | null {
+  const view = analysis as Partial<LociView> | null;
+  if (!view || typeof view.stop !== "number" || typeof view.location !== "string") return null;
+  return { stop: view.stop, total: view.total ?? view.stop, location: view.location, detail: view.detail ?? null, previous: view.previous ?? null };
+}
+
+export function lociResultOf(analysis: unknown): LociResult | null {
+  const result = (analysis as { result?: LociResult } | null)?.result;
+  return result && typeof result.concept === "string" && typeof result.isCorrect === "boolean" ? result : null;
+}
+
+/** Stops per walk: about one per 90 seconds, 3-12, never more than the route has places or the material has concepts. */
+export function palaceStopCount(minutes: number, locations: number, concepts: number): number {
+  return Math.max(0, Math.min(locations, concepts, Math.max(3, Math.min(12, Math.round(minutes / 1.5)))));
+}
+
+/** Same place on a route, whatever the case and spacing. */
+export function sameLocation(a: string, b: string): boolean {
+  return tidy(a) === tidy(b);
 }

@@ -103,7 +103,7 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
           <Card>
             <CardHeader>
               <CardTitle>Memory aids</CardTitle>
-              <CardDescription>Mnemonics you saved or wrote yourself.</CardDescription>
+              <CardDescription>Mnemonics you saved or wrote yourself, and your memory palaces.</CardDescription>
             </CardHeader>
             <CardContent className="flex items-center justify-between gap-3 text-sm">
               <span>

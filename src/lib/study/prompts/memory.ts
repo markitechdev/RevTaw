@@ -58,3 +58,19 @@ ${transcript}
   const result = await generateJson(provider, mnemonicSetSchema, { task: "generate_mnemonics", system, messages: [{ role: "user", content: user }], maxTokens: 5000, temperature: 0.6 });
   return { targets: result.data.targets.slice(0, Math.max(1, input.count)), provider: result.raw.provider, model: result.raw.model };
 }
+
+export const associationsSchema = z.object({
+  associations: z.array(z.object({ index: z.number().int().min(0), association: text(600) })).max(30),
+});
+
+/** Method of loci: one vivid image per location that still states what the concept means. */
+export async function generateAssociations(input: { materialTitle: string; pairs: Array<{ location: string; concept: string; definition: string }> }): Promise<{ associations: Map<number, string>; provider: string; model: string }> {
+  const provider = getAiProvider("fast");
+  const system = `You are RevTaw's memory-palace guide for "${input.materialTitle}". For each pair, write ONE vivid, slightly exaggerated image that places the concept at the location so it is easy to picture when walking the route — and that still carries what the concept actually means.
+- 1-3 sentences, present tense, concrete sensory detail.
+- ${ACCURACY_RULE}
+Respond with JSON only: { "associations": [{ "index": number, "association": string }] }`;
+  const user = input.pairs.map((pair, index) => `${index}. Location: ${pair.location} — Concept: ${pair.concept} — Meaning: ${pair.definition}`).join("\n");
+  const result = await generateJson(provider, associationsSchema, { task: "palace_associations", system, messages: [{ role: "user", content: user }], maxTokens: 3000, temperature: 0.7 });
+  return { associations: new Map(result.data.associations.map((entry) => [entry.index, entry.association])), provider: result.raw.provider, model: result.raw.model };
+}
