@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { routes } from "@/lib/routes";
 import { actionFailure, uuid, type StudyActionResult } from "@/lib/study/action-helpers";
+import { evaluateScenarioItem, type ScenarioResult } from "@/lib/study/flows/applied";
 import { evaluateProblemItem, type ProblemResult } from "@/lib/study/flows/problems";
 import { saveItemDraft } from "@/lib/study/items";
 import { getCurrentUser } from "@/lib/supabase/server";
@@ -43,5 +44,16 @@ export async function evaluateProblemAction(input: { itemId: string; work: strin
     return { ok: true, data: await evaluateProblemItem(parsed.data) };
   } catch (error) {
     return actionFailure(error, "Your working could not be checked. Please try again.");
+  }
+}
+
+export async function evaluateScenarioAction(input: { itemId: string; choice: number; justification: string; responseMs: number | null }): Promise<StudyActionResult<ScenarioResult>> {
+  await requireUser();
+  const parsed = z.object({ itemId: uuid, choice: z.number().int().min(0).max(10), justification: z.string().max(4000), responseMs }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Choose an action and justify it." };
+  try {
+    return { ok: true, data: await evaluateScenarioItem(parsed.data) };
+  } catch (error) {
+    return actionFailure(error, "Your answer could not be checked. Please try again.");
   }
 }

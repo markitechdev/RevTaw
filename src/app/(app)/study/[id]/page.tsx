@@ -10,6 +10,7 @@ import { PomodoroRunner } from "@/components/study/pomodoro-runner";
 import { ProblemRunner } from "@/components/study/problem-runner";
 import { QuestionGenRunner } from "@/components/study/question-gen-runner";
 import { RecallRunner } from "@/components/study/recall-runner";
+import { ScenarioRunner } from "@/components/study/scenario-runner";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { SmartSessionView } from "@/components/study/smart-session";
 import { buttonClasses } from "@/components/ui/button";
@@ -149,6 +150,8 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
     case "faded_worked_examples":
     case "practice_problems":
       return <ProblemRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
+    case "scenario_based":
+      return <ScenarioRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "pomodoro":
       return <PomodoroRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     default:

@@ -9,6 +9,7 @@ import { createQuiz, startAttempt } from "@/lib/quizzes/service";
 import { QUESTION_TYPE_IDS } from "@/lib/quizzes/types";
 import { loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
 import { startBlurting, startChunking, startCumulativeReview, startInterleaving, startQuestionGeneration, startRapidReview, startRetrievalPractice } from "@/lib/study/advanced";
+import { startScenarios } from "@/lib/study/flows/applied";
 import { startFadedExamples, startPracticeProblems, startWorkedExamples } from "@/lib/study/flows/problems";
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
 import { isTutorMethod, METHOD_BEHAVIOUR, TEST_METHOD_IDS, type BuilderMethodId, type TestMethodId } from "@/lib/study/catalog";
@@ -156,6 +157,8 @@ async function startSessionInner(userId: string, input: StartSessionInput): Prom
       return startFadedExamples(supabase, userId, input);
     case "practice_problems":
       return startPracticeProblems(supabase, userId, { ...input, difficulty: input.problemDifficulty });
+    case "scenario_based":
+      return startScenarios(supabase, userId, input);
   }
 }
 
@@ -564,6 +567,8 @@ function itemSessionNext(method: StudyMethodId, accuracy: number | null, weak: s
       return accuracy !== null && accuracy >= 0.8 ? "You can follow the method on your own. Try faded worked examples next so you rely less on the steps." : "Study the worked steps again, then retry the similar problems you missed.";
     case "faded_worked_examples":
       return accuracy !== null && accuracy >= 0.8 ? "You finished the independent problem — move on to practice problems at a harder level." : "Repeat the faded examples; keep the steps you missed in view until the independent one works.";
+    case "scenario_based":
+      return accuracy !== null && accuracy >= 0.8 ? "Good judgement. Try a case-based session for longer, multi-step situations." : "Re-read the rationale for the scenarios you missed, then try new scenarios tomorrow.";
     case "practice_problems":
       return accuracy !== null && accuracy >= 0.8 ? "Strong problem solving. Raise the difficulty next time (hard or challenge)." : weak[0] ? `Review the solutions for ${weak[0]}, then try a worked-example session on it.` : "Review the solutions you missed, then try a worked-example session.";
     case "retrieval_practice":

@@ -106,3 +106,47 @@ export function problemEvaluationHeuristically(prompt: string) {
     feedback: blank ? "Write your working step by step, even if you are unsure — the check shows where it goes wrong." : score >= 80 ? "Your method and result match the reference solution." : `You used ${coverage.covered.length} of ${keyPoints.length || 1} key steps. Compare your working with the reference solution step by step.`,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Scenario-based learning
+// ---------------------------------------------------------------------------
+
+export function scenariosHeuristically(transcript: string, prompt: string) {
+  const count = Number(prompt.match(/Produce exactly (\d+) scenarios/)?.[1] ?? "3");
+  const facts = collectFacts(transcript);
+  const pool = facts.length ? facts : [{ term: null, definition: null, sentence: "The material describes one main idea.", heading: "Overview", next: null }];
+  const scenarios = Array.from({ length: Math.min(count, pool.length) }, (_, index) => {
+    const fact = pool[index];
+    const topic = topicOf(fact);
+    const correct = `Apply what the material says: ${(fact.definition ?? fact.sentence).replace(/[.]$/, "")}`;
+    const wrong = [`Ignore ${topic} and decide by intuition`, `Do the opposite of what the material states about ${topic}`, "Postpone the decision until unrelated details are collected"];
+    const best = index % (wrong.length + 1);
+    const options = [...wrong.slice(0, best), correct, ...wrong.slice(best)];
+    return {
+      title: `Deciding with ${topic}`,
+      situation: `A team working on a real task runs into a situation that depends on ${topic}. ${fact.sentence} ${fact.next ?? ""}`.trim(),
+      question: "What should the team do?",
+      options,
+      best_option: best,
+      option_feedback: options.map((_, option) => (option === best ? `Best: it follows the material — ${fact.sentence}` : `Not the best: it does not use what the material says about ${topic}.`)),
+      rationale: `The material states: ${fact.sentence}`,
+      key_points: keywordsOf(fact.definition ?? fact.sentence).slice(0, 3),
+      concept: topic.slice(0, 60),
+    };
+  });
+  return { scenarios };
+}
+
+export function scenarioEvaluationHeuristically(prompt: string) {
+  const keyPoints = bullets(blockAfter(prompt, "Key points:\n", ["\nStudent justification:"]));
+  const justification = quoted(prompt, "Student justification");
+  const blank = justification.length < 3 || justification === "(blank)";
+  const coverage = pointCoverage(keyPoints, justification);
+  const score = blank ? 0 : Math.round(coverage.ratio * 100);
+  return {
+    justification_score: score,
+    strengths: coverage.covered.map((point) => `You used the idea of ${point}.`),
+    gaps: coverage.missing.map((point) => `Bring in ${point}.`),
+    feedback: blank ? "Explain why you chose that action — the reasoning is half of the answer." : score >= 70 ? "Your justification uses the material's key ideas." : "Tie your reasoning to the material's key ideas more directly.",
+  };
+}

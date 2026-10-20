@@ -305,8 +305,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 25,
     goals: ["practice", "understand"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
-    behaviour: "Realistic scenarios from the material: choose an action and justify it; RevTaw evaluates the choice and the reasoning.",
+    availableIn: "now",
+    behaviour: "Realistic scenarios set in your field and built from the material: you choose an action from plausible options and justify it; RevTaw grades the choice and the reasoning separately, explains why the best action is best and why yours was or was not.",
   },
   case_based: {
     howItHelps: "Working a full case builds judgement, not just recall.",
@@ -378,6 +378,7 @@ export const BUILDER_METHOD_IDS = [
   "worked_examples",
   "faded_worked_examples",
   "practice_problems",
+  "scenario_based",
   "error_review",
   "pomodoro",
   "socratic_questioning",

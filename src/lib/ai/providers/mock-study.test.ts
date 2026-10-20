@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { problemEvaluationHeuristically, problemsHeuristically } from "@/lib/ai/providers/mock-study";
+import { problemEvaluationHeuristically, problemsHeuristically, scenarioEvaluationHeuristically, scenariosHeuristically } from "@/lib/ai/providers/mock-study";
 
 const transcript = `[Section: Photosynthesis Overview]
 Photosynthesis Overview
@@ -39,4 +39,18 @@ describe("mock problem heuristics", () => {
     expect(blank.score).toBe(0);
     expect(blank.verdict).toBe("incorrect");
   });
+});
+
+describe("mock scenario heuristics", () => {
+  it("moves the best action between positions and grades the justification by its ideas", () => {
+    const { scenarios } = scenariosHeuristically(transcript, "Produce exactly 3 scenarios.");
+    expect(scenarios).toHaveLength(3);
+    expect(new Set(scenarios.map((scenario) => scenario.best_option)).size).toBeGreaterThan(1);
+    expect(scenarios.every((scenario) => scenario.option_feedback.length === scenario.options.length)).toBe(true);
+    const scenario = scenarios[0];
+    const prompt = (justification: string) => `Key points:\n${scenario.key_points.map((point) => `- ${point}`).join("\n")}\nStudent justification:\n"""\n${justification}\n"""`;
+    expect(scenarioEvaluationHeuristically(prompt(scenario.key_points.join(" "))).justification_score).toBe(100);
+    expect(scenarioEvaluationHeuristically(prompt("(blank)")).justification_score).toBe(0);
+  });
+
 });

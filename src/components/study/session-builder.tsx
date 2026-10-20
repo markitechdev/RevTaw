@@ -46,6 +46,7 @@ const PREPARING: Partial<Record<BuilderMethodId, string>> = {
   worked_examples: "writing worked examples",
   faded_worked_examples: "writing the examples",
   practice_problems: "writing the problems",
+  scenario_based: "writing the scenarios",
 };
 
 const POMODORO_PRESETS: ReadonlyArray<{ work: number; rest: number }> = [
