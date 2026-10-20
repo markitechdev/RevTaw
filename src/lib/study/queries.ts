@@ -67,11 +67,11 @@ export const getSession = cache(async (sessionId: string): Promise<SessionDetail
   const typed = session as unknown as Omit<SessionDetail, "items" | "parsedSummary">;
   return {
     ...typed,
-    items: ((items ?? []) as unknown as SessionItemView[]).map((item) => ({
-      ...item,
-      // Hide the model answer until the student has answered (or the session is over).
-      model_answer: item.answered_at || typed.status !== "in_progress" ? item.model_answer : null,
-    })),
+    items: ((items ?? []) as unknown as SessionItemView[]).map((item) => {
+      // Hide the model answer and the grading key points until the student has answered (or the session is over).
+      const open = Boolean(item.answered_at) || typed.status !== "in_progress";
+      return { ...item, model_answer: open ? item.model_answer : null, key_points: open ? item.key_points : [] };
+    }),
     parsedSummary: parseSessionSummary(typed.summary),
   };
 });
