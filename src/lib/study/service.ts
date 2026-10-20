@@ -10,6 +10,7 @@ import { QUESTION_TYPE_IDS } from "@/lib/quizzes/types";
 import { loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
 import { startBlurting, startChunking, startCumulativeReview, startInterleaving, startQuestionGeneration, startRapidReview, startRetrievalPractice } from "@/lib/study/advanced";
 import { startCases, startScenarios } from "@/lib/study/flows/applied";
+import { startGuidedReading } from "@/lib/study/flows/reading";
 import { startFadedExamples, startPracticeProblems, startWorkedExamples } from "@/lib/study/flows/problems";
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
 import { isTutorMethod, METHOD_BEHAVIOUR, TEST_METHOD_IDS, type BuilderMethodId, type TestMethodId } from "@/lib/study/catalog";
@@ -161,6 +162,8 @@ async function startSessionInner(userId: string, input: StartSessionInput): Prom
       return startScenarios(supabase, userId, input);
     case "case_based":
       return startCases(supabase, userId, input);
+    case "sq3r":
+      return startGuidedReading(supabase, userId, input, input.method);
   }
 }
 
@@ -362,14 +365,15 @@ export type RecallItemResult = {
 };
 
 /** Item kinds answered through the recall comparison (the other kinds have their own flows). */
-const RECALL_FLOW_KINDS: ReadonlyArray<StudySessionItem["kind"]> = ["recall", "mistake", "chunk"];
+const RECALL_FLOW_KINDS: ReadonlyArray<StudySessionItem["kind"]> = ["recall", "mistake", "chunk", "stage"];
 
 /** Compares a recall answer with the model answer and stores the result; wrong answers go to the notebook. */
 export async function answerRecallItem(input: { itemId: string; response: string; confidence: ConfidenceLevel | null; responseMs: number | null }): Promise<RecallItemResult> {
   const supabase = await createClient();
   const { item, session } = await loadOpenItem(supabase, input.itemId);
-  if (!RECALL_FLOW_KINDS.includes(item.kind)) throw new SessionError("This item uses a different flow.", 400);
-  if (item.answered_at && item.analysis && (item.analysis as { verdict?: string }).verdict) {
+  if (!RECALL_FLOW_KINDS.includes(item.kind) || (item.kind === "stage" && item.format === "summary")) throw new SessionError("This item uses a different flow.", 400);
+  if (item.answered_at) {
+    if (!(item.analysis as { verdict?: string } | null)?.verdict) throw new SessionError("This item is already answered.", 409);
     const comparison = item.analysis as unknown as RecallComparison;
     return { comparison, isCorrect: Boolean(item.is_correct), modelAnswer: item.model_answer ?? "", sourceExcerpt: item.source_excerpt };
   }
@@ -399,13 +403,13 @@ export async function answerRecallItem(input: { itemId: string; response: string
   }
   const isCorrect = comparison.score >= 60;
   const now = new Date().toISOString();
-  // Chunk items keep their reading text next to the comparison.
-  const chunkText = (item.analysis as { chunk?: unknown } | null)?.chunk;
+  // Items keep what they carried before the answer (a chunk's reading text, a guided-reading question's section).
+  const carried = (item.analysis && typeof item.analysis === "object" && !Array.isArray(item.analysis) ? item.analysis : {}) as Record<string, unknown>;
   const { error } = await supabase
     .from("study_session_items")
     .update({
       response: input.response.slice(0, 8000),
-      analysis: (chunkText ? { ...comparison, chunk: chunkText } : comparison) as unknown as Json,
+      analysis: { ...carried, ...comparison } as unknown as Json,
       is_correct: isCorrect,
       score: comparison.score,
       confidence: input.confidence,
@@ -569,6 +573,8 @@ function itemSessionNext(method: StudyMethodId, accuracy: number | null, weak: s
       return accuracy !== null && accuracy >= 0.8 ? "You can follow the method on your own. Try faded worked examples next so you rely less on the steps." : "Study the worked steps again, then retry the similar problems you missed.";
     case "faded_worked_examples":
       return accuracy !== null && accuracy >= 0.8 ? "You finished the independent problem — move on to practice problems at a harder level." : "Repeat the faded examples; keep the steps you missed in view until the independent one works.";
+    case "sq3r":
+      return accuracy !== null && accuracy >= 0.8 ? "You can recite this chapter. Schedule the 1-3-7-14 reviews so it stays." : "Re-read the sections behind the questions you missed, then recite them again tomorrow.";
     case "scenario_based":
       return accuracy !== null && accuracy >= 0.8 ? "Good judgement. Try a case-based session for longer, multi-step situations." : "Re-read the rationale for the scenarios you missed, then try new scenarios tomorrow.";
     case "case_based":

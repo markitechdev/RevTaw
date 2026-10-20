@@ -10,6 +10,7 @@ import { FeynmanRunner } from "@/components/study/feynman-runner";
 import { PomodoroRunner } from "@/components/study/pomodoro-runner";
 import { ProblemRunner } from "@/components/study/problem-runner";
 import { QuestionGenRunner } from "@/components/study/question-gen-runner";
+import { ReadingRunner } from "@/components/study/reading-runner";
 import { RecallRunner } from "@/components/study/recall-runner";
 import { ScenarioRunner } from "@/components/study/scenario-runner";
 import { SessionSummaryCard } from "@/components/study/session-summary";
@@ -155,6 +156,8 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
       return <ScenarioRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "case_based":
       return <CaseRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
+    case "sq3r":
+      return <ReadingRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "pomodoro":
       return <PomodoroRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     default:

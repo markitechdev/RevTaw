@@ -287,8 +287,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 30,
     goals: ["understand"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
-    behaviour: "Guided stages: survey the headings, turn them into questions, read, recite the answers from memory, review.",
+    availableIn: "now",
+    behaviour: "RevTaw walks you through each stage: survey the outline, summary and key concepts; turn every heading into a question; read section by section with your questions beside the text; recite the answers from memory with the text hidden; then review — your own summary is compared with the chapter and the questions you missed point to what to re-read.",
   },
   pq4r: {
     howItHelps: "Reflecting on why something is true makes it stick far longer than reading twice.",
@@ -380,6 +380,7 @@ export const BUILDER_METHOD_IDS = [
   "practice_problems",
   "scenario_based",
   "case_based",
+  "sq3r",
   "error_review",
   "pomodoro",
   "socratic_questioning",

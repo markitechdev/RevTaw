@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { caseEvaluationHeuristically, casesHeuristically, problemEvaluationHeuristically, problemsHeuristically, scenarioEvaluationHeuristically, scenariosHeuristically } from "@/lib/ai/providers/mock-study";
+import { caseEvaluationHeuristically, casesHeuristically, problemEvaluationHeuristically, problemsHeuristically, readingAnswersHeuristically, scenarioEvaluationHeuristically, scenariosHeuristically } from "@/lib/ai/providers/mock-study";
 
 const transcript = `[Section: Photosynthesis Overview]
 Photosynthesis Overview
@@ -65,4 +65,17 @@ describe("mock scenario and case heuristics", () => {
     expect(partial.fields.evidence.score).toBe(0);
     expect(partial.overall).toBe(25);
   });
+});
+
+describe("mock guided-reading heuristics", () => {
+  const sections = `[Section 1: Photosynthesis Overview]\nPhotosynthesis is the process by which green plants convert light energy into chemical energy.\n\n[Section 2: Calvin Cycle]\nThe Calvin cycle is the set of reactions that fixes carbon dioxide into sugar using ATP and NADPH. It takes place in the stroma.`;
+
+  it("answers each question from its own section", () => {
+    const { answers } = readingAnswersHeuristically(sections, "0. (Section 2) Where does the Calvin cycle take place?\n1. (Section 1) What is photosynthesis?");
+    expect(answers).toHaveLength(2);
+    expect(answers[0].model_answer).toMatch(/stroma/);
+    expect(answers[1].model_answer).toMatch(/light energy/);
+    expect(answers.every((answer) => answer.covered)).toBe(true);
+  });
+
 });

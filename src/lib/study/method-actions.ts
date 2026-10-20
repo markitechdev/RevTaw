@@ -4,10 +4,12 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { routes } from "@/lib/routes";
-import { actionFailure, uuid, type StudyActionResult } from "@/lib/study/action-helpers";
+import { actionFailure, revalidateStudy, uuid, type StudyActionResult } from "@/lib/study/action-helpers";
 import { evaluateCaseItem, evaluateScenarioItem, type CaseResult, type ScenarioResult } from "@/lib/study/flows/applied";
 import { evaluateProblemItem, type ProblemResult } from "@/lib/study/flows/problems";
+import { advanceReading, markSectionRead, submitReadingSummary, type ReadingSummaryResult } from "@/lib/study/flows/reading";
 import { saveItemDraft } from "@/lib/study/items";
+import type { ReadingStage } from "@/lib/study/reading-options";
 import { getCurrentUser } from "@/lib/supabase/server";
 
 /**
@@ -68,5 +70,49 @@ export async function evaluateCaseAction(input: { itemId: string; answer: z.inpu
     return { ok: true, data: await evaluateCaseItem(parsed.data) };
   } catch (error) {
     return actionFailure(error, "Your analysis could not be checked. Please try again.");
+  }
+}
+
+const readingStage = z.enum(["survey", "question", "read", "recite", "review", "done"]);
+
+export async function advanceReadingAction(input: { sessionId: string; to: z.input<typeof readingStage>; expectations?: string | null; questions?: Array<{ section: number; question: string }> }): Promise<StudyActionResult<{ stage: ReadingStage }>> {
+  await requireUser();
+  const parsed = z
+    .object({
+      sessionId: uuid,
+      to: readingStage,
+      expectations: z.string().max(1000).nullable().optional(),
+      questions: z.array(z.object({ section: z.number().int().min(0).max(20), question: z.string().max(300) })).max(30).optional(),
+    })
+    .safeParse(input);
+  if (!parsed.success) return { ok: false, message: "That stage could not be saved." };
+  try {
+    const stage = await advanceReading(parsed.data);
+    revalidateStudy(parsed.data.sessionId);
+    return { ok: true, data: { stage } };
+  } catch (error) {
+    return actionFailure(error, "The next stage could not be prepared. Please try again.");
+  }
+}
+
+export async function markSectionReadAction(input: { sessionId: string; section: number }): Promise<StudyActionResult<{ readSections: number[] }>> {
+  await requireUser();
+  const parsed = z.object({ sessionId: uuid, section: z.number().int().min(0).max(20) }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "That section could not be marked." };
+  try {
+    return { ok: true, data: { readSections: await markSectionRead(parsed.data) } };
+  } catch (error) {
+    return actionFailure(error, "That section could not be marked.");
+  }
+}
+
+export async function submitReadingSummaryAction(input: { sessionId: string; summary: string; responseMs: number | null }): Promise<StudyActionResult<ReadingSummaryResult>> {
+  await requireUser();
+  const parsed = z.object({ sessionId: uuid, summary: z.string().trim().min(10, "Write a few sentences first.").max(6000), responseMs }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "That summary could not be checked." };
+  try {
+    return { ok: true, data: await submitReadingSummary(parsed.data) };
+  } catch (error) {
+    return actionFailure(error, "Your summary could not be checked. Please try again.");
   }
 }

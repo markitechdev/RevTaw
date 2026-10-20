@@ -204,3 +204,31 @@ export function caseEvaluationHeuristically(prompt: string) {
     feedback: overall >= 80 ? "A complete, well-supported analysis." : `Strengthen: ${weak.join(", ") || "the details"}.`,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Guided reading (SQ3R)
+// ---------------------------------------------------------------------------
+
+function readingSections(material: string): Array<{ heading: string; text: string }> {
+  const sections: Array<{ heading: string; text: string }> = [];
+  for (const block of material.split(/^(?=\[Section \d+: )/m)) {
+    const label = block.match(/^\[Section \d+: (.+)\]\n?/);
+    if (!label) continue;
+    sections.push({ heading: label[1].trim(), text: block.slice(label[0].length).trim() });
+  }
+  return sections;
+}
+
+export function readingAnswersHeuristically(material: string, prompt: string) {
+  const sections = readingSections(material);
+  const questions = [...prompt.matchAll(/^(\d+)\. \(Section (\d+)\) (.+)$/gm)].map((match) => ({ index: Number(match[1]), section: Number(match[2]) - 1, question: match[3] }));
+  const answers = questions.map((entry) => {
+    const sentences = sentencesOf(sections[entry.section]?.text ?? "");
+    const keys = new Set(keywordsOf(entry.question));
+    const related = sentences.filter((sentence) => keywordsOf(sentence).some((word) => keys.has(word)));
+    const chosen = (related.length ? related : sentences).slice(0, 2);
+    const answer = chosen.join(" ") || "The section does not say.";
+    return { index: entry.index, covered: related.length > 0, model_answer: answer, key_points: keywordsOf(answer).slice(0, 3) };
+  });
+  return { answers };
+}
