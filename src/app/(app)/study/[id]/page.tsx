@@ -7,6 +7,7 @@ import { BlurtingRunner } from "@/components/study/blurting-runner";
 import { ChunkRunner } from "@/components/study/chunk-runner";
 import { FeynmanRunner } from "@/components/study/feynman-runner";
 import { PomodoroRunner } from "@/components/study/pomodoro-runner";
+import { ProblemRunner } from "@/components/study/problem-runner";
 import { QuestionGenRunner } from "@/components/study/question-gen-runner";
 import { RecallRunner } from "@/components/study/recall-runner";
 import { SessionSummaryCard } from "@/components/study/session-summary";
@@ -144,6 +145,10 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
       return <ChunkRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "question_generation":
       return <QuestionGenRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
+    case "worked_examples":
+    case "faded_worked_examples":
+    case "practice_problems":
+      return <ProblemRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "pomodoro":
       return <PomodoroRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     default:

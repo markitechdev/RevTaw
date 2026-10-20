@@ -8,6 +8,7 @@ import { routes } from "@/lib/routes";
 import { actionFailure, revalidateStudy, uuid, type StudyActionResult } from "@/lib/study/action-helpers";
 import { compareBlurtItem, evaluateQuestionItem, type BlurtResult, type EvaluatedQuestion } from "@/lib/study/advanced";
 import { BUILDER_METHOD_IDS } from "@/lib/study/catalog";
+import { PROBLEM_DIFFICULTIES } from "@/lib/study/problem-options";
 import { deleteRoutine, saveRoutine, startRoutine, type RoutineFormInput } from "@/lib/study/routines";
 import {
   analyzeFeynmanItem,
@@ -36,6 +37,7 @@ const startSchema = z.object({
   plannedMinutes: z.number().int().min(1).max(480),
   questionCount: z.number().int().min(3).max(50).optional(),
   timed: z.boolean().optional(),
+  problemDifficulty: z.enum(["adaptive", ...PROBLEM_DIFFICULTIES]).optional(),
   workMinutes: z.number().int().min(1).max(120).optional(),
   breakMinutes: z.number().int().min(1).max(60).optional(),
   topic: z.string().trim().max(120).nullable().optional(),

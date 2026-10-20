@@ -13,6 +13,7 @@ import { Select } from "@/components/ui/select";
 import { startSessionAction } from "@/lib/study/actions";
 import { BUILDER_METHOD_IDS, isBuilderMethod, isTestMethod, METHOD_BEHAVIOUR, RAPID_REVIEW_MINUTES, recommendMethods, TIME_PRESETS, type BuilderMethodId } from "@/lib/study/catalog";
 import { STUDY_METHOD_BY_ID } from "@/lib/study/methods";
+import { PROBLEM_DIFFICULTIES, PROBLEM_DIFFICULTY_LABEL, type ProblemDifficulty } from "@/lib/study/problem-options";
 import type { SessionGoal } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +43,9 @@ const PREPARING: Partial<Record<BuilderMethodId, string>> = {
   question_generation: "setting up",
   mixed_practice: "writing the test",
   exam_simulation: "writing the test",
+  worked_examples: "writing worked examples",
+  faded_worked_examples: "writing the examples",
+  practice_problems: "writing the problems",
 };
 
 const POMODORO_PRESETS: ReadonlyArray<{ work: number; rest: number }> = [
@@ -76,6 +80,7 @@ export function SessionBuilder({
   const [method, setMethod] = useState<BuilderMethodId>(initialMethod && isBuilderMethod(initialMethod) ? initialMethod : "active_recall");
   const [questionCount, setQuestionCount] = useState(10);
   const [timed, setTimed] = useState(true);
+  const [problemDifficulty, setProblemDifficulty] = useState<ProblemDifficulty | "adaptive">("adaptive");
   const [pomodoro, setPomodoro] = useState<{ work: number; rest: number }>({ work: 25, rest: 5 });
   const [topic, setTopic] = useState("");
   const [extraMaterials, setExtraMaterials] = useState<string[]>([]);
@@ -109,6 +114,7 @@ export function SessionBuilder({
         plannedMinutes: method === "rapid_review" ? Math.min(15, Math.max(5, minutes)) : minutes,
         questionCount: isTest ? questionCount : undefined,
         timed: method === "practice_testing" ? timed : method === "exam_simulation" ? true : undefined,
+        problemDifficulty: method === "practice_problems" ? problemDifficulty : undefined,
         workMinutes: method === "pomodoro" ? pomodoro.work : undefined,
         breakMinutes: method === "pomodoro" ? pomodoro.rest : undefined,
         topic: method === "pomodoro" ? topic || null : undefined,
@@ -281,6 +287,20 @@ export function SessionBuilder({
                     </li>
                   ))}
               </ul>
+            </fieldset>
+          )}
+
+          {method === "practice_problems" && (
+            <fieldset disabled={pending}>
+              <legend className="mb-1.5 text-sm font-medium">Difficulty</legend>
+              <div className="flex flex-wrap gap-2">
+                {(["adaptive", ...PROBLEM_DIFFICULTIES] as const).map((level) => (
+                  <Button key={level} type="button" size="sm" variant={problemDifficulty === level ? "primary" : "secondary"} aria-pressed={problemDifficulty === level} onClick={() => setProblemDifficulty(level)}>
+                    {PROBLEM_DIFFICULTY_LABEL[level]}
+                  </Button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{problemDifficulty === "adaptive" ? "Follows each concept's next difficulty from your mastery." : `Every problem is ${PROBLEM_DIFFICULTY_LABEL[problemDifficulty].toLowerCase()}.`}</p>
             </fieldset>
           )}
 

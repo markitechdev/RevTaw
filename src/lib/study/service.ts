@@ -9,12 +9,14 @@ import { createQuiz, startAttempt } from "@/lib/quizzes/service";
 import { QUESTION_TYPE_IDS } from "@/lib/quizzes/types";
 import { loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
 import { startBlurting, startChunking, startCumulativeReview, startInterleaving, startQuestionGeneration, startRapidReview, startRetrievalPractice } from "@/lib/study/advanced";
+import { startFadedExamples, startPracticeProblems, startWorkedExamples } from "@/lib/study/flows/problems";
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
 import { isTutorMethod, METHOD_BEHAVIOUR, TEST_METHOD_IDS, type BuilderMethodId, type TestMethodId } from "@/lib/study/catalog";
 import { loadOpenItem } from "@/lib/study/items";
 import type { StudyMethodId } from "@/lib/study/methods";
+import type { ProblemDifficulty } from "@/lib/study/prompts/problems";
 import { completeSession, createSession, loadSession, SessionError, sessionTitle, suggestNext, updateSessionState, type SessionSummary } from "@/lib/study/sessions";
-import type { ConfidenceLevel, Json, SessionGoal, StudySession } from "@/lib/supabase/database.types";
+import type { ConfidenceLevel, Json, SessionGoal, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { startTutorSession } from "@/lib/tutor/service";
 
@@ -32,6 +34,8 @@ export type StartSessionInput = {
   /** Practice testing only. */
   questionCount?: number;
   timed?: boolean;
+  /** Practice problems only. */
+  problemDifficulty?: ProblemDifficulty | "adaptive";
   /** Pomodoro only. */
   workMinutes?: number;
   breakMinutes?: number;
@@ -146,6 +150,12 @@ async function startSessionInner(userId: string, input: StartSessionInput): Prom
       return startChunking(supabase, userId, input);
     case "question_generation":
       return startQuestionGeneration(supabase, userId, input);
+    case "worked_examples":
+      return startWorkedExamples(supabase, userId, input);
+    case "faded_worked_examples":
+      return startFadedExamples(supabase, userId, input);
+    case "practice_problems":
+      return startPracticeProblems(supabase, userId, { ...input, difficulty: input.problemDifficulty });
   }
 }
 
@@ -346,11 +356,14 @@ export type RecallItemResult = {
   sourceExcerpt: string | null;
 };
 
+/** Item kinds answered through the recall comparison (the other kinds have their own flows). */
+const RECALL_FLOW_KINDS: ReadonlyArray<StudySessionItem["kind"]> = ["recall", "mistake", "chunk"];
+
 /** Compares a recall answer with the model answer and stores the result; wrong answers go to the notebook. */
 export async function answerRecallItem(input: { itemId: string; response: string; confidence: ConfidenceLevel | null; responseMs: number | null }): Promise<RecallItemResult> {
   const supabase = await createClient();
   const { item, session } = await loadOpenItem(supabase, input.itemId);
-  if (item.kind === "feynman" || item.kind === "blurt" || item.kind === "question") throw new SessionError("This item uses a different flow.", 400);
+  if (!RECALL_FLOW_KINDS.includes(item.kind)) throw new SessionError("This item uses a different flow.", 400);
   if (item.answered_at && item.analysis && (item.analysis as { verdict?: string }).verdict) {
     const comparison = item.analysis as unknown as RecallComparison;
     return { comparison, isCorrect: Boolean(item.is_correct), modelAnswer: item.model_answer ?? "", sourceExcerpt: item.source_excerpt };
@@ -547,6 +560,12 @@ function itemSessionNext(method: StudyMethodId, accuracy: number | null, weak: s
       return accuracy !== null && accuracy >= 0.8 ? "Strong recall after reading. Blurt again in three days to check it held." : weak[0] ? `Re-read the section on ${weak[0]}, then blurt it again tomorrow before looking.` : "Re-read the sections you forgot, then blurt them again tomorrow.";
     case "question_generation":
       return accuracy !== null && accuracy >= 0.8 ? "Your questions are exam-quality. Answer them yourself in a recall session tomorrow." : "Rewrite the lower-rated questions using the improved versions, then try answering them from memory.";
+    case "worked_examples":
+      return accuracy !== null && accuracy >= 0.8 ? "You can follow the method on your own. Try faded worked examples next so you rely less on the steps." : "Study the worked steps again, then retry the similar problems you missed.";
+    case "faded_worked_examples":
+      return accuracy !== null && accuracy >= 0.8 ? "You finished the independent problem — move on to practice problems at a harder level." : "Repeat the faded examples; keep the steps you missed in view until the independent one works.";
+    case "practice_problems":
+      return accuracy !== null && accuracy >= 0.8 ? "Strong problem solving. Raise the difficulty next time (hard or challenge)." : weak[0] ? `Review the solutions for ${weak[0]}, then try a worked-example session on it.` : "Review the solutions you missed, then try a worked-example session.";
     case "retrieval_practice":
     case "rapid_review":
     case "cumulative_review":
