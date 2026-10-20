@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app/app-shell";
 import { NotificationsMenu } from "@/components/app/notifications-menu";
 import { TimezoneSync } from "@/components/app/timezone-sync";
+import { AppearanceRoot } from "@/components/theme/appearance-root";
 import { countUnreadNotifications, listNotifications } from "@/lib/notifications/service";
+import { getPreferences } from "@/lib/preferences/queries";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { routes } from "@/lib/routes";
 
@@ -21,12 +23,14 @@ export default async function AppLayout({ children }: LayoutProps<"/"> ) {
   if (profile && !profile.onboarding_completed_at) {
     redirect(routes.onboarding);
   }
-  const [notifications, unread] = await Promise.all([listNotifications(12), countUnreadNotifications()]);
+  const [notifications, unread, preferences] = await Promise.all([listNotifications(12), countUnreadNotifications(), getPreferences()]);
 
   return (
-    <AppShell displayName={profile?.display_name ?? ""} email={user.email} notifications={<NotificationsMenu notifications={notifications} unread={unread} />}>
-      <TimezoneSync current={profile?.timezone ?? null} />
-      {children}
-    </AppShell>
+    <AppearanceRoot appearance={preferences.appearance}>
+      <AppShell displayName={profile?.display_name ?? ""} email={user.email} notifications={<NotificationsMenu notifications={notifications} unread={unread} />}>
+        <TimezoneSync current={profile?.timezone ?? null} />
+        {children}
+      </AppShell>
+    </AppearanceRoot>
   );
 }

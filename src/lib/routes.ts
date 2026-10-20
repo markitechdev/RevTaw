@@ -26,7 +26,13 @@ export const routes = {
   planner: "/planner",
   settings: "/settings",
   settingsProfile: "/settings/profile",
+  /** Study preferences: level, goal, session length and preferred methods. */
   settingsPreferences: "/settings/preferences",
+  settingsAppearance: "/settings/appearance",
+  settingsDashboard: "/settings/dashboard",
+  settingsTools: "/settings/tools",
+  settingsAi: "/settings/ai",
+  settingsNotifications: "/settings/notifications",
   settingsAccount: "/settings/account",
 } as const;
 

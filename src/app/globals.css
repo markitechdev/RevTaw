@@ -99,9 +99,20 @@
 
 /* ------------------------------------------------------------------ */
 /* Theme color presets, generated with src/lib/theme/color.ts so each  */
-/* passes the same contrast checks. The attribute sits on <html> (and  */
-/* on the app shell for the first server render).                      */
+/* passes the same contrast checks. The attribute sits on <html> (from */
+/* the appearance cookie) and on the signed-in app frame (from the     */
+/* account), so the first server render is already in the right color. */
 /* ------------------------------------------------------------------ */
+[data-accent] {
+  /* Recomputed wherever an accent is set, so a nested frame gets its own ring and progress color. */
+  --ring: var(--primary);
+  --progress: var(--primary);
+}
+[data-accent="purple"] {
+  --primary: #7d4de7;
+  --primary-hover: #6f3bd6;
+  --primary-soft: #f7f5ff;
+}
 [data-accent="blue"] {
   --primary: #1c69e3;
   --primary-hover: #0559d2;
@@ -137,6 +148,12 @@
   --primary: var(--custom-primary);
   --primary-hover: var(--custom-primary-hover);
   --primary-soft: var(--custom-primary-soft);
+}
+.dark[data-accent="purple"],
+.dark [data-accent="purple"] {
+  --primary: #a88fff;
+  --primary-hover: #b6a4ff;
+  --primary-soft: #272041;
 }
 .dark[data-accent="blue"],
 .dark [data-accent="blue"] {

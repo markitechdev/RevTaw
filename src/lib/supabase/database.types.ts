@@ -120,6 +120,8 @@ type ProfilesRow = {
   onboarding_completed_at: string | null;
   xp: number;
   timezone: string | null;
+  /** Personal preferences by section; parse with `parsePreferences` (src/lib/preferences/schema.ts). */
+  preferences: Json;
   created_at: string;
   updated_at: string;
 };
@@ -1206,7 +1208,12 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      set_preference_section: {
+        Args: { section_name: string; section_value: Json };
+        Returns: Json;
+      };
+    };
     Enums: {
       education_level: EducationLevel;
       study_goal: StudyGoal;
