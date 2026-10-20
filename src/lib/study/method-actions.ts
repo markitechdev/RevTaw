@@ -8,8 +8,10 @@ import { actionFailure, revalidateStudy, uuid, type StudyActionResult } from "@/
 import { evaluateCaseItem, evaluateScenarioItem, type CaseResult, type ScenarioResult } from "@/lib/study/flows/applied";
 import { evaluateProblemItem, type ProblemResult } from "@/lib/study/flows/problems";
 import { advanceReading, markSectionRead, submitReadingSummary, type ReadingSummaryResult } from "@/lib/study/flows/reading";
+import { checkVisualItem, type VisualCheck } from "@/lib/study/flows/visual";
 import { saveItemDraft } from "@/lib/study/items";
 import type { ReadingStage } from "@/lib/study/reading-options";
+import type { VisualAnswer } from "@/lib/study/visuals";
 import { getCurrentUser } from "@/lib/supabase/server";
 
 /**
@@ -114,5 +116,23 @@ export async function submitReadingSummaryAction(input: { sessionId: string; sum
     return { ok: true, data: await submitReadingSummary(parsed.data) };
   } catch (error) {
     return actionFailure(error, "Your summary could not be checked. Please try again.");
+  }
+}
+
+const visualAnswer = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("order"), order: z.array(z.number().int().min(0).max(50)).max(50) }),
+  z.object({ kind: z.literal("cells"), cells: z.array(z.object({ row: z.number().int().min(0).max(50), column: z.number().int().min(0).max(10), value: z.string().max(300) })).max(60) }),
+  z.object({ kind: z.literal("parents"), parents: z.array(z.object({ label: z.string().max(200), parent: z.string().max(200) })).max(60) }),
+  z.object({ kind: z.literal("relations"), relations: z.array(z.string().max(60)).max(20) }),
+]);
+
+export async function checkVisualAction(input: { itemId: string; answer: VisualAnswer; responseMs: number | null }): Promise<StudyActionResult<VisualCheck>> {
+  await requireUser();
+  const parsed = z.object({ itemId: uuid, answer: visualAnswer, responseMs }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "That rebuild could not be checked." };
+  try {
+    return { ok: true, data: await checkVisualItem(parsed.data) };
+  } catch (error) {
+    return actionFailure(error, "Your rebuild could not be checked. Please try again.");
   }
 }

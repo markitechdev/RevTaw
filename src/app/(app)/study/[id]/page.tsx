@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { BlurtingRunner } from "@/components/study/blurting-runner";
 import { CaseRunner } from "@/components/study/case-runner";
+import { DualCodingRunner } from "@/components/study/dual-coding-runner";
 import { ChunkRunner } from "@/components/study/chunk-runner";
 import { FeynmanRunner } from "@/components/study/feynman-runner";
 import { PomodoroRunner } from "@/components/study/pomodoro-runner";
@@ -159,6 +160,8 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
     case "sq3r":
     case "pq4r":
       return <ReadingRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
+    case "dual_coding":
+      return <DualCodingRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "pomodoro":
       return <PomodoroRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     default:

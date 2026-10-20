@@ -1,4 +1,4 @@
-import { collectFacts, keywordsOf, parseTranscriptSections, sentencesOf, type MockFact } from "@/lib/ai/providers/mock-text";
+import { collectFacts, keywordsOf, parseTranscriptSections, sentencesOf, splitInlineSections, type MockFact } from "@/lib/ai/providers/mock-text";
 
 /**
  * Deterministic stand-ins for the Phase 8 (part 2) study-method prompts:
@@ -247,4 +247,52 @@ export function reflectQuestionsHeuristically(material: string, prompt: string) 
     return { kind, prompt: promptText, model_answer: answer, key_points: keywordsOf(fact.sentence).slice(0, 3), concept: topic.slice(0, 60) };
   });
   return { questions };
+}
+
+// ---------------------------------------------------------------------------
+// Dual coding
+// ---------------------------------------------------------------------------
+
+function shortLabel(sentence: string, words = 6): string {
+  return sentence.split(/\s+/).slice(0, words).join(" ").replace(/[.,;:]$/, "");
+}
+
+/** Deterministic visual of one section; the kind rotates so a set mixes visual types. */
+export function visualForSection(heading: string, body: string, kind: number) {
+  const sentences = sentencesOf(body);
+  const facts = collectFacts(`[Section: ${heading}]\n${body}`);
+  const terms = facts.filter((fact) => fact.term).slice(0, 5);
+  const years = sentences.filter((sentence) => /\b(1[5-9]\d\d|20\d\d)\b/.test(sentence));
+  const order = ["table", "flowchart", "hierarchy", "relationships"] as const;
+  let type: "table" | "flowchart" | "timeline" | "hierarchy" | "relationships" = years.length >= 2 ? "timeline" : order[kind % order.length];
+  if (type === "table" && terms.length < 2) type = "flowchart";
+  if (type === "relationships" && facts.length < 3) type = "hierarchy";
+  if (type === "flowchart" && sentences.length < 2) type = "hierarchy";
+  switch (type) {
+    case "timeline":
+      return { type, events: years.slice(0, 6).map((sentence) => ({ when: sentence.match(/\b(1[5-9]\d\d|20\d\d)\b/)![1], label: shortLabel(sentence), detail: sentence })) };
+    case "table":
+      return { type, columns: ["Term", "What the material says"], rows: terms.map((fact) => [fact.term!, (fact.definition ?? fact.sentence).replace(/[.]$/, "")]) };
+    case "flowchart":
+      return { type, steps: sentences.slice(0, 5).map((sentence) => ({ label: shortLabel(sentence), detail: sentence })) };
+    case "relationships": {
+      const nodes = facts.slice(0, 4).map((fact) => topicOf(fact));
+      const relations = ["leads to", "requires", "contains"];
+      return { type, nodes, links: nodes.slice(1).map((node, index) => ({ from: nodes[index], to: node, relation: relations[index % relations.length] })) };
+    }
+    default: {
+      const keys = [...new Set(sentences.flatMap((sentence) => keywordsOf(sentence).slice(0, 2)))].slice(0, 6);
+      return { type: "hierarchy" as const, root: heading, children: [{ label: keys[0] ?? heading, children: keys.slice(2, 4).map((key) => ({ label: key })) }, { label: keys[1] ?? "details", children: keys.slice(4, 6).map((key) => ({ label: key })) }] };
+    }
+  }
+}
+
+export function visualsHeuristically(transcript: string, prompt: string) {
+  const count = Number(prompt.match(/Produce exactly (\d+) topics/)?.[1] ?? "3");
+  const sections = splitInlineSections(transcript);
+  const topics = sections.slice(0, count).map((section, index) => {
+    const sentences = sentencesOf(section.text);
+    return { title: section.heading, concept: section.heading.slice(0, 60), text: sentences.slice(0, 3).join(" "), visual: visualForSection(section.heading, section.text, index) };
+  });
+  return { topics };
 }

@@ -1,5 +1,5 @@
-import { caseEvaluationHeuristically, casesHeuristically, problemEvaluationHeuristically, problemsHeuristically, readingAnswersHeuristically, reflectQuestionsHeuristically, scenarioEvaluationHeuristically, scenariosHeuristically } from "@/lib/ai/providers/mock-study";
-import { collectFacts, isHeadingLike, keywordsOf, overlap, parseTranscriptSections, sentencesOf } from "@/lib/ai/providers/mock-text";
+import { caseEvaluationHeuristically, casesHeuristically, problemEvaluationHeuristically, problemsHeuristically, readingAnswersHeuristically, reflectQuestionsHeuristically, scenarioEvaluationHeuristically, scenariosHeuristically, visualsHeuristically } from "@/lib/ai/providers/mock-study";
+import { collectFacts, isHeadingLike, keywordsOf, overlap, parseTranscriptSections, sentencesOf, splitInlineSections } from "@/lib/ai/providers/mock-text";
 import type { AiGenerateOptions, AiGenerateResult, AiProvider } from "@/lib/ai/types";
 
 export { parseTranscriptSections } from "@/lib/ai/providers/mock-text";
@@ -97,6 +97,9 @@ export class MockProvider implements AiProvider {
         break;
       case "reflect_questions":
         text = JSON.stringify(reflectQuestionsHeuristically(rawMaterial, userText));
+        break;
+      case "generate_visuals":
+        text = JSON.stringify(visualsHeuristically(rawMaterial, userText));
         break;
       case "ocr_image":
         text = "Mock transcription: the image was read by the mock provider. Configure a real AI provider to extract the actual text.";
@@ -578,22 +581,7 @@ export function blurtCompareHeuristically(prompt: string) {
 export function chunkHeuristically(transcript: string, prompt: string) {
   const count = Number(prompt.match(/Produce about (\d+) chunks/)?.[1] ?? "4");
   // Split each transcript section again at inline headings, so short notes still give several chunks.
-  const sections = parseTranscriptSections(transcript)
-    .flatMap((section) => {
-      const parts: Array<{ heading: string; text: string }> = [];
-      let current = { heading: section.heading, lines: [] as string[] };
-      for (const line of section.text.split("\n")) {
-        if (isHeadingLike(line.trim())) {
-          if (current.lines.join(" ").trim()) parts.push({ heading: current.heading, text: current.lines.join("\n").trim() });
-          current = { heading: line.trim(), lines: [] };
-          continue;
-        }
-        current.lines.push(line);
-      }
-      if (current.lines.join(" ").trim()) parts.push({ heading: current.heading, text: current.lines.join("\n").trim() });
-      return parts;
-    })
-    .filter((section) => sentencesOf(section.text).length > 0);
+  const sections = splitInlineSections(transcript);
   const chunks = sections.slice(0, Math.max(1, count)).map((section) => {
     const sentences = sentencesOf(section.text);
     const facts = collectFacts(`[Section: ${section.heading}]\n${section.text}`);

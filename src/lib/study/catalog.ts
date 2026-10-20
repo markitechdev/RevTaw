@@ -161,8 +161,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 20,
     goals: ["understand", "memorize"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
-    behaviour: "Text is paired with generated diagrams, tables and timelines.",
+    availableIn: "now",
+    behaviour: "Each important topic as a short text and as a visual — table, flowchart, timeline, diagram or concept relationships — with Text, Visual and Combined views; then you rebuild the visual from memory (reorder the steps, fill the table, attach the parts, name the links) and RevTaw checks it. Visuals are saved for the material and reused.",
   },
   mind_mapping: {
     howItHelps: "A map of topics and links shows the structure you are studying.",
@@ -382,6 +382,7 @@ export const BUILDER_METHOD_IDS = [
   "case_based",
   "sq3r",
   "pq4r",
+  "dual_coding",
   "error_review",
   "pomodoro",
   "socratic_questioning",

@@ -83,3 +83,23 @@ export function overlap(expected: string[], given: string): { hits: string[]; mi
   const misses = expected.filter((word) => !words.has(word));
   return { hits, misses, ratio: expected.length ? hits.length / expected.length : 0 };
 }
+
+/** Transcript sections split again at inline headings, so short notes still give several sections. */
+export function splitInlineSections(transcript: string): Array<{ heading: string; text: string }> {
+  return parseTranscriptSections(transcript)
+    .flatMap((section) => {
+      const parts: Array<{ heading: string; text: string }> = [];
+      let current = { heading: section.heading, lines: [] as string[] };
+      for (const line of section.text.split("\n")) {
+        if (isHeadingLike(line.trim())) {
+          if (current.lines.join(" ").trim()) parts.push({ heading: current.heading, text: current.lines.join("\n").trim() });
+          current = { heading: line.trim(), lines: [] };
+          continue;
+        }
+        current.lines.push(line);
+      }
+      if (current.lines.join(" ").trim()) parts.push({ heading: current.heading, text: current.lines.join("\n").trim() });
+      return parts;
+    })
+    .filter((section) => sentencesOf(section.text).length > 0);
+}
