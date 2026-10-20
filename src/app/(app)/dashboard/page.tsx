@@ -17,6 +17,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { MasteryBar } from "@/components/adaptive/mastery-table";
+import { RecommendationList } from "@/components/adaptive/recommendation-list";
 import { Alert } from "@/components/forms/form-alert";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { formatRelativeDate } from "@/components/materials/material-card";
@@ -24,12 +26,15 @@ import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { getMasterySummary } from "@/lib/adaptive/engine";
+import { MASTERY_THRESHOLD } from "@/lib/adaptive/mastery";
+import { getRecommendations } from "@/lib/adaptive/recommend";
 import { countDueCards, listDecks, nextDueAt } from "@/lib/flashcards/queries";
 import { SOURCE_LABEL } from "@/lib/materials/constants";
 import { countMaterials, listRecentMaterials } from "@/lib/materials/queries";
 import { formatSessionMinutes, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
-import { countOpenMistakes, getConceptPerformance, listRecentAttempts } from "@/lib/quizzes/queries";
+import { countOpenMistakes, listRecentAttempts } from "@/lib/quizzes/queries";
 import { QUIZ_MODE_LABEL } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
 import { getActivityStats } from "@/lib/study/queries";
@@ -55,10 +60,11 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const { user, profile } = await getCurrentUserWithProfile();
   if (!user) redirect(routes.login);
 
-  const [materialCount, recentMaterials, concepts, recentAttempts, openMistakes, dueCards, decks, nextDue, activity] = await Promise.all([
+  const [materialCount, recentMaterials, mastery, recommendations, recentAttempts, openMistakes, dueCards, decks, nextDue, activity] = await Promise.all([
     countMaterials(),
     listRecentMaterials(5),
-    getConceptPerformance(),
+    getMasterySummary(),
+    getRecommendations(2),
     listRecentAttempts(4),
     countOpenMistakes(),
     countDueCards(),
@@ -68,8 +74,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   ]);
   const dueDecks = decks.filter((deck) => deck.dueCount > 0).slice(0, 5);
   const lastOpened = recentMaterials.find((material) => material.last_opened_at) ?? recentMaterials[0];
-  const weakConcepts = concepts.filter((concept) => concept.accuracy < 0.6).sort((a, b) => a.accuracy - b.accuracy || b.total - a.total).slice(0, 6);
-  const strongConcepts = concepts.filter((concept) => concept.accuracy >= 0.8 && concept.total >= 2).sort((a, b) => b.accuracy - a.accuracy || b.total - a.total).slice(0, 6);
+  // Weak = status weak or learning (needs attention); strong = strong or mastered (§23, §28).
+  const weakConcepts = [...mastery.weak, ...mastery.learning].sort((a, b) => Number(a.mastery) - Number(b.mastery)).slice(0, 6);
+  const strongConcepts = [...mastery.mastered, ...mastery.strong].sort((a, b) => Number(b.mastery) - Number(a.mastery)).slice(0, 6);
 
   const notice = typeof params.notice === "string" ? NOTICES[params.notice] : undefined;
   const firstName = profile?.display_name?.split(" ")[0];
@@ -134,48 +141,24 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
               <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
               RevTaw recommendation
             </CardTitle>
+            <CardDescription>{materialCount === 0 ? "Appears once there is something to study." : "Chosen from your mastery, confidence and due reviews — with the reason."}</CardDescription>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
+          <CardContent className="text-sm">
             {materialCount === 0 ? (
-              <p>
+              <p className="text-muted-foreground">
                 Upload one material and take a short quiz on it. After that, RevTaw can tell you which
                 concepts need work and suggest a study method instead of guessing.
               </p>
-            ) : weakConcepts.length > 0 ? (
-              <div className="flex flex-col gap-3">
-                <p>
-                  You missed {weakConcepts[0].total - weakConcepts[0].correct} of your last {weakConcepts[0].total}{" "}
-                  <span className="font-medium text-foreground">{weakConcepts[0].name}</span> questions
-                  {weakConcepts.length > 1 ? `, and ${weakConcepts.slice(1, 3).map((concept) => concept.name).join(" and ")} need work too` : ""}. Try a
-                  10-minute Active Recall session on it, then retest your{" "}
-                  <Link href={`${routes.quiz}/mistakes`} className="font-medium text-primary hover:underline">
-                    {openMistakes} open {openMistakes === 1 ? "mistake" : "mistakes"}
-                  </Link>
-                  .
-                </p>
-                <Link href={`${routes.study}?method=active_recall`} className={buttonClasses({ size: "sm" })}>
-                  Start Active Recall
-                </Link>
-              </div>
-            ) : recentAttempts.length > 0 ? (
-              <div className="flex flex-col gap-3">
-                <p>
-                  Your recent quizzes look solid. Run a practice test under exam conditions to check that the concepts
-                  hold under pressure, and keep your flashcards on schedule.
-                </p>
-                <Link href={`${routes.study}?method=practice_testing`} className={buttonClasses({ size: "sm" })}>
-                  Start practice testing
-                </Link>
-              </div>
             ) : (
               <div className="flex flex-col gap-3">
-                <p>
-                  Start with a short Active Recall session on a material. That is when RevTaw begins tracking
-                  what you get wrong and can recommend what to study next instead of guessing.
-                </p>
-                <Link href={routes.study} className={buttonClasses({ size: "sm" })}>
-                  Build a session
+                <RecommendationList items={recommendations} />
+                <Link href={`${routes.study}?method=smart_study`} className={buttonClasses({ size: "sm", variant: "secondary", className: "self-start" })}>
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                  Plan a Smart Study session
                 </Link>
+                <p className="text-xs text-muted-foreground">
+                  Smart Study builds a full session from your mistakes, weak concepts and due cards, sized to {sessionLength}.
+                </p>
               </div>
             )}
           </CardContent>
@@ -312,28 +295,30 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         <Card>
           <CardHeader>
             <CardTitle>Weak topics</CardTitle>
-            <CardDescription>Concepts that need attention.</CardDescription>
+            <CardDescription>
+              <Link href={routes.progress} className="hover:underline">
+                Concepts below 60% mastery.
+              </Link>
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {weakConcepts.length === 0 ? (
               <EmptyState
                 compact
                 icon={TrendingDown}
-                title={concepts.length === 0 ? "Not enough data yet" : "No weak topics right now"}
+                title={mastery.total === 0 ? "Not enough data yet" : "No weak topics right now"}
                 description={
-                  concepts.length === 0
-                    ? "RevTaw tracks mistakes at the concept level, so a couple of quizzes are enough to see patterns."
-                    : "Every concept you have been quizzed on is above 60% accuracy."
+                  mastery.total === 0
+                    ? "RevTaw tracks mastery at the concept level, so one quiz or recall session is enough to see patterns."
+                    : "Every concept you have practised is strong or mastered."
                 }
               />
             ) : (
               <ul className="flex flex-col divide-y divide-border">
-                {weakConcepts.map((concept) => (
-                  <li key={concept.id} className="flex items-center justify-between gap-3 py-2 text-sm first:pt-0 last:pb-0">
-                    <span className="truncate">{concept.name}</span>
-                    <span className="shrink-0 tabular-nums text-danger">
-                      {concept.correct}/{concept.total}
-                    </span>
+                {weakConcepts.map((row) => (
+                  <li key={row.id} className="flex items-center justify-between gap-3 py-2 text-sm first:pt-0 last:pb-0">
+                    <span className="truncate">{row.concept?.name ?? "Concept"}</span>
+                    <MasteryBar value={Number(row.mastery)} status={row.status} compact />
                   </li>
                 ))}
               </ul>
@@ -344,7 +329,11 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         <Card>
           <CardHeader>
             <CardTitle>Strong topics</CardTitle>
-            <CardDescription>High-accuracy concepts.</CardDescription>
+            <CardDescription>
+              <Link href={routes.progress} className="hover:underline">
+                Mastered at {MASTERY_THRESHOLD}% and above.
+              </Link>
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {strongConcepts.length === 0 ? (
@@ -352,16 +341,14 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
                 compact
                 icon={TrendingUp}
                 title="Nothing mastered yet"
-                description="Topics move here once you answer their questions correctly more than once."
+                description="Topics move here once their mastery passes 60%, and count as mastered at 80%."
               />
             ) : (
               <ul className="flex flex-col divide-y divide-border">
-                {strongConcepts.map((concept) => (
-                  <li key={concept.id} className="flex items-center justify-between gap-3 py-2 text-sm first:pt-0 last:pb-0">
-                    <span className="truncate">{concept.name}</span>
-                    <span className="shrink-0 tabular-nums text-success">
-                      {concept.correct}/{concept.total}
-                    </span>
+                {strongConcepts.map((row) => (
+                  <li key={row.id} className="flex items-center justify-between gap-3 py-2 text-sm first:pt-0 last:pb-0">
+                    <span className="truncate">{row.concept?.name ?? "Concept"}</span>
+                    <MasteryBar value={Number(row.mastery)} status={row.status} compact />
                   </li>
                 ))}
               </ul>

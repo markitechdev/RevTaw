@@ -93,7 +93,7 @@ export function MaterialOverview({
       {data.recommended_methods.length > 0 && (
         <Section
           title="Recommended study methods"
-          description="Chosen from what this material needs. Study sessions that use them arrive in the next phase."
+          description="Chosen from what this material needs. Start any of them from Study tools above."
         >
           <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {data.recommended_methods.map((item) => {
