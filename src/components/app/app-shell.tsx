@@ -14,10 +14,13 @@ import { routes } from "@/lib/routes";
 export function AppShell({
   displayName,
   email,
+  notifications,
   children,
 }: {
   displayName: string;
   email: string | null;
+  /** Server-rendered notifications bell (see NotificationsMenu). */
+  notifications?: ReactNode;
   children: ReactNode;
 }) {
   const userCard = <UserCard displayName={displayName} email={email} />;
@@ -32,8 +35,9 @@ export function AppShell({
       </a>
 
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-card lg:flex">
-        <div className="flex h-16 items-center px-5">
+        <div className="flex h-16 items-center justify-between gap-2 px-5">
           <Logo href={routes.dashboard} withTagline />
+          {notifications}
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-2">
           <SidebarNav section="primary" label="Primary" />
@@ -47,7 +51,10 @@ export function AppShell({
       <div className="flex min-h-dvh flex-col lg:pl-64">
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border bg-card/90 px-4 backdrop-blur lg:hidden">
           <Logo href={routes.dashboard} />
-          <ThemeToggle />
+          <div className="flex items-center gap-1">
+            {notifications}
+            <ThemeToggle />
+          </div>
         </header>
 
         <main
