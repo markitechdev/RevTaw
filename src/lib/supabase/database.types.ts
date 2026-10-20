@@ -233,6 +233,7 @@ type ReviewerSectionsRow = {
   regenerated_at: string | null;
   created_at: string;
   updated_at: string;
+  search_text: string;
 };
 
 type QuizzesRow = {
@@ -407,6 +408,7 @@ type FlashcardsRow = {
   last_rating: FlashcardRating | null;
   created_at: string;
   updated_at: string;
+  search_text: string;
 };
 
 type FlashcardReviewsRow = {
