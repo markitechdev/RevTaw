@@ -1,83 +1,190 @@
 @import "tailwindcss";
 @import "@fontsource-variable/inter";
+@import "@fontsource-variable/bricolage-grotesque";
 
 /* Dark mode is class-based so the user's choice can be persisted. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ------------------------------------------------------------------ */
-/* Semantic tokens. Light values on :root, dark values on .dark.       */
-/* Every colour pair below meets WCAG AA (4.5:1) for body text.        */
+/* RevTaw design tokens. Light values on :root, dark values on .dark.  */
+/* Every text/surface pair meets WCAG AA (4.5:1); control borders and  */
+/* focus rings meet 3:1. Components use these tokens only — never raw  */
+/* palette colors — so a theme color can change the whole interface.   */
 /* ------------------------------------------------------------------ */
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-
+  /* Surfaces and text: soft paper with an ink-violet tint. */
+  --background: #f7f6fb;
+  --foreground: #16132a;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #16132a;
+  --muted: #efedf5;
+  --muted-foreground: #5b5670;
+  --border: #e3e0eb;
+  --input: #8a849e;
 
-  --muted: #f1f5f9;
-  --muted-foreground: #475569;
-
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #4f46e5;
-
-  --primary: #4f46e5;
+  /* Theme color (Appearance → Theme color). RevTaw Purple by default. */
+  --primary: #7d4de7;
+  --primary-hover: #6f3bd6;
   --primary-foreground: #ffffff;
-  --primary-soft: #eef2ff;
+  --primary-soft: #f7f5ff;
+  --ring: var(--primary);
+  --progress: var(--primary);
 
+  /* The highlighter: a marker swipe behind key words and the text selection. */
+  --highlight: #fff1a8;
+  --highlight-foreground: #16132a;
+
+  /* Status colors are fixed: they mean status, whatever the theme color. */
   --success: #047857;
   --success-foreground: #ffffff;
   --success-soft: #ecfdf5;
-
   --warning: #b45309;
   --warning-foreground: #ffffff;
   --warning-soft: #fffbeb;
-
   /* red-700 rather than red-600: 5.9:1 on the soft tint and 6.5:1 under white text. */
   --danger: #b91c1c;
   --danger-foreground: #ffffff;
   --danger-soft: #fef2f2;
+  --info: #1d5bd8;
+  --info-foreground: #ffffff;
+  --info-soft: #eef4ff;
+
+  /* Elevation: borders do most of the work; shadows only lift what floats. */
+  --shadow-color: 22 19 42;
+  --elevation-sm: 0 1px 2px rgb(var(--shadow-color) / 0.06);
+  --elevation-md: 0 6px 20px -6px rgb(var(--shadow-color) / 0.14), 0 1px 3px rgb(var(--shadow-color) / 0.06);
+  --elevation-pop: 0 24px 56px -16px rgb(var(--shadow-color) / 0.3), 0 2px 8px rgb(var(--shadow-color) / 0.08);
 
   color-scheme: light;
 }
 
 .dark {
-  --background: #0b1220;
-  --foreground: #e2e8f0;
+  --background: #0f0d17;
+  --foreground: #ecebf3;
+  --card: #17141f;
+  --card-foreground: #ecebf3;
+  --muted: #221e2e;
+  --muted-foreground: #a7a2ba;
+  --border: #2d2840;
+  --input: #726c89;
 
-  --card: #111a2e;
-  --card-foreground: #e2e8f0;
+  --primary: #a88fff;
+  --primary-hover: #b6a4ff;
+  --primary-foreground: #0f0d17;
+  --primary-soft: #272041;
 
-  --muted: #1a2438;
-  --muted-foreground: #94a3b8;
-
-  --border: #243049;
-  --input: #243049;
-  --ring: #818cf8;
-
-  --primary: #818cf8;
-  --primary-foreground: #0b1220;
-  --primary-soft: #1c2347;
+  --highlight: #3d3412;
+  --highlight-foreground: #ecebf3;
 
   --success: #34d399;
   --success-foreground: #0b1220;
   --success-soft: #062f24;
-
   --warning: #fbbf24;
   --warning-foreground: #0b1220;
   --warning-soft: #3a2a05;
-
   --danger: #f87171;
   --danger-foreground: #0b1220;
   --danger-soft: #3b0f0f;
+  --info: #7ba7ff;
+  --info-foreground: #0b1220;
+  --info-soft: #111f3d;
+
+  --shadow-color: 0 0 0;
+  --elevation-sm: 0 1px 2px rgb(var(--shadow-color) / 0.4);
+  --elevation-md: 0 8px 24px -8px rgb(var(--shadow-color) / 0.6), 0 1px 3px rgb(var(--shadow-color) / 0.4);
+  --elevation-pop: 0 24px 60px -16px rgb(var(--shadow-color) / 0.75), 0 2px 8px rgb(var(--shadow-color) / 0.4);
 
   color-scheme: dark;
 }
 
-/* Expose the tokens to Tailwind as colour utilities (bg-primary, etc.). */
+/* ------------------------------------------------------------------ */
+/* Theme color presets, generated with src/lib/theme/color.ts so each  */
+/* passes the same contrast checks. The attribute sits on <html> (and  */
+/* on the app shell for the first server render).                      */
+/* ------------------------------------------------------------------ */
+[data-accent="blue"] {
+  --primary: #1c69e3;
+  --primary-hover: #0559d2;
+  --primary-soft: #f2f7ff;
+}
+[data-accent="green"] {
+  --primary: #007e3f;
+  --primary-hover: #006e35;
+  --primary-soft: #ddf8e3;
+}
+[data-accent="orange"] {
+  --primary: #b44f00;
+  --primary-hover: #9e4500;
+  --primary-soft: #ffece2;
+}
+[data-accent="pink"] {
+  --primary: #c52c7c;
+  --primary-hover: #b4146e;
+  --primary-soft: #ffe9f1;
+}
+[data-accent="red"] {
+  --primary: #d4212d;
+  --primary-hover: #c1001e;
+  --primary-soft: #ffebe9;
+}
+[data-accent="teal"] {
+  --primary: #007c79;
+  --primary-hover: #006c6a;
+  --primary-soft: #e8fbfa;
+}
+/* A custom color: the shades are computed on the server and set inline. */
+[data-accent="custom"] {
+  --primary: var(--custom-primary);
+  --primary-hover: var(--custom-primary-hover);
+  --primary-soft: var(--custom-primary-soft);
+}
+.dark[data-accent="blue"],
+.dark [data-accent="blue"] {
+  --primary: #6da4ff;
+  --primary-hover: #88b5ff;
+  --primary-soft: #142643;
+}
+.dark[data-accent="green"],
+.dark [data-accent="green"] {
+  --primary: #42c070;
+  --primary-hover: #55d180;
+  --primary-soft: #0a2f17;
+}
+.dark[data-accent="orange"],
+.dark [data-accent="orange"] {
+  --primary: #f3813f;
+  --primary-hover: #ff945a;
+  --primary-soft: #3d1c09;
+}
+.dark[data-accent="pink"],
+.dark [data-accent="pink"] {
+  --primary: #ef76ab;
+  --primary-hover: #ff87bb;
+  --primary-soft: #3c1928;
+}
+.dark[data-accent="red"],
+.dark [data-accent="red"] {
+  --primary: #f97770;
+  --primary-hover: #ff9088;
+  --primary-soft: #3f1917;
+}
+.dark[data-accent="teal"],
+.dark [data-accent="teal"] {
+  --primary: #1abcb8;
+  --primary-hover: #38ccc8;
+  --primary-soft: #002d2c;
+}
+.dark[data-accent="custom"],
+.dark [data-accent="custom"] {
+  --primary: var(--custom-primary-dark);
+  --primary-hover: var(--custom-primary-hover-dark);
+  --primary-soft: var(--custom-primary-soft-dark);
+}
+
+/* Expose the tokens to Tailwind as utilities (bg-primary, shadow-pop, …). */
 @theme inline {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -89,8 +196,12 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-soft: var(--primary-soft);
+  --color-progress: var(--progress);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-success-soft: var(--success-soft);
@@ -100,11 +211,89 @@
   --color-danger: var(--danger);
   --color-danger-foreground: var(--danger-foreground);
   --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
 
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.25rem;
+
+  --shadow-sm: var(--elevation-sm);
+  --shadow-md: var(--elevation-md);
+  --shadow-pop: var(--elevation-pop);
+
+  /* Motion: fast and decisive; "pop" overshoots a little for small, playful moments. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --animate-fade-up: fade-up 360ms var(--ease-out) both;
+  --animate-pop-in: pop-in 220ms var(--ease-pop) both;
+  --animate-sheet-up: sheet-up 320ms var(--ease-out) both;
+  --animate-panel-in: panel-in 260ms var(--ease-out) both;
+  --animate-caret: caret-blink 1.05s steps(1) infinite;
+  --animate-float: float 6s var(--ease-in-out) infinite;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @keyframes sheet-up {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  @keyframes panel-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  @keyframes caret-blink {
+    0%,
+    55% {
+      opacity: 1;
+    }
+    56%,
+    100% {
+      opacity: 0;
+    }
+  }
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0) rotate(var(--float-rotate, 0deg));
+    }
+    50% {
+      transform: translateY(-8px) rotate(var(--float-rotate, 0deg));
+    }
+  }
 }
 
 @layer base {
@@ -121,11 +310,22 @@
     font-feature-settings: "cv11", "ss01";
     text-rendering: optimizeLegibility;
   }
+  /* Display type for page and section titles: the RevTaw voice. */
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    letter-spacing: -0.012em;
+  }
+  ::selection {
+    background-color: var(--highlight);
+    color: var(--highlight-foreground);
+  }
   /* Visible, consistent focus for keyboard users (spec §41). */
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
+  /* Motion off, from the device setting or from Appearance → Reduced motion. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -135,5 +335,67 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+  }
+  [data-motion="reduce"],
+  [data-motion="reduce"] *,
+  [data-motion="reduce"] *::before,
+  [data-motion="reduce"] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer components {
+  /* A marker swipe behind a word or two (sparingly: headlines, key terms). */
+  .highlighter {
+    background-image: linear-gradient(
+      100deg,
+      transparent 0.2em,
+      var(--highlight) 0.25em,
+      var(--highlight) calc(100% - 0.25em),
+      transparent calc(100% - 0.2em)
+    );
+    background-repeat: no-repeat;
+    background-size: 100% 0.62em;
+    background-position: 0 88%;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    padding-inline: 0.1em;
+  }
+  /* Lined-paper texture for small "notebook" surfaces (decorative only). */
+  .paper-lines {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 27px,
+      color-mix(in oklab, var(--border) 80%, transparent) 27px,
+      color-mix(in oklab, var(--border) 80%, transparent) 28px
+    );
+  }
+  /*
+   * Revealed on scroll: visible by default (no JavaScript, no problem); the
+   * reveal hook marks below-the-fold elements data-visible="false" until they
+   * scroll into view.
+   */
+  .reveal {
+    transition:
+      opacity 520ms var(--ease-out),
+      transform 520ms var(--ease-out);
+  }
+  .reveal[data-visible="false"] {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal[data-visible="false"] {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  [data-motion="reduce"] .reveal[data-visible="false"] {
+    opacity: 1;
+    transform: none;
   }
 }

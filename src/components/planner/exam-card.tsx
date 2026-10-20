@@ -13,7 +13,7 @@ const PRIORITY_TONE: Record<ExamSummary["priority"], BadgeTone> = { low: "neutra
 
 export function readinessTone(value: number | null): string {
   if (value === null) return "bg-muted-foreground/40";
-  return value >= 80 ? "bg-success" : value >= 60 ? "bg-primary" : value >= 40 ? "bg-warning" : "bg-danger";
+  return value >= 80 ? "bg-success" : value >= 60 ? "bg-info" : value >= 40 ? "bg-warning" : "bg-danger";
 }
 
 /** Countdown + preparation progress for one exam (§22 "Upcoming Exams"). */

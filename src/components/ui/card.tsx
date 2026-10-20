@@ -1,13 +1,12 @@
 import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
+/**
+ * A bordered surface. Use it for things that are objects (a deck, an exam, a
+ * widget); plain sections, lists and dividers carry most page structure.
+ */
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn("rounded-xl border border-border bg-card text-card-foreground shadow-sm", className)}
-      {...props}
-    />
-  );
+  return <div className={cn("rounded-xl border border-border bg-card text-card-foreground", className)} {...props} />;
 }
 
 export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
