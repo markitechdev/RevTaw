@@ -3,10 +3,13 @@ import "server-only";
 import { cache } from "react";
 
 import { getMasterySummary, type MasteryView } from "@/lib/adaptive/engine";
+import { normalizeConceptName } from "@/lib/concepts/service";
 import { countDueCards } from "@/lib/flashcards/queries";
+import { parseAnalysisData, type ConceptCategory } from "@/lib/materials/analysis-schema";
 import { countOpenMistakes } from "@/lib/quizzes/queries";
 import { routes } from "@/lib/routes";
 import type { StudyMethodId } from "@/lib/study/methods";
+import { createClient } from "@/lib/supabase/server";
 
 /**
  * Recommendations with reasons (spec §22 "RevTaw recommendation", §28
@@ -45,10 +48,54 @@ function sessionHref(method: StudyMethodId, materialId: string | null): string {
   return `${routes.study}?${params.toString()}`;
 }
 
+/** The analysis category of each weak concept of one material (the kind of knowledge it is), by normalized name. */
+async function conceptCategories(materialId: string | null): Promise<Map<string, ConceptCategory>> {
+  if (!materialId) return new Map();
+  const supabase = await createClient();
+  const { data } = await supabase.from("material_analyses").select("data").eq("material_id", materialId).maybeSingle();
+  if (!data) return new Map();
+  return new Map(parseAnalysisData(data.data).key_concepts.map((concept) => [normalizeConceptName(concept.name), concept.category]));
+}
+
 /** Ranked list of what to do next, derived from mastery, confidence, due reviews, mistakes and flashcards. */
 export const getRecommendations = cache(async (limit = 4): Promise<Recommendation[]> => {
   const [summary, dueCards, openMistakes] = await Promise.all([getMasterySummary(), countDueCards(), countOpenMistakes()]);
   const items: Recommendation[] = [];
+
+  // Weak concepts get the method that fits the kind of knowledge they are (§15: the method is chosen for a reason).
+  if (summary.weak.length > 0) {
+    const materialId = materialOf(summary.weak);
+    const categories = await conceptCategories(materialId);
+    const ofKind = (kind: ConceptCategory) => summary.weak.filter((row) => row.concept && categories.get(normalizeConceptName(row.concept.name)) === kind).map(label);
+    const calculation = ofKind("calculation");
+    if (calculation.length > 0) {
+      items.push({
+        id: "calculation",
+        title: `Worked examples for ${calculation[0]}`,
+        reason: `${calculation[0]} is a calculation concept and it is weak. Seeing every step explained, then solving a similar problem yourself, builds the method before you drill it.`,
+        method: "worked_examples",
+        minutes: 25,
+        href: sessionHref("worked_examples", materialId),
+        priority: 85,
+        concepts: calculation.slice(0, 3),
+        materialId,
+      });
+    }
+    const memorization = ofKind("memorization");
+    if (memorization.length > 0) {
+      items.push({
+        id: "memorization",
+        title: `A mnemonic for ${memorization[0]}`,
+        reason: `${memorization[0]} is something to memorize rather than understand, and it keeps slipping. A memory device — an acronym, a rhyme, a short story — gives it a hook.`,
+        method: "mnemonics",
+        minutes: 10,
+        href: sessionHref("mnemonics", materialId),
+        priority: 75,
+        concepts: memorization.slice(0, 3),
+        materialId,
+      });
+    }
+  }
 
   if (summary.misconceptions.length > 0) {
     const top = summary.misconceptions[0];
