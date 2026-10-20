@@ -26,13 +26,14 @@ function wrap(label: string, width = 16): string[] {
 
 /** Concept graph: nodes on a circle, labelled arrows between them. */
 export function GraphView({ nodes, links, title }: { nodes: string[]; links: Array<{ from: string; to: string; relation: string }>; title: string }) {
-  const width = 640;
-  const height = 440;
-  const radius = nodes.length <= 3 ? 120 : 170;
+  const width = 720;
+  const height = 460;
+  // An ellipse leaves more room between neighbours than a circle in a wide frame.
+  const radius = nodes.length <= 3 ? { x: 140, y: 110 } : nodes.length <= 6 ? { x: 220, y: 160 } : { x: 270, y: 175 };
   const centre = { x: width / 2, y: height / 2 };
   const position = new Map(nodes.map((node, index) => {
     const angle = (2 * Math.PI * index) / nodes.length - Math.PI / 2;
-    return [node, { x: centre.x + radius * Math.cos(angle), y: centre.y + radius * Math.sin(angle) }] as const;
+    return [node, { x: centre.x + radius.x * Math.cos(angle), y: centre.y + radius.y * Math.sin(angle) }] as const;
   }));
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="img" aria-label={`${title}: ${links.map((link) => `${link.from} ${link.relation} ${link.to}`).join("; ")}`}>

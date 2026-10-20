@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 type SaveState = "saved" | "saving" | "error";
 
 /** Saves the latest version shortly after the last edit. */
-export function useMapSaver(mapId: string, kind: "mind") {
+export function useMapSaver(mapId: string, kind: "mind" | "concept") {
   const [state, setState] = useState<SaveState>("saved");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef<unknown>(null);

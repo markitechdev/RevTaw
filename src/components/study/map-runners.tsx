@@ -1,16 +1,20 @@
 "use client";
 
-import { Workflow } from "lucide-react";
+import { Check, CircleCheck, CircleX, Network, Workflow } from "lucide-react";
 import { useState } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
+import { ConceptMapEditor } from "@/components/study/concept-map-editor";
 import { MindMapEditor } from "@/components/study/mind-map-editor";
 import { RecallCard, RunnerSummary, useSessionCompletion, type RunnerProps } from "@/components/study/runner-kit";
 import { SessionHeader } from "@/components/study/session-header";
-import type { MapView } from "@/lib/study/flows/maps";
-import type { MindMapData, MindNode } from "@/lib/study/maps";
-import { quizBranchAction } from "@/lib/study/method-actions";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
+import type { LinkQuestion, LinkResult, MapView } from "@/lib/study/flows/maps";
+import { CONCEPT_RELATIONS, RELATION_LABEL, type ConceptMapData, type ConceptRelation, type MindMapData, type MindNode } from "@/lib/study/maps";
+import { answerLinkAction, quizBranchAction, startLinkTestAction } from "@/lib/study/method-actions";
 import type { RecallItemResult } from "@/lib/study/service";
+import { cn } from "@/lib/utils";
 
 type BranchQuestion = { id: string; prompt: string; branch: string; result: RecallItemResult | null };
 
@@ -73,6 +77,127 @@ export function MindMapRunner({ session, methodName, map, parentSessionId = null
           ))}
         </section>
       )}
+    </div>
+  );
+}
+
+/**
+ * Concept mapping (§16): edit the map, then "test the links" — every
+ * relationship hidden, named from memory, checked and explained.
+ */
+export function ConceptMapRunner({ session, methodName, map, parentSessionId = null, parentLabel = "Back to smart session" }: RunnerProps & { map: MapView<ConceptMapData> | null }) {
+  const { summary, stoppedEarly, ending, error, setError, finish, pending, startTransition } = useSessionCompletion(session);
+  const openLinks = session.items.filter((item) => item.kind === "link");
+  const [mode, setMode] = useState<"edit" | "test">(() => (openLinks.some((item) => !item.answered_at) ? "test" : "edit"));
+  const [links, setLinks] = useState<LinkQuestion[]>(() => openLinks.filter((item) => !item.answered_at).map((item) => ({ id: item.id, ...((item.analysis as { from: string; to: string }) ?? { from: "?", to: "?" }), answered: false })));
+  const [choices, setChoices] = useState<Record<string, ConceptRelation | "">>({});
+  const [results, setResults] = useState<Record<string, LinkResult>>({});
+
+  if (summary) return <RunnerSummary methodName={methodName} summary={summary} stoppedEarly={stoppedEarly} parentSessionId={parentSessionId} parentLabel={parentLabel} />;
+  if (!map) return <Alert tone="error">This session&apos;s concept map is no longer available. Start a new Concept Mapping session.</Alert>;
+  const answeredCount = session.items.filter((item) => item.answered_at).length + Object.keys(results).length;
+
+  const startTest = () => {
+    setError(null);
+    startTransition(async () => {
+      const result = await startLinkTestAction({ sessionId: session.id });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setLinks(result.data);
+      setResults({});
+      setChoices({});
+      setMode("test");
+    });
+  };
+
+  const answer = (link: LinkQuestion) => {
+    const relation = choices[link.id];
+    if (!relation) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await answerLinkAction({ itemId: link.id, relation, responseMs: null });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setResults((state) => ({ ...state, [link.id]: result.data }));
+    });
+  };
+
+  const allDone = links.length > 0 && links.every((link) => results[link.id]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <SessionHeader title={session.title} methodName={methodName} startedAt={session.started_at} plannedMinutes={session.planned_minutes} progressLabel={mode === "test" ? `${Object.keys(results).length} of ${links.length} links named` : "editing the map"} onEnd={() => finish(answeredCount === 0)} ending={ending} endLabel="Finish session" />
+      {error && <Alert tone="error">{error}</Alert>}
+      <section aria-labelledby="concept-map-title" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="concept-map-title" className="flex items-center gap-2 text-lg font-medium">
+            <Network className="h-5 w-5 text-primary" aria-hidden="true" />
+            {map.title}
+          </h2>
+          {mode === "edit" ? (
+            <Button type="button" size="sm" loading={pending} onClick={startTest}>
+              Test the links
+            </Button>
+          ) : (
+            <Button type="button" size="sm" variant="secondary" onClick={() => setMode("edit")}>
+              Back to the map
+            </Button>
+          )}
+        </div>
+        {mode === "edit" ? (
+          <ConceptMapEditor mapId={map.id} title={map.title} initial={map.data} />
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">The relationships are hidden. Name each one from memory.</p>
+            <ul className="flex flex-col gap-2">
+              {links.map((link) => {
+                const result = results[link.id];
+                return (
+                  <li key={link.id} className={cn("flex flex-col gap-2 rounded-lg border border-border p-3 text-sm", result && (result.isCorrect ? "border-success/50 bg-success-soft/40" : "border-danger/40 bg-danger-soft/40"))}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{link.from}</span>
+                      <Select aria-label={`Relationship from ${link.from} to ${link.to}`} value={choices[link.id] ?? ""} disabled={Boolean(result) || pending} onChange={(event) => setChoices((state) => ({ ...state, [link.id]: event.target.value as ConceptRelation }))} className="w-44">
+                        <option value="">Choose…</option>
+                        {CONCEPT_RELATIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {RELATION_LABEL[option]}
+                          </option>
+                        ))}
+                      </Select>
+                      <span className="font-medium">{link.to}</span>
+                      {!result && (
+                        <Button type="button" size="sm" variant="secondary" disabled={!choices[link.id] || pending} onClick={() => answer(link)}>
+                          <Check className="h-4 w-4" aria-hidden="true" />
+                          Check
+                        </Button>
+                      )}
+                    </div>
+                    {result && (
+                      <p className="flex items-start gap-1.5" role="status">
+                        {result.isCorrect ? <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" /> : <CircleX className="mt-0.5 h-4 w-4 shrink-0 text-danger" aria-hidden="true" />}
+                        <span>
+                          {result.isCorrect ? "Correct" : "Not quite"}: {link.from} {RELATION_LABEL[result.relation]} {link.to}.{result.note ? ` ${result.note}` : ""}
+                        </span>
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {allDone && (
+              <div className="flex justify-end border-t border-border pt-4">
+                <Button type="button" size="sm" loading={ending} onClick={() => finish()}>
+                  Finish session
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </section>
     </div>
   );
 }

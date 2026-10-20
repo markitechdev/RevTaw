@@ -5,10 +5,10 @@ import { z } from "zod";
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
-import type { MindMapData } from "@/lib/study/maps";
+import { CONCEPT_RELATIONS, type ConceptMapData, type MindMapData } from "@/lib/study/maps";
 import { GROUNDING_RULE, studentLine, text } from "@/lib/study/prompts/shared";
 
-/** Prompts behind mind mapping (spec §16). */
+/** Prompts behind mind mapping and concept mapping (spec §16). */
 
 const leaf = z.object({ label: text(120), note: z.string().trim().max(400).nullable().optional() });
 
@@ -63,4 +63,55 @@ ${transcript}
 </material>`;
   const result = await generateJson(provider, mindMapResponseSchema, { task: "generate_mind_map", system, messages: [{ role: "user", content: user }], maxTokens: 5000, temperature: 0.3 });
   return { map: toMindMap(result.data), provider: result.raw.provider, model: result.raw.model };
+}
+
+export const conceptMapResponseSchema = z.object({
+  concepts: z.array(text(120)).min(2).max(16),
+  relationships: z
+    .array(z.object({ from: text(120), to: text(120), relation: z.enum(CONCEPT_RELATIONS), note: z.string().trim().max(300).nullable().optional() }))
+    .min(1)
+    .max(24),
+});
+
+export function toConceptMap(response: z.infer<typeof conceptMapResponseSchema>): ConceptMapData {
+  const nodes: ConceptMapData["nodes"] = [];
+  const idOf = new Map<string, string>();
+  const ensure = (name: string) => {
+    const key = name.trim().toLowerCase();
+    if (!idOf.has(key)) {
+      const id = `c${nodes.length + 1}`;
+      idOf.set(key, id);
+      nodes.push({ id, label: name.trim() });
+    }
+    return idOf.get(key)!;
+  };
+  response.concepts.forEach(ensure);
+  const edges: ConceptMapData["edges"] = [];
+  for (const relationship of response.relationships) {
+    const from = ensure(relationship.from);
+    const to = ensure(relationship.to);
+    if (from === to || edges.some((edge) => edge.from === from && edge.to === to)) continue;
+    edges.push({ id: `e${edges.length + 1}`, from, to, relation: relationship.relation, note: relationship.note ?? null });
+  }
+  return { nodes: nodes.slice(0, 40), edges: edges.filter((edge) => nodes.some((node) => node.id === edge.from) && nodes.some((node) => node.id === edge.to)) };
+}
+
+export async function generateConceptMap(input: { materialTitle: string; chunks: AnalysisChunkInput[]; student: StudentContext }): Promise<{ map: ConceptMapData; provider: string; model: string }> {
+  const provider = getAiProvider("strong");
+  const { transcript } = buildTranscript(input.chunks);
+  const system = `You are RevTaw's concept-map designer. A concept map shows how the material's concepts relate, with EXPLICIT relationships.
+
+Rules:
+- "concepts": 5-12 key concepts (1-4 words each, the material's terms).
+- "relationships": 6-16 directed links "from → to" using ONLY these relations: causes, requires, leads_to, contains, depends_on, is_example_of. Every relationship must be stated or clearly implied by the material; add a one-sentence "note" quoting or paraphrasing where.
+- ${GROUNDING_RULE}
+- Respond with a single JSON object: { "concepts": string[], "relationships": [{ "from": string, "to": string, "relation": "causes" | "requires" | "leads_to" | "contains" | "depends_on" | "is_example_of", "note": string }] }`;
+  const user = `Material title: ${input.materialTitle}
+Student: ${studentLine(input.student)}
+
+<material>
+${transcript}
+</material>`;
+  const result = await generateJson(provider, conceptMapResponseSchema, { task: "generate_concept_map", system, messages: [{ role: "user", content: user }], maxTokens: 4000, temperature: 0.2 });
+  return { map: toConceptMap(result.data), provider: result.raw.provider, model: result.raw.model };
 }

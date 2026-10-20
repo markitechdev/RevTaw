@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { mindMapHeuristically } from "@/lib/ai/providers/mock-study";
-import { addChild, connectNodes, layoutMindMap, mindMapSchema, removeNode, subtreeIds, toggleNode, type MindMapData } from "@/lib/study/maps";
-import { mindMapResponseSchema, toMindMap } from "@/lib/study/prompts/maps";
+import { conceptMapHeuristically, mindMapHeuristically } from "@/lib/ai/providers/mock-study";
+import { addChild, addConcept, addRelationship, conceptMapSchema, connectNodes, layoutMindMap, mindMapSchema, removeConcept, removeNode, subtreeIds, toggleNode, type MindMapData } from "@/lib/study/maps";
+import { conceptMapResponseSchema, mindMapResponseSchema, toConceptMap, toMindMap } from "@/lib/study/prompts/maps";
 
 const base: MindMapData = {
   nodes: [
@@ -53,7 +53,22 @@ describe("mind maps", () => {
   });
 });
 
-it("mock mind maps validate", () => {
-  const transcript = `[Section: Photosynthesis Overview]\nPhotosynthesis is the process by which green plants convert light energy into chemical energy.\nChlorophyll is a pigment that absorbs light.\n\n[Section: Calvin Cycle]\nThe Calvin cycle is the set of reactions that fixes carbon dioxide into sugar.\nATP is the energy carrier of the cell.`;
-  expect(mindMapSchema.safeParse(toMindMap(mindMapResponseSchema.parse(mindMapHeuristically(transcript, "Material title: Photosynthesis")))).success).toBe(true);
+describe("concept maps", () => {
+  it("keeps relationships between known concepts", () => {
+    let map = toConceptMap(conceptMapResponseSchema.parse({ concepts: ["Light", "ATP"], relationships: [{ from: "Light", to: "ATP", relation: "leads_to" }, { from: "ATP", to: "Sugar", relation: "requires" }] }));
+    expect(map.nodes.map((node) => node.label)).toEqual(["Light", "ATP", "Sugar"]);
+    expect(conceptMapSchema.safeParse(map).success).toBe(true);
+    map = addConcept(map, "light");
+    expect(map.nodes).toHaveLength(3);
+    map = addRelationship(map, "c1", "c3", "causes");
+    expect(map.edges).toHaveLength(3);
+    map = removeConcept(map, "c3");
+    expect(map.edges.map((edge) => edge.relation)).toEqual(["leads_to"]);
+  });
+
+  it("mock maps validate", () => {
+    const transcript = `[Section: Photosynthesis Overview]\nPhotosynthesis is the process by which green plants convert light energy into chemical energy.\nChlorophyll is a pigment that absorbs light.\n\n[Section: Calvin Cycle]\nThe Calvin cycle is the set of reactions that fixes carbon dioxide into sugar.\nATP is the energy carrier of the cell.`;
+    expect(mindMapSchema.safeParse(toMindMap(mindMapResponseSchema.parse(mindMapHeuristically(transcript, "Material title: Photosynthesis")))).success).toBe(true);
+    expect(conceptMapSchema.safeParse(toConceptMap(conceptMapResponseSchema.parse(conceptMapHeuristically(transcript)))).success).toBe(true);
+  });
 });

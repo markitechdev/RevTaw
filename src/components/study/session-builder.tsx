@@ -52,6 +52,7 @@ const PREPARING: Partial<Record<BuilderMethodId, string>> = {
   pq4r: "preparing the chapter",
   dual_coding: "drawing the visuals",
   mind_mapping: "drawing the map",
+  concept_mapping: "drawing the map",
 };
 
 const POMODORO_PRESETS: ReadonlyArray<{ work: number; rest: number }> = [
@@ -124,7 +125,7 @@ export function SessionBuilder({
         timed: method === "practice_testing" ? timed : method === "exam_simulation" ? true : undefined,
         problemDifficulty: method === "practice_problems" ? problemDifficulty : undefined,
         freshVisuals: method === "dual_coding" ? freshVisuals : undefined,
-        freshMap: method === "mind_mapping" ? freshMap : undefined,
+        freshMap: method === "mind_mapping" || method === "concept_mapping" ? freshMap : undefined,
         workMinutes: method === "pomodoro" ? pomodoro.work : undefined,
         breakMinutes: method === "pomodoro" ? pomodoro.rest : undefined,
         topic: method === "pomodoro" ? topic || null : undefined,
@@ -307,7 +308,7 @@ export function SessionBuilder({
             </label>
           )}
 
-          {method === "mind_mapping" && (
+          {(method === "mind_mapping" || method === "concept_mapping") && (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={freshMap} disabled={pending} onChange={(event) => setFreshMap(event.target.checked)} className="h-4 w-4 accent-primary" />
               Draw a new map instead of opening the saved one

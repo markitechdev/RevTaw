@@ -8,7 +8,7 @@ import { CaseRunner } from "@/components/study/case-runner";
 import { DualCodingRunner } from "@/components/study/dual-coding-runner";
 import { ChunkRunner } from "@/components/study/chunk-runner";
 import { FeynmanRunner } from "@/components/study/feynman-runner";
-import { MindMapRunner } from "@/components/study/map-runners";
+import { ConceptMapRunner, MindMapRunner } from "@/components/study/map-runners";
 import { PomodoroRunner } from "@/components/study/pomodoro-runner";
 import { ProblemRunner } from "@/components/study/problem-runner";
 import { QuestionGenRunner } from "@/components/study/question-gen-runner";
@@ -22,7 +22,8 @@ import { ErrorState } from "@/components/ui/error-state";
 import { getSmartSessionView } from "@/lib/adaptive/smart";
 import { routes } from "@/lib/routes";
 import { isRecallMethod, isTestMethod, isTutorMethod, methodName } from "@/lib/study/catalog";
-import { getSessionMap } from "@/lib/study/flows/maps";
+import { getSessionMap, type MapView } from "@/lib/study/flows/maps";
+import type { ConceptMapData, MindMapData } from "@/lib/study/maps";
 import { getSession, getSessionMethod } from "@/lib/study/queries";
 import { syncPlanChildren, syncPracticeTesting } from "@/lib/study/service";
 
@@ -165,7 +166,9 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
     case "dual_coding":
       return <DualCodingRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "mind_mapping":
-      return <MindMapRunner key={session.id} session={session} methodName={name} map={await getSessionMap(session)} parentSessionId={parentId} parentLabel={parentLabel} />;
+      return <MindMapRunner key={session.id} session={session} methodName={name} map={(await getSessionMap(session)) as MapView<MindMapData> | null} parentSessionId={parentId} parentLabel={parentLabel} />;
+    case "concept_mapping":
+      return <ConceptMapRunner key={session.id} session={session} methodName={name} map={(await getSessionMap(session)) as MapView<ConceptMapData> | null} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "pomodoro":
       return <PomodoroRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     default:

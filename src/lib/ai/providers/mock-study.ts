@@ -298,7 +298,7 @@ export function visualsHeuristically(transcript: string, prompt: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Mind maps
+// Mind maps and concept maps
 // ---------------------------------------------------------------------------
 
 export function mindMapHeuristically(transcript: string, prompt: string) {
@@ -331,4 +331,12 @@ export function mindMapHeuristically(transcript: string, prompt: string) {
   const firsts = branches.map((branch) => branch.children[0]?.label).filter((value): value is string => Boolean(value));
   const links = firsts.length >= 2 ? [{ from: firsts[0], to: firsts[1], label: "related" }] : [];
   return { root, branches: branches.length >= 2 ? branches : [...branches, { label: "Key ideas", note: null, children: [] }], links };
+}
+
+export function conceptMapHeuristically(transcript: string) {
+  const facts = collectFacts(transcript);
+  const concepts = [...new Set(facts.map((fact) => topicOf(fact)))].slice(0, 8);
+  const relations = ["leads_to", "requires", "contains", "depends_on", "causes", "is_example_of"] as const;
+  const relationships = concepts.slice(1).map((concept, index) => ({ from: concepts[index], to: concept, relation: relations[index % relations.length], note: facts.find((fact) => topicOf(fact) === concepts[index])?.sentence ?? null }));
+  return { concepts: concepts.length >= 2 ? concepts : [...concepts, "Main idea"], relationships: relationships.length ? relationships : [{ from: concepts[0] ?? "Material", to: "Main idea", relation: "contains" as const, note: null }] };
 }

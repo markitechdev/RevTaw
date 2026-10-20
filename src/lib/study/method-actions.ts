@@ -8,9 +8,10 @@ import { actionFailure, revalidateStudy, uuid, type StudyActionResult } from "@/
 import { evaluateCaseItem, evaluateScenarioItem, type CaseResult, type ScenarioResult } from "@/lib/study/flows/applied";
 import { evaluateProblemItem, type ProblemResult } from "@/lib/study/flows/problems";
 import { advanceReading, markSectionRead, submitReadingSummary, type ReadingSummaryResult } from "@/lib/study/flows/reading";
-import { quizBranch, saveMap, type BranchQuestion } from "@/lib/study/flows/maps";
+import { answerLink, quizBranch, saveMap, startLinkTest, type BranchQuestion, type LinkQuestion, type LinkResult } from "@/lib/study/flows/maps";
 import { checkVisualItem, type VisualCheck } from "@/lib/study/flows/visual";
 import { saveItemDraft } from "@/lib/study/items";
+import { CONCEPT_RELATIONS, type ConceptRelation } from "@/lib/study/maps";
 import type { ReadingStage } from "@/lib/study/reading-options";
 import type { VisualAnswer } from "@/lib/study/visuals";
 import { getCurrentUser } from "@/lib/supabase/server";
@@ -138,9 +139,9 @@ export async function checkVisualAction(input: { itemId: string; answer: VisualA
   }
 }
 
-export async function saveMapAction(input: { mapId: string; kind: "mind"; data: unknown }): Promise<StudyActionResult> {
+export async function saveMapAction(input: { mapId: string; kind: "mind" | "concept"; data: unknown }): Promise<StudyActionResult> {
   await requireUser();
-  const parsed = z.object({ mapId: uuid, kind: z.enum(["mind"]), data: z.unknown() }).safeParse(input);
+  const parsed = z.object({ mapId: uuid, kind: z.enum(["mind", "concept"]), data: z.unknown() }).safeParse(input);
   if (!parsed.success) return { ok: false, message: "The map could not be saved." };
   try {
     await saveMap(parsed.data);
@@ -158,5 +159,27 @@ export async function quizBranchAction(input: { sessionId: string; nodeId: strin
     return { ok: true, data: await quizBranch(parsed.data) };
   } catch (error) {
     return actionFailure(error, "Questions for that branch could not be written. Please try again.");
+  }
+}
+
+export async function startLinkTestAction(input: { sessionId: string }): Promise<StudyActionResult<LinkQuestion[]>> {
+  await requireUser();
+  const parsed = z.object({ sessionId: uuid }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "That test could not be started." };
+  try {
+    return { ok: true, data: await startLinkTest(parsed.data) };
+  } catch (error) {
+    return actionFailure(error, "That test could not be started.");
+  }
+}
+
+export async function answerLinkAction(input: { itemId: string; relation: ConceptRelation; responseMs: number | null }): Promise<StudyActionResult<LinkResult>> {
+  await requireUser();
+  const parsed = z.object({ itemId: uuid, relation: z.enum(CONCEPT_RELATIONS), responseMs }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Choose a relationship." };
+  try {
+    return { ok: true, data: await answerLink(parsed.data) };
+  } catch (error) {
+    return actionFailure(error, "That answer could not be checked.");
   }
 }

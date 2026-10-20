@@ -332,8 +332,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 20,
     goals: ["understand"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
-    behaviour: "A map of concepts linked by causes, requires, leads to, contains, depends on, is an example of.",
+    availableIn: "now",
+    behaviour: "Concepts linked by explicit relationships — causes, requires, leads to, contains, depends on, is an example of — drawn as a graph you can edit; then test the links: RevTaw hides the relationships and you name each one from memory.",
   },
   memory_palace: {
     howItHelps: "Spatial memory is strong; attaching facts to places borrows that strength.",
@@ -384,6 +384,7 @@ export const BUILDER_METHOD_IDS = [
   "pq4r",
   "dual_coding",
   "mind_mapping",
+  "concept_mapping",
   "error_review",
   "pomodoro",
   "socratic_questioning",

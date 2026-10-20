@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Mind maps (spec §16). Shared, client-safe: the data shape
+ * Mind maps and concept maps (spec §16). Shared, client-safe: the data shapes
  * stored in `study_maps.data`, their validation (the server re-validates every
  * save) and the pure helpers the editors use.
  */
@@ -114,4 +114,63 @@ export function layoutMindMap(map: MindMapData, columnWidth = 210, rowHeight = 5
   visit(rootOf(map), 0);
   const depth = Math.max(...placed.map((entry) => entry.depth));
   return { nodes: placed, width: (depth + 1) * columnWidth + 20, height: Math.max(rowHeight, row * rowHeight) };
+}
+
+// ---------------------------------------------------------------------------
+// Concept maps: concepts and explicit, typed relationships
+// ---------------------------------------------------------------------------
+
+export const CONCEPT_RELATIONS = ["causes", "requires", "leads_to", "contains", "depends_on", "is_example_of"] as const;
+export type ConceptRelation = (typeof CONCEPT_RELATIONS)[number];
+
+export const RELATION_LABEL: Record<ConceptRelation, string> = {
+  causes: "causes",
+  requires: "requires",
+  leads_to: "leads to",
+  contains: "contains",
+  depends_on: "depends on",
+  is_example_of: "is an example of",
+};
+
+export const conceptMapSchema = z
+  .object({
+    nodes: z.array(z.object({ id: z.string().min(1).max(40), label })).min(1).max(40),
+    edges: z
+      .array(z.object({ id: z.string().min(1).max(40), from: z.string().min(1).max(40), to: z.string().min(1).max(40), relation: z.enum(CONCEPT_RELATIONS), note: z.string().trim().max(300).nullable().optional() }))
+      .max(80)
+      .default([]),
+  })
+  .superRefine((map, context) => {
+    const ids = new Set(map.nodes.map((node) => node.id));
+    if (ids.size !== map.nodes.length) context.addIssue({ code: "custom", message: "Duplicate concept ids." });
+    for (const edge of map.edges) if (!ids.has(edge.from) || !ids.has(edge.to) || edge.from === edge.to) context.addIssue({ code: "custom", message: "A relationship points at a missing concept." });
+  });
+
+export type ConceptMapData = z.infer<typeof conceptMapSchema>;
+export type ConceptEdge = ConceptMapData["edges"][number];
+
+export function addConcept(map: ConceptMapData, text: string): ConceptMapData {
+  if (map.nodes.some((node) => node.label.toLowerCase() === text.trim().toLowerCase())) return map;
+  return { ...map, nodes: [...map.nodes, { id: nextNodeId(map, "c"), label: text.trim() }] };
+}
+
+export function removeConcept(map: ConceptMapData, id: string): ConceptMapData {
+  return { nodes: map.nodes.filter((node) => node.id !== id), edges: map.edges.filter((edge) => edge.from !== id && edge.to !== id) };
+}
+
+export function renameConcept(map: ConceptMapData, id: string, text: string): ConceptMapData {
+  return { ...map, nodes: map.nodes.map((node) => (node.id === id ? { ...node, label: text } : node)) };
+}
+
+export function addRelationship(map: ConceptMapData, from: string, to: string, relation: ConceptRelation): ConceptMapData {
+  if (from === to || map.edges.some((edge) => edge.from === from && edge.to === to)) return map;
+  return { ...map, edges: [...map.edges, { id: nextNodeId({ nodes: map.edges }, "e"), from, to, relation, note: null }] };
+}
+
+export function removeRelationship(map: ConceptMapData, id: string): ConceptMapData {
+  return { ...map, edges: map.edges.filter((edge) => edge.id !== id) };
+}
+
+export function labelOf(map: { nodes: Array<{ id: string; label: string }> }, id: string): string {
+  return map.nodes.find((node) => node.id === id)?.label ?? "?";
 }
