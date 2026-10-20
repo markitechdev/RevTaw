@@ -170,8 +170,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 20,
     goals: ["understand"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
-    behaviour: "An editable hierarchical map generated from the material, with questions from any branch.",
+    availableIn: "now",
+    behaviour: "RevTaw draws a hierarchical map of the material that you can expand, collapse, add to, edit, prune and connect across branches, in an outline or a map view; pick any branch and it writes recall questions on it for you to answer. The map is saved with the material.",
   },
   mnemonics: {
     howItHelps: "Acronyms, rhymes and stories make arbitrary lists stick.",
@@ -383,6 +383,7 @@ export const BUILDER_METHOD_IDS = [
   "sq3r",
   "pq4r",
   "dual_coding",
+  "mind_mapping",
   "error_review",
   "pomodoro",
   "socratic_questioning",

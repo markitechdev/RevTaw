@@ -296,3 +296,39 @@ export function visualsHeuristically(transcript: string, prompt: string) {
   });
   return { topics };
 }
+
+// ---------------------------------------------------------------------------
+// Mind maps
+// ---------------------------------------------------------------------------
+
+export function mindMapHeuristically(transcript: string, prompt: string) {
+  const root = prompt.match(/^Material title:\s*(.+)$/m)?.[1]?.trim() || "Material";
+  const sections = splitInlineSections(transcript).slice(0, 6);
+  const used = new Set<string>([root.toLowerCase()]);
+  const fresh = (value: string) => {
+    const key = value.toLowerCase();
+    if (used.has(key)) return null;
+    used.add(key);
+    return value;
+  };
+  const branches = sections.map((section) => {
+    const facts = collectFacts(`[Section: ${section.heading}]\n${section.text}`);
+    const children = facts
+      .slice(0, 3)
+      .map((fact) => {
+        const name = fresh(topicOf(fact));
+        if (!name) return null;
+        const details = keywordsOf(fact.definition ?? fact.sentence)
+          .filter((word) => !name.toLowerCase().includes(word))
+          .slice(0, 2)
+          .map((word) => fresh(word))
+          .filter((word): word is string => Boolean(word));
+        return { label: name, note: fact.sentence, children: details.map((word) => ({ label: word })) };
+      })
+      .filter((child): child is NonNullable<typeof child> => child !== null);
+    return { label: fresh(section.heading) ?? `${section.heading} (part)`, note: sentencesOf(section.text)[0] ?? null, children };
+  });
+  const firsts = branches.map((branch) => branch.children[0]?.label).filter((value): value is string => Boolean(value));
+  const links = firsts.length >= 2 ? [{ from: firsts[0], to: firsts[1], label: "related" }] : [];
+  return { root, branches: branches.length >= 2 ? branches : [...branches, { label: "Key ideas", note: null, children: [] }], links };
+}

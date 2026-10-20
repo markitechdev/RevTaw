@@ -1,4 +1,4 @@
-import { caseEvaluationHeuristically, casesHeuristically, problemEvaluationHeuristically, problemsHeuristically, readingAnswersHeuristically, reflectQuestionsHeuristically, scenarioEvaluationHeuristically, scenariosHeuristically, visualForSection, visualsHeuristically } from "@/lib/ai/providers/mock-study";
+import { caseEvaluationHeuristically, casesHeuristically, mindMapHeuristically, problemEvaluationHeuristically, problemsHeuristically, readingAnswersHeuristically, reflectQuestionsHeuristically, scenarioEvaluationHeuristically, scenariosHeuristically, visualForSection, visualsHeuristically } from "@/lib/ai/providers/mock-study";
 import { collectFacts, isHeadingLike, keywordsOf, overlap, parseTranscriptSections, sentencesOf, splitInlineSections } from "@/lib/ai/providers/mock-text";
 import type { AiGenerateOptions, AiGenerateResult, AiProvider } from "@/lib/ai/types";
 
@@ -100,6 +100,9 @@ export class MockProvider implements AiProvider {
         break;
       case "generate_visuals":
         text = JSON.stringify(visualsHeuristically(rawMaterial, userText));
+        break;
+      case "generate_mind_map":
+        text = JSON.stringify(mindMapHeuristically(rawMaterial, userText));
         break;
       case "ocr_image":
         text = "Mock transcription: the image was read by the mock provider. Configure a real AI provider to extract the actual text.";

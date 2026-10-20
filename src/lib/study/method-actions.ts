@@ -8,6 +8,7 @@ import { actionFailure, revalidateStudy, uuid, type StudyActionResult } from "@/
 import { evaluateCaseItem, evaluateScenarioItem, type CaseResult, type ScenarioResult } from "@/lib/study/flows/applied";
 import { evaluateProblemItem, type ProblemResult } from "@/lib/study/flows/problems";
 import { advanceReading, markSectionRead, submitReadingSummary, type ReadingSummaryResult } from "@/lib/study/flows/reading";
+import { quizBranch, saveMap, type BranchQuestion } from "@/lib/study/flows/maps";
 import { checkVisualItem, type VisualCheck } from "@/lib/study/flows/visual";
 import { saveItemDraft } from "@/lib/study/items";
 import type { ReadingStage } from "@/lib/study/reading-options";
@@ -134,5 +135,28 @@ export async function checkVisualAction(input: { itemId: string; answer: VisualA
     return { ok: true, data: await checkVisualItem(parsed.data) };
   } catch (error) {
     return actionFailure(error, "Your rebuild could not be checked. Please try again.");
+  }
+}
+
+export async function saveMapAction(input: { mapId: string; kind: "mind"; data: unknown }): Promise<StudyActionResult> {
+  await requireUser();
+  const parsed = z.object({ mapId: uuid, kind: z.enum(["mind"]), data: z.unknown() }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "The map could not be saved." };
+  try {
+    await saveMap(parsed.data);
+    return { ok: true };
+  } catch (error) {
+    return actionFailure(error, "The map could not be saved.");
+  }
+}
+
+export async function quizBranchAction(input: { sessionId: string; nodeId: string }): Promise<StudyActionResult<BranchQuestion[]>> {
+  await requireUser();
+  const parsed = z.object({ sessionId: uuid, nodeId: z.string().min(1).max(40) }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Pick a branch first." };
+  try {
+    return { ok: true, data: await quizBranch(parsed.data) };
+  } catch (error) {
+    return actionFailure(error, "Questions for that branch could not be written. Please try again.");
   }
 }

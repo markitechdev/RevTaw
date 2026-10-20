@@ -8,9 +8,11 @@ import { useState, useTransition, type ReactNode } from "react";
 import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Button, buttonClasses } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/input";
 import { routes } from "@/lib/routes";
-import { completeSessionAction } from "@/lib/study/actions";
+import { answerRecallAction, completeSessionAction } from "@/lib/study/actions";
 import type { SessionDetail } from "@/lib/study/queries";
+import type { RecallItemResult } from "@/lib/study/service";
 import type { SessionSummary } from "@/lib/study/sessions";
 import { cn } from "@/lib/utils";
 
@@ -156,6 +158,57 @@ export function PointList({ title, items, tone = "neutral" }: { title: string; i
           <li key={entry}>{entry}</li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/** One recall question answered inline: the model answer comes back only after the student answers. */
+export function RecallCard({ itemId, prompt, initial, onAnswered }: { itemId: string; prompt: string; initial?: RecallItemResult | null; onAnswered?: (result: RecallItemResult) => void }) {
+  const [response, setResponse] = useState("");
+  const [result, setResult] = useState<RecallItemResult | null>(initial ?? null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const textareaId = `recall-${itemId}`;
+
+  const check = () => {
+    setError(null);
+    startTransition(async () => {
+      const answered = await answerRecallAction({ itemId, response, confidence: null, responseMs: null });
+      if (!answered.ok) {
+        setError(answered.message);
+        return;
+      }
+      setResult(answered.data);
+      onAnswered?.(answered.data);
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-border p-3 text-sm">
+      <label htmlFor={textareaId} className="font-medium">
+        {prompt}
+      </label>
+      {error && <p className="text-danger" role="alert">{error}</p>}
+      {!result ? (
+        <>
+          <Textarea id={textareaId} rows={3} maxLength={8000} value={response} disabled={pending} onChange={(event) => setResponse(event.target.value)} placeholder="Answer from memory." />
+          <div className="flex justify-end">
+            <Button type="button" size="sm" loading={pending} onClick={check}>
+              Check
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <VerdictBox verdict={result.comparison.verdict} score={result.comparison.score}>
+            <p className="mt-1">{result.comparison.feedback}</p>
+          </VerdictBox>
+          <p className="rounded-lg bg-success-soft/50 p-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">From the material: </span>
+            {result.modelAnswer}
+          </p>
+        </>
+      )}
     </div>
   );
 }
