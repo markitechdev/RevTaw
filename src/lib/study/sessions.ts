@@ -2,7 +2,9 @@ import "server-only";
 
 import { z } from "zod";
 
+import { awardSessionXp } from "@/lib/gamification/service";
 import { completeTaskForSession } from "@/lib/planner/service";
+import { isPlanMethod, isTestMethod } from "@/lib/study/catalog";
 import { STUDY_METHOD_BY_ID, type StudyMethodId } from "@/lib/study/methods";
 import type { Json, SessionGoal, StudySession } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -188,6 +190,14 @@ export async function completeSession(supabase: Client, sessionId: string, input
   // A session started from a planner task closes that task (§30 due-today system).
   const taskId = (session.state as { taskId?: string } | null)?.taskId;
   if (taskId && !input.abandoned) await completeTaskForSession(supabase, taskId, sessionId);
+  // XP (§31): quiz answers were rewarded when the attempt was submitted, and a plan's
+  // blocks rewarded their own answers; flashcard reviews count once per card.
+  const cards = session.method === "flashcards" || session.method === "spaced_repetition";
+  await awardSessionXp(
+    supabase,
+    { id: session.id, title: session.title, method: session.method },
+    { answered: input.questionsAnswered, correct: cards ? 0 : input.correct, abandoned: Boolean(input.abandoned), answersAlreadyRewarded: isTestMethod(session.method) || isPlanMethod(session.method) },
+  );
   return summary;
 }
 

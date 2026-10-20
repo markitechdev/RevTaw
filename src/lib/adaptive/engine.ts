@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { computeMastery, type EvidenceEvent } from "@/lib/adaptive/mastery";
+import { awardMasteredXp } from "@/lib/gamification/service";
 import type { ConceptMastery, FlashcardRating } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -130,6 +131,12 @@ export async function recomputeMastery(conceptIds: string[] | null = null): Prom
   });
   const { error } = await supabase.from("concept_mastery").upsert(rows, { onConflict: "user_id,concept_id" });
   if (error) console.error("concept_mastery: upsert failed", error.message);
+  // First-time mastery earns XP (§31); the award key makes a concept count once.
+  const mastered = rows.filter((row) => row.status === "mastered").map((row) => row.concept_id);
+  if (mastered.length > 0) {
+    const { data: names } = await supabase.from("concepts").select("id, name").in("id", mastered);
+    await awardMasteredXp(supabase, (names ?? []).map((concept) => ({ id: concept.id, name: concept.name })));
+  }
   return rows.length;
 }
 

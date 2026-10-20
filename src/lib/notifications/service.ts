@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { awardGoalXp } from "@/lib/gamification/service";
 import { hourIn } from "@/lib/planner/dates";
 import { listGoalsWithProgress } from "@/lib/planner/goals";
 import { getDueToday, listExams } from "@/lib/planner/queries";
@@ -61,9 +62,13 @@ export const syncNotifications = cache(async (): Promise<number> => {
       if (await notify({ kind: "plan_reminder", title: `${pendingToday.length} planned task${pendingToday.length === 1 ? "" : "s"} today`, body: `${minutes} minutes: ${pendingToday.slice(0, 3).map((task) => task.title).join(", ")}${pendingToday.length > 3 ? "…" : ""}`, href: routes.planner, dedupeKey: `plan:${today}` })) created += 1;
     }
 
+    const supabase = await createClient();
     for (const goal of goals) {
-      if (!goal.reached || goal.goal.period === "once") continue;
-      const key = goal.goal.period === "day" ? `goal:${goal.goal.id}:${today}` : `goal:${goal.goal.id}:${goal.periodStart}`;
+      if (!goal.reached) continue;
+      const periodKey = goal.goal.period === "day" ? today : goal.goal.period === "week" ? (goal.periodStart ?? today) : "once";
+      await awardGoalXp(supabase, { id: goal.goal.id, label: goal.label, periodKey });
+      if (goal.goal.period === "once") continue;
+      const key = `goal:${goal.goal.id}:${periodKey}`;
       if (await notify({ kind: "daily_goal", title: `Goal reached: ${goal.label}`, body: goal.detail, href: routes.planner, dedupeKey: key })) created += 1;
     }
 

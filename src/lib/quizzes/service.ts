@@ -1,6 +1,7 @@
 import "server-only";
 
 import { difficultyTargets, refreshMastery, weakConceptNames } from "@/lib/adaptive/engine";
+import { awardAttemptXp } from "@/lib/gamification/service";
 import { isAiError } from "@/lib/ai";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { gradeObjective, gradeOpenAnswers, normalizeText, type GradeResult, type OpenAnswerItem } from "@/lib/quizzes/grade";
@@ -517,6 +518,7 @@ export async function submitAttempt(attemptId: string): Promise<{ submitted: boo
     .eq("status", "in_progress");
   if (error) throw new Error(`quiz_attempts: submit failed: ${error.message}`);
   await refreshMastery(questions.map((question) => question.concept_id).filter((id): id is string => Boolean(id)));
+  await awardAttemptXp(supabase, { id: attempt.id, title: quiz?.title ?? null }, { answered: questions.length, correct: correctCount });
   return { submitted: true, needsSelfCheck };
 }
 
