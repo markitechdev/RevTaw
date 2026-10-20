@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import type { ActionState } from "@/lib/forms/action-state";
 import { cn } from "@/lib/utils";
 
-export type AlertTone = "error" | "success" | "info";
+export type AlertTone = "error" | "success" | "info" | "warning";
 
 const TONES: Record<AlertTone, { className: string; Icon: typeof AlertCircle; role: string }> = {
   error: {
@@ -20,6 +20,11 @@ const TONES: Record<AlertTone, { className: string; Icon: typeof AlertCircle; ro
   info: {
     className: "border-primary/30 bg-primary-soft text-primary",
     Icon: Info,
+    role: "status",
+  },
+  warning: {
+    className: "border-warning/30 bg-warning-soft text-warning",
+    Icon: AlertCircle,
     role: "status",
   },
 };
