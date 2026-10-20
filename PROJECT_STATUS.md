@@ -4,7 +4,7 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-20 (Phase 7 complete)_
+_Last updated: 2026-10-20 (Phase 8 part 1 complete)_
 
 ## Completed
 
@@ -310,17 +310,69 @@ _Last updated: 2026-10-20 (Phase 7 complete)_
 - **Time zone** — captured from the browser once, editable in Preferences;
   "today", due dates, streak and focus-time days follow it.
 
+### Phase 8 (part 1) — Advanced study methods
+
+- **Schema** — `study_session_items` gains the kinds `blurt`, `chunk` and
+  `question` (`problem`, `scenario`, `case` and `stage` are reserved for
+  part 2), a `format` and a `material_id` for multi-material sessions;
+  `tutor_mode` gains `teach_back`; `routines` stores custom study routines
+  (`supabase/migrations/0008_methods.sql`).
+- **Answers stay server-side** — a session item's model answer and grading
+  key points reach the browser only once the item is answered or the
+  session is over.
+- **Method catalogue** — every study method in the spec is on the Methods
+  page with how it helps, best use cases, suggested time and availability;
+  the ones still to build are labelled "Phase 8".
+- **Retrieval practice** (§16) — recall prompts rotate through eight
+  formats (short answer, definition, fill in the blank, explanation, list,
+  example, process, calculation); each prompt shows its format and the
+  answer box adapts to it.
+- **Rapid review** — 5, 10 or 15 minutes: open mistakes first, then weak
+  concepts and the material's likely exam topics.
+- **Cumulative review** — 60% current material, 20% the previous one, 10%
+  older and 10% the oldest; every prompt names its source material.
+- **Interleaving** — two to four materials; prompts alternate between them
+  and show where each one comes from.
+- **Blurting** — each section of the material becomes a blurt: the notes
+  stay hidden while the student writes, the comparison lists remembered,
+  missing, incorrect and forgotten-important ideas, one retry is allowed,
+  then the source is revealed; a weak blurt files a mistake.
+- **Chunking** — the material split into chunks (main idea, important
+  details, mini summary); a chunk's recall question unlocks the next one.
+- **Question generation** — the student writes exam-style questions (and
+  the answer they expect); RevTaw rates relevance, clarity, accuracy and
+  difficulty, suggests an improved version and gives the model answer; the
+  summary keeps the average quality.
+- **Teach-back** — a tutor session in which the AI plays the learner, asks
+  beginner questions whenever something is unclear and ends with a teaching
+  score, strengths, missing concepts and one improvement.
+- **Mixed practice** and **exam simulation** — a practice test with all nine
+  question types shuffled, or exam mode (timer, shuffled questions and
+  options, no hints, automatic submission, full breakdown at the end).
+- **Custom routines** — save an ordered list of method blocks (minutes,
+  optional material and question count) and run it as one session: blocks
+  are ordinary child sessions with a "Back to routine" link and one combined
+  summary; routines can be edited and deleted.
+- **Smart Study** — sessions of 40+ minutes on a material open with a
+  10-minute blurt; practice-test blocks settle as soon as the attempt is
+  submitted.
+- **Planner** — the final days' "Exam simulation" tasks start an exam
+  simulation and the "Rapid review" tasks (day before and exam day) start a
+  rapid review.
+- Finished sessions keep their method-specific stats (blocks done, teaching
+  or reasoning score, Pomodoro rounds, average question quality) after a
+  reload.
+
 ## In Progress
 
-- Nothing at the moment. Phase 8 starts next.
+- Nothing at the moment. Phase 8 part 2 starts next.
 
 ## Next (priority order)
 
-1. **Phase 8 — Advanced study methods**: blurting, SQ3R/PQ4R guides,
-   interleaving, chunking, worked and faded examples, practice problems,
-   scenario/case-based learning, mind and concept maps, dual coding,
-   mnemonics, memory palace, story method, teach-back, question generation,
-   pre-testing / before-and-after, rapid review, custom routines.
+1. **Phase 8 (part 2) — remaining study methods**: SQ3R and PQ4R guided
+   stages, scenario- and case-based learning, pre-test → study → post-test,
+   worked and faded examples, practice problems, dual coding, mind and
+   concept maps, mnemonics, memory palace, story method.
 2. **Phase 9 — Analytics and gamification**: detailed progress charts,
    mastery map, XP, levels, badges, daily/weekly goals as milestones.
 3. **Phase 10 — Export and refinement**: PDF/Word/print export, global
@@ -345,7 +397,8 @@ _Last updated: 2026-10-20 (Phase 7 complete)_
 | `public.quiz_answers` | One answer per attempt+question: `response` JSON, correctness, score, feedback, `graded_by` (auto/ai/self), confidence, response time | owner full access; unique `(attempt_id, question_id)` |
 | `public.mistakes` | Mistake notebook entry: question/answer text, explanation, error type, `resolved_at`; links to question/attempt/concept/material are set null when those go away | owner full access |
 | `public.study_sessions` | One study session: method, goal, planned minutes, title, status, `state` (resume data), `summary` (§29), focus seconds, item counters, optional `quiz_attempt_id` | owner full access; material/subject/attempt FKs set null |
-| `public.study_session_items` | Prompts worked through in a session (recall, feynman, mistake): model answer, key points, response, AI `analysis`, correctness, score, confidence, time, attempts | owner full access; cascade from session; concept/mistake FKs set null |
+| `public.study_session_items` | Prompts worked through in a session (recall, feynman, mistake, blurt, chunk, question; problem/scenario/case/stage reserved): model answer, key points, response, AI `analysis`, correctness, score, confidence, time, attempts, `format` (retrieval format or question difficulty), `material_id` (multi-material sessions) | owner full access; cascade from session; concept/mistake/material FKs set null |
+| `public.routines` | Custom study routine: title, description, ordered `blocks` JSON (method, minutes, optional material and question count), `last_used_at` | owner full access |
 | `public.flashcard_decks` | Generated deck: title, status + detail, provider/model, card count | owner full access; cascade from material |
 | `public.flashcards` | Card: front/back/hint, concept, source, favorite, suspended, Leitner `box`, `ease`, `interval_days`, `repetitions`, `lapses`, `due_at`, last review/rating | owner full access; cascade from deck; partial index on due cards |
 | `public.flashcard_reviews` | Review log: rating, response time, box before/after, interval, due date, optional session | owner full access; cascade from card |
@@ -364,7 +417,7 @@ Enums: `education_level`, `study_goal`, `material_source`, `material_status`,
 `difficulty_level`, `reviewer_kind`, `generation_status`, `question_type`,
 `question_difficulty`, `quiz_mode`, `attempt_status`, `confidence_level`,
 `mistake_type`, `session_status`, `session_goal`, `flashcard_rating`,
-`tutor_mode`, `tutor_role`, `mastery_status`, `next_difficulty`,
+`tutor_mode` (incl. `teach_back`), `tutor_role`, `mastery_status`, `next_difficulty`,
 `exam_priority`, `plan_mode`, `plan_status`, `task_kind`, `task_status`,
 `goal_kind`, `goal_period`, `goal_status`, `notification_kind`. Helper functions: `public.set_updated_at()`,
 `public.handle_new_user()` (security definer, pinned `search_path`).
@@ -432,13 +485,23 @@ linked).
   `reviewCard` = reschedule + log + session counters), `queries.ts` (decks
   with due counts, review queues, due counts), `actions.ts`.
 - **Study sessions** — `src/lib/study/`: `methods.ts` (catalog), `catalog.ts`
-  (per-method behaviour, goals, availability, builder recommendations),
-  `sessions.ts` (create/complete/summary, improvement vs. previous session),
-  `ai.ts` (recall prompts, recall comparison, Feynman concepts and
-  analysis), `service.ts` (starting each method, item flows, Pomodoro state,
-  practice-testing sync), `queries.ts` (sessions, activity stats: streak and
-  focus time), `actions.ts`. Runners live in `src/components/study/` and share
-  `SessionHeader` and `SessionSummaryCard` (§52 reusable components).
+  (per-method behaviour, goals, availability, builder/recall/test/tutor
+  method groups, builder recommendations), `formats.ts` (retrieval formats,
+  client-safe), `sessions.ts` (create/complete/summary, improvement vs.
+  previous session), `ai.ts` (recall prompts with formats, recall
+  comparison, Feynman concepts and analysis, blurt comparison, chunk plans,
+  question evaluation), `advanced.ts` (Phase 8 starters and item flows:
+  retrieval practice, rapid/cumulative review, interleaving, blurting,
+  chunking, question generation), `routines.ts` (custom routines, run
+  through the Smart Study plan machinery as a `custom_routine` parent
+  session), `service.ts` (method dispatch, recall/Feynman/error-review item
+  flows, Pomodoro state, practice-test sync for single sessions and plan
+  blocks), `queries.ts` (sessions with hidden answers, activity stats:
+  streak and focus time), `actions.ts`. Runners live in
+  `src/components/study/` (recall, Feynman, Pomodoro, blurting, chunks,
+  question generation, smart/routine plan) and share `SessionHeader` and
+  `SessionSummaryCard` (§52 reusable components); method-specific stats go
+  into `summary.extra` so the finished page shows them too.
 - **Tutor** — `src/lib/tutor/`: `types.ts` (actions, follow-ups, modes,
   grounding labels), `context.ts` (keyword-scored passage selection with a
   character budget), `ai.ts` (reply prompt with grounding rules per mode and
@@ -505,8 +568,14 @@ linked).
 - Plan generation is rule-based and deterministic (no model call); it uses
   each material's analysis, mastery, open mistakes and decks.
 - Smart Study plans are rule-based (budget split by what the data shows);
-  routines/habits and the exam-aware pacing of blocks arrive with the
-  planner (Phase 7) and Phase 8.
+  exam pacing is the planner's job and fixed habits are custom routines.
+- Blurting sections follow the material's headings (inline headings split
+  long chunks); notes without headings become a few long sections.
+- Question generation evaluates one question per model call; interleaving
+  mixes up to four materials; rapid review is 5, 10 or 15 minutes by
+  design.
+- Custom planner tasks offer the Phase 4 methods only; plan-generated tasks
+  already use exam simulation and rapid review.
 - Tutor replies arrive as one message (no token streaming); the context is
   chosen by keyword overlap rather than embeddings, which is accurate for
   materials up to a few hundred pages and cheap to run. "Visualize" from the
@@ -599,11 +668,24 @@ Flows verified end to end against a local Supabase-compatible stack
   close regenerates in cram mode keeping finished tasks; mobile layouts;
   delete cascades plan tasks but keeps the review cycle; anonymous
   redirect
+- Advanced methods (Phase 8 part 1): Methods page availability; retrieval
+  practice with eight labelled formats and answers/key points hidden until
+  answered; rapid review presets with mistakes first; cumulative review with
+  source labels; interleaving alternating between materials; blurting (two
+  rounds, source hidden until the last one, weak blurt filed as a mistake);
+  chunking (read → recall → next, chunk text kept with the answer); question
+  generation (ratings, the on-topic question scores higher, average quality
+  survives a reload); teach-back (learner opener and questions, teaching
+  score); mixed practice with all nine question types; exam simulation in
+  exam mode; routines (create, start, run a block, back to routine, finish,
+  edit, delete); Smart Study opening blurt; planner exam-simulation and
+  exam-day rapid-review tasks start their own methods; mobile layouts
 - Unit tests (`npm test`): JSON extraction, chunking, content helpers,
   analysis transcript, markdown renderer, quiz distribution/grading/config,
   the mock quiz generator, the flashcard scheduler, the tutor context
-  selector, the mastery model, the planner date helpers and the plan
-  generator
+  selector, the mastery model, the planner date helpers, the plan
+  generator and the mock study-method heuristics (retrieval formats, blurt
+  scoring, chunking, question rating)
 
 Commands: `npm run lint`, `npx tsc --noEmit`, `npm test` (vitest unit tests),
 `npm run build`.

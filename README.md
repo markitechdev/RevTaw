@@ -61,6 +61,10 @@ working.
   that adjust to missed days and scores, a due-today list that starts
   sessions and closes tasks, study goals, scheduled reviews and an
   in-app reminder feed (Phase 7)
+- Advanced study methods: retrieval practice in eight formats, rapid,
+  cumulative and interleaved review, blurting, chunking, question
+  generation, teach-back with an AI learner, mixed practice, exam
+  simulation and custom study routines (Phase 8, part 1)
 
 ## Scripts
 
