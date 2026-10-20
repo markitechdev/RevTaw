@@ -1,4 +1,7 @@
+import { collectFacts, isHeadingLike, keywordsOf, overlap, parseTranscriptSections, sentencesOf } from "@/lib/ai/providers/mock-text";
 import type { AiGenerateOptions, AiGenerateResult, AiProvider } from "@/lib/ai/types";
+
+export { parseTranscriptSections } from "@/lib/ai/providers/mock-text";
 
 /**
  * Deterministic stand-in used in development and automated tests when no AI
@@ -221,39 +224,6 @@ export function analyzeHeuristically(material: string) {
   };
 }
 
-/** Splits a RevTaw transcript into its labelled sections. */
-export function parseTranscriptSections(transcript: string): Array<{ heading: string; text: string }> {
-  const sections: Array<{ heading: string; text: string }> = [];
-  let current: { heading: string; text: string[] } | null = null;
-  for (const line of transcript.split("\n")) {
-    const label = line.match(/^\[Section(?::\s*(.+?))?(?:,\s*pages?\s[^\]]+)?\]$/);
-    if (label) {
-      if (current) sections.push({ heading: current.heading, text: current.text.join("\n").trim() });
-      current = { heading: (label[1] ?? `Section ${sections.length + 1}`).trim(), text: [] };
-      continue;
-    }
-    if (/^\[Not included/.test(line)) continue;
-    if (!current) current = { heading: "Overview", text: [] };
-    current.text.push(line);
-  }
-  if (current) sections.push({ heading: current.heading, text: current.text.join("\n").trim() });
-  // Chunks keep their heading as the first line; drop it so it does not glue onto the first sentence.
-  return sections
-    .map((section) => ({
-      heading: section.heading,
-      text: section.text.replace(new RegExp(`^${section.heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\n`, "i"), "").trim(),
-    }))
-    .filter((section) => section.text.length > 0);
-}
-
-function sentencesOf(text: string): string[] {
-  return text
-    .replace(/\s+/g, " ")
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter((sentence) => sentence.length > 15);
-}
-
 /** Deterministic reviewer: one section per transcript section, kind-aware. */
 export function reviewerHeuristically(transcript: string, prompt: string) {
   const sections = parseTranscriptSections(transcript);
@@ -327,50 +297,9 @@ export function sectionHeuristically(prompt: string) {
 // Quizzes
 // ---------------------------------------------------------------------------
 
-type MockFact = { term: string | null; definition: string | null; sentence: string; heading: string; next: string | null };
-
-function stripArticle(term: string): string {
-  return term.replace(/^(the|a|an)\s+/i, "").trim();
-}
-
 function negate(sentence: string): string {
   const negated = sentence.replace(/\b(is|are|was|were|can|does|do|has|have|will)\b(?! not)/, "$1 not");
   return negated === sentence ? `It is false that ${sentence.charAt(0).toLowerCase()}${sentence.slice(1)}` : negated;
-}
-
-function keywordsOf(text: string): string[] {
-  return [...new Set(text.toLowerCase().match(/[a-z][a-z0-9-]{3,}/g) ?? [])].filter(
-    (word) => !/^(this|that|with|from|which|their|there|these|those|than|then|into|also|been|have|were|what|when|where|about|other|some|such|more|most|only|very|will|would|could|should|because|while|after|before|between|through|under|over|each|every)$/.test(word),
-  );
-}
-
-function isHeadingLike(line: string): boolean {
-  return line.length <= 60 && !/[.!?:;,]$/.test(line) && /^[A-Z0-9]/.test(line) && line.split(" ").length <= 6;
-}
-
-function collectFacts(transcript: string): MockFact[] {
-  const sections = parseTranscriptSections(transcript);
-  const facts: MockFact[] = [];
-  for (const section of sections) {
-    // Inline headings inside a merged chunk would glue onto the next sentence; drop them.
-    const body = section.text
-      .split("\n")
-      .filter((line) => !isHeadingLike(line.trim()))
-      .join("\n");
-    const sentences = sentencesOf(body).filter((sentence) => sentence.length <= 240);
-    sentences.forEach((sentence, index) => {
-      const match = sentence.match(/^((?:[A-Z][\w'-]*|[a-z][\w'-]*)(?:\s+[\w'-]+){0,4}?)\s+(?:is|are|refers to|means|is defined as)\s+(.+?)[.!?]?$/);
-      facts.push({
-        term: match ? stripArticle(match[1]) : null,
-        definition: match ? match[2].trim() : null,
-        sentence,
-        heading: section.heading,
-        next: sentences[index + 1] ?? null,
-      });
-    });
-  }
-  // Definitions first: they make the best objective questions.
-  return [...facts.filter((fact) => fact.term), ...facts.filter((fact) => !fact.term)];
 }
 
 /** Deterministic quiz: cycles through the material's facts per requested type. */
@@ -560,13 +489,6 @@ export function flashcardsHeuristically(transcript: string, prompt: string) {
 // ---------------------------------------------------------------------------
 // Study sessions: active recall and Feynman
 // ---------------------------------------------------------------------------
-
-function overlap(expected: string[], given: string): { hits: string[]; misses: string[]; ratio: number } {
-  const words = new Set(keywordsOf(given));
-  const hits = expected.filter((word) => words.has(word));
-  const misses = expected.filter((word) => !words.has(word));
-  return { hits, misses, ratio: expected.length ? hits.length / expected.length : 0 };
-}
 
 /** Deterministic recall prompts: definitions first, then "what does the material say" prompts. */
 export function recallQuestionsHeuristically(transcript: string, prompt: string) {
