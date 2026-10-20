@@ -22,6 +22,7 @@ import { ExamCard } from "@/components/planner/exam-card";
 import { RecommendationList } from "@/components/adaptive/recommendation-list";
 import { Alert } from "@/components/forms/form-alert";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { LevelCard } from "@/components/gamification/badges";
 import { formatRelativeDate } from "@/components/materials/material-card";
 import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +32,8 @@ import { getMasterySummary } from "@/lib/adaptive/engine";
 import { MASTERY_THRESHOLD } from "@/lib/adaptive/mastery";
 import { getRecommendations } from "@/lib/adaptive/recommend";
 import { countDueCards, listDecks, nextDueAt } from "@/lib/flashcards/queries";
+import { ACHIEVEMENTS } from "@/lib/gamification/achievements";
+import { getGamificationView, syncGamification } from "@/lib/gamification/sync";
 import { SOURCE_LABEL } from "@/lib/materials/constants";
 import { countMaterials, listRecentMaterials } from "@/lib/materials/queries";
 import { formatSessionMinutes, STUDY_GOAL_LABEL } from "@/lib/profile/options";
@@ -65,6 +68,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   if (!user) redirect(routes.login);
 
   await rebalanceAllPlans();
+  // Active days and badges settle before the page reads them (§31).
+  await syncGamification();
   const [materialCount, recentMaterials, mastery, recommendations, recentAttempts, openMistakes, dueCards, decks, nextDue, activity, due, nextExam, clock] = await Promise.all([
     countMaterials(),
     listRecentMaterials(5),
@@ -81,6 +86,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
     plannerClock(),
   ]);
   await syncNotifications();
+  const gamification = await getGamificationView();
   const lastOpened = recentMaterials.find((material) => material.last_opened_at) ?? recentMaterials[0];
   // Weak = status weak or learning (needs attention); strong = strong or mastered (§23, §28).
   const weakConcepts = [...mastery.weak, ...mastery.learning].sort((a, b) => Number(a.mastery) - Number(b.mastery)).slice(0, 6);
@@ -227,7 +233,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           </CardContent>
         </Card>
 
-        <Card className="md:col-span-2 xl:col-span-1">
+        <LevelCard xp={gamification.xp} level={gamification.level} streakDays={gamification.streakDays} unlockedCount={gamification.unlockedCount} total={ACHIEVEMENTS.length} />
+
+        <Card className="md:col-span-2 xl:col-span-3">
           <CardHeader>
             <CardTitle>Recent materials</CardTitle>
             <CardDescription>Recently opened files.</CardDescription>
