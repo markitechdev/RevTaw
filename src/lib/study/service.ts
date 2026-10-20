@@ -6,10 +6,11 @@ import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { isAiError } from "@/lib/ai";
 import { getConceptPerformance } from "@/lib/quizzes/queries";
 import { createQuiz, startAttempt } from "@/lib/quizzes/service";
+import { QUESTION_TYPE_IDS } from "@/lib/quizzes/types";
 import { loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
 import { startBlurting, startChunking, startCumulativeReview, startInterleaving, startQuestionGeneration, startRapidReview, startRetrievalPractice } from "@/lib/study/advanced";
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
-import { isTutorMethod, METHOD_BEHAVIOUR, type BuilderMethodId } from "@/lib/study/catalog";
+import { isTutorMethod, METHOD_BEHAVIOUR, type BuilderMethodId, type TestMethodId } from "@/lib/study/catalog";
 import type { StudyMethodId } from "@/lib/study/methods";
 import { completeSession, createSession, loadSession, SessionError, sessionTitle, suggestNext, updateSessionState, type SessionSummary } from "@/lib/study/sessions";
 import type { ConfidenceLevel, Json, SessionGoal, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
@@ -121,7 +122,9 @@ async function startSessionInner(userId: string, input: StartSessionInput): Prom
     case "error_review":
       return startErrorReviewSession(supabase, userId, input);
     case "practice_testing":
-      return startPracticeTesting(supabase, userId, input);
+    case "mixed_practice":
+    case "exam_simulation":
+      return startPracticeTesting(supabase, userId, input, input.method);
     case "pomodoro":
       return startPomodoro(supabase, userId, input);
     case "spaced_repetition":
@@ -271,30 +274,37 @@ async function startErrorReviewSession(supabase: Client, userId: string, input: 
   return { sessionId: id, redirect: `/study/${id}` };
 }
 
-async function startPracticeTesting(supabase: Client, userId: string, input: StartSessionInput): Promise<StartSessionResult> {
+/**
+ * Practice testing, mixed practice (every question type, shuffled) and exam
+ * simulation (exam mode: timer, random order, no hints, auto-submit) all run
+ * through the quiz runner.
+ */
+async function startPracticeTesting(supabase: Client, userId: string, input: StartSessionInput, method: TestMethodId = "practice_testing"): Promise<StartSessionResult> {
   const context = await loadMaterialContext(supabase, input.materialId!);
   const questionCount = Math.max(3, Math.min(50, input.questionCount ?? 10));
+  const exam = method === "exam_simulation";
+  const timed = exam || Boolean(input.timed);
   const quiz = await createQuiz(context.material.id, {
-    questionTypes: ["multiple_choice", "identification", "true_false", "short_answer"],
+    questionTypes: method === "mixed_practice" ? [...QUESTION_TYPE_IDS] : ["multiple_choice", "identification", "true_false", "short_answer"],
     questionCount,
     difficulty: "adaptive",
-    mode: "practice",
-    timeLimitMinutes: input.timed ? input.plannedMinutes : null,
+    mode: exam ? "exam" : "practice",
+    timeLimitMinutes: timed ? input.plannedMinutes : null,
     shuffleQuestions: true,
     shuffleOptions: true,
     feedback: "after",
     focus: null,
   });
   if (quiz.status !== "ready") throw new SessionError(quiz.detail ?? "The practice test could not be generated.", 422);
-  const attempt = await startAttempt(quiz.id, { mode: "practice", timeLimitMinutes: input.timed ? input.plannedMinutes : null });
+  const attempt = await startAttempt(quiz.id, { mode: exam ? "exam" : "practice", timeLimitMinutes: timed ? input.plannedMinutes : null });
   const { id } = await createSession(supabase, userId, {
-    method: "practice_testing",
+    method,
     materialId: context.material.id,
     subjectId: context.material.subject_id,
     goal: input.goal,
     plannedMinutes: input.plannedMinutes,
-    title: sessionTitle("practice_testing", context.material.title),
-    state: { quizId: quiz.id, attemptId: attempt.id, timed: Boolean(input.timed), questionCount },
+    title: sessionTitle(method, context.material.title),
+    state: { quizId: quiz.id, attemptId: attempt.id, timed, questionCount, mode: exam ? "exam" : "practice" },
   });
   await supabase.from("study_sessions").update({ quiz_attempt_id: attempt.id }).eq("id", id);
   return { sessionId: id, redirect: `/quiz/${quiz.id}/attempt/${attempt.id}?session=${id}` };

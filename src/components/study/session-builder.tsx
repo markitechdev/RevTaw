@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { startSessionAction } from "@/lib/study/actions";
-import { BUILDER_METHOD_IDS, isBuilderMethod, METHOD_BEHAVIOUR, RAPID_REVIEW_MINUTES, recommendMethods, TIME_PRESETS, type BuilderMethodId } from "@/lib/study/catalog";
+import { BUILDER_METHOD_IDS, isBuilderMethod, isTestMethod, METHOD_BEHAVIOUR, RAPID_REVIEW_MINUTES, recommendMethods, TIME_PRESETS, type BuilderMethodId } from "@/lib/study/catalog";
 import { STUDY_METHOD_BY_ID } from "@/lib/study/methods";
 import type { SessionGoal } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,8 @@ const PREPARING: Partial<Record<BuilderMethodId, string>> = {
   blurting: "setting up",
   chunking: "splitting the material into chunks",
   question_generation: "setting up",
+  mixed_practice: "writing the test",
+  exam_simulation: "writing the test",
 };
 
 const POMODORO_PRESETS: ReadonlyArray<{ work: number; rest: number }> = [
@@ -84,6 +86,7 @@ export function SessionBuilder({
   const needsMaterial = behaviour.requiresMaterial;
   const effectiveMaterial = needsMaterial || materialId !== "none" ? materialId : "";
   const recommended = useMemo(() => recommendMethods(goal, Boolean(effectiveMaterial && effectiveMaterial !== "none")), [goal, effectiveMaterial]);
+  const isTest = isTestMethod(method);
   const timePresets: readonly number[] = method === "rapid_review" ? RAPID_REVIEW_MINUTES : TIME_PRESETS;
 
   const start = () => {
@@ -104,8 +107,8 @@ export function SessionBuilder({
         materialIds: method === "interleaving" ? others : undefined,
         goal,
         plannedMinutes: method === "rapid_review" ? Math.min(15, Math.max(5, minutes)) : minutes,
-        questionCount: method === "practice_testing" ? questionCount : undefined,
-        timed: method === "practice_testing" ? timed : undefined,
+        questionCount: isTest ? questionCount : undefined,
+        timed: method === "practice_testing" ? timed : method === "exam_simulation" ? true : undefined,
         workMinutes: method === "pomodoro" ? pomodoro.work : undefined,
         breakMinutes: method === "pomodoro" ? pomodoro.rest : undefined,
         topic: method === "pomodoro" ? topic || null : undefined,
@@ -281,7 +284,7 @@ export function SessionBuilder({
             </fieldset>
           )}
 
-          {method === "practice_testing" && (
+          {isTest && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <fieldset disabled={pending}>
                 <legend className="mb-1.5 text-sm font-medium">Questions</legend>
@@ -296,10 +299,15 @@ export function SessionBuilder({
               </fieldset>
               <fieldset disabled={pending}>
                 <legend className="mb-1.5 text-sm font-medium">Timer</legend>
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={timed} onChange={(event) => setTimed(event.target.checked)} className="h-4 w-4 accent-primary" />
-                  Timed — {minutes} minutes for the whole test
-                </label>
+                {method === "exam_simulation" ? (
+                  <p className="text-sm text-muted-foreground">Exam mode: {minutes} minutes, shuffled questions and options, no hints, automatic submission.</p>
+                ) : (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={timed} onChange={(event) => setTimed(event.target.checked)} className="h-4 w-4 accent-primary" />
+                    Timed — {minutes} minutes for the whole test
+                  </label>
+                )}
+                {method === "mixed_practice" && <p className="mt-1 text-xs text-muted-foreground">All nine question types, shuffled.</p>}
               </fieldset>
             </div>
           )}

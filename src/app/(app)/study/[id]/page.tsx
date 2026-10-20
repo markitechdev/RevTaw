@@ -15,7 +15,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
 import { getSmartSessionView } from "@/lib/adaptive/smart";
 import { routes } from "@/lib/routes";
-import { isRecallMethod, isTutorMethod, methodName } from "@/lib/study/catalog";
+import { isRecallMethod, isTestMethod, isTutorMethod, methodName } from "@/lib/study/catalog";
 import { getSession } from "@/lib/study/queries";
 import { syncPracticeTesting } from "@/lib/study/service";
 
@@ -44,8 +44,8 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
     return <SmartSessionView key={session.id} session={session} view={view} />;
   }
 
-  // Practice testing lives in the quiz runner; the session closes once the attempt is submitted.
-  if (session.method === "practice_testing") {
+  // Practice tests, mixed practice and exam simulations live in the quiz runner; the session closes once the attempt is submitted.
+  if (isTestMethod(session.method)) {
     const state = session.state as { quizId?: string; attemptId?: string } | null;
     const summary = session.parsedSummary ?? (await syncPracticeTesting(session));
     if (!summary && state?.quizId && state.attemptId) redirect(`${routes.quiz}/${state.quizId}/attempt/${state.attemptId}?session=${session.id}`);

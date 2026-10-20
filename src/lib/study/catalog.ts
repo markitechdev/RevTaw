@@ -251,7 +251,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 30,
     goals: ["practice", "exam_prep"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
+    availableIn: "now",
     behaviour: "A practice test with every question type RevTaw can write — multiple choice, true/false, identification, fill in the blank, short answer, essay, scenario, case-based and problem solving — shuffled.",
   },
   exam_simulation: {
@@ -260,7 +260,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 45,
     goals: ["exam_prep"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
+    availableIn: "now",
     behaviour: "Exam mode: timer, random question order, randomised options, no hints, no explanations until the end, automatic submission when time runs out, then the full breakdown.",
   },
   question_generation: {
@@ -369,6 +369,8 @@ export const BUILDER_METHOD_IDS = [
   "feynman",
   "chunking",
   "practice_testing",
+  "mixed_practice",
+  "exam_simulation",
   "rapid_review",
   "cumulative_review",
   "interleaving",
@@ -385,6 +387,13 @@ export const BUILDER_METHOD_IDS = [
 
 /** Methods whose session is a tutor conversation in a special mode. */
 export const TUTOR_METHOD_IDS = ["socratic_questioning", "elaborative_interrogation", "self_explanation", "teach_back"] as const;
+
+/** Methods that run as a practice test in the quiz runner (plus the options they force). */
+export const TEST_METHOD_IDS = ["practice_testing", "mixed_practice", "exam_simulation"] as const;
+export type TestMethodId = (typeof TEST_METHOD_IDS)[number];
+export function isTestMethod(value: string): value is TestMethodId {
+  return (TEST_METHOD_IDS as readonly string[]).includes(value);
+}
 
 /** Methods whose items run in the recall runner. */
 export const RECALL_METHOD_IDS = ["active_recall", "error_review", "retrieval_practice", "rapid_review", "cumulative_review", "interleaving"] as const;
