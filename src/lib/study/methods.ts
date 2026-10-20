@@ -25,7 +25,21 @@ export type StudyMethodId =
   | "practice_problems"
   | "error_review"
   | "rapid_review"
-  | "smart_study";
+  | "smart_study"
+  | "teach_back"
+  | "cumulative_review"
+  | "mixed_practice"
+  | "exam_simulation"
+  | "question_generation"
+  | "custom_routine"
+  | "sq3r"
+  | "pq4r"
+  | "scenario_based"
+  | "case_based"
+  | "pre_testing"
+  | "concept_mapping"
+  | "memory_palace"
+  | "story_method";
 
 export type StudyMethod = {
   id: StudyMethodId;
@@ -58,10 +72,24 @@ export const STUDY_METHODS: ReadonlyArray<StudyMethod> = [
   { id: "error_review", name: "Error Review", summary: "Revisit and retest past mistakes.", bestFor: "Breaking repeated errors" },
   { id: "rapid_review", name: "Rapid Review", summary: "Short sessions on the highest-value points.", bestFor: "Very little time before a test" },
   { id: "smart_study", name: "Smart Study", summary: "RevTaw picks the activities from your mastery, mistakes and due reviews.", bestFor: "When you do not want to choose a method" },
+  { id: "teach_back", name: "Teach-Back", summary: "You teach; the AI learner asks whenever something is unclear.", bestFor: "Proving you can explain a topic end to end" },
+  { id: "cumulative_review", name: "Cumulative Review", summary: "Mostly current material, with older lessons mixed back in.", bestFor: "Keeping earlier chapters alive" },
+  { id: "mixed_practice", name: "Mixed Practice", summary: "Unpredictable question formats in one test.", bestFor: "Exams that mix formats" },
+  { id: "exam_simulation", name: "Exam Simulation", summary: "Timed, shuffled, no hints, auto-submitted.", bestFor: "The final rehearsal" },
+  { id: "question_generation", name: "Question Generation", summary: "Write your own exam questions; RevTaw rates and improves them.", bestFor: "Thinking like the examiner" },
+  { id: "custom_routine", name: "Custom Routine", summary: "Your saved combination of methods, run as one session.", bestFor: "A routine you repeat before every exam" },
+  { id: "sq3r", name: "SQ3R", summary: "Survey, question, read, recite, review — guided stage by stage.", bestFor: "Reading a chapter properly the first time" },
+  { id: "pq4r", name: "PQ4R", summary: "Preview, question, read, reflect, recite, review.", bestFor: "Dense reading that needs reflection" },
+  { id: "scenario_based", name: "Scenario-Based Learning", summary: "Realistic situations: choose an action and justify it.", bestFor: "Applied fields: nursing, business, CS, law" },
+  { id: "case_based", name: "Case-Based Learning", summary: "Detailed cases: problem, evidence, options, best solution.", bestFor: "Analysis and judgement" },
+  { id: "pre_testing", name: "Pre-Test → Study → Post-Test", summary: "A diagnostic first, then study, then measure the gain.", bestFor: "Seeing exactly what a study block changed" },
+  { id: "concept_mapping", name: "Concept Mapping", summary: "Concepts linked by explicit relationships.", bestFor: "How ideas cause, require and contain each other" },
+  { id: "memory_palace", name: "Memory Palace", summary: "Place concepts along a familiar route and walk it to recall.", bestFor: "Ordered lists and long sequences" },
+  { id: "story_method", name: "Story Method", summary: "Related facts turned into one memorable, accurate story.", bestFor: "Facts that refuse to connect" },
 ];
 
-/** The spec's study methods (everything except the Smart Study planner), for analysis prompts. */
-export const CORE_STUDY_METHODS = STUDY_METHODS.filter((method) => method.id !== "smart_study");
+/** The spec's study methods (everything except the planners/routines), for analysis prompts. */
+export const CORE_STUDY_METHODS = STUDY_METHODS.filter((method) => method.id !== "smart_study" && method.id !== "custom_routine");
 
 export const STUDY_METHOD_IDS = STUDY_METHODS.map((method) => method.id) as [StudyMethodId, ...StudyMethodId[]];
 
