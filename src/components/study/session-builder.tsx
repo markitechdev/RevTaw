@@ -273,7 +273,7 @@ export function SessionBuilder({
           {pending && (
             <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
               <Sparkles className="h-4 w-4 animate-pulse text-primary" aria-hidden="true" />
-              Preparing your session… {method === "practice_testing" ? "writing the test" : method === "active_recall" || method === "feynman" ? "picking what to ask" : ""}
+              Preparing your session… {method === "practice_testing" ? "writing the test" : method === "active_recall" || method === "feynman" ? "picking what to ask" : method === "smart_study" ? "planning the blocks from your data" : ""}
             </p>
           )}
           <div className="flex justify-end border-t border-border pt-4">

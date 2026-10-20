@@ -30,7 +30,7 @@ function storedRounds(item: SessionDetail["items"][number]): RoundRecord[] {
  * (correct / missing / incorrect / too complex), improve it once, and only
  * then see the ideal explanation.
  */
-export function FeynmanRunner({ session, methodName }: { session: SessionDetail; methodName: string }) {
+export function FeynmanRunner({ session, methodName, parentSessionId = null }: { session: SessionDetail; methodName: string; parentSessionId?: string | null }) {
   const router = useRouter();
   const items = session.items;
   const [index, setIndex] = useState(() => {
@@ -94,9 +94,16 @@ export function FeynmanRunner({ session, methodName }: { session: SessionDetail;
         title={`${methodName} complete`}
         summary={summary}
         actions={
-          <Link href={routes.study} className={buttonClasses({ size: "sm" })}>
-            Back to Study
-          </Link>
+          <>
+            {parentSessionId && (
+              <Link href={`${routes.study}/${parentSessionId}`} className={buttonClasses({ size: "sm" })}>
+                Back to smart session
+              </Link>
+            )}
+            <Link href={routes.study} className={buttonClasses({ size: "sm", variant: parentSessionId ? "secondary" : "primary" })}>
+              Back to Study
+            </Link>
+          </>
         }
       />
     );

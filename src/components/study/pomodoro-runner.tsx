@@ -75,7 +75,7 @@ function settle(timer: TimerState, settings: Settings, now: number): TimerState 
 }
 
 /** Pomodoro runner: work/break cycles with a long break every four rounds; progress survives refreshes. */
-export function PomodoroRunner({ session, methodName }: { session: SessionDetail; methodName: string }) {
+export function PomodoroRunner({ session, methodName, parentSessionId = null }: { session: SessionDetail; methodName: string; parentSessionId?: string | null }) {
   const router = useRouter();
   const settings = readSettings((session.state as Record<string, unknown>) ?? {});
   const [timer, setTimer] = useState<TimerState>(() => settle(readTimer((session.state as Record<string, unknown>) ?? {}), settings, Date.now()));
@@ -165,7 +165,12 @@ export function PomodoroRunner({ session, methodName }: { session: SessionDetail
         extraStats={[{ label: "Rounds", value: String(timer.completedRounds) }]}
         actions={
           <>
-            <Link href={routes.study} className={buttonClasses({ size: "sm" })}>
+            {parentSessionId && (
+              <Link href={`${routes.study}/${parentSessionId}`} className={buttonClasses({ size: "sm" })}>
+                Back to smart session
+              </Link>
+            )}
+            <Link href={routes.study} className={buttonClasses({ size: "sm", variant: parentSessionId ? "secondary" : "primary" })}>
               Back to Study
             </Link>
             {session.material_id && (

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { completeSmartSession, markSmartBlock, parseSmartPlan } from "@/lib/adaptive/smart";
 import { isAiError } from "@/lib/ai";
 import { routes } from "@/lib/routes";
 import { BUILDER_METHOD_IDS } from "@/lib/study/catalog";
@@ -20,8 +21,8 @@ import {
   type RecallItemResult,
   type StartSessionResult,
 } from "@/lib/study/service";
-import type { SessionSummary } from "@/lib/study/sessions";
-import { getCurrentUser } from "@/lib/supabase/server";
+import { loadSession, type SessionSummary } from "@/lib/study/sessions";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 export type StudyActionResult<T = undefined> = ({ ok: true } & (T extends undefined ? { data?: undefined } : { data: T })) | { ok: false; message: string };
 
@@ -147,5 +148,72 @@ export async function completePomodoroAction(input: { sessionId: string; focusSe
     return { ok: true, data: summary };
   } catch (error) {
     return failure(error, "The session could not be saved.");
+  }
+}
+
+/** Starts (or resumes) one block of a smart session as its own child session. */
+export async function startSmartBlockAction(input: { sessionId: string; key: string }): Promise<StudyActionResult<{ redirect: string }>> {
+  const user = await getCurrentUser();
+  if (!user) redirect(routes.login);
+  const parsed = z.object({ sessionId: uuid, key: z.string().min(1).max(40) }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Invalid block." };
+  try {
+    const supabase = await createClient();
+    const session = await loadSession(supabase, parsed.data.sessionId);
+    if (session.status !== "in_progress") return { ok: false, message: "This smart session has already ended." };
+    const plan = parseSmartPlan(session.state);
+    const block = plan?.blocks.find((item) => item.key === parsed.data.key);
+    if (!plan || !block) return { ok: false, message: "That block no longer exists." };
+    if (block.childSessionId) {
+      const child = await loadSession(supabase, block.childSessionId).catch(() => null);
+      if (child?.status === "in_progress") return { ok: true, data: { redirect: `${routes.study}/${child.id}` } };
+    }
+    if (block.method === "spaced_repetition") {
+      await markSmartBlock(session.id, block.key, { status: "in_progress" });
+      revalidate(session.id);
+      return { ok: true, data: { redirect: `${routes.flashcards}/review` } };
+    }
+    const result = await startSession(user.id, {
+      method: block.method,
+      materialId: plan.materialId,
+      goal: session.goal,
+      plannedMinutes: block.minutes,
+      questionCount: block.questionCount,
+      timed: true,
+      parentSessionId: session.id,
+      parentBlockKey: block.key,
+    });
+    revalidate(session.id);
+    return { ok: true, data: { redirect: result.redirect } };
+  } catch (error) {
+    return failure(error, "The block could not be started.");
+  }
+}
+
+export async function skipSmartBlockAction(input: { sessionId: string; key: string }): Promise<StudyActionResult> {
+  const user = await getCurrentUser();
+  if (!user) redirect(routes.login);
+  const parsed = z.object({ sessionId: uuid, key: z.string().min(1).max(40) }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Invalid block." };
+  try {
+    await markSmartBlock(parsed.data.sessionId, parsed.data.key, { status: "skipped" });
+    revalidate(parsed.data.sessionId);
+    return { ok: true };
+  } catch (error) {
+    return failure(error, "The block could not be skipped.");
+  }
+}
+
+export async function completeSmartSessionAction(sessionId: string): Promise<StudyActionResult<SessionSummary>> {
+  const user = await getCurrentUser();
+  if (!user) redirect(routes.login);
+  const parsed = uuid.safeParse(sessionId);
+  if (!parsed.success) return { ok: false, message: "Invalid session." };
+  try {
+    const summary = await completeSmartSession(parsed.data);
+    revalidate(parsed.data);
+    return { ok: true, data: summary };
+  } catch (error) {
+    return failure(error, "The session could not be summarized.");
   }
 }

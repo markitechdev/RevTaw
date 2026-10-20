@@ -20,6 +20,15 @@ export type MethodBehaviour = {
 };
 
 export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
+  smart_study: {
+    howItHelps: "The right mix of activities for today, chosen from what you keep getting wrong, what is fading and what is due.",
+    bestUseCases: "Any day you have time to study but no plan.",
+    suggestedMinutes: 30,
+    goals: ["memorize", "understand", "practice", "exam_prep", "quick_review", "master_topic"],
+    requiresMaterial: false,
+    availableIn: "now",
+    behaviour: "RevTaw builds a plan of blocks — error review, active recall on weak concepts, a Feynman block for misconceptions, due flashcards, a short practice test — sized to your time, each with the reason it was picked. You run the blocks one by one and get one combined summary.",
+  },
   active_recall: {
     howItHelps: "Pulling an answer from memory strengthens it far more than re-reading it.",
     bestUseCases: "Definitions, facts, processes — anything you must remember on an exam.",
@@ -227,6 +236,7 @@ export const IMPLEMENTED_METHOD_IDS = STUDY_METHODS.filter((method) => METHOD_BE
 
 /** Methods that run through the session builder (flashcards/spaced repetition start from the Flashcards section). */
 export const BUILDER_METHOD_IDS = [
+  "smart_study",
   "active_recall",
   "feynman",
   "practice_testing",
@@ -252,6 +262,8 @@ export function isBuilderMethod(value: string): value is BuilderMethodId {
 }
 
 export const TIME_PRESETS = [5, 15, 30, 45, 60] as const;
+
+export const SMART_METHOD_ID = "smart_study" as const;
 
 /** Builder recommendation: the implemented methods that fit a goal, best first. */
 export function recommendMethods(goal: SessionGoal, hasMaterial: boolean): BuilderMethodId[] {

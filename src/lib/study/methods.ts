@@ -24,7 +24,8 @@ export type StudyMethodId =
   | "faded_worked_examples"
   | "practice_problems"
   | "error_review"
-  | "rapid_review";
+  | "rapid_review"
+  | "smart_study";
 
 export type StudyMethod = {
   id: StudyMethodId;
@@ -56,7 +57,11 @@ export const STUDY_METHODS: ReadonlyArray<StudyMethod> = [
   { id: "practice_problems", name: "Practice Problems", summary: "Source-grounded problems with solutions.", bestFor: "Calculation-heavy subjects" },
   { id: "error_review", name: "Error Review", summary: "Revisit and retest past mistakes.", bestFor: "Breaking repeated errors" },
   { id: "rapid_review", name: "Rapid Review", summary: "Short sessions on the highest-value points.", bestFor: "Very little time before a test" },
+  { id: "smart_study", name: "Smart Study", summary: "RevTaw picks the activities from your mastery, mistakes and due reviews.", bestFor: "When you do not want to choose a method" },
 ];
+
+/** The spec's study methods (everything except the Smart Study planner), for analysis prompts. */
+export const CORE_STUDY_METHODS = STUDY_METHODS.filter((method) => method.id !== "smart_study");
 
 export const STUDY_METHOD_IDS = STUDY_METHODS.map((method) => method.id) as [StudyMethodId, ...StudyMethodId[]];
 

@@ -4,7 +4,7 @@ import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { analysisResponseSchema, type AnalysisResponse } from "@/lib/materials/analysis-schema";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
-import { STUDY_METHODS } from "@/lib/study/methods";
+import { CORE_STUDY_METHODS } from "@/lib/study/methods";
 import type { EducationLevel, StudyGoal } from "@/lib/supabase/database.types";
 
 /** Characters of material text sent to the model in one analysis (~35k tokens). */
@@ -44,7 +44,7 @@ Rules:
 - Respond with a single JSON object matching the schema. No markdown, no commentary.`;
 
 function schemaDescription(): string {
-  const methods = STUDY_METHODS.map((method) => method.id).join(" | ");
+  const methods = CORE_STUDY_METHODS.map((method) => method.id).join(" | ");
   return `JSON schema (all keys required; use [] when nothing applies):
 {
   "summary": string (2-4 sentences, max 1200 chars),

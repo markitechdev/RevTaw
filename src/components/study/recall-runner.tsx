@@ -27,7 +27,7 @@ type Stored = RecallItemResult;
  * student writes theirs; the comparison then shows what was right, missing
  * and wrong. Progress is saved per item, so a refresh resumes.
  */
-export function RecallRunner({ session, methodName }: { session: SessionDetail; methodName: string }) {
+export function RecallRunner({ session, methodName, parentSessionId = null }: { session: SessionDetail; methodName: string; parentSessionId?: string | null }) {
   const router = useRouter();
   const items = session.items;
   const [index, setIndex] = useState(() => {
@@ -109,7 +109,12 @@ export function RecallRunner({ session, methodName }: { session: SessionDetail; 
           summary={summary}
           actions={
             <>
-              <Link href={routes.study} className={buttonClasses({ size: "sm" })}>
+              {parentSessionId && (
+                <Link href={`${routes.study}/${parentSessionId}`} className={buttonClasses({ size: "sm" })}>
+                  Back to smart session
+                </Link>
+              )}
+              <Link href={routes.study} className={buttonClasses({ size: "sm", variant: parentSessionId ? "secondary" : "primary" })}>
                 Back to Study
               </Link>
               {summary.incorrect > 0 && (

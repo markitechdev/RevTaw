@@ -1,6 +1,7 @@
 import "server-only";
 
 import { refreshMastery, weakConceptNames as masteryWeakConcepts } from "@/lib/adaptive/engine";
+import { markSmartBlock, startSmartSession } from "@/lib/adaptive/smart";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { isAiError } from "@/lib/ai";
 import { getConceptPerformance } from "@/lib/quizzes/queries";
@@ -29,6 +30,9 @@ export type StartSessionInput = {
   workMinutes?: number;
   breakMinutes?: number;
   topic?: string | null;
+  /** Set when the session is one block of a smart session. */
+  parentSessionId?: string | null;
+  parentBlockKey?: string | null;
 };
 
 export type StartSessionResult = { sessionId: string; redirect: string };
@@ -59,9 +63,32 @@ async function weakConceptNames(materialId: string | null = null, limit = 6): Pr
  * (practice testing) or just records the timer settings (Pomodoro).
  */
 export async function startSession(userId: string, input: StartSessionInput): Promise<StartSessionResult> {
+  const result = await startSessionInner(userId, input);
+  if (input.parentSessionId && result.sessionId) {
+    const supabase = await createClient();
+    await updateSessionState(supabase, result.sessionId, { parentId: input.parentSessionId });
+    if (input.parentBlockKey) await markSmartBlock(input.parentSessionId, input.parentBlockKey, { childSessionId: result.sessionId, status: "in_progress" });
+  }
+  return result;
+}
+
+async function startSessionInner(userId: string, input: StartSessionInput): Promise<StartSessionResult> {
   const supabase = await createClient();
   const behaviour = METHOD_BEHAVIOUR[input.method];
   if (behaviour.requiresMaterial && !input.materialId) throw new SessionError("Choose a material for this method.", 400);
+
+  if (input.method === "smart_study") {
+    let materialTitle: string | null = null;
+    if (input.materialId) {
+      const { data: material } = await supabase.from("materials").select("title, status").eq("id", input.materialId).maybeSingle();
+      if (!material) throw new SessionError("Material not found.", 404);
+      if (material.status !== "ready") throw new SessionError("This material has not finished processing yet.", 409);
+      materialTitle = material.title;
+    }
+    const { count } = await supabase.from("mistakes").select("id", { count: "exact", head: true }).is("resolved_at", null);
+    const { sessionId } = await startSmartSession(userId, { materialId: input.materialId, goal: input.goal, minutes: input.plannedMinutes, materialTitle, openMistakes: count ?? 0 });
+    return { sessionId, redirect: `/study/${sessionId}` };
+  }
 
   if (isTutorMethod(input.method)) {
     const context = await loadMaterialContext(supabase, input.materialId!);
