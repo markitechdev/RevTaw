@@ -16,6 +16,7 @@ import { TrackOpen } from "@/components/materials/track-open";
 import { formatRelativeDate } from "@/components/materials/material-card";
 import { buttonClasses } from "@/components/ui/button";
 import { listMastery } from "@/lib/adaptive/engine";
+import { listReviewTasks } from "@/lib/planner/queries";
 import { formatBytes, SOURCE_LABEL } from "@/lib/materials/constants";
 import { getMaterial, getMaterialAnalysis, getMaterialChunks, listSubjects } from "@/lib/materials/queries";
 import { listDecks } from "@/lib/flashcards/queries";
@@ -42,7 +43,7 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
 
   const requested = typeof query.tab === "string" ? query.tab : "overview";
   const tab: Tab = (TABS as readonly string[]).includes(requested) ? (requested as Tab) : "overview";
-  const [chunks, analysis, subjects, reviewers, quizzes, decks, mastery] = await Promise.all([
+  const [chunks, analysis, subjects, reviewers, quizzes, decks, mastery, reviewTasks] = await Promise.all([
     tab === "content" ? getMaterialChunks(material.id) : Promise.resolve([]),
     tab === "overview" ? getMaterialAnalysis(material.id) : Promise.resolve(null),
     listSubjects(),
@@ -50,6 +51,7 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
     tab === "overview" ? listQuizzes({ materialId: material.id }) : Promise.resolve([]),
     tab === "overview" ? listDecks({ materialId: material.id }) : Promise.resolve([]),
     tab === "overview" ? listMastery({ materialId: material.id }) : Promise.resolve([]),
+    tab === "overview" ? listReviewTasks(material.id) : Promise.resolve([]),
   ]);
 
   const hrefFor = (next: string) => `${routes.materials}/${material.id}${next === "overview" ? "" : `?tab=${next}`}`;
@@ -115,7 +117,7 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
 
       {tab === "overview" ? (
         <div className="flex flex-col gap-4">
-          <StudyTools materialId={material.id} status={material.status} reviewers={reviewers} quizzes={quizzes} decks={decks} />
+          <StudyTools materialId={material.id} status={material.status} reviewers={reviewers} quizzes={quizzes} decks={decks} scheduledReviews={reviewTasks.filter((task) => task.status === "pending").length} />
           <MaterialMastery materialId={material.id} rows={mastery} />
           <MaterialOverview
             materialId={material.id}

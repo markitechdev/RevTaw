@@ -1,6 +1,5 @@
 import {
   BookOpenCheck,
-  CalendarDays,
   Clock,
   Flame,
   FolderOpen,
@@ -18,6 +17,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { MasteryBar } from "@/components/adaptive/mastery-table";
+import { DueTodayCard } from "@/components/planner/due-today";
+import { ExamCard } from "@/components/planner/exam-card";
 import { RecommendationList } from "@/components/adaptive/recommendation-list";
 import { Alert } from "@/components/forms/form-alert";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -34,6 +35,9 @@ import { SOURCE_LABEL } from "@/lib/materials/constants";
 import { countMaterials, listRecentMaterials } from "@/lib/materials/queries";
 import { formatSessionMinutes, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
+import { syncNotifications } from "@/lib/notifications/service";
+import { getDueToday, getNextExam } from "@/lib/planner/queries";
+import { plannerClock, rebalanceAllPlans } from "@/lib/planner/service";
 import { countOpenMistakes, listRecentAttempts } from "@/lib/quizzes/queries";
 import { QUIZ_MODE_LABEL } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
@@ -60,7 +64,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const { user, profile } = await getCurrentUserWithProfile();
   if (!user) redirect(routes.login);
 
-  const [materialCount, recentMaterials, mastery, recommendations, recentAttempts, openMistakes, dueCards, decks, nextDue, activity] = await Promise.all([
+  await rebalanceAllPlans();
+  const [materialCount, recentMaterials, mastery, recommendations, recentAttempts, openMistakes, dueCards, decks, nextDue, activity, due, nextExam, clock] = await Promise.all([
     countMaterials(),
     listRecentMaterials(5),
     getMasterySummary(),
@@ -71,8 +76,11 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
     listDecks(),
     nextDueAt(),
     getActivityStats(),
+    getDueToday(),
+    getNextExam(),
+    plannerClock(),
   ]);
-  const dueDecks = decks.filter((deck) => deck.dueCount > 0).slice(0, 5);
+  await syncNotifications();
   const lastOpened = recentMaterials.find((material) => material.last_opened_at) ?? recentMaterials[0];
   // Weak = status weak or learning (needs attention); strong = strong or mastered (§23, §28).
   const weakConcepts = [...mastery.weak, ...mastery.learning].sort((a, b) => Number(a.mastery) - Number(b.mastery)).slice(0, 6);
@@ -193,46 +201,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Due today</CardTitle>
-            <CardDescription>Spaced repetition and scheduled reviews.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {dueDecks.length === 0 ? (
-              <EmptyState
-                compact
-                icon={CalendarDays}
-                title="Nothing due"
-                description={decks.length === 0 ? "Reviews appear here once you rate flashcards." : "Every card is scheduled for later. Come back when the next review is due."}
-                action={
-                  decks.length === 0 ? (
-                    <Link href={routes.flashcards} className={buttonClasses({ variant: "secondary", size: "sm" })}>
-                      Open Flashcards
-                    </Link>
-                  ) : undefined
-                }
-              />
-            ) : (
-              <div className="flex flex-col gap-3">
-                <ul className="flex flex-col divide-y divide-border">
-                  {dueDecks.map((deck) => (
-                    <li key={deck.id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
-                      <Link href={`${routes.flashcards}/${deck.id}/review?mode=due`} className="truncate text-sm font-medium hover:underline">
-                        {deck.title}
-                      </Link>
-                      <span className="shrink-0 text-xs text-muted-foreground">{deck.dueCount} due</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link href={`${routes.flashcards}/review`} className={buttonClasses({ size: "sm" })}>
-                  <Layers className="h-4 w-4" aria-hidden="true" />
-                  Review all due ({dueCards})
-                </Link>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <DueTodayCard due={due} compact />
 
         <Card>
           <CardHeader>
@@ -240,17 +209,21 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
             <CardDescription>Countdown and preparation progress.</CardDescription>
           </CardHeader>
           <CardContent>
-            <EmptyState
-              compact
-              icon={Target}
-              title="No exams scheduled"
-              description="Add an exam date in the Planner and RevTaw will pace your reviews toward it."
-              action={
-                <Link href={routes.planner} className={buttonClasses({ variant: "secondary", size: "sm" })}>
-                  Open Planner
-                </Link>
-              }
-            />
+            {nextExam ? (
+              <ExamCard exam={nextExam} today={clock.today} compact />
+            ) : (
+              <EmptyState
+                compact
+                icon={Target}
+                title="No exams scheduled"
+                description="Add an exam date in the Planner and RevTaw will pace your reviews toward it."
+                action={
+                  <Link href={routes.planner} className={buttonClasses({ variant: "secondary", size: "sm" })}>
+                    Open Planner
+                  </Link>
+                }
+              />
+            )}
           </CardContent>
         </Card>
 
@@ -331,7 +304,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
             <CardTitle>Strong topics</CardTitle>
             <CardDescription>
               <Link href={routes.progress} className="hover:underline">
-                Mastered at {MASTERY_THRESHOLD}% and above.
+                Strong from 60%, mastered at {MASTERY_THRESHOLD}%.
               </Link>
             </CardDescription>
           </CardHeader>

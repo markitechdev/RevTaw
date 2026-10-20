@@ -2,6 +2,7 @@ import { Layers, ListChecks, NotebookPen } from "lucide-react";
 import Link from "next/link";
 
 import { NewDeckButton } from "@/components/flashcards/new-deck-dialog";
+import { ScheduleReviewsButton } from "@/components/planner/schedule-reviews-button";
 import { NewQuizButton } from "@/components/quizzes/new-quiz-dialog";
 import { GenerateReviewerButton } from "@/components/reviewers/generate-reviewer-dialog";
 import { NewConversationButton } from "@/components/tutor/new-conversation-dialog";
@@ -21,12 +22,15 @@ export function StudyTools({
   reviewers,
   quizzes,
   decks,
+  scheduledReviews = 0,
 }: {
   materialId: string;
   status: MaterialStatus;
   reviewers: ReviewerListItem[];
   quizzes: QuizListItem[];
   decks: DeckListItem[];
+  /** Pending 1-3-7-14 review tasks already in the planner. */
+  scheduledReviews?: number;
 }) {
   const ready = status === "ready";
 
@@ -48,6 +52,7 @@ export function StudyTools({
           <NewConversationButton materialId={materialId} disabled={!ready} size="sm" variant="secondary">
             Ask the tutor
           </NewConversationButton>
+          <ScheduleReviewsButton materialId={materialId} scheduled={scheduledReviews} disabled={!ready} size="sm" variant="secondary" />
         </div>
 
         {reviewers.length > 0 && (
