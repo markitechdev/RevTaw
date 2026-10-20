@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { BlurtingRunner } from "@/components/study/blurting-runner";
+import { CaseRunner } from "@/components/study/case-runner";
 import { ChunkRunner } from "@/components/study/chunk-runner";
 import { FeynmanRunner } from "@/components/study/feynman-runner";
 import { PomodoroRunner } from "@/components/study/pomodoro-runner";
@@ -152,6 +153,8 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
       return <ProblemRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "scenario_based":
       return <ScenarioRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
+    case "case_based":
+      return <CaseRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "pomodoro":
       return <PomodoroRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     default:

@@ -5,16 +5,26 @@ import { isAiError } from "@/lib/ai";
 import { normalizeConceptName } from "@/lib/concepts/service";
 import { loadMaterialContext } from "@/lib/reviewers/service";
 import { conceptsFor, insertItems, loadOpenItem, openSession, recordItemResult, type Client, type FlowStartInput, type FlowStartResult } from "@/lib/study/items";
-import { evaluateJustification, generateScenarios, type JustificationEvaluation } from "@/lib/study/prompts/applied";
+import {
+  CASE_FIELDS,
+  evaluateCaseAnalysis,
+  evaluateJustification,
+  generateCases,
+  generateScenarios,
+  type CaseAnswer,
+  type CaseEvaluation,
+  type CaseModel,
+  type JustificationEvaluation,
+} from "@/lib/study/prompts/applied";
 import { SessionError, sessionTitle } from "@/lib/study/sessions";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Scenario-based learning (§16). What the student needs to decide — the
- * situation and the options — is in `analysis`; the best option and its
- * rationale stay in `model_answer` (hidden from the browser until the item
- * is answered).
+ * Scenario-based and case-based learning (§16). What the student needs to
+ * decide — the situation, the options, the case — is in `analysis`; the best
+ * option, rationale and expert analysis stay in `model_answer` (hidden from
+ * the browser until the item is answered).
  */
 
 export type ScenarioView = { title: string; situation: string; question: string; options: string[] };
@@ -30,6 +40,9 @@ export type ScenarioResult = {
   optionFeedback: string[];
   evaluation: JustificationEvaluation;
 };
+
+export type CaseView = { title: string; text: string; task: string };
+export type CaseResult = { evaluation: CaseEvaluation; model: CaseModel; isCorrect: boolean };
 
 function parseJson<T>(value: string | null): T | null {
   if (!value) return null;
@@ -133,4 +146,79 @@ export async function evaluateScenarioItem(input: { itemId: string; choice: numb
     },
   });
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Cases
+// ---------------------------------------------------------------------------
+
+export async function startCases(supabase: Client, userId: string, input: FlowStartInput): Promise<FlowStartResult> {
+  const context = await loadMaterialContext(supabase, input.materialId!);
+  const count = Math.max(1, Math.min(4, Math.round(input.plannedMinutes / 12)));
+  const generated = await generateCases({ materialTitle: context.material.title, chunks: context.chunks, student: context.student, count, focusConcepts: await weakConceptNames(context.material.id, 4) });
+  if (generated.cases.length === 0) throw new SessionError("No cases could be written from this material.", 422);
+  const sessionId = await openSession(supabase, userId, {
+    method: "case_based",
+    materialId: context.material.id,
+    subjectId: context.material.subject_id,
+    goal: input.goal ?? "understand",
+    plannedMinutes: input.plannedMinutes,
+    title: sessionTitle("case_based", context.material.title),
+    state: { index: 0, provider: generated.provider },
+  });
+  const concepts = await conceptsFor(supabase, userId, context, generated.cases.map((entry) => entry.concept));
+  await insertItems(
+    supabase,
+    generated.cases.map((entry, position) => {
+      const view: CaseView = { title: entry.title, text: entry.case_text, task: entry.task };
+      return {
+        session_id: sessionId,
+        user_id: userId,
+        position,
+        kind: "case" as const,
+        concept_id: concepts.get(normalizeConceptName(entry.concept)) ?? null,
+        prompt: entry.task,
+        model_answer: JSON.stringify(entry.model),
+        key_points: [] as unknown as Json,
+        source_excerpt: null,
+        analysis: { case: view } as unknown as Json,
+      };
+    }),
+  );
+  return { sessionId, redirect: `/study/${sessionId}` };
+}
+
+export function formatCaseAnswer(answer: CaseAnswer): string {
+  return [`Problem: ${answer.problem}`, `Evidence: ${answer.evidence}`, `Possible solutions: ${answer.solutions}`, `Best solution: ${answer.best_solution}`, `Justification: ${answer.justification}`].join("\n");
+}
+
+export async function evaluateCaseItem(input: { itemId: string; answer: CaseAnswer; responseMs: number | null }): Promise<CaseResult> {
+  const supabase = await createClient();
+  const { item, session } = await loadOpenItem(supabase, input.itemId);
+  if (item.kind !== "case") throw new SessionError("This item is not a case.", 400);
+  const view = (item.analysis as { case?: CaseView } | null)?.case;
+  const model = parseJson<CaseModel>(item.model_answer);
+  if (!view || !model) throw new SessionError("This case is incomplete.", 422);
+  const stored = (item.analysis as { evaluation?: CaseEvaluation } | null)?.evaluation;
+  if (item.answered_at && stored) return { evaluation: stored, model, isCorrect: Boolean(item.is_correct) };
+
+  const answer = Object.fromEntries(CASE_FIELDS.map((field) => [field, (input.answer[field] ?? "").trim().slice(0, 3000)])) as CaseAnswer;
+  let evaluation: CaseEvaluation;
+  try {
+    evaluation = (await evaluateCaseAnalysis({ materialTitle: session.title, caseText: view.text, model, answer })).evaluation;
+  } catch (error) {
+    if (!isAiError(error)) throw error;
+    const neutral = { score: 50, feedback: "Not checked — the AI examiner is unavailable." };
+    evaluation = { fields: { problem: neutral, evidence: neutral, solutions: neutral, best_solution: neutral, justification: neutral }, overall: 50, strengths: [], gaps: [], feedback: "The AI examiner is unavailable, so compare your analysis with the expert one yourself." };
+  }
+  const isCorrect = evaluation.overall >= 60;
+  await recordItemResult(supabase, item, session, {
+    response: JSON.stringify(answer),
+    analysis: { case: view, evaluation } as unknown as Json,
+    score: evaluation.overall,
+    isCorrect,
+    responseMs: input.responseMs,
+    mistake: { question: `${view.title}: ${view.task}`, correctAnswer: `Problem: ${model.problem}\nBest solution: ${model.best_solution}\nJustification: ${model.justification}`, explanation: evaluation.feedback, errorType: "misunderstood_concept" },
+  });
+  return { evaluation, model, isCorrect };
 }

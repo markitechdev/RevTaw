@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { problemEvaluationHeuristically, problemsHeuristically, scenarioEvaluationHeuristically, scenariosHeuristically } from "@/lib/ai/providers/mock-study";
+import { caseEvaluationHeuristically, casesHeuristically, problemEvaluationHeuristically, problemsHeuristically, scenarioEvaluationHeuristically, scenariosHeuristically } from "@/lib/ai/providers/mock-study";
 
 const transcript = `[Section: Photosynthesis Overview]
 Photosynthesis Overview
@@ -41,7 +41,7 @@ describe("mock problem heuristics", () => {
   });
 });
 
-describe("mock scenario heuristics", () => {
+describe("mock scenario and case heuristics", () => {
   it("moves the best action between positions and grades the justification by its ideas", () => {
     const { scenarios } = scenariosHeuristically(transcript, "Produce exactly 3 scenarios.");
     expect(scenarios).toHaveLength(3);
@@ -53,4 +53,16 @@ describe("mock scenario heuristics", () => {
     expect(scenarioEvaluationHeuristically(prompt("(blank)")).justification_score).toBe(0);
   });
 
+  it("writes a case with an expert analysis and scores each field", () => {
+    const { cases } = casesHeuristically(transcript, "Produce exactly 1 cases.");
+    const model = cases[0].model;
+    expect(model.evidence.length).toBeGreaterThan(0);
+    const expert = `Expert analysis:\nProblem: ${model.problem}\nEvidence: ${model.evidence.join("; ")}\nPossible solutions: ${model.solutions.join("; ")}\nBest solution: ${model.best_solution}\nJustification: ${model.justification}`;
+    const full = caseEvaluationHeuristically(`${expert}\nStudent analysis:\nProblem: ${model.problem}\nEvidence: ${model.evidence.join("; ")}\nPossible solutions: ${model.solutions.join("; ")}\nBest solution: ${model.best_solution}\nJustification: ${model.justification}`);
+    expect(full.overall).toBe(100);
+    const partial = caseEvaluationHeuristically(`${expert}\nStudent analysis:\nProblem: ${model.problem}\nEvidence: (blank)\nPossible solutions: (blank)\nBest solution: (blank)\nJustification: (blank)`);
+    expect(partial.fields.problem.score).toBe(100);
+    expect(partial.fields.evidence.score).toBe(0);
+    expect(partial.overall).toBe(25);
+  });
 });

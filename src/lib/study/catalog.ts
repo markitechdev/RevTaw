@@ -314,8 +314,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 30,
     goals: ["practice", "understand", "master_topic"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
-    behaviour: "Detailed cases: identify the problem, the evidence, possible solutions, the best one and your justification; RevTaw evaluates the reasoning.",
+    availableIn: "now",
+    behaviour: "Detailed cases with background, data and a complication: you write the problem, the evidence, possible solutions, the best one and your justification; RevTaw scores each part, shows the expert analysis beside yours and keeps your draft if you refresh.",
   },
   pre_testing: {
     howItHelps: "A test before studying tells you where to pay attention; a test after shows the gain.",
@@ -379,6 +379,7 @@ export const BUILDER_METHOD_IDS = [
   "faded_worked_examples",
   "practice_problems",
   "scenario_based",
+  "case_based",
   "error_review",
   "pomodoro",
   "socratic_questioning",

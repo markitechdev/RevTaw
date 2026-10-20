@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { routes } from "@/lib/routes";
 import { actionFailure, uuid, type StudyActionResult } from "@/lib/study/action-helpers";
-import { evaluateScenarioItem, type ScenarioResult } from "@/lib/study/flows/applied";
+import { evaluateCaseItem, evaluateScenarioItem, type CaseResult, type ScenarioResult } from "@/lib/study/flows/applied";
 import { evaluateProblemItem, type ProblemResult } from "@/lib/study/flows/problems";
 import { saveItemDraft } from "@/lib/study/items";
 import { getCurrentUser } from "@/lib/supabase/server";
@@ -55,5 +55,18 @@ export async function evaluateScenarioAction(input: { itemId: string; choice: nu
     return { ok: true, data: await evaluateScenarioItem(parsed.data) };
   } catch (error) {
     return actionFailure(error, "Your answer could not be checked. Please try again.");
+  }
+}
+
+const caseAnswer = z.object({ problem: z.string().max(3000), evidence: z.string().max(3000), solutions: z.string().max(3000), best_solution: z.string().max(3000), justification: z.string().max(3000) });
+
+export async function evaluateCaseAction(input: { itemId: string; answer: z.input<typeof caseAnswer>; responseMs: number | null }): Promise<StudyActionResult<CaseResult>> {
+  await requireUser();
+  const parsed = z.object({ itemId: uuid, answer: caseAnswer, responseMs }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "That analysis could not be checked." };
+  try {
+    return { ok: true, data: await evaluateCaseItem(parsed.data) };
+  } catch (error) {
+    return actionFailure(error, "Your analysis could not be checked. Please try again.");
   }
 }

@@ -1,4 +1,4 @@
-import { collectFacts, keywordsOf, type MockFact } from "@/lib/ai/providers/mock-text";
+import { collectFacts, keywordsOf, parseTranscriptSections, sentencesOf, type MockFact } from "@/lib/ai/providers/mock-text";
 
 /**
  * Deterministic stand-ins for the Phase 8 (part 2) study-method prompts:
@@ -108,7 +108,7 @@ export function problemEvaluationHeuristically(prompt: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Scenario-based learning
+// Scenario-based and case-based learning
 // ---------------------------------------------------------------------------
 
 export function scenariosHeuristically(transcript: string, prompt: string) {
@@ -148,5 +148,59 @@ export function scenarioEvaluationHeuristically(prompt: string) {
     strengths: coverage.covered.map((point) => `You used the idea of ${point}.`),
     gaps: coverage.missing.map((point) => `Bring in ${point}.`),
     feedback: blank ? "Explain why you chose that action — the reasoning is half of the answer." : score >= 70 ? "Your justification uses the material's key ideas." : "Tie your reasoning to the material's key ideas more directly.",
+  };
+}
+
+export function casesHeuristically(transcript: string, prompt: string) {
+  const count = Number(prompt.match(/Produce exactly (\d+) cases/)?.[1] ?? "1");
+  const sections = parseTranscriptSections(transcript);
+  const pool = sections.length ? sections : [{ heading: "Overview", text: transcript }];
+  const cases = Array.from({ length: Math.min(count, pool.length) }, (_, index) => {
+    const section = pool[index];
+    const sentences = sentencesOf(section.text);
+    const main = collectFacts(`[Section: ${section.heading}]\n${section.text}`)[0];
+    const topic = main ? topicOf(main) : section.heading;
+    const anchor = main?.sentence ?? sentences[0] ?? section.heading;
+    return {
+      title: `Case: ${section.heading}`,
+      case_text: `Background: a group is working through a situation about ${section.heading}.\n\nObservations: ${sentences.join(" ")}\n\nComplication: an early decision ignored part of what is known about ${topic}.`,
+      task: "Identify the problem, the evidence, the possible solutions and the best one, and justify your choice.",
+      model: {
+        problem: `The decision ignored ${topic}: ${anchor}`,
+        evidence: sentences.slice(0, 3),
+        solutions: [`Re-apply ${topic} correctly`, "Gather more observations before deciding"],
+        best_solution: `Re-apply ${topic} correctly`,
+        justification: `It follows the material: ${anchor}`,
+      },
+      concept: topic.slice(0, 60),
+    };
+  });
+  return { cases };
+}
+
+const CASE_LABELS = { problem: "Problem", evidence: "Evidence", solutions: "Possible solutions", best_solution: "Best solution", justification: "Justification" } as const;
+const CASE_WEIGHTS = { problem: 0.25, evidence: 0.15, solutions: 0.15, best_solution: 0.2, justification: 0.25 } as const;
+
+export function caseEvaluationHeuristically(prompt: string) {
+  const [expertPart, studentPart = ""] = prompt.split("Student analysis:");
+  const read = (part: string, label: string) => part.match(new RegExp(`^${label}: (.*)$`, "m"))?.[1]?.trim() ?? "";
+  const fields = Object.fromEntries(
+    (Object.keys(CASE_LABELS) as Array<keyof typeof CASE_LABELS>).map((field) => {
+      const expected = keywordsOf(read(expertPart, CASE_LABELS[field])).slice(0, 6);
+      const given = read(studentPart, CASE_LABELS[field]);
+      const blank = !given || given === "(blank)";
+      const score = blank ? 0 : Math.round(pointCoverage(expected, given).ratio * 100);
+      return [field, { score, feedback: blank ? "Left blank." : score >= 70 ? "Matches the expert analysis." : "Partly matches the expert analysis — compare the details." }];
+    }),
+  ) as Record<keyof typeof CASE_LABELS, { score: number; feedback: string }>;
+  const overall = Math.round((Object.keys(CASE_WEIGHTS) as Array<keyof typeof CASE_WEIGHTS>).reduce((sum, field) => sum + fields[field].score * CASE_WEIGHTS[field], 0));
+  const strong = (Object.keys(fields) as Array<keyof typeof CASE_LABELS>).filter((field) => fields[field].score >= 70).map((field) => CASE_LABELS[field]);
+  const weak = (Object.keys(fields) as Array<keyof typeof CASE_LABELS>).filter((field) => fields[field].score < 70).map((field) => CASE_LABELS[field]);
+  return {
+    fields,
+    overall,
+    strengths: strong.map((label) => `${label} matches the expert analysis.`),
+    gaps: weak.map((label) => `${label} needs more of the case's details.`),
+    feedback: overall >= 80 ? "A complete, well-supported analysis." : `Strengthen: ${weak.join(", ") || "the details"}.`,
   };
 }

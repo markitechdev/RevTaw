@@ -8,8 +8,9 @@ import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@
 import { GROUNDING_RULE, points, studentLine, text } from "@/lib/study/prompts/shared";
 
 /**
- * Prompts behind scenario-based learning (spec §16): realistic applications
- * of the material where the student chooses an action and justifies it.
+ * Prompts behind scenario-based and case-based learning (spec §16): realistic
+ * applications of the material where the student chooses an action and
+ * justifies it, or analyses a detailed case field by field.
  */
 
 const FIELD_RULE =
@@ -110,5 +111,102 @@ Student justification:
 ${input.justification.slice(0, 4000) || "(blank)"}
 """`;
   const result = await generateJson(provider, justificationEvaluationSchema, { task: "scenario_evaluate", system, messages: [{ role: "user", content: user }], maxTokens: 1200, temperature: 0 });
+  return { evaluation: result.data, provider: result.raw.provider, model: result.raw.model };
+}
+
+// ---------------------------------------------------------------------------
+// Cases: problem, evidence, possible solutions, best solution, justification
+// ---------------------------------------------------------------------------
+
+export const CASE_FIELDS = ["problem", "evidence", "solutions", "best_solution", "justification"] as const;
+export type CaseField = (typeof CASE_FIELDS)[number];
+
+export const caseSetSchema = z.object({
+  cases: z
+    .array(
+      z.object({
+        title: text(160),
+        case_text: text(6000),
+        task: text(400),
+        model: z.object({
+          problem: text(800),
+          evidence: points,
+          solutions: points,
+          best_solution: text(800),
+          justification: text(1500),
+        }),
+        concept: text(120),
+      }),
+    )
+    .min(1)
+    .max(4),
+});
+
+export type GeneratedCase = z.infer<typeof caseSetSchema>["cases"][number];
+export type CaseModel = GeneratedCase["model"];
+
+export async function generateCases(input: { materialTitle: string; chunks: AnalysisChunkInput[]; student: StudentContext; count: number; focusConcepts: string[] }): Promise<{ cases: GeneratedCase[]; provider: string; model: string }> {
+  const provider = getAiProvider("strong");
+  const { transcript } = buildTranscript(input.chunks);
+  const system = `You are RevTaw's case-study author. You write detailed cases a student analyses.
+
+Rules:
+- ${FIELD_RULE}
+- "case_text": 2-4 short paragraphs: background, the data or observations (evidence, some of it irrelevant), and a complication. Do not name the problem outright.
+- "task": what the student must do (identify the problem, the evidence, possible solutions, the best one and justify it).
+- "model": the expert analysis — "problem" (the core problem), "evidence" (the facts from the case that point to it), "solutions" (2-4 possible solutions), "best_solution", "justification" (why it is best, using the material's ideas).
+- "concept": the 1-4 word concept the case exercises.
+- ${GROUNDING_RULE}
+- Respond with a single JSON object matching the schema. No commentary.`;
+  const user = `Material title: ${input.materialTitle}
+Student: ${studentLine(input.student)}
+${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}Produce exactly ${input.count} cases.
+
+JSON schema: { "cases": [{ "title": string, "case_text": string, "task": string, "model": { "problem": string, "evidence": string[], "solutions": string[], "best_solution": string, "justification": string }, "concept": string }] }
+
+<material>
+${transcript}
+</material>`;
+  const result = await generateJson(provider, caseSetSchema, { task: "generate_cases", system, messages: [{ role: "user", content: user }], maxTokens: 8000, temperature: 0.4 });
+  return { cases: result.data.cases.slice(0, Math.max(1, input.count)), provider: result.raw.provider, model: result.raw.model };
+}
+
+const fieldScore = z.object({ score: z.number().min(0).max(100), feedback: text(800) });
+
+export const caseEvaluationSchema = z.object({
+  fields: z.object({ problem: fieldScore, evidence: fieldScore, solutions: fieldScore, best_solution: fieldScore, justification: fieldScore }),
+  overall: z.number().min(0).max(100),
+  strengths: points,
+  gaps: points,
+  feedback: text(1500),
+});
+
+export type CaseEvaluation = z.infer<typeof caseEvaluationSchema>;
+export type CaseAnswer = Record<CaseField, string>;
+
+export async function evaluateCaseAnalysis(input: { materialTitle: string; caseText: string; model: CaseModel; answer: CaseAnswer }): Promise<{ evaluation: CaseEvaluation; provider: string; model: string }> {
+  const provider = getAiProvider("fast");
+  const system = `You are RevTaw's case-analysis examiner for "${input.materialTitle}". Evaluate the student's REASONING field by field against the expert analysis; other well-argued answers supported by the case and the material also earn credit.
+- "fields": a 0-100 score and one feedback sentence for problem, evidence, solutions, best_solution and justification.
+- "overall": 0-100 weighted toward the problem, the best solution and the justification.
+- "strengths" / "gaps": the reasoning done well / missed. "feedback": 1-3 specific sentences.
+Respond with JSON only.`;
+  const user = `Case:
+"""
+${input.caseText.slice(0, 6000)}
+"""
+Expert analysis:
+Problem: ${input.model.problem}
+Evidence: ${input.model.evidence.join("; ")}
+Possible solutions: ${input.model.solutions.join("; ")}
+Best solution: ${input.model.best_solution}
+Justification: ${input.model.justification}
+Student analysis:
+Problem: ${input.answer.problem || "(blank)"}
+Evidence: ${input.answer.evidence || "(blank)"}
+Possible solutions: ${input.answer.solutions || "(blank)"}
+Best solution: ${input.answer.best_solution || "(blank)"}
+Justification: ${input.answer.justification || "(blank)"}`;
+  const result = await generateJson(provider, caseEvaluationSchema, { task: "case_evaluate", system, messages: [{ role: "user", content: user }], maxTokens: 2000, temperature: 0 });
   return { evaluation: result.data, provider: result.raw.provider, model: result.raw.model };
 }
