@@ -1,17 +1,22 @@
-import { Brain, Gauge, ShieldAlert, Sparkles, TrendingUp } from "lucide-react";
+import { Brain, CheckCircle2, Clock, Gauge, Layers, ListChecks, Map, ShieldAlert, Sparkles, Target, TrendingUp } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
 import { MasteryTable } from "@/components/adaptive/mastery-table";
 import { RecommendationList } from "@/components/adaptive/recommendation-list";
+import { DailyColumns, PercentBars, ScoreColumns, StatusStrip } from "@/components/analytics/charts";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { LevelCard } from "@/components/gamification/badges";
 import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { getMasterySummary, listMastery } from "@/lib/adaptive/engine";
-import { MASTERY_THRESHOLD } from "@/lib/adaptive/mastery";
+import { MASTERY_THRESHOLD, STATUS_LABEL } from "@/lib/adaptive/mastery";
 import { getRecommendations } from "@/lib/adaptive/recommend";
+import { ANALYTICS_DAYS, getAnalyticsOverview } from "@/lib/analytics/queries";
+import { ACHIEVEMENTS } from "@/lib/gamification/achievements";
+import { getGamificationView, syncGamification } from "@/lib/gamification/sync";
 import { routes } from "@/lib/routes";
 import { getActivityStats } from "@/lib/study/queries";
 
@@ -20,27 +25,113 @@ export const metadata: Metadata = {
 };
 
 export default async function ProgressPage() {
-  const [rows, summary, recommendations, activity] = await Promise.all([listMastery(), getMasterySummary(), getRecommendations(3), getActivityStats()]);
+  // Active days and badges settle before the page reads them (§31).
+  await syncGamification();
+  const [rows, summary, recommendations, activity, analytics, gamification] = await Promise.all([listMastery(), getMasterySummary(), getRecommendations(3), getActivityStats(), getAnalyticsOverview(), getGamificationView()]);
   const practiced = rows.filter((row) => row.attempts > 0);
+  const hasActivity = analytics.totals.questions > 0 || analytics.totals.sessions > 0 || analytics.totals.cards > 0;
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Progress"
-        description={`Mastery per concept from every quiz, recall prompt, Feynman round and flashcard review. A concept counts as mastered at ${MASTERY_THRESHOLD}%; nothing is ever locked — RevTaw just recommends more practice.`}
+        description={`What your studying adds up to: scores, accuracy, time, mastery per concept and where you stand. A concept counts as mastered at ${MASTERY_THRESHOLD}%; nothing is ever locked — RevTaw just recommends more practice.`}
         actions={
-          <Link href={`${routes.study}?method=smart_study`} className={buttonClasses({ size: "sm" })}>
-            <Sparkles className="h-4 w-4" aria-hidden="true" />
-            Smart Study
-          </Link>
+          <>
+            <Link href={`${routes.progress}/map`} className={buttonClasses({ size: "sm", variant: "secondary" })}>
+              <Map className="h-4 w-4" aria-hidden="true" />
+              Mastery map
+            </Link>
+            <Link href={`${routes.study}?method=smart_study`} className={buttonClasses({ size: "sm" })}>
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              Smart Study
+            </Link>
+          </>
         }
       />
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <StatCard icon={Target} label="Average quiz score" value={analytics.totals.averageScore === null ? "—" : `${analytics.totals.averageScore}%`} caption={analytics.totals.averageScore === null ? "No quiz submitted yet." : `Over ${analytics.scores.length} recent quiz${analytics.scores.length === 1 ? "" : "zes"}.`} />
+        <StatCard icon={CheckCircle2} label="Accuracy" value={analytics.totals.accuracy === null ? "—" : `${analytics.totals.accuracy}%`} caption={analytics.totals.questions ? `${analytics.totals.questions.toLocaleString("en-US")} questions answered in total.` : "Answer questions to see it."} />
+        <StatCard icon={Clock} label={`Study time, ${ANALYTICS_DAYS} days`} value={`${analytics.totals.focusMinutes} min`} caption={`${analytics.totals.sessions} session${analytics.totals.sessions === 1 ? "" : "s"} completed · ${activity.streakDays}-day streak`} />
+        <StatCard icon={Layers} label={`Flashcards, ${ANALYTICS_DAYS} days`} value={String(analytics.totals.cards)} caption={analytics.totals.cards ? "Reviews keep the schedule honest." : "No reviews in this period."} />
         <StatCard icon={Brain} label="Concepts tracked" value={String(summary.total)} caption={summary.total === 0 ? "Answer questions to start tracking." : `${summary.mastered.length} mastered · ${summary.weak.length} weak`} />
         <StatCard icon={Gauge} label="Average mastery" value={summary.averageMastery === null ? "—" : `${summary.averageMastery}%`} caption={summary.averageMastery === null ? "No answers yet." : summary.averageMastery >= MASTERY_THRESHOLD ? "Above the mastery line." : "Weak concepts pull this down."} />
+        <StatCard icon={TrendingUp} label="Retrieval strength" value={analytics.retrieval.average === null ? "—" : `${analytics.retrieval.average}%`} caption={analytics.retrieval.average === null ? "Fades until the next review." : analytics.retrieval.fading ? `${analytics.retrieval.fading} concept${analytics.retrieval.fading === 1 ? "" : "s"} due for review.` : "Nothing due for review right now."} />
         <StatCard icon={ShieldAlert} label="Possible misconceptions" value={String(summary.misconceptions.length)} caption={summary.misconceptions.length ? "Confident but wrong — see below." : "No confident wrong answers."} />
-        <StatCard icon={TrendingUp} label="Sessions completed" value={String(activity.sessionsCompleted)} caption={`${activity.streakDays}-day streak · ${Math.round(activity.focusSecondsWeek / 60)} min this week`} />
+      </div>
+
+      {hasActivity ? (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Card>
+            <CardContent className="pt-5">
+              <DailyColumns title={`Study time, last ${ANALYTICS_DAYS} days`} points={analytics.days.map((day) => ({ date: day.date, value: day.focusMinutes }))} unit="min" seriesLabel="Minutes" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-5">
+              <DailyColumns title={`Questions answered, last ${ANALYTICS_DAYS} days`} points={analytics.days.map((day) => ({ date: day.date, value: day.answered, secondary: day.correct }))} unit="answered" seriesLabel="Answered" secondaryLabel="Correct" />
+            </CardContent>
+          </Card>
+          {analytics.scores.length > 0 && (
+            <Card>
+              <CardContent className="pt-5">
+                <ScoreColumns title="Quiz scores, latest first to last" scores={analytics.scores} />
+              </CardContent>
+            </Card>
+          )}
+          <Card>
+            <CardContent className="pt-5">
+              <DailyColumns title={`Flashcards reviewed, last ${ANALYTICS_DAYS} days`} points={analytics.days.map((day) => ({ date: day.date, value: day.cards }))} unit="cards" seriesLabel="Cards" />
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <EmptyState icon={ListChecks} title="No activity to chart yet" description="Finish a session, take a quiz or review flashcards and the charts fill in day by day." action={<Link href={routes.study} className={buttonClasses({ size: "sm" })}>Start a session</Link>} />
+      )}
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance by subject</CardTitle>
+            <CardDescription>Average mastery of the concepts practiced per subject.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PercentBars title="Mastery by subject" rows={analytics.bySubject.map((group) => ({ key: group.id ?? "none", label: group.name, percent: group.averageMastery, detail: `${group.concepts} concept${group.concepts === 1 ? "" : "s"}` }))} emptyText="Practice a concept to see its subject here." />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance by topic</CardTitle>
+            <CardDescription>Average mastery per material; the weakest first.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PercentBars title="Mastery by material" rows={analytics.byMaterial.slice(0, 8).map((group) => ({ key: group.id ?? "none", label: group.name, percent: group.averageMastery, detail: `${group.weak} weak`, href: group.href }))} emptyText="Practice a material to see it here." />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Difficulty and confidence</CardTitle>
+            <CardDescription>Accuracy by question difficulty, and by how sure you felt.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <PercentBars title="Accuracy by difficulty" rows={analytics.byDifficulty.map((row) => ({ key: row.key, label: row.label, percent: row.accuracy, detail: `${row.answered} answered` }))} emptyText="Answer quiz questions to compare difficulties." />
+            <PercentBars title="Accuracy by confidence" rows={analytics.byConfidence.map((row) => ({ key: row.key, label: row.label, percent: row.accuracy, detail: `${row.answered} answered` }))} emptyText="Rate your confidence on answers to see the calibration." />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Mastery overview</CardTitle>
+            <CardDescription>How your practiced concepts are spread across the statuses.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <StatusStrip title="Concepts by status" counts={analytics.masteryDistribution} labels={STATUS_LABEL} />
+          </CardContent>
+        </Card>
+        <LevelCard xp={gamification.xp} level={gamification.level} streakDays={gamification.streakDays} unlockedCount={gamification.unlockedCount} total={ACHIEVEMENTS.length} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

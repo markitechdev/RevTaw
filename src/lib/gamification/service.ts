@@ -1,5 +1,7 @@
 import "server-only";
 
+import { unstable_rethrow } from "next/navigation";
+
 import { routes } from "@/lib/routes";
 import { levelFor, XP_RULES, xpForAnswers, xpForSession } from "@/lib/gamification/xp";
 import type { XpSource } from "@/lib/supabase/database.types";
@@ -39,6 +41,7 @@ export async function awardXp(awards: XpAward[], supabase?: Client): Promise<num
     if (added > 0) await announceLevelUp(client, profile.xp, profile.xp + added);
     return added;
   } catch (error) {
+    unstable_rethrow(error);
     console.error("xp_events: award failed", error);
     return 0;
   }

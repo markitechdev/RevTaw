@@ -1,5 +1,6 @@
 import "server-only";
 
+import { unstable_rethrow } from "next/navigation";
 import { cache } from "react";
 
 import { ACHIEVEMENT_BY_KEY, longestStreak, newlyUnlocked, type AchievementDef, type GamificationStats } from "@/lib/gamification/achievements";
@@ -121,6 +122,7 @@ export const syncGamification = cache(async (): Promise<AchievementDef[]> => {
     );
     return added;
   } catch (error) {
+    unstable_rethrow(error);
     console.error("gamification: sync failed", error);
     return [];
   }

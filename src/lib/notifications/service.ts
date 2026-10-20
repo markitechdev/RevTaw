@@ -1,5 +1,6 @@
 import "server-only";
 
+import { unstable_rethrow } from "next/navigation";
 import { cache } from "react";
 
 import { awardGoalXp } from "@/lib/gamification/service";
@@ -78,6 +79,7 @@ export const syncNotifications = cache(async (): Promise<number> => {
     }
     return created;
   } catch (error) {
+    unstable_rethrow(error);
     console.error("notifications: sync failed", error);
     return 0;
   }
