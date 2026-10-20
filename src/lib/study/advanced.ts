@@ -2,7 +2,7 @@ import "server-only";
 
 import { getMasterySummary, refreshMastery } from "@/lib/adaptive/engine";
 import { isAiError } from "@/lib/ai";
-import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
+import { normalizeConceptName } from "@/lib/concepts/service";
 import { parseAnalysisData } from "@/lib/materials/analysis-schema";
 import { loadMaterialContext } from "@/lib/reviewers/service";
 import {
@@ -16,12 +16,10 @@ import {
 } from "@/lib/study/ai";
 import { RAPID_REVIEW_MINUTES } from "@/lib/study/catalog";
 import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
-import { createSession, loadSession, SessionError, sessionTitle, type CreateSessionInput } from "@/lib/study/sessions";
-import type { Json, SessionGoal, SessionItemKind, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
+import { conceptsFor, insertItems, loadOpenItem, openSession, type Client, type FlowStartInput, type FlowStartResult, type ItemRow, type MaterialContext } from "@/lib/study/items";
+import { loadSession, SessionError, sessionTitle } from "@/lib/study/sessions";
+import type { Json, SessionItemKind } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
-
-type Client = Awaited<ReturnType<typeof createClient>>;
-type Context = Awaited<ReturnType<typeof loadMaterialContext>>;
 
 /**
  * Phase 8 study-method sessions. The recall-based methods (retrieval practice,
@@ -29,37 +27,11 @@ type Context = Awaited<ReturnType<typeof loadMaterialContext>>;
  * with a different selection of prompts; other methods add their own flows below.
  */
 
-export type AdvancedStartInput = {
-  materialId: string | null;
-  materialIds?: string[];
-  goal: SessionGoal | null;
-  plannedMinutes: number;
-};
-
-export type StartResult = { sessionId: string; redirect: string };
-
-type ItemRow = {
-  session_id: string;
-  user_id: string;
-  position: number;
-  kind: SessionItemKind;
-  concept_id: string | null;
-  prompt: string;
-  model_answer: string | null;
-  key_points: Json;
-  source_excerpt: string | null;
-  source_mistake_id?: string | null;
-  material_id?: string | null;
-  format?: string | null;
-  analysis?: Json;
-};
+export type AdvancedStartInput = FlowStartInput;
+export type StartResult = FlowStartResult;
 
 function recallCount(minutes: number): number {
   return Math.max(3, Math.min(15, Math.round(minutes / 2)));
-}
-
-async function conceptsFor(supabase: Client, userId: string, context: Context, names: string[]): Promise<Map<string, string>> {
-  return ensureConcepts(supabase, userId, names, { materialId: context.material.id, subjectId: context.material.subject_id });
 }
 
 async function weakNames(materialId: string, limit = 6): Promise<string[]> {
@@ -70,7 +42,7 @@ async function weakNames(materialId: string, limit = 6): Promise<string[]> {
     .slice(0, limit);
 }
 
-async function recallItemsFor(supabase: Client, userId: string, context: Context, questions: RecallQuestion[], options: { sessionId: string; startPosition: number; materialId?: string | null; kind?: SessionItemKind }): Promise<ItemRow[]> {
+async function recallItemsFor(supabase: Client, userId: string, context: MaterialContext, questions: RecallQuestion[], options: { sessionId: string; startPosition: number; materialId?: string | null; kind?: SessionItemKind }): Promise<ItemRow[]> {
   const concepts = await conceptsFor(supabase, userId, context, questions.map((question) => question.concept));
   return questions.map((question, index) => ({
     session_id: options.sessionId,
@@ -85,17 +57,6 @@ async function recallItemsFor(supabase: Client, userId: string, context: Context
     material_id: options.materialId ?? null,
     format: question.format ?? null,
   }));
-}
-
-async function insertItems(supabase: Client, rows: ItemRow[]): Promise<void> {
-  if (rows.length === 0) return;
-  const { error } = await supabase.from("study_session_items").insert(rows);
-  if (error) throw new Error(`study_session_items: insert failed: ${error.message}`);
-}
-
-async function openSession(supabase: Client, userId: string, input: Omit<CreateSessionInput, "title"> & { title: string }): Promise<string> {
-  const { id } = await createSession(supabase, userId, input);
-  return id;
 }
 
 // ---------------------------------------------------------------------------
@@ -347,18 +308,10 @@ export const BLURT_MAX_ROUNDS = 2;
 
 export type BlurtResult = { analysis: BlurtComparison; round: number; final: boolean; source: string | null };
 
-async function loadItem(supabase: Client, itemId: string): Promise<{ item: StudySessionItem; session: StudySession }> {
-  const { data: item } = await supabase.from("study_session_items").select("*").eq("id", itemId).maybeSingle();
-  if (!item) throw new SessionError("Item not found.", 404);
-  const session = await loadSession(supabase, item.session_id);
-  if (session.status !== "in_progress") throw new SessionError("This session is already finished.", 409);
-  return { item, session };
-}
-
 /** Compares one blurt attempt with the section; the source is revealed only after the last round. */
 export async function compareBlurtItem(input: { itemId: string; text: string; responseMs: number | null }): Promise<BlurtResult> {
   const supabase = await createClient();
-  const { item, session } = await loadItem(supabase, input.itemId);
+  const { item, session } = await loadOpenItem(supabase, input.itemId);
   if (item.kind !== "blurt") throw new SessionError("This item is not a blurt.", 400);
   const previous = ((item.analysis as { rounds?: BlurtRound[] } | null)?.rounds ?? []) as BlurtRound[];
   if (previous.length >= BLURT_MAX_ROUNDS) {

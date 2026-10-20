@@ -11,9 +11,10 @@ import { loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
 import { startBlurting, startChunking, startCumulativeReview, startInterleaving, startQuestionGeneration, startRapidReview, startRetrievalPractice } from "@/lib/study/advanced";
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
 import { isTutorMethod, METHOD_BEHAVIOUR, TEST_METHOD_IDS, type BuilderMethodId, type TestMethodId } from "@/lib/study/catalog";
+import { loadOpenItem } from "@/lib/study/items";
 import type { StudyMethodId } from "@/lib/study/methods";
 import { completeSession, createSession, loadSession, SessionError, sessionTitle, suggestNext, updateSessionState, type SessionSummary } from "@/lib/study/sessions";
-import type { ConfidenceLevel, Json, SessionGoal, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
+import type { ConfidenceLevel, Json, SessionGoal, StudySession } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { startTutorSession } from "@/lib/tutor/service";
 
@@ -345,18 +346,10 @@ export type RecallItemResult = {
   sourceExcerpt: string | null;
 };
 
-async function loadItem(supabase: Client, itemId: string): Promise<{ item: StudySessionItem; session: StudySession }> {
-  const { data: item } = await supabase.from("study_session_items").select("*").eq("id", itemId).maybeSingle();
-  if (!item) throw new SessionError("Item not found.", 404);
-  const session = await loadSession(supabase, item.session_id);
-  if (session.status !== "in_progress") throw new SessionError("This session is already finished.", 409);
-  return { item, session };
-}
-
 /** Compares a recall answer with the model answer and stores the result; wrong answers go to the notebook. */
 export async function answerRecallItem(input: { itemId: string; response: string; confidence: ConfidenceLevel | null; responseMs: number | null }): Promise<RecallItemResult> {
   const supabase = await createClient();
-  const { item, session } = await loadItem(supabase, input.itemId);
+  const { item, session } = await loadOpenItem(supabase, input.itemId);
   if (item.kind === "feynman" || item.kind === "blurt" || item.kind === "question") throw new SessionError("This item uses a different flow.", 400);
   if (item.answered_at && item.analysis && (item.analysis as { verdict?: string }).verdict) {
     const comparison = item.analysis as unknown as RecallComparison;
@@ -452,7 +445,7 @@ export const FEYNMAN_MAX_ROUNDS = 2;
 /** Analyses one explanation attempt; the ideal explanation is revealed only after the last round. */
 export async function analyzeFeynmanItem(input: { itemId: string; explanation: string; responseMs: number | null }): Promise<FeynmanRoundResult> {
   const supabase = await createClient();
-  const { item, session } = await loadItem(supabase, input.itemId);
+  const { item, session } = await loadOpenItem(supabase, input.itemId);
   if (item.kind !== "feynman") throw new SessionError("This item is not a Feynman concept.", 400);
   if (item.attempts >= FEYNMAN_MAX_ROUNDS) throw new SessionError("This concept has already had two attempts.", 409);
 
