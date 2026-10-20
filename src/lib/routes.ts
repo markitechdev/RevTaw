@@ -16,6 +16,7 @@ export const routes = {
   materials: "/materials",
   study: "/study",
   memoryAids: "/study/memory",
+  search: "/search",
   methods: "/methods",
   quiz: "/quiz",
   flashcards: "/flashcards",
@@ -43,6 +44,7 @@ export const PROTECTED_PREFIXES = [
   routes.progress,
   routes.planner,
   routes.settings,
+  routes.search,
 ] as const;
 
 /** Pages that only make sense for signed-out visitors. */
