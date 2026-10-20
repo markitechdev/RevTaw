@@ -26,6 +26,7 @@ export default async function DeckReviewPage({ params, searchParams }: PageProps
       mode={mode}
       backHref={`${routes.flashcards}/${deck.id}`}
       backLabel={deck.title}
+      title={`${mode === "favorites" ? "Reviewing favorites in" : mode === "all" ? "Studying" : "Reviewing"} ${deck.title}`}
     />
   );
 }

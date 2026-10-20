@@ -27,7 +27,7 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Search" description="Across your documents, notes and reviewers, topics, quiz questions, flashcards and AI conversations. Use quotes for an exact phrase, OR between alternatives, and a minus sign to leave a word out." />
-      <SearchBox initialQuery={query} autoFocus className="max-w-2xl" />
+      <SearchBox initialQuery={query} autoFocus placement="page" className="max-w-2xl" />
 
       {!results ? (
         <EmptyState icon={Search} title="Type something to search" description="Try a concept from your material — every resource that mentions it shows up here." />

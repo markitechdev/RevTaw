@@ -265,7 +265,7 @@ export function SessionBuilder({
                     <span className="flex min-w-0 flex-col gap-0.5">
                       <span className="flex flex-wrap items-center gap-1.5 font-medium">
                         {info.name}
-                        {isRecommended && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">Recommended</span>}
+                        {isRecommended && <span className="rounded-full border border-primary/40 bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary">Recommended</span>}
                       </span>
                       <span className="text-xs text-muted-foreground">{info.summary}</span>
                       {disabled && (

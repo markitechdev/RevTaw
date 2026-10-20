@@ -14,8 +14,13 @@ export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElemen
   return <div className={cn("flex flex-col gap-1 p-5 pb-0", className)} {...props} />;
 }
 
-export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn("text-base font-semibold leading-tight", className)} {...props} />;
+/**
+ * Card titles are level-2 headings by default: cards sit directly under the
+ * page's h1, so h3 would skip a level. Pass `as` when the card is nested
+ * under another heading.
+ */
+export function CardTitle({ as: Tag = "h2", className, ...props }: HTMLAttributes<HTMLHeadingElement> & { as?: "h2" | "h3" | "h4" }) {
+  return <Tag className={cn("text-base font-semibold leading-tight", className)} {...props} />;
 }
 
 export function CardDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {

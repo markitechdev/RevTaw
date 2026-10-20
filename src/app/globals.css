@@ -34,7 +34,8 @@
   --warning-foreground: #ffffff;
   --warning-soft: #fffbeb;
 
-  --danger: #dc2626;
+  /* red-700 rather than red-600: 5.9:1 on the soft tint and 6.5:1 under white text. */
+  --danger: #b91c1c;
   --danger-foreground: #ffffff;
   --danger-soft: #fef2f2;
 

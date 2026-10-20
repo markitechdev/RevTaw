@@ -86,6 +86,7 @@ export default async function ExamPlanPage({ params }: PageProps<"/planner/[exam
       <ExamCard
         exam={exam}
         today={today}
+        headingLevel="h1"
         actions={
           <>
             {editButton}

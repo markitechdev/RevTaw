@@ -238,6 +238,9 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <h1 id="quiz-runner-title" className="sr-only">
+        {quiz.title}
+      </h1>
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
           <Badge tone={attempt.mode === "exam" ? "warning" : "primary"}>{QUIZ_MODE_LABEL[attempt.mode]}</Badge>
@@ -379,8 +382,10 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
           </div>
         </section>
 
-        <aside className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 lg:sticky lg:top-6 lg:self-start">
-          <p className="text-sm font-semibold">{quiz.title}</p>
+        <aside aria-labelledby="quiz-runner-title" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 lg:sticky lg:top-6 lg:self-start">
+          <p className="text-sm font-semibold" aria-hidden="true">
+            {quiz.title}
+          </p>
           {navigator}
           <p className="text-xs text-muted-foreground">
             {attempt.mode === "exam"

@@ -25,11 +25,21 @@ function barColor(status: MasteryStatus): string {
 export function MasteryBar({ value, status, compact = false }: { value: number; status: MasteryStatus; compact?: boolean }) {
   const percent = Math.round(Number(value));
   return (
-    <div className="flex items-center gap-2" aria-label={`Mastery ${percent}%`}>
-      <div className={cn("h-2 overflow-hidden rounded-full bg-muted", compact ? "w-16" : "w-24 sm:w-32")} role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
+    <div className="flex items-center gap-2">
+      <div
+        className={cn("h-2 overflow-hidden rounded-full bg-muted", compact ? "w-16" : "w-24 sm:w-32")}
+        role="progressbar"
+        aria-label="Mastery"
+        aria-valuenow={percent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuetext={`${percent}%, ${status}`}
+      >
         <div className={cn("h-full rounded-full", barColor(status))} style={{ width: `${percent}%` }} />
       </div>
-      <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">{percent}%</span>
+      <span className="w-9 text-right text-xs tabular-nums text-muted-foreground" aria-hidden="true">
+        {percent}%
+      </span>
     </div>
   );
 }

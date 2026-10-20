@@ -9,8 +9,8 @@ import { cn } from "@/lib/utils";
 /**
  * Export menu (spec §34): print, PDF or Word for whatever the page shows.
  * Links point at the export route, so downloads work without JavaScript
- * once the menu is open; the menu itself is a small, keyboard-friendly
- * disclosure.
+ * once the menu is open. It is a disclosure (button + list of links), not an
+ * ARIA menu, so Tab moves through the options and Escape closes it.
  */
 
 export type ExportTarget = { kind: "reviewer" | "quiz" | "results" | "deck" | "plan" | "mistakes" | "progress"; id?: string; query?: Record<string, string> };
@@ -24,20 +24,30 @@ export function exportHref(target: ExportTarget, format: "pdf" | "docx" | "html"
 export function ExportMenu({ target, label = "Export", size = "sm", variant = "secondary", className }: { target: ExportTarget; label?: string; size?: "sm" | "md"; variant?: "primary" | "secondary" | "ghost"; className?: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const id = useId();
 
   useEffect(() => {
     if (!open) return;
     const close = (event: MouseEvent | KeyboardEvent) => {
-      if (event instanceof KeyboardEvent && event.key !== "Escape") return;
+      if (event instanceof KeyboardEvent) {
+        if (event.key !== "Escape") return;
+        buttonRef.current?.focus();
+      }
       if (event instanceof MouseEvent && ref.current?.contains(event.target as Node)) return;
       setOpen(false);
     };
+    const closeOnFocusOut = (event: FocusEvent) => {
+      if (event.relatedTarget && !ref.current?.contains(event.relatedTarget as Node)) setOpen(false);
+    };
+    const node = ref.current;
     document.addEventListener("mousedown", close);
     document.addEventListener("keydown", close);
+    node?.addEventListener("focusout", closeOnFocusOut);
     return () => {
       document.removeEventListener("mousedown", close);
       document.removeEventListener("keydown", close);
+      node?.removeEventListener("focusout", closeOnFocusOut);
     };
   }, [open]);
 
@@ -49,16 +59,15 @@ export function ExportMenu({ target, label = "Export", size = "sm", variant = "s
 
   return (
     <div ref={ref} className={cn("relative", className)}>
-      <Button type="button" size={size} variant={variant} aria-haspopup="menu" aria-expanded={open} aria-controls={`${id}-menu`} onClick={() => setOpen((state) => !state)}>
+      <Button ref={buttonRef} type="button" size={size} variant={variant} aria-expanded={open} aria-controls={`${id}-menu`} onClick={() => setOpen((state) => !state)}>
         <Download className="h-4 w-4" aria-hidden="true" />
         {label}
       </Button>
       {open && (
-        <div id={`${id}-menu`} role="menu" aria-label={label} className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-lg border border-border bg-card p-1 shadow-lg">
+        <div id={`${id}-menu`} className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-lg border border-border bg-card p-1 shadow-lg">
           {items.map((item) => (
             <a
               key={item.label}
-              role="menuitem"
               href={item.href}
               target={item.target}
               rel={item.target ? "noopener" : undefined}

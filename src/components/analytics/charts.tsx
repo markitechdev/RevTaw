@@ -101,7 +101,8 @@ export function DailyColumns({
           {current ? `${shortDate(current.date)}: ${current.value} ${unit}${stacked && current.secondary !== undefined ? ` · ${current.secondary} ${secondaryLabel.toLowerCase()}` : ""}` : `${total} ${unit} in ${points.length} days`}
         </span>
       </figcaption>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="img" aria-label={`${title}: ${total} ${unit} over the last ${points.length} days`}>
+      {/* A group, not an image: every bar is focusable so keyboard users can read a day's value. */}
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="group" aria-label={`${title}: ${total} ${unit} over the last ${points.length} days`}>
         {ticks.map((tick) => {
           const y = padding.top + innerHeight - (tick / max) * innerHeight;
           return (
@@ -123,7 +124,7 @@ export function DailyColumns({
             <g
               key={point.date}
               tabIndex={0}
-              role="button"
+              role="img"
               aria-label={`${shortDate(point.date)}: ${point.value} ${unit}${stacked && point.secondary !== undefined ? `, ${point.secondary} ${secondaryLabel.toLowerCase()}` : ""}`}
               onMouseEnter={() => setActive(index)}
               onMouseLeave={() => setActive(null)}
@@ -227,7 +228,7 @@ export function ScoreColumns({ title, scores, className }: { title: string; scor
           {current.title} · {shortDate(current.date)}: {current.percent}%
         </span>
       </figcaption>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="img" aria-label={`${title}: ${scores.map((score) => `${score.percent}%`).join(", ")}`}>
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="group" aria-label={`${title}: ${scores.map((score) => `${score.percent}%`).join(", ")}`}>
         {[0, 50, 100].map((tick) => {
           const y = padding.top + innerHeight - (tick / 100) * innerHeight;
           return (
@@ -244,7 +245,7 @@ export function ScoreColumns({ title, scores, className }: { title: string; scor
           const barHeight = (score.percent / 100) * innerHeight;
           const last = index === scores.length - 1;
           return (
-            <g key={`${score.date}-${index}`} tabIndex={0} role="button" aria-label={`${score.title}, ${shortDate(score.date)}: ${score.percent}%`} onMouseEnter={() => setActive(index)} onMouseLeave={() => setActive(null)} onFocus={() => setActive(index)} onBlur={() => setActive(null)} className="cursor-default outline-none">
+            <g key={`${score.date}-${index}`} tabIndex={0} role="img" aria-label={`${score.title}, ${shortDate(score.date)}: ${score.percent}%`} onMouseEnter={() => setActive(index)} onMouseLeave={() => setActive(null)} onFocus={() => setActive(index)} onBlur={() => setActive(null)} className="cursor-default outline-none">
               <rect x={padding.left + index * slot} y={padding.top} width={slot} height={innerHeight} fill="transparent" />
               <rect x={x} y={padding.top + innerHeight - barHeight} width={barWidth} height={Math.max(1, barHeight)} rx={Math.min(4, barWidth / 2)} className={cn(last || active === index ? "fill-primary" : "fill-primary/35")} />
               {last && (

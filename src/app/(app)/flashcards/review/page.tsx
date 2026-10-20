@@ -15,5 +15,5 @@ export default async function ReviewAllPage({ searchParams }: PageProps<"/flashc
   const params = await searchParams;
   const task = typeof params.task === "string" && UUID.test(params.task) ? params.task : null;
   const queue = await getReviewQueue({ mode: "due", limit: 200 });
-  return <FlashcardReview queue={queue} deckId={null} mode="due" backHref={task ? routes.planner : routes.flashcards} backLabel={task ? "Planner" : "Flashcards"} taskId={task} />;
+  return <FlashcardReview queue={queue} deckId={null} mode="due" backHref={task ? routes.planner : routes.flashcards} backLabel={task ? "Planner" : "Flashcards"} title="Reviewing due flashcards" taskId={task} />;
 }

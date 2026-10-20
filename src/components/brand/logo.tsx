@@ -45,9 +45,9 @@ export function Logo({
     <Link
       href={href}
       className={cn("inline-flex items-center gap-2.5", className)}
-      aria-label={`${BRAND.name} home`}
     >
       <LogoMark />
+      {/* The visible wordmark is the link's accessible name (WCAG 2.5.3 label in name). */}
       <span className="flex flex-col leading-none">
         <span className="text-lg font-bold tracking-tight text-foreground">
           {BRAND.name}

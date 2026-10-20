@@ -33,6 +33,7 @@ export function FlashcardReview({
   mode,
   backHref,
   backLabel,
+  title,
   taskId = null,
 }: {
   /** Already ordered (and shuffled when asked) by the server so hydration matches. */
@@ -41,6 +42,8 @@ export function FlashcardReview({
   mode: "due" | "all" | "favorites";
   backHref: string;
   backLabel: string;
+  /** The page's (visually hidden) h1, e.g. "Reviewing Biology deck". */
+  title: string;
   /** Planner task this review completes, when started from the plan. */
   taskId?: string | null;
 }) {
@@ -216,6 +219,7 @@ export function FlashcardReview({
   if (summary) {
     return (
       <div className="flex flex-col gap-4">
+        <h1 className="sr-only">{title}</h1>
         <Link href={backHref} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {backLabel}
@@ -243,6 +247,7 @@ export function FlashcardReview({
   if (queue.length === 0) {
     return (
       <div className="flex flex-col gap-4">
+        <h1 className="sr-only">{title}</h1>
         <Link href={backHref} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {backLabel}
@@ -271,6 +276,7 @@ export function FlashcardReview({
 
   return (
     <div className="flex flex-col gap-4">
+      <h1 className="sr-only">{title}</h1>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link href={backHref} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2" })}>
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -314,7 +320,6 @@ export function FlashcardReview({
         <button
           type="button"
           onClick={() => setFlipped((value) => !value)}
-          aria-label={flipped ? "Show the front" : "Reveal the answer"}
           className={cn(
             "flex min-h-64 w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border bg-card p-8 text-center shadow-sm transition-colors",
             flipped ? "border-primary/50 bg-primary-soft/30" : "border-border hover:border-primary/40",
@@ -323,7 +328,7 @@ export function FlashcardReview({
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{flipped ? "Answer" : "Question"}</span>
           <span className="whitespace-pre-wrap text-xl font-medium leading-snug text-foreground">{flipped ? card.back : card.front}</span>
           {flipped && card.source_excerpt && <span className="mt-2 text-xs italic text-muted-foreground">Source: “{card.source_excerpt}”</span>}
-          {!flipped && <span className="mt-2 text-xs text-muted-foreground">Tap or press Space to reveal</span>}
+          <span className="mt-2 text-xs text-muted-foreground">{flipped ? "Tap or press Space to show the question again" : "Tap or press Space to reveal"}</span>
         </button>
 
         {!flipped && card.hint && (

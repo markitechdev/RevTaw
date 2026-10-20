@@ -37,7 +37,7 @@ export function AppShell({
         Skip to content
       </a>
 
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-card lg:flex">
+      <aside aria-label="Sidebar" className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-card lg:flex">
         <div className="flex h-16 items-center justify-between gap-2 px-5">
           <Logo href={routes.dashboard} withTagline />
           {notifications}
