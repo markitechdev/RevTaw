@@ -34,7 +34,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Document parsers ship their own workers/native bindings; keep them out of
   // the bundler and load them from node_modules at runtime.
-  serverExternalPackages: ["pdf-parse", "@napi-rs/canvas", "mammoth", "word-extractor"],
+  serverExternalPackages: ["pdf-parse", "@napi-rs/canvas", "mammoth", "word-extractor", "@react-pdf/renderer"],
   turbopack: {
     rules: {
       "*.css": {
