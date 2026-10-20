@@ -7,7 +7,7 @@ import { isAiError } from "@/lib/ai";
 import { getConceptPerformance } from "@/lib/quizzes/queries";
 import { createQuiz, startAttempt } from "@/lib/quizzes/service";
 import { loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
-import { startBlurting, startCumulativeReview, startInterleaving, startRapidReview, startRetrievalPractice } from "@/lib/study/advanced";
+import { startBlurting, startChunking, startCumulativeReview, startInterleaving, startRapidReview, startRetrievalPractice } from "@/lib/study/advanced";
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
 import { isTutorMethod, METHOD_BEHAVIOUR, type BuilderMethodId } from "@/lib/study/catalog";
 import type { StudyMethodId } from "@/lib/study/methods";
@@ -138,6 +138,8 @@ async function startSessionInner(userId: string, input: StartSessionInput): Prom
       return startInterleaving(supabase, userId, input);
     case "blurting":
       return startBlurting(supabase, userId, input);
+    case "chunking":
+      return startChunking(supabase, userId, input);
   }
 }
 
@@ -344,7 +346,7 @@ export async function answerRecallItem(input: { itemId: string; response: string
   const supabase = await createClient();
   const { item, session } = await loadItem(supabase, input.itemId);
   if (item.kind === "feynman" || item.kind === "blurt") throw new SessionError("This item uses a different flow.", 400);
-  if (item.answered_at && item.analysis) {
+  if (item.answered_at && item.analysis && (item.analysis as { verdict?: string }).verdict) {
     const comparison = item.analysis as unknown as RecallComparison;
     return { comparison, isCorrect: Boolean(item.is_correct), modelAnswer: item.model_answer ?? "", sourceExcerpt: item.source_excerpt };
   }
@@ -374,11 +376,13 @@ export async function answerRecallItem(input: { itemId: string; response: string
   }
   const isCorrect = comparison.score >= 60;
   const now = new Date().toISOString();
+  // Chunk items keep their reading text next to the comparison.
+  const chunkText = (item.analysis as { chunk?: unknown } | null)?.chunk;
   const { error } = await supabase
     .from("study_session_items")
     .update({
       response: input.response.slice(0, 8000),
-      analysis: comparison as unknown as Json,
+      analysis: (chunkText ? { ...comparison, chunk: chunkText } : comparison) as unknown as Json,
       is_correct: isCorrect,
       score: comparison.score,
       confidence: input.confidence,
@@ -540,6 +544,7 @@ function itemSessionNext(method: StudyMethodId, accuracy: number | null, weak: s
     case "rapid_review":
     case "cumulative_review":
     case "interleaving":
+    case "chunking":
       return suggestNext(accuracy, weak, "active_recall");
     default:
       return suggestNext(accuracy, weak, method);

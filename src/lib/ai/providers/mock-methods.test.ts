@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { blurtCompareHeuristically, recallQuestionsHeuristically } from "@/lib/ai/providers/mock";
+import { blurtCompareHeuristically, chunkHeuristically, recallQuestionsHeuristically } from "@/lib/ai/providers/mock";
 
 const transcript = `[Section: Photosynthesis Overview]
 Photosynthesis Overview
@@ -42,5 +42,13 @@ The Calvin cycle uses ATP.
     const blank = blurtCompareHeuristically(prompt.replace("The Calvin cycle uses ATP.", "(blank)"));
     expect(blank.score).toBe(0);
     expect(blank.remembered).toEqual([]);
+  });
+
+  it("chunks one section at a time with a recall question", () => {
+    const { chunks } = chunkHeuristically(transcript, "Produce about 4 chunks.");
+    expect(chunks).toHaveLength(2);
+    expect(chunks[0].title).toBe("Photosynthesis Overview");
+    expect(chunks[1].recall_question).toMatch(/Calvin cycle/);
+    expect(chunks[1].details.length).toBeGreaterThan(0);
   });
 });

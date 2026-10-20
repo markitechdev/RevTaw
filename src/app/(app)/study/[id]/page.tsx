@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { BlurtingRunner } from "@/components/study/blurting-runner";
+import { ChunkRunner } from "@/components/study/chunk-runner";
 import { FeynmanRunner } from "@/components/study/feynman-runner";
 import { PomodoroRunner } from "@/components/study/pomodoro-runner";
 import { RecallRunner } from "@/components/study/recall-runner";
@@ -120,6 +121,8 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
       return <FeynmanRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
     case "blurting":
       return <BlurtingRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
+    case "chunking":
+      return <ChunkRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
     case "pomodoro":
       return <PomodoroRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
     default:

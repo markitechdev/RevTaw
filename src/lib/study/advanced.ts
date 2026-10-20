@@ -5,7 +5,7 @@ import { isAiError } from "@/lib/ai";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { parseAnalysisData } from "@/lib/materials/analysis-schema";
 import { loadMaterialContext } from "@/lib/reviewers/service";
-import { compareBlurt, generateRecallQuestions, type BlurtComparison, type RecallQuestion } from "@/lib/study/ai";
+import { chunkMaterial, compareBlurt, generateRecallQuestions, type BlurtComparison, type RecallQuestion } from "@/lib/study/ai";
 import { RAPID_REVIEW_MINUTES } from "@/lib/study/catalog";
 import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
 import { createSession, loadSession, SessionError, sessionTitle, type CreateSessionInput } from "@/lib/study/sessions";
@@ -405,4 +405,43 @@ export async function compareBlurtItem(input: { itemId: string; text: string; re
     await supabase.from("study_sessions").update({ last_active_at: now }).eq("id", session.id);
   }
   return { analysis: comparison, round, final, source: final ? item.model_answer : null };
+}
+
+// ---------------------------------------------------------------------------
+// Chunking: read a chunk, answer its recall question, move on
+// ---------------------------------------------------------------------------
+
+export async function startChunking(supabase: Client, userId: string, input: AdvancedStartInput): Promise<StartResult> {
+  const context = await loadMaterialContext(supabase, input.materialId!);
+  const count = Math.max(2, Math.min(10, Math.round(input.plannedMinutes / 4)));
+  const generated = await chunkMaterial({ materialTitle: context.material.title, chunks: context.chunks, count, student: context.student });
+  if (generated.chunks.length === 0) throw new SessionError("The material could not be chunked.", 422);
+  const concepts = await conceptsFor(supabase, userId, context, generated.chunks.map((chunk) => chunk.concept));
+  const sessionId = await openSession(supabase, userId, {
+    method: "chunking",
+    materialId: context.material.id,
+    subjectId: context.material.subject_id,
+    goal: input.goal ?? "understand",
+    plannedMinutes: input.plannedMinutes,
+    title: sessionTitle("chunking", context.material.title),
+    state: { index: 0, provider: generated.provider },
+  });
+  await insertItems(
+    supabase,
+    generated.chunks.map((chunk, position) => ({
+      session_id: sessionId,
+      user_id: userId,
+      position,
+      kind: "chunk",
+      concept_id: concepts.get(normalizeConceptName(chunk.concept)) ?? null,
+      prompt: chunk.recall_question,
+      model_answer: chunk.model_answer,
+      key_points: chunk.key_points as unknown as Json,
+      source_excerpt: chunk.mini_summary.slice(0, 1000),
+      material_id: null,
+      format: null,
+      analysis: { chunk: { title: chunk.title, main_idea: chunk.main_idea, details: chunk.details, mini_summary: chunk.mini_summary } } as unknown as Json,
+    })),
+  );
+  return { sessionId, redirect: `/study/${sessionId}` };
 }

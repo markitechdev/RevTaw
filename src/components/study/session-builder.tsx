@@ -38,6 +38,7 @@ const PREPARING: Partial<Record<BuilderMethodId, string>> = {
   cumulative_review: "picking what to ask",
   interleaving: "picking what to ask",
   blurting: "setting up",
+  chunking: "splitting the material into chunks",
 };
 
 const POMODORO_PRESETS: ReadonlyArray<{ work: number; rest: number }> = [

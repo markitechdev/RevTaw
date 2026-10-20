@@ -125,8 +125,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 25,
     goals: ["understand"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
-    behaviour: "The material is split into short sections, each with a summary and a check question before moving on.",
+    availableIn: "now",
+    behaviour: "The material is split into short chunks, each with a main idea, important details and a mini summary; you read one, answer its recall question, and only then move to the next.",
   },
   elaborative_interrogation: {
     howItHelps: "Asking why and how connects facts into explanations that last.",
@@ -367,6 +367,7 @@ export const BUILDER_METHOD_IDS = [
   "retrieval_practice",
   "blurting",
   "feynman",
+  "chunking",
   "practice_testing",
   "rapid_review",
   "cumulative_review",

@@ -291,3 +291,51 @@ ${input.studentText.slice(0, 6000) || "(blank)"}
   const result = await generateJson(provider, blurtComparisonSchema, { task: "blurting_compare", system, messages: [{ role: "user", content: user }], maxTokens: 1500, temperature: 0 });
   return { comparison: result.data, provider: result.raw.provider, model: result.raw.model };
 }
+
+// ---------------------------------------------------------------------------
+// Chunking (Phase 8)
+// ---------------------------------------------------------------------------
+
+export const chunkPlanSchema = z.object({
+  chunks: z
+    .array(
+      z.object({
+        title: text(160),
+        main_idea: text(600),
+        details: z.array(z.string().trim().min(1).max(400)).max(8),
+        mini_summary: text(600),
+        recall_question: text(600),
+        model_answer: text(1500),
+        key_points: points,
+        concept: text(120),
+      }),
+    )
+    .min(1)
+    .max(12),
+});
+
+export type ChunkPlan = z.infer<typeof chunkPlanSchema>["chunks"][number];
+
+export async function chunkMaterial(input: { materialTitle: string; chunks: AnalysisChunkInput[]; count: number; student: StudentContext }): Promise<{ chunks: ChunkPlan[]; provider: string; model: string }> {
+  const provider = getAiProvider("strong");
+  const { transcript } = buildTranscript(input.chunks);
+  const system = `You are RevTaw's chunking coach. Break the material into manageable sections a student reads one at a time (spec: each chunk has a main idea, important details, a mini summary and one recall question).
+
+Rules:
+- Follow the material's own order and headings; each chunk covers one idea or sub-topic, never more than a few paragraphs.
+- "main_idea": one sentence. "details": 2-6 important details in the material's words. "mini_summary": 1-2 sentences.
+- "recall_question": one question answerable from this chunk alone (no yes/no); "model_answer" and 2-5 "key_points" grade the student's answer.
+- "concept": the 1-4 word concept of the chunk.
+- Use ONLY the material between <material> tags. Respond with a single JSON object matching the schema.`;
+  const user = `Material title: ${input.materialTitle}
+Student: ${studentLine(input.student)}
+Produce about ${input.count} chunks.
+
+JSON schema: { "chunks": [{ "title": string, "main_idea": string, "details": string[], "mini_summary": string, "recall_question": string, "model_answer": string, "key_points": string[], "concept": string }] }
+
+<material>
+${transcript}
+</material>`;
+  const result = await generateJson(provider, chunkPlanSchema, { task: "chunk_material", system, messages: [{ role: "user", content: user }], maxTokens: 7000, temperature: 0.3 });
+  return { chunks: result.data.chunks.slice(0, Math.max(1, input.count)), provider: result.raw.provider, model: result.raw.model };
+}

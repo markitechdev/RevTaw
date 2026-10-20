@@ -64,6 +64,9 @@ export class MockProvider implements AiProvider {
       case "blurting_compare":
         text = JSON.stringify(blurtCompareHeuristically(userText));
         break;
+      case "chunk_material":
+        text = JSON.stringify(chunkHeuristically(rawMaterial, userText));
+        break;
       case "ocr_image":
         text = "Mock transcription: the image was read by the mock provider. Configure a real AI provider to extract the actual text.";
         break;
@@ -619,6 +622,45 @@ export function blurtCompareHeuristically(prompt: string) {
     score,
     feedback: blank ? "Nothing written yet — write whatever you remember, even single words." : score >= 80 ? `Strong recall: you covered ${remembered.slice(0, 3).join(", ")}.` : `You remembered ${remembered.length} of ${terms.length} key ideas. Think about ${missing.slice(0, 2).join(" and ") || "the main definitions"} before you retry.`,
   };
+}
+
+/** Deterministic chunking: one chunk per transcript section. */
+export function chunkHeuristically(transcript: string, prompt: string) {
+  const count = Number(prompt.match(/Produce about (\d+) chunks/)?.[1] ?? "4");
+  // Split each transcript section again at inline headings, so short notes still give several chunks.
+  const sections = parseTranscriptSections(transcript)
+    .flatMap((section) => {
+      const parts: Array<{ heading: string; text: string }> = [];
+      let current = { heading: section.heading, lines: [] as string[] };
+      for (const line of section.text.split("\n")) {
+        if (isHeadingLike(line.trim())) {
+          if (current.lines.join(" ").trim()) parts.push({ heading: current.heading, text: current.lines.join("\n").trim() });
+          current = { heading: line.trim(), lines: [] };
+          continue;
+        }
+        current.lines.push(line);
+      }
+      if (current.lines.join(" ").trim()) parts.push({ heading: current.heading, text: current.lines.join("\n").trim() });
+      return parts;
+    })
+    .filter((section) => sentencesOf(section.text).length > 0);
+  const chunks = sections.slice(0, Math.max(1, count)).map((section) => {
+    const sentences = sentencesOf(section.text);
+    const facts = collectFacts(`[Section: ${section.heading}]\n${section.text}`);
+    const fact = facts.find((item) => item.term) ?? facts[0];
+    const topic = fact?.term ?? section.heading;
+    return {
+      title: section.heading,
+      main_idea: sentences[0],
+      details: sentences.slice(1, 5),
+      mini_summary: `${section.heading}: ${sentences[0].slice(0, 160)}`,
+      recall_question: fact?.term ? `From memory: what is ${fact.term}?` : `From memory: what is the main point of "${section.heading}"?`,
+      model_answer: fact?.sentence ?? sentences[0],
+      key_points: keywordsOf(fact?.definition ?? fact?.sentence ?? sentences[0]).slice(0, 4),
+      concept: topic.slice(0, 60),
+    };
+  });
+  return { chunks };
 }
 
 /** Deterministic recall check: key-point overlap decides verdict and score. */
