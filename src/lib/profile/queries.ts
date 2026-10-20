@@ -13,10 +13,11 @@ export type ProfileSelection = Pick<
   | "main_goal"
   | "preferred_session_minutes"
   | "onboarding_completed_at"
+  | "timezone"
 >;
 
 const PROFILE_COLUMNS =
-  "id, display_name, education_level, main_goal, preferred_session_minutes, onboarding_completed_at";
+  "id, display_name, education_level, main_goal, preferred_session_minutes, onboarding_completed_at, timezone";
 
 /**
  * Loads the signed-in student's profile, creating the row if the sign-up

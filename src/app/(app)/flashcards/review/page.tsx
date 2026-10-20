@@ -8,8 +8,12 @@ export const metadata: Metadata = {
   title: "Review due flashcards",
 };
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Spaced repetition across every deck: everything that is due right now. */
-export default async function ReviewAllPage() {
+export default async function ReviewAllPage({ searchParams }: PageProps<"/flashcards/review">) {
+  const params = await searchParams;
+  const task = typeof params.task === "string" && UUID.test(params.task) ? params.task : null;
   const queue = await getReviewQueue({ mode: "due", limit: 200 });
-  return <FlashcardReview queue={queue} deckId={null} mode="due" backHref={routes.flashcards} backLabel="Flashcards" />;
+  return <FlashcardReview queue={queue} deckId={null} mode="due" backHref={task ? routes.planner : routes.flashcards} backLabel={task ? "Planner" : "Flashcards"} taskId={task} />;
 }

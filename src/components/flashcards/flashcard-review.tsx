@@ -33,6 +33,7 @@ export function FlashcardReview({
   mode,
   backHref,
   backLabel,
+  taskId = null,
 }: {
   /** Already ordered (and shuffled when asked) by the server so hydration matches. */
   queue: ReviewQueueCard[];
@@ -40,6 +41,8 @@ export function FlashcardReview({
   mode: "due" | "all" | "favorites";
   backHref: string;
   backLabel: string;
+  /** Planner task this review completes, when started from the plan. */
+  taskId?: string | null;
 }) {
   const router = useRouter();
   const [entries, setEntries] = useState<QueueEntry[]>(() => queue.map((card) => ({ card, requeues: 0 })));
@@ -71,7 +74,7 @@ export function FlashcardReview({
     startedAt.current = Date.now();
     if (queue.length === 0) return;
     let cancelled = false;
-    startReviewSessionAction({ deckId, mode, cardCount: queue.length }).then((result) => {
+    startReviewSessionAction({ deckId, mode, cardCount: queue.length, taskId }).then((result) => {
       if (!cancelled && result.ok) setSessionId(result.data.sessionId);
     });
     return () => {

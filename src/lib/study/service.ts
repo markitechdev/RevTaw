@@ -33,6 +33,8 @@ export type StartSessionInput = {
   /** Set when the session is one block of a smart session. */
   parentSessionId?: string | null;
   parentBlockKey?: string | null;
+  /** Set when the session was started from a planner task; completing it closes the task. */
+  taskId?: string | null;
 };
 
 export type StartSessionResult = { sessionId: string; redirect: string };
@@ -68,6 +70,11 @@ export async function startSession(userId: string, input: StartSessionInput): Pr
     const supabase = await createClient();
     await updateSessionState(supabase, result.sessionId, { parentId: input.parentSessionId });
     if (input.parentBlockKey) await markSmartBlock(input.parentSessionId, input.parentBlockKey, { childSessionId: result.sessionId, status: "in_progress" });
+  }
+  if (input.taskId && result.sessionId) {
+    const supabase = await createClient();
+    await updateSessionState(supabase, result.sessionId, { taskId: input.taskId });
+    await supabase.from("study_tasks").update({ session_id: result.sessionId }).eq("id", input.taskId).eq("status", "pending");
   }
   return result;
 }

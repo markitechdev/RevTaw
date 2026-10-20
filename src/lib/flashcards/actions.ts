@@ -27,10 +27,10 @@ function failure(error: unknown, fallback: string): { ok: false; message: string
 }
 
 /** Opens a review session (method "flashcards" for one deck, "spaced_repetition" for all due cards). */
-export async function startReviewSessionAction(input: { deckId: string | null; mode: "due" | "all" | "favorites"; cardCount: number }): Promise<FlashcardActionResult<{ sessionId: string }>> {
+export async function startReviewSessionAction(input: { deckId: string | null; mode: "due" | "all" | "favorites"; cardCount: number; taskId?: string | null }): Promise<FlashcardActionResult<{ sessionId: string }>> {
   const user = await getCurrentUser();
   if (!user) redirect(routes.login);
-  const parsed = z.object({ deckId: uuid.nullable(), mode: z.enum(["due", "all", "favorites"]), cardCount: z.number().int().min(0).max(500) }).safeParse(input);
+  const parsed = z.object({ deckId: uuid.nullable(), mode: z.enum(["due", "all", "favorites"]), cardCount: z.number().int().min(0).max(500), taskId: uuid.nullable().optional() }).safeParse(input);
   if (!parsed.success) return { ok: false, message: "Invalid review." };
   try {
     const supabase = await createClient();
@@ -48,8 +48,9 @@ export async function startReviewSessionAction(input: { deckId: string | null; m
       goal: "memorize",
       plannedMinutes: null,
       title,
-      state: { deckId: parsed.data.deckId, mode: parsed.data.mode, cardCount: parsed.data.cardCount },
+      state: { deckId: parsed.data.deckId, mode: parsed.data.mode, cardCount: parsed.data.cardCount, ...(parsed.data.taskId ? { taskId: parsed.data.taskId } : {}) },
     });
+    if (parsed.data.taskId) await supabase.from("study_tasks").update({ session_id: id }).eq("id", parsed.data.taskId).eq("status", "pending");
     return { ok: true, data: { sessionId: id } };
   } catch (error) {
     return failure(error, "The review could not be started.");
