@@ -2,6 +2,8 @@ import "server-only";
 
 import { cache } from "react";
 
+import { addDays, dateIn } from "@/lib/planner/dates";
+import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { parseSessionSummary, type SessionSummary } from "@/lib/study/sessions";
 import type { StudySession, StudySessionItem } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -89,9 +91,6 @@ export type ActivityStats = {
   activeDates: string[];
 };
 
-function dayKey(value: string): string {
-  return value.slice(0, 10);
-}
 
 /**
  * Streak (consecutive days with a completed session, submitted attempt or
@@ -100,6 +99,10 @@ function dayKey(value: string): string {
  */
 export const getActivityStats = cache(async (): Promise<ActivityStats> => {
   const supabase = await createClient();
+  // Calendar days follow the student's time zone (profiles.timezone; null = UTC).
+  const { profile } = await getCurrentUserWithProfile();
+  const timezone = profile?.timezone ?? null;
+  const dayKey = (value: string) => dateIn(value, timezone);
   const since = new Date(Date.now() - 90 * 86_400_000).toISOString();
   const [{ data: sessions }, { data: attempts }, { data: reviews }] = await Promise.all([
     supabase.from("study_sessions").select("started_at, completed_at, focus_seconds, status").gte("started_at", since).limit(1000),
@@ -109,7 +112,7 @@ export const getActivityStats = cache(async (): Promise<ActivityStats> => {
 
   const now = new Date();
   const todayKey = dayKey(now.toISOString());
-  const weekStart = new Date(now.getTime() - 6 * 86_400_000).toISOString().slice(0, 10);
+  const weekStart = addDays(todayKey, -6);
   const days = new Set<string>();
   let focusToday = 0;
   let focusWeek = 0;
@@ -137,11 +140,11 @@ export const getActivityStats = cache(async (): Promise<ActivityStats> => {
 
   // Count back from today (or yesterday, so an unfinished day does not break the streak).
   let streak = 0;
-  const cursor = new Date(now);
-  if (!days.has(dayKey(cursor.toISOString()))) cursor.setUTCDate(cursor.getUTCDate() - 1);
-  while (days.has(dayKey(cursor.toISOString()))) {
+  let cursor = todayKey;
+  if (!days.has(cursor)) cursor = addDays(cursor, -1);
+  while (days.has(cursor)) {
     streak += 1;
-    cursor.setUTCDate(cursor.getUTCDate() - 1);
+    cursor = addDays(cursor, -1);
   }
 
   return { streakDays: streak, focusSecondsToday: focusToday, focusSecondsWeek: focusWeek, sessionsCompleted: completed, activeDates: [...days].sort() };
