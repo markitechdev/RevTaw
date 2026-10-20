@@ -239,6 +239,7 @@ export async function startSmartBlockAction(input: { sessionId: string; key: str
       plannedMinutes: block.minutes,
       questionCount: block.questionCount,
       timed: true,
+      focus: block.focus ?? null,
       parentSessionId: session.id,
       parentBlockKey: block.key,
     });

@@ -39,6 +39,8 @@ export type StartSessionInput = {
   /** Practice testing only. */
   questionCount?: number;
   timed?: boolean;
+  /** Practice testing only: the topic or concepts the test should stay on. */
+  focus?: string | null;
   /** Practice problems only. */
   problemDifficulty?: ProblemDifficulty | "adaptive";
   /** Dual coding only: draw new visuals instead of reusing the saved set. */
@@ -334,7 +336,7 @@ async function startPracticeTesting(supabase: Client, userId: string, input: Sta
     shuffleQuestions: true,
     shuffleOptions: true,
     feedback: "after",
-    focus: null,
+    focus: input.focus?.trim() || null,
   });
   if (quiz.status !== "ready") throw new SessionError(quiz.detail ?? "The practice test could not be generated.", 422);
   const attempt = await startAttempt(quiz.id, { mode: exam ? "exam" : "practice", timeLimitMinutes: timed ? input.plannedMinutes : null });

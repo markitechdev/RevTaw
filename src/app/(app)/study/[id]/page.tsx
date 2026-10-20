@@ -24,32 +24,18 @@ import { buttonClasses } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
 import { getSmartSessionView } from "@/lib/adaptive/smart";
 import { routes } from "@/lib/routes";
-import { isRecallMethod, isTestMethod, isTutorMethod, methodName } from "@/lib/study/catalog";
+import { isPlanMethod, isRecallMethod, isTestMethod, isTutorMethod, methodName } from "@/lib/study/catalog";
 import { getSessionMap, type MapView } from "@/lib/study/flows/maps";
 import { listPalaces } from "@/lib/study/flows/memory";
 import type { ConceptMapData, MindMapData } from "@/lib/study/maps";
 import { getSession, getSessionMethod } from "@/lib/study/queries";
 import { syncPlanChildren, syncPracticeTesting } from "@/lib/study/service";
+import { extraStatsFor } from "@/lib/study/summary-stats";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const session = await getSession(id);
   return { title: session?.title ?? "Study session" };
-}
-
-/** Method-specific stats a finished session keeps in its summary (`extra`), so they survive a reload. */
-function extraStatsFor(method: string, extra: Record<string, unknown> | undefined): Array<{ label: string; value: string }> {
-  const number = (key: string) => (typeof extra?.[key] === "number" ? (extra[key] as number) : null);
-  const stats: Array<{ label: string; value: string }> = [];
-  const blocksTotal = number("blocksTotal");
-  if ((method === "smart_study" || method === "custom_routine") && blocksTotal) stats.push({ label: "Blocks done", value: `${number("blocksDone") ?? 0}/${blocksTotal}` });
-  const score = number("score");
-  if (isTutorMethod(method) && score !== null) stats.push({ label: method === "teach_back" ? "Teaching score" : "Reasoning score", value: `${Math.round(score)}%` });
-  const rounds = number("completedRounds");
-  if (method === "pomodoro" && rounds !== null) stats.push({ label: "Rounds", value: String(rounds) });
-  const quality = number("averageQuality");
-  if (method === "question_generation" && quality !== null) stats.push({ label: "Average quality", value: `${Math.round(quality)}%` });
-  return stats;
 }
 
 export default async function SessionPage({ params }: PageProps<"/study/[id]">) {
@@ -66,7 +52,7 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
     </Link>
   ) : null;
 
-  if ((session.method === "smart_study" || session.method === "custom_routine") && session.status === "in_progress") {
+  if (isPlanMethod(session.method) && session.status === "in_progress") {
     // Practice-test blocks close when their attempt is submitted; settle them before reading the plan.
     await syncPlanChildren(session.id);
     const view = await getSmartSessionView(session.id);

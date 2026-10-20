@@ -398,6 +398,13 @@ export const BUILDER_METHOD_IDS = [
   "flashcards",
 ] as const;
 
+/** Methods whose session is a parent plan of blocks, each run as a child session. */
+export const PLAN_METHOD_IDS = ["smart_study", "custom_routine"] as const;
+export type PlanMethodId = (typeof PLAN_METHOD_IDS)[number];
+export function isPlanMethod(value: string): value is PlanMethodId {
+  return (PLAN_METHOD_IDS as readonly string[]).includes(value);
+}
+
 /** Methods whose session is a tutor conversation in a special mode. */
 export const TUTOR_METHOD_IDS = ["socratic_questioning", "elaborative_interrogation", "self_explanation", "teach_back"] as const;
 

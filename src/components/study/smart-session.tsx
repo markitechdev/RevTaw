@@ -16,6 +16,7 @@ import { completeSmartSessionAction, skipSmartBlockAction, startSmartBlockAction
 import { methodName } from "@/lib/study/catalog";
 import type { SessionDetail } from "@/lib/study/queries";
 import type { SessionSummary } from "@/lib/study/sessions";
+import { extraStatsFor } from "@/lib/study/summary-stats";
 import { cn } from "@/lib/utils";
 
 /** The smart session plan: blocks with their reasons, run one at a time, then one combined summary. */
@@ -73,7 +74,7 @@ export function SmartSessionView({ session, view, methodName: displayName = "Sma
       <SessionSummaryCard
         title={blocksDone === 0 ? `${displayName} stopped early` : `${displayName} complete`}
         summary={summary}
-        extraStats={[{ label: "Blocks done", value: `${blocksDone}/${view.blocks.length}` }]}
+        extraStats={extraStatsFor(session.method, summary.extra)}
         actions={
           <Link href={routes.study} className={buttonClasses({ size: "sm" })}>
             Back to Study

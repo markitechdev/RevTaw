@@ -27,6 +27,8 @@ export const smartBlockSchema = z.object({
   questionCount: z.number().int().min(3).max(50).optional(),
   /** Custom routines: a block can target its own material. */
   materialId: z.string().nullable().optional(),
+  /** Practice-test blocks: the topic or concepts the test should stay on. */
+  focus: z.string().max(400).nullable().optional(),
 });
 
 export type SmartBlock = z.infer<typeof smartBlockSchema>;
@@ -201,11 +203,11 @@ export type SmartSessionView = {
   nextBlockKey: string | null;
 };
 
-/** Reads the plan and reconciles block status with the child sessions. */
-export async function getSmartSessionView(sessionId: string): Promise<SmartSessionView | null> {
+/** Reads the plan and reconciles block status with the child sessions. `freshPlan` skips re-reading a plan just written in this render. */
+export async function getSmartSessionView(sessionId: string, freshPlan: SmartPlan | null = null): Promise<SmartSessionView | null> {
   const supabase = await createClient();
   const session = await loadSession(supabase, sessionId);
-  const plan = parseSmartPlan(session.state);
+  const plan = freshPlan ?? parseSmartPlan(session.state);
   if (!plan) return null;
   const { data: children } = await supabase
     .from("study_sessions")
