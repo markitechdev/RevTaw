@@ -1,6 +1,6 @@
 import "server-only";
 
-import { refreshMastery } from "@/lib/adaptive/engine";
+import { difficultyTargets, refreshMastery, weakConceptNames } from "@/lib/adaptive/engine";
 import { isAiError } from "@/lib/ai";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { gradeObjective, gradeOpenAnswers, normalizeText, type GradeResult, type OpenAnswerItem } from "@/lib/quizzes/grade";
@@ -86,7 +86,11 @@ async function populateQuiz(
   config: QuizConfig,
 ): Promise<{ status: "ready" | "failed"; detail: string | null }> {
   try {
-    const result = await generateQuiz(context.material.title, context.chunks, config, context.student);
+    const adaptive =
+      config.difficulty === "adaptive"
+        ? { targets: await difficultyTargets(context.material.id), focusConcepts: await weakConceptNames(context.material.id, 4) }
+        : null;
+    const result = await generateQuiz(context.material.title, context.chunks, config, context.student, adaptive);
     if (result.questions.length === 0) {
       throw new ServiceError("No usable questions could be written from this material. Try a different type or a longer material.", 422);
     }

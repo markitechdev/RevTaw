@@ -44,7 +44,7 @@ export default async function QuizDetailPage({ params }: PageProps<"/quiz/[id]">
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone={quiz.config.mode === "exam" ? "warning" : "primary"}>{QUIZ_MODE_LABEL[quiz.config.mode]} by default</Badge>
             <Badge tone="neutral">{quiz.question_count} questions</Badge>
-            <Badge tone="neutral">{quiz.config.difficulty === "mixed" ? "Mixed difficulty" : DIFFICULTY_LABEL[quiz.config.difficulty]}</Badge>
+            <Badge tone="neutral">{quiz.config.difficulty === "mixed" ? "Mixed difficulty" : quiz.config.difficulty === "adaptive" ? "Adaptive difficulty" : DIFFICULTY_LABEL[quiz.config.difficulty]}</Badge>
             {quiz.status === "generating" && <Badge tone="neutral">Generating…</Badge>}
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">{quiz.title}</h1>

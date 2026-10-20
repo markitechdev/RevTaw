@@ -65,7 +65,7 @@ export const QUIZ_PRESET_COUNTS = [5, 10, 20, 50] as const;
 export const quizConfigSchema = z.object({
   questionTypes: z.array(z.enum(QUESTION_TYPE_IDS)).min(1, "Choose at least one question type.").max(QUESTION_TYPES.length),
   questionCount: z.number().int().min(QUIZ_MIN_QUESTIONS).max(QUIZ_MAX_QUESTIONS),
-  difficulty: z.enum(["easy", "medium", "hard", "mixed"]),
+  difficulty: z.enum(["easy", "medium", "hard", "mixed", "adaptive"]),
   mode: z.enum(["practice", "exam"]),
   timeLimitMinutes: z.number().int().min(1).max(240).nullable(),
   shuffleQuestions: z.boolean(),
@@ -80,7 +80,7 @@ export type QuizConfig = z.infer<typeof quizConfigSchema>;
 export const DEFAULT_QUIZ_CONFIG: QuizConfig = {
   questionTypes: ["multiple_choice", "true_false", "identification"],
   questionCount: 10,
-  difficulty: "mixed",
+  difficulty: "adaptive",
   mode: "practice",
   timeLimitMinutes: null,
   shuffleQuestions: true,

@@ -225,7 +225,7 @@ async function startPracticeTesting(supabase: Client, userId: string, input: Sta
   const quiz = await createQuiz(context.material.id, {
     questionTypes: ["multiple_choice", "identification", "true_false", "short_answer"],
     questionCount,
-    difficulty: "mixed",
+    difficulty: "adaptive",
     mode: "practice",
     timeLimitMinutes: input.timed ? input.plannedMinutes : null,
     shuffleQuestions: true,

@@ -369,7 +369,24 @@ export function quizHeuristically(transcript: string, prompt: string) {
   const materialTitle = prompt.match(/Material title:\s*(.+)/)?.[1]?.trim() ?? "Material";
   const plan = [...prompt.matchAll(/^- ([a-z_]+): (\d+)$/gm)].map((match) => ({ type: match[1], count: Number(match[2]) }));
   const fixedDifficulty = prompt.match(/"(easy|medium|hard)" for every question/)?.[1] ?? null;
-  const facts = collectFacts(transcript);
+  // Adaptive mode (Phase 6): honour the per-concept targets and the focus list from the prompt.
+  const conceptKey = (name: string) =>
+    name
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/s$/, "");
+  const targets = new Map<string, "easy" | "medium" | "hard">();
+  const targetLine = prompt.match(/per-concept targets[^:]*:\s*(.+?);\s*concepts without a target: medium/)?.[1];
+  for (const pair of targetLine?.split(";") ?? []) {
+    const match = pair.trim().match(/^(.+?):\s*(easy|medium|hard|advanced)$/);
+    if (match) targets.set(conceptKey(match[1]), match[2] === "advanced" ? "hard" : (match[2] as "easy" | "medium" | "hard"));
+  }
+  const focusLine = prompt.match(/concepts the student struggles with:\s*(.+?);\s*cover the rest/)?.[1];
+  const focus = new Set((focusLine?.split(",") ?? []).map((name) => conceptKey(name)).filter(Boolean));
+  const allFacts = collectFacts(transcript);
+  const facts = focus.size ? [...allFacts.filter((fact) => fact.term && focus.has(conceptKey(fact.term))), ...allFacts.filter((fact) => !(fact.term && focus.has(conceptKey(fact.term))))] : allFacts;
   const terms = [...new Set(facts.map((fact) => fact.term).filter((term): term is string => Boolean(term)))];
   const difficulties = ["easy", "medium", "hard"] as const;
   const questions: Array<Record<string, unknown>> = [];
@@ -384,7 +401,7 @@ export function quizHeuristically(transcript: string, prompt: string) {
       cursor += 1;
       const topic = fact.term ?? fact.heading;
       const base = {
-        difficulty: fixedDifficulty ?? difficulties[serial % 3],
+        difficulty: fixedDifficulty ?? (targets.size ? (targets.get(conceptKey(topic)) ?? "medium") : difficulties[serial % 3]),
         explanation: `The material states: "${fact.sentence}"`,
         concept: topic.slice(0, 60),
         source_excerpt: fact.sentence.slice(0, 300),

@@ -58,6 +58,13 @@ export const quizResponseSchema = z.object({
 export type GeneratedQuestion = z.infer<typeof generatedQuestionSchema>;
 export type QuizResponse = z.infer<typeof quizResponseSchema>;
 
+export type AdaptiveTargets = {
+  /** Per-concept target difficulty from the mastery model. */
+  targets: Array<{ concept: string; difficulty: "easy" | "medium" | "hard" | "advanced" }>;
+  /** Concepts that should get a larger share of questions. */
+  focusConcepts: string[];
+};
+
 export type GenerateQuizResult = {
   title: string;
   questions: GeneratedQuestion[];
@@ -135,11 +142,20 @@ export async function generateQuiz(
   chunks: AnalysisChunkInput[],
   config: QuizConfig,
   student: StudentContext,
+  adaptive: AdaptiveTargets | null = null,
 ): Promise<GenerateQuizResult> {
   const provider = getAiProvider("strong");
   const { transcript, coverageRatio } = buildTranscript(chunks);
   const plan = distributeQuestions(config.questionCount, config.questionTypes);
-  const difficulty: QuestionDifficulty | "mixed" = config.difficulty;
+  const difficulty: QuestionDifficulty | "mixed" | "adaptive" = config.difficulty;
+  const difficultyRule =
+    difficulty === "adaptive"
+      ? adaptive && adaptive.targets.length
+        ? `adaptive — use these per-concept targets (advanced = hard with no hints or scaffolding): ${adaptive.targets.map((target) => `${target.concept}: ${target.difficulty}`).join("; ")}; concepts without a target: medium`
+        : "spread easy, medium and hard across the set (no history yet for this material)"
+      : difficulty === "mixed"
+        ? "spread easy, medium and hard across the set"
+        : `"${difficulty}" for every question`;
 
   const system = `You are RevTaw's quiz writer. You write exam-quality questions strictly from a student's uploaded material.
 
@@ -155,7 +171,8 @@ Quality rules:
 - "explanation": 1-3 sentences on why the answer is correct, citing the material in plain words.
 - "concept": the 1-4 word concept the question tests (reuse the same wording for the same concept).
 - "source_excerpt": a short verbatim quote (max 300 chars) from the material that supports the answer.
-- "difficulty": ${difficulty === "mixed" ? "spread easy, medium and hard across the set" : `"${difficulty}" for every question`}.
+- "difficulty": ${difficultyRule}.
+${adaptive?.focusConcepts.length ? `- Give about 40% of the questions to these concepts the student struggles with: ${adaptive.focusConcepts.join(", ")}; cover the rest of the material with the remainder.` : ""}
 - Keep the material's language and terminology. Write for a student, clearly.
 - Respond with a single JSON object matching the schema. No commentary.`;
 

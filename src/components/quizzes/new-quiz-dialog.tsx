@@ -185,6 +185,7 @@ export function NewQuizButton({
 
             <Field id="quiz-difficulty" label="Difficulty">
               <Select {...fieldA11y("quiz-difficulty")} value={config.difficulty} disabled={pending} onChange={(event) => update({ difficulty: event.target.value as QuizConfig["difficulty"] })}>
+                <option value="adaptive">Adaptive — from your mastery</option>
                 <option value="mixed">Mixed</option>
                 <option value="easy">Easy</option>
                 <option value="medium">Medium</option>
