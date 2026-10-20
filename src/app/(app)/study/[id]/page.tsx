@@ -25,6 +25,21 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: session?.title ?? "Study session" };
 }
 
+/** Method-specific stats a finished session keeps in its summary (`extra`), so they survive a reload. */
+function extraStatsFor(method: string, extra: Record<string, unknown> | undefined): Array<{ label: string; value: string }> {
+  const number = (key: string) => (typeof extra?.[key] === "number" ? (extra[key] as number) : null);
+  const stats: Array<{ label: string; value: string }> = [];
+  const blocksTotal = number("blocksTotal");
+  if ((method === "smart_study" || method === "custom_routine") && blocksTotal) stats.push({ label: "Blocks done", value: `${number("blocksDone") ?? 0}/${blocksTotal}` });
+  const score = number("score");
+  if (isTutorMethod(method) && score !== null) stats.push({ label: method === "teach_back" ? "Teaching score" : "Reasoning score", value: `${Math.round(score)}%` });
+  const rounds = number("completedRounds");
+  if (method === "pomodoro" && rounds !== null) stats.push({ label: "Rounds", value: String(rounds) });
+  const quality = number("averageQuality");
+  if (method === "question_generation" && quality !== null) stats.push({ label: "Average quality", value: `${Math.round(quality)}%` });
+  return stats;
+}
+
 export default async function SessionPage({ params }: PageProps<"/study/[id]">) {
   const { id } = await params;
   const session = await getSession(id);
@@ -91,12 +106,7 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
 
   if (session.status !== "in_progress") {
     const summary = session.parsedSummary;
-    const blocks = (summary?.extra as { blocksDone?: number; blocksTotal?: number } | undefined) ?? {};
-    const tutorScore = isTutorMethod(session.method) ? (summary?.extra as { score?: number } | undefined)?.score : undefined;
-    const extraStats = [
-      ...((session.method === "smart_study" || session.method === "custom_routine") && blocks.blocksTotal ? [{ label: "Blocks done", value: `${blocks.blocksDone ?? 0}/${blocks.blocksTotal}` }] : []),
-      ...(typeof tutorScore === "number" ? [{ label: session.method === "teach_back" ? "Teaching score" : "Reasoning score", value: `${Math.round(tutorScore)}%` }] : []),
-    ];
+    const extraStats = extraStatsFor(session.method, summary?.extra);
     return (
       <div className="flex flex-col gap-4">
         <Link href={routes.study} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>

@@ -571,10 +571,13 @@ export async function completeItemSession(sessionId: string, focusSeconds: numbe
   const session = await loadSession(supabase, sessionId);
   const { data: items } = await supabase
     .from("study_session_items")
-    .select("prompt, is_correct, answered_at, concept:concepts!study_session_items_concept_fk(name)")
+    .select("prompt, is_correct, score, answered_at, concept:concepts!study_session_items_concept_fk(name)")
     .eq("session_id", sessionId)
     .order("position");
   const answered = (items ?? []).filter((item) => item.answered_at);
+  // Question generation keeps the average quality of the student's questions for the summary page.
+  const scores = answered.map((item) => item.score).filter((score): score is number => typeof score === "number");
+  const extra = session.method === "question_generation" && scores.length ? { averageQuality: Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) } : undefined;
   const byConcept = new Map<string, { correct: number; total: number }>();
   for (const item of answered) {
     const name = (item.concept as unknown as { name: string } | null)?.name ?? item.prompt.slice(0, 40);
@@ -599,6 +602,7 @@ export async function completeItemSession(sessionId: string, focusSeconds: numbe
     suggestedNext: answered.length === 0 ? "Nothing was answered this time. Try a shorter session so it is easy to finish." : itemSessionNext(method, accuracy, weak),
     nextReviewAt: await nextFlashcardDue(supabase),
     abandoned,
+    extra,
   });
 }
 

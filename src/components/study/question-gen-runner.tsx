@@ -78,7 +78,8 @@ export function QuestionGenRunner({ session, methodName, parentSessionId = null,
   };
 
   if (summary) {
-    const average = questions.length ? Math.round(questions.reduce((sum, entry) => sum + entry.evaluation.overall, 0) / questions.length) : null;
+    const stored = summary.extra?.averageQuality;
+    const average = typeof stored === "number" ? stored : questions.length ? Math.round(questions.reduce((sum, entry) => sum + entry.evaluation.overall, 0) / questions.length) : null;
     return (
       <SessionSummaryCard
         title={`${methodName} complete`}
