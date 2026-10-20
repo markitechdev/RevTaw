@@ -108,7 +108,8 @@ export type TaskStatus = "pending" | "done" | "skipped" | "missed";
 export type GoalKind = "focus_minutes" | "flashcards_reviewed" | "questions_answered" | "mastery" | "finish_material";
 export type GoalPeriod = "day" | "week" | "once";
 export type GoalStatus = "active" | "completed" | "archived";
-export type NotificationKind = "review_due" | "exam_upcoming" | "plan_reminder" | "plan_adjusted" | "daily_goal" | "streak";
+export type NotificationKind = "review_due" | "exam_upcoming" | "plan_reminder" | "plan_adjusted" | "daily_goal" | "streak" | "achievement" | "level_up";
+export type XpSource = "answers" | "session" | "reviews" | "mastered" | "goal" | "streak_day" | "achievement";
 
 type ProfilesRow = {
   id: string;
@@ -117,6 +118,7 @@ type ProfilesRow = {
   main_goal: StudyGoal | null;
   preferred_session_minutes: number | null;
   onboarding_completed_at: string | null;
+  xp: number;
   timezone: string | null;
   created_at: string;
   updated_at: string;
@@ -619,6 +621,24 @@ type MemoryPalacesRow = {
   last_used_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type XpEventsRow = {
+  id: string;
+  user_id: string;
+  source: XpSource;
+  source_key: string;
+  points: number;
+  label: string | null;
+  created_at: string;
+};
+
+type AchievementsRow = {
+  id: string;
+  user_id: string;
+  key: string;
+  unlocked_at: string;
+  seen_at: string | null;
 };
 
 type Writable<Row, Required extends keyof Row = never> = Partial<Row> & Pick<Row, Required>;
@@ -1170,6 +1190,18 @@ export type Database = {
         Update: Partial<MemoryPalacesRow>;
         Relationships: [];
       };
+      xp_events: {
+        Row: XpEventsRow;
+        Insert: Writable<XpEventsRow, "source" | "source_key" | "points">;
+        Update: Partial<XpEventsRow>;
+        Relationships: [];
+      };
+      achievements: {
+        Row: AchievementsRow;
+        Insert: Writable<AchievementsRow, "key">;
+        Update: Partial<AchievementsRow>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -1247,3 +1279,5 @@ export type Routine = Tables<"routines">;
 export type StudyMap = Tables<"study_maps">;
 export type Mnemonic = Tables<"mnemonics">;
 export type MemoryPalace = Tables<"memory_palaces">;
+export type XpEvent = Tables<"xp_events">;
+export type Achievement = Tables<"achievements">;

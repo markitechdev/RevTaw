@@ -36,6 +36,7 @@ supabase db push
 | `0007_planner.sql` | `profiles.timezone`; `exams`, `exam_materials`, `study_plans`, `study_tasks` (plan tasks, 1-3-7-14 reviews, custom tasks), `study_goals`, `notifications`; owner-only RLS |
 | `0008_methods.sql` | more `study_session_items` kinds plus `format` and `material_id`; `tutor_mode` gains `teach_back`; `routines` (custom study routines); owner-only RLS |
 | `0009_methods_part2.sql` | session item kinds `visual`, `link`, `mnemonic`, `loci`, `story`; `study_maps` (mind maps, concept maps, dual-coding visual sets), `mnemonics`, `memory_palaces`; `tutor_messages.visual`; owner-only RLS |
+| `0010_gamification.sql` | `xp_events` (XP ledger, idempotent per source key) with a trigger that keeps `profiles.xp` in step, `achievements` (unlocked badges); `notification_kind` gains `achievement` and `level_up`; owner-only RLS |
 
 Migrations are additive. Never edit an applied migration; add a new numbered
 file instead.

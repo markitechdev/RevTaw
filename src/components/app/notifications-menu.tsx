@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, CalendarClock, CheckCheck, Flag, Flame, Layers, Wand2 } from "lucide-react";
+import { Award, Bell, CalendarClock, CheckCheck, Flag, Flame, Layers, TrendingUp, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -18,6 +18,8 @@ const ICONS: Record<NotificationKind, typeof Bell> = {
   plan_adjusted: Wand2,
   daily_goal: Flag,
   streak: Flame,
+  achievement: Award,
+  level_up: TrendingUp,
 };
 
 /** Bell + panel for the internal reminder feed (§35). Rows come from the server; reading marks them. */
