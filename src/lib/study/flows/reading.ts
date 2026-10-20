@@ -7,19 +7,19 @@ import { loadMaterialContext } from "@/lib/reviewers/service";
 import { materialSections } from "@/lib/study/advanced";
 import { compareBlurt, type BlurtComparison } from "@/lib/study/ai";
 import { conceptsFor, insertItems, openSession, recordItemResult, type Client, type FlowStartInput, type FlowStartResult, type ItemRow } from "@/lib/study/items";
-import { answerReadingQuestions } from "@/lib/study/prompts/reading";
+import { answerReadingQuestions, generateReflectQuestions } from "@/lib/study/prompts/reading";
 import { MAX_QUESTIONS_PER_SECTION, READING_STAGES, readReadingState, type ReadingMethod, type ReadingStage, type ReadingState } from "@/lib/study/reading-options";
 import { loadSession, SessionError, sessionTitle } from "@/lib/study/sessions";
 import type { Json, StudySession } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * SQ3R (§16): RevTaw guides the student through every stage instead
+ * SQ3R and PQ4R (§16): RevTaw guides the student through every stage instead
  * of describing them. The stage, the sections being read and what was marked
  * read live in `study_sessions.state`, so a refresh resumes at the same stage.
- * The student's questions (answered from memory in Recite) are `stage`
- * items graded like recall prompts; the closing summary is a `stage` item
- * compared with the sections.
+ * The student's questions (answered from memory in Recite) and PQ4R's
+ * conceptual Reflect questions are `stage` items graded like recall prompts;
+ * the closing summary is a `stage` item compared with the sections.
  */
 
 const SECTION_CHARS = 6000;
@@ -57,7 +57,7 @@ export async function startGuidedReading(supabase: Client, userId: string, input
 async function loadReading(supabase: Client, sessionId: string): Promise<{ session: StudySession; state: ReadingState; method: ReadingMethod }> {
   const session = await loadSession(supabase, sessionId);
   if (session.status !== "in_progress") throw new SessionError("This session is already finished.", 409);
-  if (session.method !== "sq3r") throw new SessionError("This is not a guided reading session.", 400);
+  if (session.method !== "sq3r" && session.method !== "pq4r") throw new SessionError("This is not a guided reading session.", 400);
   const state = readReadingState(session.state);
   if (!state) throw new SessionError("This reading session has no sections.", 422);
   return { session, state, method: session.method };
@@ -136,6 +136,31 @@ export async function advanceReading(input: AdvanceReadingInput): Promise<Readin
     }
     case "read":
       if (state.readSections.length < state.sections.length) throw new SessionError("Mark every section as read first.", 409);
+      if (method === "pq4r") {
+        const generated = await generateReflectQuestions({ materialTitle: session.title, sections: state.sections, count: Math.min(4, Math.max(2, state.sections.length)) });
+        const context = await loadMaterialContext(supabase, session.material_id!);
+        const concepts = await conceptsFor(supabase, session.user_id, context, generated.questions.map((question) => question.concept));
+        const start = await nextPosition(supabase, session.id);
+        await insertItems(
+          supabase,
+          generated.questions.map((question, index) => ({
+            session_id: session.id,
+            user_id: session.user_id,
+            position: start + index,
+            kind: "stage" as const,
+            concept_id: concepts.get(normalizeConceptName(question.concept)) ?? null,
+            prompt: question.prompt,
+            model_answer: question.model_answer,
+            key_points: question.key_points as unknown as Json,
+            source_excerpt: null,
+            format: "reflect",
+            analysis: { reflect: question.kind } as unknown as Json,
+          })),
+        );
+      }
+      break;
+    case "reflect":
+      if ((await stageItems(supabase, session.id, "reflect")).some((item) => !item.answered_at)) throw new SessionError("Answer every reflection question first.", 409);
       break;
     case "recite":
       if ((await stageItems(supabase, session.id, "question")).some((item) => !item.answered_at)) throw new SessionError("Recite every question first.", 409);

@@ -157,6 +157,7 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
     case "case_based":
       return <CaseRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "sq3r":
+    case "pq4r":
       return <ReadingRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "pomodoro":
       return <PomodoroRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;

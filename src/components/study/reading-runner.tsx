@@ -75,7 +75,7 @@ function SectionText({ text }: { text: string }) {
   );
 }
 
-/** Answer one item at a time (Recite): the model answer appears only after the student answers. */
+/** Answer one item at a time (Reflect and Recite): the model answer appears only after the student answers. */
 function AnswerStep({ items, label, onDone, doneLabel, sections }: { items: Item[]; label: string; onDone: () => void; doneLabel: string; sections: ReadingState["sections"] }) {
   const [index, setIndex] = useState(() => Math.max(0, items.findIndex((item) => !item.answered_at)));
   const [response, setResponse] = useState("");
@@ -171,9 +171,9 @@ function AnswerStep({ items, label, onDone, doneLabel, sections }: { items: Item
 }
 
 /**
- * SQ3R (§16): a stage-by-stage guide — Survey, Question, Read, Recite,
- * Review. The stage and progress are saved on the server, so a refresh comes
- * back to the same place.
+ * SQ3R / PQ4R (§16): a stage-by-stage guide — Survey/Preview, Question, Read,
+ * (Reflect), Recite, Review. The stage and progress are saved on the server,
+ * so a refresh comes back to the same place.
  */
 export function ReadingRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: RunnerProps) {
   const router = useRouter();
@@ -207,6 +207,7 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
   const state = initial;
   const labels = READING_STAGE_LABEL[method];
   const questionItems = session.items.filter((item) => item.kind === "stage" && item.format === "question");
+  const reflectItems = session.items.filter((item) => item.kind === "stage" && item.format === "reflect");
   const answeredCount = session.items.filter((item) => item.answered_at).length;
 
   const advance = (to: ReadingStage, payload: { expectations?: string; questions?: Array<{ section: number; question: string }> } = {}) => {
@@ -249,7 +250,7 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
   };
 
   const writtenQuestions = questions.flatMap((list, section) => list.map((question) => ({ section, question: question.trim() }))).filter((entry) => entry.question.length >= 5);
-  const afterRead: ReadingStage = "recite";
+  const afterRead: ReadingStage = method === "pq4r" ? "reflect" : "recite";
 
   return (
     <div className="flex flex-col gap-4">
@@ -408,12 +409,24 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
               ) : null}
               {readSections.length === state.sections.length && (
                 <Button type="button" size="sm" loading={pending} onClick={() => advance(afterRead)}>
-                  Next: {labels[afterRead as "recite"]}
+                  Next: {labels[afterRead as "reflect" | "recite"]}
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Button>
               )}
             </div>
           </div>
+          {pending && method === "pq4r" && readSections.length === state.sections.length && (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+              <Sparkles className="h-4 w-4 animate-pulse text-primary" aria-hidden="true" />
+              Writing reflection questions…
+            </p>
+          )}
+        </Panel>
+      )}
+
+      {stage === "reflect" && (
+        <Panel title="Reflect" icon={Lightbulb} intro="Think about why and how — connect what you read to the rest of the material and to what you already know.">
+          {reflectItems.length > 0 ? <AnswerStep key="reflect" items={reflectItems} label="Reflect" sections={state.sections} doneLabel={`Next: ${labels.recite}`} onDone={() => advance("recite")} /> : <p className="text-sm text-muted-foreground">Preparing questions…</p>}
         </Panel>
       )}
 

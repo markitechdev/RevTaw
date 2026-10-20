@@ -206,7 +206,7 @@ export function caseEvaluationHeuristically(prompt: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Guided reading (SQ3R)
+// Guided reading (SQ3R / PQ4R)
 // ---------------------------------------------------------------------------
 
 function readingSections(material: string): Array<{ heading: string; text: string }> {
@@ -231,4 +231,20 @@ export function readingAnswersHeuristically(material: string, prompt: string) {
     return { index: entry.index, covered: related.length > 0, model_answer: answer, key_points: keywordsOf(answer).slice(0, 3) };
   });
   return { answers };
+}
+
+export function reflectQuestionsHeuristically(material: string, prompt: string) {
+  const count = Number(prompt.match(/Produce exactly (\d+) questions/)?.[1] ?? "3");
+  const transcript = readingSections(material).map((section) => `[Section: ${section.heading}]\n${section.text}`).join("\n\n");
+  const facts = collectFacts(transcript);
+  const kinds = ["why", "how", "what_if", "connect"] as const;
+  const questions = facts.slice(0, count).map((fact, index) => {
+    const topic = topicOf(fact);
+    const kind = kinds[index % kinds.length];
+    const promptText =
+      kind === "why" ? `Why does ${topic} matter in ${fact.heading}?` : kind === "how" ? `How does ${topic} work, according to the material?` : kind === "what_if" ? `What would change if ${topic} did not happen?` : `How does ${topic} connect to the other ideas in ${fact.heading}?`;
+    const answer = `${fact.sentence}${fact.next ? ` ${fact.next}` : ""}`;
+    return { kind, prompt: promptText, model_answer: answer, key_points: keywordsOf(fact.sentence).slice(0, 3), concept: topic.slice(0, 60) };
+  });
+  return { questions };
 }

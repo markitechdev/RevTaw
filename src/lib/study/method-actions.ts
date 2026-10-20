@@ -73,7 +73,7 @@ export async function evaluateCaseAction(input: { itemId: string; answer: z.inpu
   }
 }
 
-const readingStage = z.enum(["survey", "question", "read", "recite", "review", "done"]);
+const readingStage = z.enum(["survey", "question", "read", "reflect", "recite", "review", "done"]);
 
 export async function advanceReadingAction(input: { sessionId: string; to: z.input<typeof readingStage>; expectations?: string | null; questions?: Array<{ section: number; question: string }> }): Promise<StudyActionResult<{ stage: ReadingStage }>> {
   await requireUser();

@@ -163,6 +163,7 @@ async function startSessionInner(userId: string, input: StartSessionInput): Prom
     case "case_based":
       return startCases(supabase, userId, input);
     case "sq3r":
+    case "pq4r":
       return startGuidedReading(supabase, userId, input, input.method);
   }
 }
@@ -574,6 +575,7 @@ function itemSessionNext(method: StudyMethodId, accuracy: number | null, weak: s
     case "faded_worked_examples":
       return accuracy !== null && accuracy >= 0.8 ? "You finished the independent problem — move on to practice problems at a harder level." : "Repeat the faded examples; keep the steps you missed in view until the independent one works.";
     case "sq3r":
+    case "pq4r":
       return accuracy !== null && accuracy >= 0.8 ? "You can recite this chapter. Schedule the 1-3-7-14 reviews so it stays." : "Re-read the sections behind the questions you missed, then recite them again tomorrow.";
     case "scenario_based":
       return accuracy !== null && accuracy >= 0.8 ? "Good judgement. Try a case-based session for longer, multi-step situations." : "Re-read the rationale for the scenarios you missed, then try new scenarios tomorrow.";

@@ -3,8 +3,9 @@ import { describe, expect, it } from "vitest";
 import { READING_STAGES, readReadingState, suggestQuestion } from "@/lib/study/reading-options";
 
 describe("guided reading", () => {
-  it("has SQ3R's five stages", () => {
+  it("has SQ3R's five stages and PQ4R's six, with Reflect only in PQ4R", () => {
     expect(READING_STAGES.sq3r).toEqual(["survey", "question", "read", "recite", "review"]);
+    expect(READING_STAGES.pq4r).toEqual(["survey", "question", "read", "reflect", "recite", "review"]);
   });
 
   it("turns headings into questions", () => {

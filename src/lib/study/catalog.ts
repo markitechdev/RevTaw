@@ -296,8 +296,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 35,
     goals: ["understand"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
-    behaviour: "Preview, question, read, reflect (conceptual questions), recite, review — guided stage by stage.",
+    availableIn: "now",
+    behaviour: "Like SQ3R with a Reflect stage after reading: RevTaw asks conceptual why / how / what-if / connect questions about what you read and checks your reasoning before you recite your own questions from memory and review.",
   },
   scenario_based: {
     howItHelps: "Applying knowledge to a realistic situation is how exams and jobs test it.",
@@ -381,6 +381,7 @@ export const BUILDER_METHOD_IDS = [
   "scenario_based",
   "case_based",
   "sq3r",
+  "pq4r",
   "error_review",
   "pomodoro",
   "socratic_questioning",

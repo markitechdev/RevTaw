@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { caseEvaluationHeuristically, casesHeuristically, problemEvaluationHeuristically, problemsHeuristically, readingAnswersHeuristically, scenarioEvaluationHeuristically, scenariosHeuristically } from "@/lib/ai/providers/mock-study";
+import { caseEvaluationHeuristically, casesHeuristically, problemEvaluationHeuristically, problemsHeuristically, readingAnswersHeuristically, reflectQuestionsHeuristically, scenarioEvaluationHeuristically, scenariosHeuristically } from "@/lib/ai/providers/mock-study";
 
 const transcript = `[Section: Photosynthesis Overview]
 Photosynthesis Overview
@@ -78,4 +78,9 @@ describe("mock guided-reading heuristics", () => {
     expect(answers.every((answer) => answer.covered)).toBe(true);
   });
 
+  it("asks conceptual reflect questions of mixed kinds", () => {
+    const { questions } = reflectQuestionsHeuristically(sections, "Produce exactly 2 questions.");
+    expect(questions.map((question) => question.kind)).toEqual(["why", "how"]);
+    expect(questions[0].prompt).toMatch(/^Why does/);
+  });
 });
