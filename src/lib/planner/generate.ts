@@ -284,26 +284,45 @@ export function generatePlan(input: PlanInput): GeneratedPlan {
         const topic = input.topics[index % Math.max(1, input.topics.length)] ?? input.examTitle;
         push(day, { method: "pomodoro", title: titleFor("pomodoro", null, topic), reason: "No material attached yet: a focused block on the topic you named.", minutes: free(day), materialId: null, concepts: input.topics.slice(0, 6), phase: "coverage" });
       }
-      // 3. Consolidation fillers once the first passes are done.
+      // 3. Consolidation fillers once the first passes are done: never the same
+      //    method on the same material twice in a day.
       let guard = 0;
-      while (queue.length === 0 && input.materials.length > 0 && free(day) >= fillerMin && guard < 6) {
+      const usedToday = new Set(day.tasks.map((task) => `${task.materialId ?? "-"}:${task.method}`));
+      while (queue.length === 0 && input.materials.length > 0 && free(day) >= fillerMin && guard < 8) {
         const choice = rotation % 3;
         rotation += 1;
         guard += 1;
-        if (choice === 1 && totalMistakes > 0) {
+        if (choice === 1 && totalMistakes > 0 && !usedToday.has("-:error_review")) {
           push(day, { method: "error_review", title: "Mistake review", reason: "Retesting open mistakes before the exam turns them into learned concepts.", minutes: Math.min(slot, free(day), 15), materialId: null, concepts: [], phase: "review" });
+          usedToday.add("-:error_review");
           continue;
         }
-        if (choice === 2 && anyFlashcards) {
+        if (choice === 2 && anyFlashcards && !usedToday.has("-:spaced_repetition")) {
           push(day, { method: "spaced_repetition", title: "Flashcard sweep", reason: "Due cards first; spaced repetition only works when reviews happen on time.", minutes: Math.min(slot, free(day)), materialId: null, concepts: [], phase: "review" });
+          usedToday.add("-:spaced_repetition");
           continue;
         }
-        const material = weakest[rotation % Math.max(1, weakest.length)];
-        push(day, { method: "practice_testing", title: titleFor("practice_testing", material, input.examTitle), reason: `Adaptive test on ${material.title}${material.mastery !== null ? ` (${Math.round(material.mastery)}% mastery)` : ""} to confirm the first pass held.`, minutes: Math.min(slot, free(day)), materialId: material.id, concepts: material.weakConcepts.slice(0, 6), phase: "review" });
+        let placed = false;
+        for (let step = 0; step < weakest.length && !placed; step += 1) {
+          const material = weakest[(rotation + step) % weakest.length];
+          const options: StudyMethodId[] = ["practice_testing", "active_recall", ...(material.conceptHeavy || material.difficulty === "advanced" ? (["feynman"] as StudyMethodId[]) : [])];
+          const method = options.find((candidate) => !usedToday.has(`${material.id}:${candidate}`));
+          if (!method) continue;
+          const reason =
+            method === "practice_testing"
+              ? `Adaptive test on ${material.title}${material.mastery !== null ? ` (${Math.round(material.mastery)}% mastery)` : ""} to confirm the first pass held.`
+              : method === "feynman"
+                ? `Explain ${material.weakConcepts.slice(0, 2).join(" and ") || material.title} to a beginner — the gaps show up in your own words.`
+                : `Recall pass over ${material.title}${material.weakConcepts.length ? ` (${material.weakConcepts.slice(0, 2).join(", ")})` : ""} to keep it strong.`;
+          push(day, { method, title: titleFor(method, material, input.examTitle), reason, minutes: Math.min(slot, free(day)), materialId: material.id, concepts: material.weakConcepts.slice(0, 6), phase: "review" });
+          usedToday.add(`${material.id}:${method}`);
+          placed = true;
+        }
+        if (!placed) break;
       }
-      // Leftover minutes (less than a filler) extend the last task so the budget is used.
+      // Leftover minutes extend the last task so the whole budget is used.
       const last = day.tasks[day.tasks.length - 1];
-      if (last && free(day) > 0 && free(day) < fillerMin) {
+      if (last && free(day) > 0) {
         last.minutes += free(day);
         day.used = minutesPerDay;
       }
