@@ -3,45 +3,13 @@ import { z } from "zod";
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { type QuestionAnswer, type QuestionResponse } from "@/lib/quizzes/types";
+import { normalizeText, textMatches } from "@/lib/quizzes/text-match";
 import type { QuestionType } from "@/lib/supabase/database.types";
+
+export { normalizeText, textMatches };
 
 /** Share of the points needed for an open answer to count as correct. */
 export const CORRECT_THRESHOLD = 0.6;
-
-/** Lowercases, strips punctuation/articles and collapses whitespace for lenient text matching. */
-export function normalizeText(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^\p{L}\p{N}\s.-]/gu, " ")
-    .replace(/(^|\s)(?:the|a|an)(?=\s|$)/g, "$1")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^[.\s-]+|[.\s-]+$/g, "");
-}
-
-function numeric(value: string): number | null {
-  const match = value.replace(/[,\s]/g, "").match(/^-?\d+(?:\.\d+)?$/);
-  return match ? Number(match[0]) : null;
-}
-
-/** Lenient equality for identification / fill-in answers. */
-export function textMatches(student: string, accepted: string[]): boolean {
-  const given = normalizeText(student);
-  if (!given) return false;
-  const givenNumber = numeric(given);
-  return accepted.some((candidate) => {
-    const expected = normalizeText(candidate);
-    if (!expected) return false;
-    if (given === expected) return true;
-    const expectedNumber = numeric(expected);
-    if (givenNumber !== null && expectedNumber !== null) return Math.abs(givenNumber - expectedNumber) < 1e-9;
-    // Tolerate a trailing "s" / "es" and a surrounding article.
-    const singular = (text: string) => text.replace(/(es|s)$/, "");
-    return singular(given) === singular(expected);
-  });
-}
 
 export type GradeResult = {
   isCorrect: boolean;
