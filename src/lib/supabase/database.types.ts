@@ -79,7 +79,24 @@ export type SessionStatus = "in_progress" | "completed" | "abandoned";
 export type SessionGoal = "memorize" | "understand" | "practice" | "exam_prep" | "quick_review" | "master_topic";
 export type FlashcardRating = "again" | "hard" | "good" | "easy";
 export type TutorMode = "tutor" | "guided" | "socratic" | "elaborative" | "self_explanation" | "teach_back";
-export type SessionItemKind = "recall" | "feynman" | "mistake" | "blurt" | "chunk" | "question" | "problem" | "scenario" | "case" | "stage";
+export type SessionItemKind =
+  | "recall"
+  | "feynman"
+  | "mistake"
+  | "blurt"
+  | "chunk"
+  | "question"
+  | "problem"
+  | "scenario"
+  | "case"
+  | "stage"
+  | "visual"
+  | "link"
+  | "mnemonic"
+  | "loci"
+  | "story";
+export type StudyMapKind = "mind" | "concept" | "visual";
+export type MnemonicKind = "acronym" | "acrostic" | "rhyme" | "phrase" | "association" | "story" | "custom";
 export type TutorRole = "user" | "assistant";
 export type MasteryStatus = "new" | "weak" | "learning" | "strong" | "mastered";
 export type NextDifficulty = "easy" | "medium" | "hard" | "advanced";
@@ -431,6 +448,7 @@ type TutorMessagesRow = {
   additional_explanation: string | null;
   follow_ups: Json;
   flashcard: Json | null;
+  visual: Json | null;
   provider: string | null;
   model: string | null;
   created_at: string;
@@ -563,6 +581,46 @@ type NotificationsRow = {
 };
 
 /** Insert/Update variants: every column optional except what the DB requires. */
+type StudyMapsRow = {
+  id: string;
+  user_id: string;
+  material_id: string | null;
+  kind: StudyMapKind;
+  title: string;
+  data: Json;
+  provider: string | null;
+  model: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type MnemonicsRow = {
+  id: string;
+  user_id: string;
+  material_id: string | null;
+  concept_id: string | null;
+  kind: MnemonicKind;
+  target: string;
+  items: string[];
+  content: string;
+  explanation: string | null;
+  source: "ai" | "user";
+  favorite: boolean;
+  last_practiced_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type MemoryPalacesRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  locations: Json;
+  last_used_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type Writable<Row, Required extends keyof Row = never> = Partial<Row> & Pick<Row, Required>;
 
 export type Database = {
@@ -1071,6 +1129,47 @@ export type Database = {
         Update: Partial<RoutinesRow>;
         Relationships: [];
       };
+      study_maps: {
+        Row: StudyMapsRow;
+        Insert: Writable<StudyMapsRow, "kind" | "title">;
+        Update: Partial<StudyMapsRow>;
+        Relationships: [
+          {
+            foreignKeyName: "study_maps_material_fk";
+            columns: ["material_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      mnemonics: {
+        Row: MnemonicsRow;
+        Insert: Writable<MnemonicsRow, "kind" | "target" | "content">;
+        Update: Partial<MnemonicsRow>;
+        Relationships: [
+          {
+            foreignKeyName: "mnemonics_material_fk";
+            columns: ["material_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "mnemonics_concept_fk";
+            columns: ["concept_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "concepts";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      memory_palaces: {
+        Row: MemoryPalacesRow;
+        Insert: Writable<MemoryPalacesRow, "title">;
+        Update: Partial<MemoryPalacesRow>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -1145,3 +1244,6 @@ export type StudyTask = Tables<"study_tasks">;
 export type StudyGoalRow = Tables<"study_goals">;
 export type Notification = Tables<"notifications">;
 export type Routine = Tables<"routines">;
+export type StudyMap = Tables<"study_maps">;
+export type Mnemonic = Tables<"mnemonics">;
+export type MemoryPalace = Tables<"memory_palaces">;
