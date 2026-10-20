@@ -4,7 +4,7 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-20 (Phase 8 part 1 complete)_
+_Last updated: 2026-10-20 (Phase 8 complete)_
 
 ## Completed
 
@@ -363,19 +363,94 @@ _Last updated: 2026-10-20 (Phase 8 part 1 complete)_
   or reasoning score, Pomodoro rounds, average question quality) after a
   reload.
 
+### Phase 8 (part 2) — The remaining study methods
+
+Every method of the specification now has its own session. The Methods page
+no longer has a "coming later" section.
+
+- **Schema** — `study_session_items` gains the kinds `visual`, `link`,
+  `mnemonic`, `loci` and `story`; `study_maps` stores mind maps, concept maps
+  and dual-coding visual sets; `mnemonics` stores saved memory devices;
+  `memory_palaces` stores routes of locations; `tutor_messages.visual`
+  carries a diagram drawn by "Visualize" (`supabase/migrations/0009_methods_part2.sql`).
+- **Hidden until answered** — besides the model answer and key points, the
+  supporting source excerpt of an item and the concept name of a
+  memory-palace stop stay on the server until the item is answered.
+- **Worked examples** — the problem, every step with its reason and the
+  final answer, revealed step by step; then a similar problem the student
+  solves alone and RevTaw checks the reasoning, not just the result.
+- **Faded worked examples** — the same family of problems with 90%, 70%, 40%
+  and 0% of the steps given; a struggle keeps the same amount of help for the
+  next example instead of fading further.
+- **Practice problems** — source-grounded problems at an adaptive or fixed
+  difficulty (easy, medium, hard, challenge), each with a full solution and
+  an alternative approach when one is valid; drafts survive a refresh.
+- **Scenario-based learning** — a realistic situation, plausible actions and
+  a justification; the choice (60%) and the reasoning (40%) are graded
+  separately with the rationale for the best action.
+- **Case-based learning** — a detailed case with background, data and a
+  complication; the student writes the problem, the evidence, the possible
+  solutions, the best one and a justification; each field is scored next to
+  the expert analysis.
+- **SQ3R and PQ4R** — guided reading stage by stage: survey/preview (summary
+  and concepts), question (one question per section, suggestions offered),
+  read (section by section, each marked read), reflect (PQ4R: conceptual
+  questions answered inline), recite (answer your own questions from memory
+  — the section text hidden) and review (a summary checked against the
+  chapter).
+- **Dual coding** — each topic as text, as a visual (table, flowchart,
+  timeline, hierarchy or concept graph) and combined; visual sets are saved
+  per material and reused; "rebuild" exercises hide the visual and the
+  student reorders steps, fills cells, re-attaches children or names
+  relations. "Visualize" in highlight-and-ask draws the same visuals in the
+  tutor.
+- **Mind mapping** — a generated map (centre, branches, cross-links) that
+  the student edits in an outline view (add, rename, remove, fold, connect)
+  and sees drawn in a map view; "Quiz me on this branch" writes recall
+  questions from one branch, answered inline. The map is saved per material
+  and reopened by the next session.
+- **Concept mapping** — concepts linked by explicit relationships (causes,
+  requires, leads to, contains, depends on, is an example of), drawn as a
+  graph and edited; "Test the links" hides the relationships and the
+  student names each one.
+- **Mnemonics** — RevTaw finds the lists and sequences in the material and
+  offers acronyms, acrostics, rhymes, memory phrases, associations and small
+  stories for each, with how the device maps to every item; an accuracy
+  guard drops acronyms and acrostics that do not spell the list in order;
+  the student picks a device or writes their own, saves the ones that work,
+  then recalls the list from the cue alone (graded per item, and for order
+  when the order matters). A **Memory aids** page (`/study/memory`) lists
+  saved mnemonics (add, edit, favourite, delete, practice) and a session can
+  practise the saved ones instead of writing new ones.
+- **Memory palace** — the student defines a route of familiar locations (or
+  reuses a saved palace), RevTaw places one key concept at each stop with a
+  vivid image that still states the meaning, and the walk asks what sits at
+  each stop in order; the image and meaning come back after each answer.
+  Earlier placements on the same palace and material are reused so a palace
+  is built once and walked often; palaces are managed on the memory aids page.
+- **Story method** — related facts become a short, academically accurate
+  story shown beside the original notes, each paragraph marked with the facts
+  it carries (side by side, notes only or story only); the student retells
+  the story from memory and every fact is checked, with contradictions
+  flagged.
+- **Pre-test → study → post-test** — a short diagnostic test, a study block
+  aimed at the concepts the diagnostic missed ("what to pay attention to")
+  and a post-test on the same concepts; the plan page and the summary show
+  the before-and-after score and the change per concept.
+- **Analogy-based learning** lives in the tutor ("Give me an analogy"
+  always separates the analogy from the actual definition).
+- **Recommendations** — a weak calculation concept is sent to worked
+  examples and a weak memorization concept to mnemonics, with the reason.
+
 ## In Progress
 
-- Nothing at the moment. Phase 8 part 2 starts next.
+- Nothing at the moment. Phase 9 starts next.
 
 ## Next (priority order)
 
-1. **Phase 8 (part 2) — remaining study methods**: SQ3R and PQ4R guided
-   stages, scenario- and case-based learning, pre-test → study → post-test,
-   worked and faded examples, practice problems, dual coding, mind and
-   concept maps, mnemonics, memory palace, story method.
-2. **Phase 9 — Analytics and gamification**: detailed progress charts,
+1. **Phase 9 — Analytics and gamification**: detailed progress charts,
    mastery map, XP, levels, badges, daily/weekly goals as milestones.
-3. **Phase 10 — Export and refinement**: PDF/Word/print export, global
+2. **Phase 10 — Export and refinement**: PDF/Word/print export, global
    search, accessibility, security and performance reviews.
 
 ## Database
@@ -397,13 +472,16 @@ _Last updated: 2026-10-20 (Phase 8 part 1 complete)_
 | `public.quiz_answers` | One answer per attempt+question: `response` JSON, correctness, score, feedback, `graded_by` (auto/ai/self), confidence, response time | owner full access; unique `(attempt_id, question_id)` |
 | `public.mistakes` | Mistake notebook entry: question/answer text, explanation, error type, `resolved_at`; links to question/attempt/concept/material are set null when those go away | owner full access |
 | `public.study_sessions` | One study session: method, goal, planned minutes, title, status, `state` (resume data), `summary` (§29), focus seconds, item counters, optional `quiz_attempt_id` | owner full access; material/subject/attempt FKs set null |
-| `public.study_session_items` | Prompts worked through in a session (recall, feynman, mistake, blurt, chunk, question; problem/scenario/case/stage reserved): model answer, key points, response, AI `analysis`, correctness, score, confidence, time, attempts, `format` (retrieval format or question difficulty), `material_id` (multi-material sessions) | owner full access; cascade from session; concept/mistake/material FKs set null |
+| `public.study_session_items` | Prompts worked through in a session (recall, feynman, mistake, blurt, chunk, question, problem, scenario, case, stage, visual, link, mnemonic, loci, story): model answer, key points, response, AI `analysis` (what the student sees while working), correctness, score, confidence, time, attempts, `format` (retrieval format, question difficulty, fade level…), `material_id` (multi-material sessions) | owner full access; cascade from session; concept/mistake/material FKs set null |
 | `public.routines` | Custom study routine: title, description, ordered `blocks` JSON (method, minutes, optional material and question count), `last_used_at` | owner full access |
+| `public.study_maps` | Mind maps, concept maps and dual-coding visual sets per material: kind, title, validated `data` JSON, provider/model | owner full access; material FK set null |
+| `public.mnemonics` | Saved memory devices: kind (acronym, acrostic, rhyme, phrase, association, story, custom), target, ordered `items`, content, explanation, source (ai/user), favorite, `last_practiced_at` | owner full access; material/concept FKs set null |
+| `public.memory_palaces` | Routes of locations for the method of loci: title, `locations` JSON (name, detail), `last_used_at` | owner full access |
 | `public.flashcard_decks` | Generated deck: title, status + detail, provider/model, card count | owner full access; cascade from material |
 | `public.flashcards` | Card: front/back/hint, concept, source, favorite, suspended, Leitner `box`, `ease`, `interval_days`, `repetitions`, `lapses`, `due_at`, last review/rating | owner full access; cascade from deck; partial index on due cards |
 | `public.flashcard_reviews` | Review log: rating, response time, box before/after, interval, due date, optional session | owner full access; cascade from card |
 | `public.tutor_conversations` | Tutor chat: material, optional study session, mode, title, message count, last message | owner full access; material/session FKs set null |
-| `public.tutor_messages` | One turn: role, content, quick action, selection, grounding, `sources` JSON, additional explanation, follow-ups, flashcard draft, provider/model | owner full access; cascade from conversation |
+| `public.tutor_messages` | One turn: role, content, quick action, selection, grounding, `sources` JSON, additional explanation, follow-ups, flashcard draft, optional `visual`, provider/model | owner full access; cascade from conversation |
 | `public.concept_mastery` | Recomputable cache per student and concept: mastery, retrieval strength, status, next difficulty, counters, streak, open mistakes, misconceptions, underconfident, average confidence/response time, trend, last practised, next review | owner full access; unique `(user_id, concept_id)`; cascade from concept |
 | `public.exams` | An exam: title, date, subject, priority, confidence, topics, notes, `archived_at` | owner full access; subject FK set null |
 | `public.exam_materials` | Materials an exam covers, with position | owner full access; cascade from exam and material |
@@ -497,11 +575,26 @@ linked).
   session), `service.ts` (method dispatch, recall/Feynman/error-review item
   flows, Pomodoro state, practice-test sync for single sessions and plan
   blocks), `queries.ts` (sessions with hidden answers, activity stats:
-  streak and focus time), `actions.ts`. Runners live in
-  `src/components/study/` (recall, Feynman, Pomodoro, blurting, chunks,
-  question generation, smart/routine plan) and share `SessionHeader` and
-  `SessionSummaryCard` (§52 reusable components); method-specific stats go
-  into `summary.extra` so the finished page shows them too.
+  streak and focus time), `actions.ts`. The part-2 methods follow one
+  layout: `items.ts` (shared session/item plumbing: open a session, insert
+  items, `recordItemResult` = store + counters + mistake + mastery, drafts),
+  `prompts/*.ts` (server-only prompts and zod schemas per method family:
+  problems, applied, reading, visual, maps, memory), `flows/*.ts` (server
+  logic per family: `problems`, `applied`, `reading`, `visual`, `maps`,
+  `memory`, `pretest`), client-safe constants and pure helpers
+  (`problem-options.ts`, `reading-options.ts`, `visuals.ts`, `maps.ts`,
+  `memory-options.ts`, `summary-stats.ts`), `method-actions.ts` (Server
+  Actions) and `action-helpers.ts`. Runners live in `src/components/study/`
+  (recall, Feynman, Pomodoro, blurting, chunks, question generation,
+  problems, scenarios, cases, guided reading, dual coding, mind and concept
+  map editors, mnemonics, memory palace, story, smart/routine/pre-test
+  plan) and share `SessionHeader`, `SessionSummaryCard` and `runner-kit.tsx`
+  (completion hook, summary, verdict box, inline recall card) (§52 reusable
+  components); `visual-view.tsx` renders dual-coding visuals; method-specific
+  stats go into `summary.extra` and `summary-stats.ts` renders them in both
+  the runner and the finished page. Whatever the student may see while
+  working goes in an item's `analysis`; hidden structured data (solutions,
+  keys, placed concepts) goes in `model_answer` as JSON.
 - **Tutor** — `src/lib/tutor/`: `types.ts` (actions, follow-ups, modes,
   grounding labels), `context.ts` (keyword-scored passage selection with a
   character budget), `ai.ts` (reply prompt with grounding rules per mode and
@@ -578,8 +671,23 @@ linked).
   already use exam simulation and rapid review.
 - Tutor replies arrive as one message (no token streaming); the context is
   chosen by keyword overlap rather than embeddings, which is accurate for
-  materials up to a few hundred pages and cheap to run. "Visualize" from the
-  highlight menu waits for dual coding (Phase 8).
+  materials up to a few hundred pages and cheap to run.
+- Problems, scenarios, cases, stories and mnemonics are generated once per
+  session from the material's transcript; AI-graded answers (working,
+  justifications, case fields, retellings) use the fast tier. A device that
+  the accuracy guard rejects (an acronym that does not spell the list) is
+  dropped rather than regenerated.
+- Visual sets and maps are reused per material; the builder offers to draw
+  new ones. The map editors are keyboard and screen-reader friendly outline
+  editors with a read-only drawn view; drag-and-drop editing on the canvas
+  is a later refinement.
+- A memory palace places one concept per location from the material's
+  analysis (defined terms first, then key concepts); materials with fewer
+  than three key concepts cannot start one. Walk stops check the concept's
+  name leniently (not its meaning).
+- Pre-testing's post-test asks the generator to stay on the pre-test's
+  concepts; the questions themselves are new, so the per-concept table can
+  include a concept only one of the tests reached.
 
 ## Environment Requirements
 
@@ -668,6 +776,28 @@ Flows verified end to end against a local Supabase-compatible stack
   close regenerates in cram mode keeping finished tasks; mobile layouts;
   delete cascades plan tasks but keeps the review cycle; anonymous
   redirect
+- Advanced methods (Phase 8 part 2): worked examples (step-by-step reveal,
+  similar problem checked, solution hidden until answered), faded examples
+  (90/70/40/independent, help held after a struggle, draft survives a
+  refresh, mistake filed), practice problems at a fixed difficulty with an
+  alternative approach; scenarios (choice and justification graded, drafts,
+  mistake), cases (five fields scored beside the expert analysis); SQ3R and
+  PQ4R stage by stage (suggested questions, sections marked read, reflect
+  questions, recite with the text hidden, review summary); dual coding
+  (three views, visuals of several types, rebuild exercises graded, visual
+  set reused); "Visualize" in highlight-and-ask; mind maps (fold, add,
+  rename, connect, remove, map view, branch quiz, edited map reopened);
+  concept maps (add concept and typed relationship, link test with a wrong
+  link filed); mnemonics (accurate devices, save, own device, practice with
+  the list hidden, order check, saved-mnemonic session, memory aids page
+  add/favourite/edit/delete); memory palace (route editor with validation,
+  quick add, reorder, placements, walk with concepts hidden, forgotten stop
+  filed, saved palace reused with the same placements, palace library);
+  story method (notes and story side by side with fact markers, view toggle,
+  retelling checked fact by fact, draft survives a refresh); pre-testing
+  (plan in order, diagnostic, "what to pay attention to", aimed study
+  block, post-test on the same concepts, before-and-after table and
+  improvement in the summary after a reload); mobile layouts
 - Advanced methods (Phase 8 part 1): Methods page availability; retrieval
   practice with eight labelled formats and answers/key points hidden until
   answered; rapid review presets with mistakes first; cumulative review with
@@ -685,7 +815,11 @@ Flows verified end to end against a local Supabase-compatible stack
   the mock quiz generator, the flashcard scheduler, the tutor context
   selector, the mastery model, the planner date helpers, the plan
   generator and the mock study-method heuristics (retrieval formats, blurt
-  scoring, chunking, question rating)
+  scoring, chunking, question rating, problems, scenarios, cases, reading,
+  mnemonics, palace images, stories); the fade schedule, reading stages,
+  visual grading (order, cells, hierarchy, relations), map structure rules
+  and layout, list-recall grading, mnemonic accuracy checks, palace and
+  story helpers, summary stats and the pre-test plan layout
 
 Commands: `npm run lint`, `npx tsc --noEmit`, `npm test` (vitest unit tests),
 `npm run build`.

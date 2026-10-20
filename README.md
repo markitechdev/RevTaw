@@ -64,7 +64,12 @@ working.
 - Advanced study methods: retrieval practice in eight formats, rapid,
   cumulative and interleaved review, blurting, chunking, question
   generation, teach-back with an AI learner, mixed practice, exam
-  simulation and custom study routines (Phase 8, part 1)
+  simulation and custom study routines (Phase 8, part 1); worked and faded
+  worked examples, practice problems, scenario- and case-based learning,
+  SQ3R and PQ4R guided reading, dual coding with rebuild exercises,
+  editable mind and concept maps with quizzes, mnemonics with a memory aids
+  library, memory palaces, the story method and pre-test → study →
+  post-test with the improvement shown (Phase 8, part 2)
 
 ## Scripts
 
@@ -82,8 +87,9 @@ working.
 src/app/(marketing)   landing page
 src/app/(auth)        login, register, verify, forgot/reset password
 src/app/(onboarding)  first-run study profile
-src/app/(app)         signed-in app: dashboard, materials, study, methods,
-                      quiz, flashcards, tutor, notes, progress, settings…
+src/app/(app)         signed-in app: dashboard, materials, study (sessions,
+                      memory aids), methods, quiz, flashcards, tutor, notes,
+                      progress, planner, settings…
 src/app/auth          email-link route handlers (callback, confirm)
 src/app/api           route handlers (material processing, analysis, files,
                       reviewer and quiz generation)
