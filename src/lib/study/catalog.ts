@@ -323,8 +323,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 30,
     goals: ["practice", "master_topic"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
-    behaviour: "Pre-test → study → post-test on the same concepts, with the improvement displayed.",
+    availableIn: "now",
+    behaviour: "Three blocks: a short diagnostic test before you study, which tells you which concepts to pay attention to; a study block aimed at exactly those; then a post-test on the same concepts. The summary shows the before-and-after score and the change for every concept.",
   },
   concept_mapping: {
     howItHelps: "Naming the relationship between two ideas is understanding made visible.",
@@ -388,6 +388,7 @@ export const BUILDER_METHOD_IDS = [
   "mnemonics",
   "memory_palace",
   "story_method",
+  "pre_testing",
   "error_review",
   "pomodoro",
   "socratic_questioning",
@@ -399,7 +400,7 @@ export const BUILDER_METHOD_IDS = [
 ] as const;
 
 /** Methods whose session is a parent plan of blocks, each run as a child session. */
-export const PLAN_METHOD_IDS = ["smart_study", "custom_routine"] as const;
+export const PLAN_METHOD_IDS = ["smart_study", "custom_routine", "pre_testing"] as const;
 export type PlanMethodId = (typeof PLAN_METHOD_IDS)[number];
 export function isPlanMethod(value: string): value is PlanMethodId {
   return (PLAN_METHOD_IDS as readonly string[]).includes(value);

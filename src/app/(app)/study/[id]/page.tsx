@@ -11,6 +11,7 @@ import { FeynmanRunner } from "@/components/study/feynman-runner";
 import { ConceptMapRunner, MindMapRunner } from "@/components/study/map-runners";
 import { MnemonicRunner } from "@/components/study/mnemonic-runner";
 import { PalaceRunner } from "@/components/study/palace-runner";
+import { BeforeAfterTable } from "@/components/study/pretest-panel";
 import { PomodoroRunner } from "@/components/study/pomodoro-runner";
 import { ProblemRunner } from "@/components/study/problem-runner";
 import { QuestionGenRunner } from "@/components/study/question-gen-runner";
@@ -27,6 +28,7 @@ import { routes } from "@/lib/routes";
 import { isPlanMethod, isRecallMethod, isTestMethod, isTutorMethod, methodName } from "@/lib/study/catalog";
 import { getSessionMap, type MapView } from "@/lib/study/flows/maps";
 import { listPalaces } from "@/lib/study/flows/memory";
+import { syncPreTestPlan, type ConceptChange } from "@/lib/study/flows/pretest";
 import type { ConceptMapData, MindMapData } from "@/lib/study/maps";
 import { getSession, getSessionMethod } from "@/lib/study/queries";
 import { syncPlanChildren, syncPracticeTesting } from "@/lib/study/service";
@@ -45,7 +47,8 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
   const name = methodName(session.method);
   // Blocks of a smart session link back to their plan.
   const parentId = (session.state as { parentId?: string } | null)?.parentId ?? null;
-  const parentLabel = parentId ? ((await getSessionMethod(parentId)) === "custom_routine" ? "Back to routine" : "Back to smart session") : "Back to smart session";
+  const parentMethod = parentId ? await getSessionMethod(parentId) : null;
+  const parentLabel = parentMethod === "custom_routine" ? "Back to routine" : parentMethod === "pre_testing" ? "Back to the plan" : "Back to smart session";
   const parentLink = parentId ? (
     <Link href={`${routes.study}/${parentId}`} className={buttonClasses({ size: "sm" })}>
       {parentLabel}
@@ -55,9 +58,11 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
   if (isPlanMethod(session.method) && session.status === "in_progress") {
     // Practice-test blocks close when their attempt is submitted; settle them before reading the plan.
     await syncPlanChildren(session.id);
-    const view = await getSmartSessionView(session.id);
+    // Pre-testing aims its study and post-test blocks at what the pre-test found.
+    const pretest = session.method === "pre_testing" ? await syncPreTestPlan(session.id) : null;
+    const view = await getSmartSessionView(session.id, pretest?.plan ?? null);
     if (!view) return <ErrorState title="This session has no plan" description="Start a new one from the Study page." />;
-    return <SmartSessionView key={session.id} session={session} view={view} methodName={name} routine={session.method === "custom_routine"} />;
+    return <SmartSessionView key={session.id} session={session} view={view} methodName={name} routine={session.method === "custom_routine"} pretest={pretest} />;
   }
 
   // Practice tests, mixed practice and exam simulations live in the quiz runner; the session closes once the attempt is submitted.
@@ -105,6 +110,7 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
   if (session.status !== "in_progress") {
     const summary = session.parsedSummary;
     const extraStats = extraStatsFor(session.method, summary?.extra);
+    const changes = session.method === "pre_testing" && Array.isArray(summary?.extra?.changes) ? (summary.extra.changes as ConceptChange[]) : [];
     return (
       <div className="flex flex-col gap-4">
         <Link href={routes.study} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
@@ -133,6 +139,7 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
         ) : (
           <ErrorState title="No summary was saved for this session" />
         )}
+        {changes.length > 0 && <BeforeAfterTable changes={changes} className="bg-card" />}
       </div>
     );
   }

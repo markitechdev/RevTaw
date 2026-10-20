@@ -6,11 +6,13 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
+import { BeforeAfterTable, PreTestPanel, type ConceptChangeView } from "@/components/study/pretest-panel";
 import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import type { SmartSessionView as SmartView } from "@/lib/adaptive/smart";
+import type { PreTestView } from "@/lib/study/flows/pretest";
 import { routes } from "@/lib/routes";
 import { completeSmartSessionAction, skipSmartBlockAction, startSmartBlockAction } from "@/lib/study/actions";
 import { methodName } from "@/lib/study/catalog";
@@ -20,7 +22,20 @@ import { extraStatsFor } from "@/lib/study/summary-stats";
 import { cn } from "@/lib/utils";
 
 /** The smart session plan: blocks with their reasons, run one at a time, then one combined summary. */
-export function SmartSessionView({ session, view, methodName: displayName = "Smart Study", routine = false }: { session: SessionDetail; view: SmartView; methodName?: string; routine?: boolean }) {
+export function SmartSessionView({
+  session,
+  view,
+  methodName: displayName = "Smart Study",
+  routine = false,
+  pretest = null,
+}: {
+  session: SessionDetail;
+  view: SmartView;
+  methodName?: string;
+  routine?: boolean;
+  /** Pre-testing plans: what the diagnostic found and the before-and-after. */
+  pretest?: PreTestView | null;
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -70,22 +85,28 @@ export function SmartSessionView({ session, view, methodName: displayName = "Sma
 
   if (summary) {
     const blocksDone = (summary.extra as { blocksDone?: number } | undefined)?.blocksDone ?? 0;
+    const changes = Array.isArray(summary.extra?.changes) ? (summary.extra.changes as ConceptChangeView[]) : [];
     return (
-      <SessionSummaryCard
-        title={blocksDone === 0 ? `${displayName} stopped early` : `${displayName} complete`}
-        summary={summary}
-        extraStats={extraStatsFor(session.method, summary.extra)}
-        actions={
-          <Link href={routes.study} className={buttonClasses({ size: "sm" })}>
-            Back to Study
-          </Link>
-        }
-      />
+      <div className="flex flex-col gap-4">
+        <SessionSummaryCard
+          title={blocksDone === 0 ? `${displayName} stopped early` : `${displayName} complete`}
+          summary={summary}
+          extraStats={extraStatsFor(session.method, summary.extra)}
+          actions={
+            <Link href={routes.study} className={buttonClasses({ size: "sm" })}>
+              Back to Study
+            </Link>
+          }
+        />
+        {changes.length > 0 && <BeforeAfterTable changes={changes} className="bg-card" />}
+      </div>
     );
   }
 
   const done = view.blocks.filter((block) => block.status === "done" || block.status === "skipped").length;
   const allDone = done === view.blocks.length;
+  // Pre-testing only makes sense in order: the tests cannot be skipped and only the next block can start.
+  const strict = Boolean(pretest);
 
   return (
     <div className="flex flex-col gap-4">
@@ -101,17 +122,21 @@ export function SmartSessionView({ session, view, methodName: displayName = "Sma
       />
       {error && <Alert tone="error">{error}</Alert>}
 
-      <div className="rounded-xl border border-primary/30 bg-primary-soft/30 p-4 text-sm">
-        <p className="flex items-start gap-2">
-          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-          <span>
-            {routine
-              ? `Your routine has ${view.blocks.length} block${view.blocks.length === 1 ? "" : "s"} (${session.planned_minutes} minutes).`
-              : `RevTaw planned ${view.blocks.length} block${view.blocks.length === 1 ? "" : "s"} for your ${session.planned_minutes} minutes from your mastery, mistakes and due reviews.`}{" "}
-            Run them in order — each one is a normal session with its own summary, and this page keeps the plan.
-          </span>
-        </p>
-      </div>
+      {pretest ? (
+        <PreTestPanel pretest={pretest.pretest} posttest={pretest.posttest} changes={pretest.changes} />
+      ) : (
+        <div className="rounded-xl border border-primary/30 bg-primary-soft/30 p-4 text-sm">
+          <p className="flex items-start gap-2">
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            <span>
+              {routine
+                ? `Your routine has ${view.blocks.length} block${view.blocks.length === 1 ? "" : "s"} (${session.planned_minutes} minutes).`
+                : `RevTaw planned ${view.blocks.length} block${view.blocks.length === 1 ? "" : "s"} for your ${session.planned_minutes} minutes from your mastery, mistakes and due reviews.`}{" "}
+              Run them in order — each one is a normal session with its own summary, and this page keeps the plan.
+            </span>
+          </p>
+        </div>
+      )}
 
       <ol className="flex flex-col gap-3">
         {view.blocks.map((block, index) => {
@@ -164,11 +189,13 @@ export function SmartSessionView({ session, view, methodName: displayName = "Sma
                 )}
                 {(block.status === "pending" || block.status === "in_progress") && (
                   <>
-                    <Button type="button" size="sm" variant={isNext ? "primary" : "secondary"} loading={busy === block.key && pending} onClick={() => start(block.key)} disabled={pending && busy !== block.key}>
-                      {!(busy === block.key && pending) && <Play className="h-3.5 w-3.5" aria-hidden="true" />}
-                      {block.status === "in_progress" ? "Resume" : "Start"}
-                    </Button>
-                    {block.status === "pending" && (
+                    {(!strict || isNext) && (
+                      <Button type="button" size="sm" variant={isNext ? "primary" : "secondary"} loading={busy === block.key && pending} onClick={() => start(block.key)} disabled={pending && busy !== block.key}>
+                        {!(busy === block.key && pending) && <Play className="h-3.5 w-3.5" aria-hidden="true" />}
+                        {block.status === "in_progress" ? "Resume" : "Start"}
+                      </Button>
+                    )}
+                    {block.status === "pending" && (!strict || (isNext && block.method !== "practice_testing")) && (
                       <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => skip(block.key)}>
                         <SkipForward className="h-3.5 w-3.5" aria-hidden="true" />
                         Skip

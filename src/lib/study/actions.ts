@@ -9,6 +9,7 @@ import { actionFailure, revalidateStudy, uuid, type StudyActionResult } from "@/
 import { compareBlurtItem, evaluateQuestionItem, type BlurtResult, type EvaluatedQuestion } from "@/lib/study/advanced";
 import { BUILDER_METHOD_IDS } from "@/lib/study/catalog";
 import { PROBLEM_DIFFICULTIES } from "@/lib/study/problem-options";
+import { completePreTesting } from "@/lib/study/flows/pretest";
 import { deleteRoutine, saveRoutine, startRoutine, type RoutineFormInput } from "@/lib/study/routines";
 import {
   analyzeFeynmanItem,
@@ -270,7 +271,9 @@ export async function completeSmartSessionAction(sessionId: string): Promise<Stu
   const parsed = uuid.safeParse(sessionId);
   if (!parsed.success) return { ok: false, message: "Invalid session." };
   try {
-    const summary = await completeSmartSession(parsed.data);
+    const supabase = await createClient();
+    const session = await loadSession(supabase, parsed.data);
+    const summary = session.method === "pre_testing" ? await completePreTesting(parsed.data) : await completeSmartSession(parsed.data);
     revalidate(parsed.data);
     return { ok: true, data: summary };
   } catch (error) {

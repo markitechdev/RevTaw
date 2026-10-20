@@ -27,7 +27,7 @@ export const smartBlockSchema = z.object({
   questionCount: z.number().int().min(3).max(50).optional(),
   /** Custom routines: a block can target its own material. */
   materialId: z.string().nullable().optional(),
-  /** Practice-test blocks: the topic or concepts the test should stay on. */
+  /** Practice-test blocks: the topic or concepts the test should stay on (pre-testing's post-test). */
   focus: z.string().max(400).nullable().optional(),
 });
 

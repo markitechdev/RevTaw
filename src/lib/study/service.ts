@@ -13,6 +13,7 @@ import { startCases, startScenarios } from "@/lib/study/flows/applied";
 import { startGuidedReading } from "@/lib/study/flows/reading";
 import { startConceptMapping, startMindMapping } from "@/lib/study/flows/maps";
 import { startMemoryPalace, startMnemonics, startStories } from "@/lib/study/flows/memory";
+import { startPreTesting } from "@/lib/study/flows/pretest";
 import { startDualCoding } from "@/lib/study/flows/visual";
 import { startFadedExamples, startPracticeProblems, startWorkedExamples } from "@/lib/study/flows/problems";
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
@@ -188,6 +189,8 @@ async function startSessionInner(userId: string, input: StartSessionInput): Prom
       return startMemoryPalace(supabase, userId, input);
     case "story_method":
       return startStories(supabase, userId, input);
+    case "pre_testing":
+      return startPreTesting(supabase, userId, input);
   }
 }
 
