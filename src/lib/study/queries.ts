@@ -36,9 +36,11 @@ export async function listSessions(filters: { status?: "in_progress" | "complete
 
 export type SessionItemView = Pick<
   StudySessionItem,
-  "id" | "position" | "kind" | "prompt" | "key_points" | "source_excerpt" | "response" | "analysis" | "is_correct" | "score" | "confidence" | "attempts" | "answered_at"
+  "id" | "position" | "kind" | "prompt" | "key_points" | "source_excerpt" | "response" | "analysis" | "is_correct" | "score" | "confidence" | "attempts" | "answered_at" | "format"
 > & {
   concept: { id: string; name: string } | null;
+  /** Source material in multi-material sessions (interleaving, cumulative review). */
+  material: { id: string; title: string } | null;
   /** Only present once the item has been answered (never leaked beforehand). */
   model_answer: string | null;
 };
@@ -55,7 +57,7 @@ export const getSession = cache(async (sessionId: string): Promise<SessionDetail
     supabase.from("study_sessions").select("*, material:materials!study_sessions_material_fk(id, title)").eq("id", sessionId).maybeSingle(),
     supabase
       .from("study_session_items")
-      .select("id, position, kind, prompt, model_answer, key_points, source_excerpt, response, analysis, is_correct, score, confidence, attempts, answered_at, concept:concepts!study_session_items_concept_fk(id, name)")
+      .select("id, position, kind, prompt, model_answer, key_points, source_excerpt, response, analysis, is_correct, score, confidence, attempts, answered_at, format, concept:concepts!study_session_items_concept_fk(id, name), material:materials!study_session_items_material_fk(id, title)")
       .eq("session_id", sessionId)
       .order("position"),
   ]);

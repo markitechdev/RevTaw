@@ -7,8 +7,10 @@ import { isAiError } from "@/lib/ai";
 import { getConceptPerformance } from "@/lib/quizzes/queries";
 import { createQuiz, startAttempt } from "@/lib/quizzes/service";
 import { loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
+import { startCumulativeReview, startInterleaving, startRapidReview, startRetrievalPractice } from "@/lib/study/advanced";
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
 import { isTutorMethod, METHOD_BEHAVIOUR, type BuilderMethodId } from "@/lib/study/catalog";
+import type { StudyMethodId } from "@/lib/study/methods";
 import { completeSession, createSession, loadSession, SessionError, sessionTitle, suggestNext, updateSessionState, type SessionSummary } from "@/lib/study/sessions";
 import type { ConfidenceLevel, Json, SessionGoal, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -21,6 +23,8 @@ export { SessionError, ServiceError };
 export type StartSessionInput = {
   method: BuilderMethodId;
   materialId: string | null;
+  /** Interleaving: the other materials to mix with `materialId`. */
+  materialIds?: string[];
   goal: SessionGoal | null;
   plannedMinutes: number;
   /** Practice testing only. */
@@ -124,6 +128,14 @@ async function startSessionInner(userId: string, input: StartSessionInput): Prom
       return { sessionId: "", redirect: "/flashcards/review" };
     case "flashcards":
       return { sessionId: "", redirect: input.materialId ? `/flashcards?material=${input.materialId}` : "/flashcards" };
+    case "retrieval_practice":
+      return startRetrievalPractice(supabase, userId, input);
+    case "rapid_review":
+      return startRapidReview(supabase, userId, input);
+    case "cumulative_review":
+      return startCumulativeReview(supabase, userId, input);
+    case "interleaving":
+      return startInterleaving(supabase, userId, input);
   }
 }
 
@@ -393,7 +405,7 @@ export async function answerRecallItem(input: { itemId: string; response: string
     await supabase.from("mistakes").insert({
       user_id: session.user_id,
       concept_id: item.concept_id,
-      material_id: session.material_id,
+      material_id: item.material_id ?? session.material_id,
       question_text: item.prompt.slice(0, 4000),
       student_answer: input.response.slice(0, 4000) || null,
       correct_answer: (item.model_answer ?? "").slice(0, 4000),
@@ -515,7 +527,22 @@ async function nextFlashcardDue(supabase: Client): Promise<string | null> {
   return data?.due_at ?? null;
 }
 
-/** Closes an item-based session (recall, Feynman, error review) with its summary. */
+/** Suggested next activity after an item-based session (§29). */
+function itemSessionNext(method: StudyMethodId, accuracy: number | null, weak: string[]): string {
+  switch (method) {
+    case "error_review":
+      return accuracy !== null && accuracy >= 0.8 ? "Most of those mistakes are learned now. Take a practice test to confirm it under exam conditions." : suggestNext(accuracy, weak, "active_recall");
+    case "retrieval_practice":
+    case "rapid_review":
+    case "cumulative_review":
+    case "interleaving":
+      return suggestNext(accuracy, weak, "active_recall");
+    default:
+      return suggestNext(accuracy, weak, method);
+  }
+}
+
+/** Closes an item-based session (the recall-style methods, Feynman, error review and the other item flows) with its summary. */
 export async function completeItemSession(sessionId: string, focusSeconds: number | null, abandoned = false): Promise<SessionSummary> {
   const supabase = await createClient();
   const session = await loadSession(supabase, sessionId);
@@ -537,7 +564,7 @@ export async function completeItemSession(sessionId: string, focusSeconds: numbe
   const weak = [...byConcept.entries()].filter(([, value]) => value.correct < value.total).map(([name]) => name);
   const strong = [...byConcept.entries()].filter(([, value]) => value.correct === value.total && value.total > 0).map(([name]) => name);
   const accuracy = answered.length ? correct / answered.length : null;
-  const method = session.method as "active_recall" | "feynman" | "error_review";
+  const method = session.method as StudyMethodId;
   return completeSession(supabase, sessionId, {
     focusSeconds: focusSeconds ?? undefined,
     topics: [...byConcept.keys()],
@@ -546,12 +573,7 @@ export async function completeItemSession(sessionId: string, focusSeconds: numbe
     incorrect: answered.length - correct,
     weakConcepts: weak,
     strongConcepts: strong,
-    suggestedNext:
-      answered.length === 0
-        ? "Nothing was answered this time. Try a shorter session so it is easy to finish."
-        : method === "error_review" && accuracy !== null && accuracy >= 0.8
-          ? "Most of those mistakes are learned now. Take a practice test to confirm it under exam conditions."
-          : suggestNext(accuracy, weak, method === "error_review" ? "active_recall" : method),
+    suggestedNext: answered.length === 0 ? "Nothing was answered this time. Try a shorter session so it is easy to finish." : itemSessionNext(method, accuracy, weak),
     nextReviewAt: await nextFlashcardDue(supabase),
     abandoned,
   });

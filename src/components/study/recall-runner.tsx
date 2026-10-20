@@ -13,6 +13,7 @@ import { Button, buttonClasses } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { CONFIDENCE_LEVELS } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
+import { RETRIEVAL_FORMAT_LABEL, type RetrievalFormat } from "@/lib/study/formats";
 import { answerRecallAction, completeSessionAction } from "@/lib/study/actions";
 import type { SessionDetail } from "@/lib/study/queries";
 import type { RecallItemResult } from "@/lib/study/service";
@@ -21,6 +22,27 @@ import type { ConfidenceLevel } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 
 type Stored = RecallItemResult;
+
+function formatPlaceholder(format: string | null): string {
+  switch (format) {
+    case "fill_blank":
+      return "Type the missing word or phrase.";
+    case "list":
+      return "List every item you remember, one per line.";
+    case "process":
+      return "Describe the steps in order.";
+    case "example":
+      return "Give a concrete example that fits.";
+    case "calculation":
+      return "Show the formula, the substitution and the result.";
+    case "definition":
+      return "State the definition as precisely as you can.";
+    case "explanation":
+      return "Explain the why and the how in your own words.";
+    default:
+      return "Write what you remember before revealing the answer. A rough answer is fine — the comparison shows the gaps.";
+  }
+}
 
 /**
  * Active recall / error review runner: the answer stays hidden until the
@@ -163,8 +185,9 @@ export function RecallRunner({ session, methodName, parentSessionId = null }: { 
 
       <section aria-labelledby="recall-prompt" className="mx-auto flex w-full max-w-3xl flex-col gap-4 rounded-xl border border-border bg-card p-5">
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <Badge tone="neutral">{item.kind === "mistake" ? "Retest" : "Recall"}</Badge>
+          <Badge tone="neutral">{item.kind === "mistake" ? "Retest" : item.format && item.format in RETRIEVAL_FORMAT_LABEL ? RETRIEVAL_FORMAT_LABEL[item.format as RetrievalFormat] : "Recall"}</Badge>
           {item.concept && <Badge tone="primary">{item.concept.name}</Badge>}
+          {item.material && <Badge tone="warning">{item.material.title}</Badge>}
           <span className="text-muted-foreground">
             {answered} answered · {items.length - answered} left
           </span>
@@ -185,7 +208,7 @@ export function RecallRunner({ session, methodName, parentSessionId = null }: { 
                 maxLength={8000}
                 value={response}
                 disabled={pending}
-                placeholder="Write what you remember before revealing the answer. A rough answer is fine — the comparison shows the gaps."
+                placeholder={formatPlaceholder(item.format)}
                 onChange={(event) => setResponse(event.target.value)}
               />
             </div>

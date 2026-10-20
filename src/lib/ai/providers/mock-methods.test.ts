@@ -1,0 +1,23 @@
+import { describe, expect, it } from "vitest";
+
+import { recallQuestionsHeuristically } from "@/lib/ai/providers/mock";
+
+const transcript = `[Section: Photosynthesis Overview]
+Photosynthesis Overview
+Photosynthesis is the process by which green plants convert light energy into chemical energy.
+The overall equation is 6CO2 + 6H2O -> C6H12O6 + 6O2.
+
+[Section: Calvin Cycle]
+Calvin Cycle
+The Calvin cycle is the set of reactions that fixes carbon dioxide into sugar using ATP and NADPH.
+It takes place in the stroma of the chloroplast.`;
+
+describe("mock study-method heuristics", () => {
+  it("rotates retrieval formats and writes a fill-in-the-blank with the term as the answer", () => {
+    const { questions } = recallQuestionsHeuristically(transcript, "Formats to rotate: fill_blank, definition, list\nProduce exactly 3 prompts.");
+    expect(questions.map((question) => question.format)).toEqual(["fill_blank", "definition", "list"]);
+    expect(questions[0].prompt).toMatch(/^Fill in the blank: .*____/);
+    expect(questions[0].key_points).toEqual([questions[0].model_answer]);
+    expect(questions[1].prompt).toMatch(/^Define /);
+  });
+});

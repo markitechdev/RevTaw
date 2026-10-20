@@ -98,8 +98,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 15,
     goals: ["memorize", "practice"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
-    behaviour: "Mixed short recall exercises drawn from the material.",
+    availableIn: "now",
+    behaviour: "Recall exercises in rotating formats — short answer, definition, fill in the blank, explanation, list, example, process, calculation — each graded against the material; retrieval strength per concept updates as you go.",
   },
   practice_testing: {
     howItHelps: "Testing under exam conditions reveals what you can produce, not just recognise.",
@@ -116,8 +116,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 30,
     goals: ["exam_prep", "master_topic"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
-    behaviour: "Questions alternate between materials and topics instead of drilling one at a time.",
+    availableIn: "now",
+    behaviour: "You pick two to four materials; recall prompts alternate between them so every question forces you to decide which idea applies, and each prompt shows which material it came from.",
   },
   chunking: {
     howItHelps: "Small sections with mini summaries keep a big chapter from overwhelming you.",
@@ -224,8 +224,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 10,
     goals: ["quick_review", "exam_prep"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
-    behaviour: "A 5-15 minute pass over weak concepts, important facts and previous mistakes.",
+    availableIn: "now",
+    behaviour: "A 5, 10 or 15 minute pass: open mistakes first, then recall prompts on your weakest concepts and the material's likely exam topics — nothing else.",
   },
   teach_back: {
     howItHelps: "Teaching to a learner who asks questions reveals exactly where your understanding thins out.",
@@ -242,7 +242,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 20,
     goals: ["quick_review", "exam_prep", "memorize"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
+    availableIn: "now",
     behaviour: "Recall prompts are split 60% current material, 20% the previous one, 10% older and 10% the oldest relevant material, each labelled with its source.",
   },
   mixed_practice: {
@@ -364,8 +364,12 @@ export const IMPLEMENTED_METHOD_IDS = STUDY_METHODS.filter((method) => METHOD_BE
 export const BUILDER_METHOD_IDS = [
   "smart_study",
   "active_recall",
+  "retrieval_practice",
   "feynman",
   "practice_testing",
+  "rapid_review",
+  "cumulative_review",
+  "interleaving",
   "error_review",
   "pomodoro",
   "socratic_questioning",
@@ -377,6 +381,15 @@ export const BUILDER_METHOD_IDS = [
 
 /** Methods whose session is a tutor conversation in a special mode. */
 export const TUTOR_METHOD_IDS = ["socratic_questioning", "elaborative_interrogation", "self_explanation"] as const;
+
+/** Methods whose items run in the recall runner. */
+export const RECALL_METHOD_IDS = ["active_recall", "error_review", "retrieval_practice", "rapid_review", "cumulative_review", "interleaving"] as const;
+export function isRecallMethod(value: string): boolean {
+  return (RECALL_METHOD_IDS as readonly string[]).includes(value);
+}
+
+/** Rapid review options (spec: 5, 10 or 15 minutes). */
+export const RAPID_REVIEW_MINUTES = [5, 10, 15] as const;
 export type TutorMethodId = (typeof TUTOR_METHOD_IDS)[number];
 export function isTutorMethod(value: string): value is TutorMethodId {
   return (TUTOR_METHOD_IDS as readonly string[]).includes(value);

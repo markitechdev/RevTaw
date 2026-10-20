@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { startSessionAction } from "@/lib/study/actions";
-import { BUILDER_METHOD_IDS, isBuilderMethod, METHOD_BEHAVIOUR, recommendMethods, TIME_PRESETS, type BuilderMethodId } from "@/lib/study/catalog";
+import { BUILDER_METHOD_IDS, isBuilderMethod, METHOD_BEHAVIOUR, RAPID_REVIEW_MINUTES, recommendMethods, TIME_PRESETS, type BuilderMethodId } from "@/lib/study/catalog";
 import { STUDY_METHOD_BY_ID } from "@/lib/study/methods";
 import type { SessionGoal } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,18 @@ const GOALS: ReadonlyArray<{ id: SessionGoal; label: string; hint: string }> = [
   { id: "quick_review", label: "Quick review", hint: "A short refresher" },
   { id: "master_topic", label: "Master topic", hint: "Push weak concepts to strong" },
 ];
+
+/** What the "Preparing your session…" line says while a method's session is generated. */
+const PREPARING: Partial<Record<BuilderMethodId, string>> = {
+  active_recall: "picking what to ask",
+  feynman: "picking what to ask",
+  practice_testing: "writing the test",
+  smart_study: "planning the blocks from your data",
+  retrieval_practice: "picking what to ask",
+  rapid_review: "picking what to ask",
+  cumulative_review: "picking what to ask",
+  interleaving: "picking what to ask",
+};
 
 const POMODORO_PRESETS: ReadonlyArray<{ work: number; rest: number }> = [
   { work: 15, rest: 5 },
@@ -53,14 +65,15 @@ export function SessionBuilder({
 }) {
   const router = useRouter();
   const [materialId, setMaterialId] = useState<string>(initialMaterialId && materials.some((m) => m.id === initialMaterialId) ? initialMaterialId : (materials[0]?.id ?? ""));
-  const [minutes, setMinutes] = useState<number>(defaultMinutes);
-  const [customMinutes, setCustomMinutes] = useState(!(TIME_PRESETS as readonly number[]).includes(defaultMinutes));
+  const [minutes, setMinutes] = useState<number>(initialMethod === "rapid_review" ? 10 : defaultMinutes);
+  const [customMinutes, setCustomMinutes] = useState(initialMethod !== "rapid_review" && !(TIME_PRESETS as readonly number[]).includes(defaultMinutes));
   const [goal, setGoal] = useState<SessionGoal>("practice");
   const [method, setMethod] = useState<BuilderMethodId>(initialMethod && isBuilderMethod(initialMethod) ? initialMethod : "active_recall");
   const [questionCount, setQuestionCount] = useState(10);
   const [timed, setTimed] = useState(true);
   const [pomodoro, setPomodoro] = useState<{ work: number; rest: number }>({ work: 25, rest: 5 });
   const [topic, setTopic] = useState("");
+  const [extraMaterials, setExtraMaterials] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -68,6 +81,7 @@ export function SessionBuilder({
   const needsMaterial = behaviour.requiresMaterial;
   const effectiveMaterial = needsMaterial || materialId !== "none" ? materialId : "";
   const recommended = useMemo(() => recommendMethods(goal, Boolean(effectiveMaterial && effectiveMaterial !== "none")), [goal, effectiveMaterial]);
+  const timePresets: readonly number[] = method === "rapid_review" ? RAPID_REVIEW_MINUTES : TIME_PRESETS;
 
   const start = () => {
     setError(null);
@@ -75,12 +89,18 @@ export function SessionBuilder({
       setError(`${STUDY_METHOD_BY_ID[method].name} needs a material. Upload one first or pick another method.`);
       return;
     }
+    const others = extraMaterials.filter((id) => id !== materialId);
+    if (method === "interleaving" && others.length === 0) {
+      setError("Interleaving mixes materials: tick at least one more material to combine.");
+      return;
+    }
     startTransition(async () => {
       const result = await startSessionAction({
         method,
         materialId: materialId && materialId !== "none" ? materialId : null,
+        materialIds: method === "interleaving" ? others : undefined,
         goal,
-        plannedMinutes: minutes,
+        plannedMinutes: method === "rapid_review" ? Math.min(15, Math.max(5, minutes)) : minutes,
         questionCount: method === "practice_testing" ? questionCount : undefined,
         timed: method === "practice_testing" ? timed : undefined,
         workMinutes: method === "pomodoro" ? pomodoro.work : undefined,
@@ -95,9 +115,18 @@ export function SessionBuilder({
     });
   };
 
+  const chooseMethod = (id: BuilderMethodId) => {
+    setMethod(id);
+    if (id === "rapid_review") {
+      setCustomMinutes(false);
+      setMinutes([...RAPID_REVIEW_MINUTES].reduce((best, option) => (Math.abs(option - minutes) < Math.abs(best - minutes) ? option : best), RAPID_REVIEW_MINUTES[0]));
+    }
+  };
+
   const methodDisabled = (id: BuilderMethodId) => {
     if (id === "error_review") return openMistakes === 0;
     if (id === "spaced_repetition") return dueCards === 0;
+    if (id === "interleaving") return materials.length < 2;
     if (METHOD_BEHAVIOUR[id].requiresMaterial && materials.length === 0) return true;
     return false;
   };
@@ -136,7 +165,7 @@ export function SessionBuilder({
           <fieldset disabled={pending}>
             <legend className={cn(sectionTitle, "mb-1.5")}>2 · How much time do you have?</legend>
             <div className="flex flex-wrap items-center gap-2">
-              {TIME_PRESETS.map((preset) => (
+              {timePresets.map((preset) => (
                 <Button
                   key={preset}
                   type="button"
@@ -150,10 +179,13 @@ export function SessionBuilder({
                   {preset} min
                 </Button>
               ))}
-              <Button type="button" size="sm" variant={customMinutes ? "primary" : "secondary"} onClick={() => setCustomMinutes(true)}>
-                Custom
-              </Button>
-              {customMinutes && (
+              {method !== "rapid_review" && (
+                <Button type="button" size="sm" variant={customMinutes ? "primary" : "secondary"} onClick={() => setCustomMinutes(true)}>
+                  Custom
+                </Button>
+              )}
+              {method === "rapid_review" && <span className="text-xs text-muted-foreground">Rapid review is 5, 10 or 15 minutes by design.</span>}
+              {customMinutes && method !== "rapid_review" && (
                 <Input
                   aria-label="Custom minutes"
                   type="number"
@@ -197,7 +229,7 @@ export function SessionBuilder({
                       disabled && "cursor-not-allowed opacity-60",
                     )}
                   >
-                    <input type="radio" name="session-method" value={id} checked={method === id} disabled={disabled} onChange={() => setMethod(id)} className="mt-0.5 h-4 w-4 accent-primary" />
+                    <input type="radio" name="session-method" value={id} checked={method === id} disabled={disabled} onChange={() => chooseMethod(id)} className="mt-0.5 h-4 w-4 accent-primary" />
                     <span className="flex min-w-0 flex-col gap-0.5">
                       <span className="flex flex-wrap items-center gap-1.5 font-medium">
                         {info.name}
@@ -206,7 +238,7 @@ export function SessionBuilder({
                       <span className="text-xs text-muted-foreground">{info.summary}</span>
                       {disabled && (
                         <span className="text-xs text-muted-foreground">
-                          {id === "error_review" ? "No open mistakes to retest yet." : id === "spaced_repetition" ? "No flashcards are due right now." : "Needs a processed material."}
+                          {id === "error_review" ? "No open mistakes to retest yet." : id === "spaced_repetition" ? "No flashcards are due right now." : id === "interleaving" ? "Needs at least two processed materials." : "Needs a processed material."}
                         </span>
                       )}
                     </span>
@@ -216,6 +248,35 @@ export function SessionBuilder({
             </div>
             <p className="mt-2 text-xs text-muted-foreground">{behaviour.behaviour}</p>
           </fieldset>
+
+          {method === "interleaving" && (
+            <fieldset disabled={pending}>
+              <legend className="mb-1.5 text-sm font-medium">Materials to mix in (up to three more)</legend>
+              <ul className="grid grid-cols-1 gap-1 rounded-lg border border-border p-2 sm:grid-cols-2">
+                {materials
+                  .filter((material) => material.id !== materialId)
+                  .map((material) => (
+                    <li key={material.id}>
+                      <label className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
+                        <input
+                          type="checkbox"
+                          name="interleave-material"
+                          value={material.id}
+                          checked={extraMaterials.includes(material.id)}
+                          disabled={!extraMaterials.includes(material.id) && extraMaterials.length >= 3}
+                          onChange={() => setExtraMaterials((state) => (state.includes(material.id) ? state.filter((id) => id !== material.id) : [...state, material.id]))}
+                          className="mt-0.5 h-4 w-4 accent-primary"
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate">{material.title}</span>
+                          {material.subject && <span className="block truncate text-xs text-muted-foreground">{material.subject}</span>}
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+              </ul>
+            </fieldset>
+          )}
 
           {method === "practice_testing" && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -273,7 +334,7 @@ export function SessionBuilder({
           {pending && (
             <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
               <Sparkles className="h-4 w-4 animate-pulse text-primary" aria-hidden="true" />
-              Preparing your session… {method === "practice_testing" ? "writing the test" : method === "active_recall" || method === "feynman" ? "picking what to ask" : method === "smart_study" ? "planning the blocks from your data" : ""}
+              Preparing your session… {PREPARING[method] ?? ""}
             </p>
           )}
           <div className="flex justify-end border-t border-border pt-4">

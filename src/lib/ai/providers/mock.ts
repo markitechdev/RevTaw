@@ -563,15 +563,32 @@ function overlap(expected: string[], given: string): { hits: string[]; misses: s
 export function recallQuestionsHeuristically(transcript: string, prompt: string) {
   const count = Number(prompt.match(/Produce exactly (\d+) prompts/)?.[1] ?? "5");
   const focus = (prompt.match(/Focus concepts[^:]*:\s*(.+)/)?.[1] ?? "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
+  const formats = (prompt.match(/^Formats to rotate:\s*(.+)$/m)?.[1] ?? "").split(",").map((item) => item.trim()).filter(Boolean);
   const facts = collectFacts(transcript);
   const ordered = [...facts].sort((a, b) => Number(focus.includes((b.term ?? b.heading).toLowerCase())) - Number(focus.includes((a.term ?? a.heading).toLowerCase())));
-  const questions = ordered.slice(0, count).map((fact) => ({
-    prompt: fact.term ? `From memory: what is ${fact.term}?` : `From memory: what does the material say about ${fact.sentence.split(" ").slice(0, 4).join(" ").replace(/[.,;:]$/, "")}…?`,
-    model_answer: fact.sentence,
-    key_points: keywordsOf(fact.definition ?? fact.sentence).slice(0, 4),
-    concept: (fact.term ?? fact.heading).slice(0, 60),
-    source_excerpt: fact.sentence.slice(0, 300),
-  }));
+  const questions = ordered.slice(0, count).map((fact, index) => {
+    const format = formats.length ? formats[index % formats.length] : null;
+    const topic = fact.term ?? fact.sentence.split(" ").slice(0, 4).join(" ").replace(/[.,;:]$/, "");
+    let promptText = fact.term ? `From memory: what is ${fact.term}?` : `From memory: what does the material say about ${topic}…?`;
+    let modelAnswer = fact.sentence;
+    if (format === "fill_blank" && fact.term) {
+      promptText = `Fill in the blank: ${fact.sentence.replace(new RegExp(fact.term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), "____")}`;
+      modelAnswer = fact.term;
+    } else if (format === "definition" && fact.term) promptText = `Define ${fact.term} as the material does.`;
+    else if (format === "explanation") promptText = `Explain in your own words: ${fact.term ? `why does ${fact.term} matter and how does it work?` : `what is happening in "${topic}…" and why?`}`;
+    else if (format === "list") promptText = `List what the material says about ${topic}.`;
+    else if (format === "example") promptText = `Give an example that fits what the material says about ${topic}.`;
+    else if (format === "process") promptText = `Describe, in order, the process the material connects with ${topic}.`;
+    else if (format === "calculation") promptText = `Work through it: apply what the material states about ${topic} to a concrete case.`;
+    return {
+      prompt: promptText,
+      model_answer: modelAnswer,
+      key_points: format === "fill_blank" && fact.term ? [fact.term] : keywordsOf(fact.definition ?? fact.sentence).slice(0, 4),
+      concept: (fact.term ?? fact.heading).slice(0, 60),
+      source_excerpt: fact.sentence.slice(0, 300),
+      ...(format ? { format } : {}),
+    };
+  });
   return { questions };
 }
 

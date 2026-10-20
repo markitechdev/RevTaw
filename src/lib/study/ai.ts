@@ -6,6 +6,7 @@ import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
+import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
 
 /**
  * Prompts behind the Phase 4 study methods. Every prompt is grounded in the
@@ -39,6 +40,7 @@ export const recallQuestionsSchema = z.object({
         key_points: points,
         concept: text(120),
         source_excerpt: z.string().trim().max(600).default(""),
+        format: z.enum(RETRIEVAL_FORMATS).optional().catch(undefined),
       }),
     )
     .min(1)
@@ -47,6 +49,17 @@ export const recallQuestionsSchema = z.object({
 
 export type RecallQuestion = z.infer<typeof recallQuestionsSchema>["questions"][number];
 
+const FORMAT_RULES: Record<RetrievalFormat, string> = {
+  short_answer: "a question answered in one or two sentences",
+  definition: "ask for the definition of a term exactly as the material defines it",
+  fill_blank: "a sentence from the material with one key term replaced by ____ (the model answer is the missing term)",
+  explanation: "ask why or how something works; the answer is a short explanation",
+  list: "ask for a list the material gives (steps, types, components); the model answer lists every item",
+  example: "ask for an example the material gives, or ask the student to give an example that fits the material's definition",
+  process: "ask the student to describe a process or sequence in order",
+  calculation: "a small calculation or formula application using numbers or formulas stated in the material (if the material has none, use a process question instead)",
+};
+
 export async function generateRecallQuestions(input: {
   materialTitle: string;
   chunks: AnalysisChunkInput[];
@@ -54,9 +67,14 @@ export async function generateRecallQuestions(input: {
   focusConcepts: string[];
   recentMistakes: string[];
   student: StudentContext;
+  /** Retrieval practice: rotate through these formats and label each prompt. */
+  formats?: RetrievalFormat[];
+  /** Extra emphasis (rapid review: exam topics, important facts). */
+  emphasis?: string[];
 }): Promise<{ questions: RecallQuestion[]; provider: string; model: string }> {
   const provider = getAiProvider("strong");
   const { transcript } = buildTranscript(input.chunks);
+  const formats = input.formats?.length ? input.formats : null;
   const system = `You are RevTaw's active-recall coach. You write recall prompts a student answers from memory before seeing the solution.
 
 Rules:
@@ -66,14 +84,14 @@ Rules:
 - "concept": the 1-4 word concept being recalled (reuse the same wording for the same concept).
 - "source_excerpt": a short verbatim quote (max 300 chars) that supports the model answer.
 - Cover different parts of the material; prioritise the focus concepts and recent mistakes when given.
-- Use ONLY the material between <material> tags.
+${formats ? `- "format": rotate through these formats in order and label each prompt with the format it uses: ${formats.map((format) => `${format} (${FORMAT_RULES[format]})`).join("; ")}.\n` : ""}- Use ONLY the material between <material> tags.
 - Respond with a single JSON object matching the schema. No commentary.`;
   const user = `Material title: ${input.materialTitle}
 Student: ${studentLine(input.student)}
-${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${input.recentMistakes.length ? `Recent mistakes:\n${input.recentMistakes.map((item) => `- ${item}`).join("\n")}\n` : ""}
+${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${input.emphasis?.length ? `High-value topics to prioritise: ${input.emphasis.join(", ")}\n` : ""}${input.recentMistakes.length ? `Recent mistakes:\n${input.recentMistakes.map((item) => `- ${item}`).join("\n")}\n` : ""}${formats ? `Formats to rotate: ${formats.join(", ")}\n` : ""}
 Produce exactly ${input.count} prompts.
 
-JSON schema: { "questions": [{ "prompt": string, "model_answer": string, "key_points": string[], "concept": string, "source_excerpt": string }] }
+JSON schema: { "questions": [{ "prompt": string, "model_answer": string, "key_points": string[], "concept": string, "source_excerpt": string${formats ? ', "format": string' : ""} }] }
 
 <material>
 ${transcript}

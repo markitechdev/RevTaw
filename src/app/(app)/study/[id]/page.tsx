@@ -12,7 +12,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
 import { getSmartSessionView } from "@/lib/adaptive/smart";
 import { routes } from "@/lib/routes";
-import { isTutorMethod, methodName } from "@/lib/study/catalog";
+import { isRecallMethod, isTutorMethod, methodName } from "@/lib/study/catalog";
 import { getSession } from "@/lib/study/queries";
 import { syncPracticeTesting } from "@/lib/study/service";
 
@@ -113,10 +113,8 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
     );
   }
 
+  if (isRecallMethod(session.method)) return <RecallRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
   switch (session.method) {
-    case "active_recall":
-    case "error_review":
-      return <RecallRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
     case "feynman":
       return <FeynmanRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
     case "pomodoro":

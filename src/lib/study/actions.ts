@@ -45,6 +45,7 @@ function failure(error: unknown, fallback: string): { ok: false; message: string
 const startSchema = z.object({
   method: z.enum(BUILDER_METHOD_IDS),
   materialId: uuid.nullable(),
+  materialIds: z.array(uuid).max(4).optional(),
   goal: z.enum(["memorize", "understand", "practice", "exam_prep", "quick_review", "master_topic"]).nullable(),
   plannedMinutes: z.number().int().min(1).max(480),
   questionCount: z.number().int().min(3).max(50).optional(),
