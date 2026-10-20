@@ -340,3 +340,44 @@ export function conceptMapHeuristically(transcript: string) {
   const relationships = concepts.slice(1).map((concept, index) => ({ from: concepts[index], to: concept, relation: relations[index % relations.length], note: facts.find((fact) => topicOf(fact) === concepts[index])?.sentence ?? null }));
   return { concepts: concepts.length >= 2 ? concepts : [...concepts, "Main idea"], relationships: relationships.length ? relationships : [{ from: concepts[0] ?? "Material", to: "Main idea", relation: "contains" as const, note: null }] };
 }
+
+// ---------------------------------------------------------------------------
+// Memory techniques
+// ---------------------------------------------------------------------------
+
+const ACROSTIC_WORDS: Record<string, string> = {
+  A: "Always", B: "Bright", C: "Cats", D: "Dance", E: "Every", F: "Friday", G: "Gently", H: "Happily", I: "In", J: "July", K: "Kindly", L: "Lions", M: "Make",
+  N: "New", O: "Orange", P: "Purple", Q: "Quiet", R: "Rabbits", S: "Sing", T: "Today", U: "Under", V: "Very", W: "Wild", X: "Xylophones", Y: "Yellow", Z: "Zebras",
+};
+
+function mnemonicOptionsFor(items: string[]) {
+  const letters = items.map((item) => item.trim()[0]?.toUpperCase() ?? "?");
+  const mapping = items.map((item, index) => `${letters[index]} = ${item}`).join(" · ");
+  return [
+    { kind: "acronym" as const, content: letters.join(""), explanation: mapping },
+    { kind: "acrostic" as const, content: `${letters.map((letter) => ACROSTIC_WORDS[letter] ?? letter).join(" ")}.`, explanation: `Each word starts like the item in the same place: ${mapping}.` },
+    {
+      kind: "phrase" as const,
+      content: `${items.map((item, index) => (index === 0 ? `First ${item}` : index === items.length - 1 ? `last ${item}` : `then ${item}`)).join(", ")} — ${items.length} in a row.`,
+      explanation: "Say it in the same rhythm every time; each beat is one item, in order.",
+    },
+  ];
+}
+
+/** Lists worth a mnemonic: the material's topics in order, then the key ideas of each section. */
+export function mnemonicsHeuristically(transcript: string, prompt: string) {
+  const count = Number(prompt.match(/Produce exactly (\d+) targets/)?.[1] ?? "3");
+  const title = prompt.match(/^Material title:\s*(.+)$/m)?.[1]?.trim() || "the material";
+  const sections = splitInlineSections(transcript);
+  const candidates: Array<{ target: string; items: string[]; ordered: boolean; concept: string }> = [];
+  if (sections.length >= 2) candidates.push({ target: `The main topics of ${title}, in order`, items: sections.slice(0, 8).map((section) => section.heading.slice(0, 120)), ordered: true, concept: title.slice(0, 60) });
+  for (const section of sections) {
+    const names = [...new Set(collectFacts(`[Section: ${section.heading}]\n${section.text}`).map((fact) => topicOf(fact)))].slice(0, 6);
+    if (names.length >= 2) candidates.push({ target: `The key ideas of ${section.heading}`, items: names, ordered: false, concept: section.heading.slice(0, 60) });
+  }
+  if (candidates.length === 0) {
+    const words = keywordsOf(transcript).slice(0, 4);
+    candidates.push({ target: `Key words of ${title}`, items: words.length >= 2 ? words : ["main idea", "details"], ordered: false, concept: title.slice(0, 60) });
+  }
+  return { targets: candidates.slice(0, Math.max(1, count)).map((candidate) => ({ ...candidate, options: mnemonicOptionsFor(candidate.items) })) };
+}

@@ -53,6 +53,7 @@ const PREPARING: Partial<Record<BuilderMethodId, string>> = {
   dual_coding: "drawing the visuals",
   mind_mapping: "drawing the map",
   concept_mapping: "drawing the map",
+  mnemonics: "writing the mnemonics",
 };
 
 const POMODORO_PRESETS: ReadonlyArray<{ work: number; rest: number }> = [
@@ -71,6 +72,7 @@ export function SessionBuilder({
   dueCards,
   initialMethod,
   initialMaterialId,
+  savedMnemonics = {},
 }: {
   materials: BuilderMaterial[];
   defaultMinutes: number;
@@ -78,6 +80,8 @@ export function SessionBuilder({
   dueCards: number;
   initialMethod?: string;
   initialMaterialId?: string;
+  /** Saved mnemonics with a list to recall, per material id. */
+  savedMnemonics?: Record<string, number>;
 }) {
   const router = useRouter();
   const [materialId, setMaterialId] = useState<string>(initialMaterialId && materials.some((m) => m.id === initialMaterialId) ? initialMaterialId : (materials[0]?.id ?? ""));
@@ -90,6 +94,7 @@ export function SessionBuilder({
   const [problemDifficulty, setProblemDifficulty] = useState<ProblemDifficulty | "adaptive">("adaptive");
   const [freshVisuals, setFreshVisuals] = useState(false);
   const [freshMap, setFreshMap] = useState(false);
+  const [practiceSaved, setPracticeSaved] = useState(false);
   const [pomodoro, setPomodoro] = useState<{ work: number; rest: number }>({ work: 25, rest: 5 });
   const [topic, setTopic] = useState("");
   const [extraMaterials, setExtraMaterials] = useState<string[]>([]);
@@ -126,6 +131,7 @@ export function SessionBuilder({
         problemDifficulty: method === "practice_problems" ? problemDifficulty : undefined,
         freshVisuals: method === "dual_coding" ? freshVisuals : undefined,
         freshMap: method === "mind_mapping" || method === "concept_mapping" ? freshMap : undefined,
+        savedMnemonics: method === "mnemonics" ? practiceSaved && (savedMnemonics[materialId] ?? 0) > 0 : undefined,
         workMinutes: method === "pomodoro" ? pomodoro.work : undefined,
         breakMinutes: method === "pomodoro" ? pomodoro.rest : undefined,
         topic: method === "pomodoro" ? topic || null : undefined,
@@ -312,6 +318,13 @@ export function SessionBuilder({
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={freshMap} disabled={pending} onChange={(event) => setFreshMap(event.target.checked)} className="h-4 w-4 accent-primary" />
               Draw a new map instead of opening the saved one
+            </label>
+          )}
+
+          {method === "mnemonics" && (savedMnemonics[materialId] ?? 0) > 0 && (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={practiceSaved} disabled={pending} onChange={(event) => setPracticeSaved(event.target.checked)} className="h-4 w-4 accent-primary" />
+              Practice your {savedMnemonics[materialId]} saved mnemonic{savedMnemonics[materialId] === 1 ? "" : "s"} for this material instead of new ones
             </label>
           )}
 

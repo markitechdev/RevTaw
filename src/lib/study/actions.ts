@@ -40,6 +40,7 @@ const startSchema = z.object({
   problemDifficulty: z.enum(["adaptive", ...PROBLEM_DIFFICULTIES]).optional(),
   freshVisuals: z.boolean().optional(),
   freshMap: z.boolean().optional(),
+  savedMnemonics: z.boolean().optional(),
   workMinutes: z.number().int().min(1).max(120).optional(),
   breakMinutes: z.number().int().min(1).max(60).optional(),
   topic: z.string().trim().max(120).nullable().optional(),

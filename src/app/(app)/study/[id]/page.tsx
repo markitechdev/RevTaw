@@ -9,6 +9,7 @@ import { DualCodingRunner } from "@/components/study/dual-coding-runner";
 import { ChunkRunner } from "@/components/study/chunk-runner";
 import { FeynmanRunner } from "@/components/study/feynman-runner";
 import { ConceptMapRunner, MindMapRunner } from "@/components/study/map-runners";
+import { MnemonicRunner } from "@/components/study/mnemonic-runner";
 import { PomodoroRunner } from "@/components/study/pomodoro-runner";
 import { ProblemRunner } from "@/components/study/problem-runner";
 import { QuestionGenRunner } from "@/components/study/question-gen-runner";
@@ -132,6 +133,11 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
                 <Link href={routes.study} className={buttonClasses({ size: "sm", variant: parentLink ? "secondary" : "primary" })}>
                   Back to Study
                 </Link>
+                {session.method === "mnemonics" && (
+                  <Link href={routes.memoryAids} className={buttonClasses({ size: "sm", variant: "secondary" })}>
+                    Open memory aids
+                  </Link>
+                )}
               </>
             }
           />
@@ -169,6 +175,8 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
       return <MindMapRunner key={session.id} session={session} methodName={name} map={(await getSessionMap(session)) as MapView<MindMapData> | null} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "concept_mapping":
       return <ConceptMapRunner key={session.id} session={session} methodName={name} map={(await getSessionMap(session)) as MapView<ConceptMapData> | null} parentSessionId={parentId} parentLabel={parentLabel} />;
+    case "mnemonics":
+      return <MnemonicRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     case "pomodoro":
       return <PomodoroRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     default:

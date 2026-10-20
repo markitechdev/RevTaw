@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -9,9 +10,11 @@ import { evaluateCaseItem, evaluateScenarioItem, type CaseResult, type ScenarioR
 import { evaluateProblemItem, type ProblemResult } from "@/lib/study/flows/problems";
 import { advanceReading, markSectionRead, submitReadingSummary, type ReadingSummaryResult } from "@/lib/study/flows/reading";
 import { answerLink, quizBranch, saveMap, startLinkTest, type BranchQuestion, type LinkQuestion, type LinkResult } from "@/lib/study/flows/maps";
+import { addOwnMnemonic, createMnemonic, deleteMnemonic, practiceMnemonic, saveMnemonicOption, setMnemonicFavorite, updateMnemonic } from "@/lib/study/flows/memory";
 import { checkVisualItem, type VisualCheck } from "@/lib/study/flows/visual";
 import { saveItemDraft } from "@/lib/study/items";
 import { CONCEPT_RELATIONS, type ConceptRelation } from "@/lib/study/maps";
+import { MNEMONIC_KINDS, type MnemonicOption, type MnemonicPracticeResult } from "@/lib/study/memory-options";
 import type { ReadingStage } from "@/lib/study/reading-options";
 import type { VisualAnswer } from "@/lib/study/visuals";
 import { getCurrentUser } from "@/lib/supabase/server";
@@ -181,5 +184,118 @@ export async function answerLinkAction(input: { itemId: string; relation: Concep
     return { ok: true, data: await answerLink(parsed.data) };
   } catch (error) {
     return actionFailure(error, "That answer could not be checked.");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Mnemonics
+// ---------------------------------------------------------------------------
+
+export async function saveMnemonicOptionAction(input: { itemId: string; optionIndex: number }): Promise<StudyActionResult<{ mnemonicId: string }>> {
+  await requireUser();
+  const parsed = z.object({ itemId: uuid, optionIndex: z.number().int().min(0).max(10) }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "That mnemonic could not be saved." };
+  try {
+    const data = await saveMnemonicOption(parsed.data);
+    revalidatePath(routes.memoryAids);
+    return { ok: true, data };
+  } catch (error) {
+    return actionFailure(error, "That mnemonic could not be saved.");
+  }
+}
+
+export async function addOwnMnemonicAction(input: { itemId: string; content: string; explanation: string | null }): Promise<StudyActionResult<{ option: MnemonicOption; optionIndex: number; mnemonicId: string }>> {
+  await requireUser();
+  const parsed = z
+    .object({ itemId: uuid, content: z.string().trim().min(2, "Write your mnemonic first.").max(2000), explanation: z.string().trim().max(2000).nullable() })
+    .safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "That mnemonic could not be saved." };
+  try {
+    const data = await addOwnMnemonic(parsed.data);
+    revalidatePath(routes.memoryAids);
+    return { ok: true, data };
+  } catch (error) {
+    return actionFailure(error, "That mnemonic could not be saved.");
+  }
+}
+
+export async function practiceMnemonicAction(input: { itemId: string; optionIndex: number; answer: string; responseMs: number | null }): Promise<StudyActionResult<MnemonicPracticeResult>> {
+  await requireUser();
+  const parsed = z.object({ itemId: uuid, optionIndex: z.number().int().min(0).max(10), answer: z.string().max(4000), responseMs }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "That answer could not be checked." };
+  try {
+    return { ok: true, data: await practiceMnemonic(parsed.data) };
+  } catch (error) {
+    return actionFailure(error, "Your list could not be checked. Please try again.");
+  }
+}
+
+const mnemonicForm = z.object({
+  kind: z.enum(MNEMONIC_KINDS),
+  target: z.string().trim().min(1, "Say what it helps you remember.").max(200),
+  items: z.array(z.string().trim().min(1).max(200)).max(20, "Up to 20 items."),
+  content: z.string().trim().min(1, "Write the mnemonic.").max(2000),
+  explanation: z.string().trim().max(2000).nullable(),
+  materialId: uuid.nullable(),
+});
+
+export type MnemonicFormInput = z.input<typeof mnemonicForm>;
+
+function parseMnemonicForm(input: MnemonicFormInput) {
+  const parsed = mnemonicForm.safeParse(input);
+  if (!parsed.success) return { ok: false as const, message: parsed.error.issues[0]?.message ?? "Check the mnemonic." };
+  return { ok: true as const, data: { ...parsed.data, explanation: parsed.data.explanation || null } };
+}
+
+export async function createMnemonicAction(input: MnemonicFormInput): Promise<StudyActionResult<{ id: string }>> {
+  const user = await requireUser();
+  const parsed = parseMnemonicForm(input);
+  if (!parsed.ok) return parsed;
+  try {
+    const id = await createMnemonic(user.id, parsed.data);
+    revalidatePath(routes.memoryAids);
+    return { ok: true, data: { id } };
+  } catch (error) {
+    return actionFailure(error, "The mnemonic could not be saved.");
+  }
+}
+
+export async function updateMnemonicAction(id: string, input: MnemonicFormInput): Promise<StudyActionResult> {
+  await requireUser();
+  if (!uuid.safeParse(id).success) return { ok: false, message: "Mnemonic not found." };
+  const parsed = parseMnemonicForm(input);
+  if (!parsed.ok) return parsed;
+  try {
+    await updateMnemonic(id, parsed.data);
+    revalidatePath(routes.memoryAids);
+    return { ok: true };
+  } catch (error) {
+    return actionFailure(error, "The mnemonic could not be saved.");
+  }
+}
+
+export async function setMnemonicFavoriteAction(input: { id: string; favorite: boolean }): Promise<StudyActionResult> {
+  await requireUser();
+  const parsed = z.object({ id: uuid, favorite: z.boolean() }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Mnemonic not found." };
+  try {
+    await setMnemonicFavorite(parsed.data.id, parsed.data.favorite);
+    revalidatePath(routes.memoryAids);
+    return { ok: true };
+  } catch (error) {
+    return actionFailure(error, "The mnemonic could not be updated.");
+  }
+}
+
+export async function deleteMnemonicAction(input: { id: string }): Promise<StudyActionResult> {
+  await requireUser();
+  const parsed = z.object({ id: uuid }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Mnemonic not found." };
+  try {
+    await deleteMnemonic(parsed.data.id);
+    revalidatePath(routes.memoryAids);
+    return { ok: true };
+  } catch (error) {
+    return actionFailure(error, "The mnemonic could not be deleted.");
   }
 }

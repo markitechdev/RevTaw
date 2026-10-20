@@ -12,6 +12,7 @@ import { startBlurting, startChunking, startCumulativeReview, startInterleaving,
 import { startCases, startScenarios } from "@/lib/study/flows/applied";
 import { startGuidedReading } from "@/lib/study/flows/reading";
 import { startConceptMapping, startMindMapping } from "@/lib/study/flows/maps";
+import { startMnemonics } from "@/lib/study/flows/memory";
 import { startDualCoding } from "@/lib/study/flows/visual";
 import { startFadedExamples, startPracticeProblems, startWorkedExamples } from "@/lib/study/flows/problems";
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
@@ -44,6 +45,8 @@ export type StartSessionInput = {
   freshVisuals?: boolean;
   /** Mind / concept mapping only: draw a new map instead of opening the saved one. */
   freshMap?: boolean;
+  /** Mnemonics only: practice the student's saved mnemonics instead of writing new ones. */
+  savedMnemonics?: boolean;
   /** Pomodoro only. */
   workMinutes?: number;
   breakMinutes?: number;
@@ -177,6 +180,8 @@ async function startSessionInner(userId: string, input: StartSessionInput): Prom
       return startMindMapping(supabase, userId, input);
     case "concept_mapping":
       return startConceptMapping(supabase, userId, input);
+    case "mnemonics":
+      return startMnemonics(supabase, userId, input);
   }
 }
 
@@ -590,6 +595,8 @@ function itemSessionNext(method: StudyMethodId, accuracy: number | null, weak: s
       return accuracy === null ? "Quiz yourself on a branch next time — the questions show which parts of the map you really know." : accuracy >= 0.8 ? "You know these branches. Extend the map with the next chapter and quiz the new branches." : "Re-read the branches you missed on the map, then quiz them again tomorrow.";
     case "concept_mapping":
       return accuracy === null ? "Test the links next time to check you can name each relationship from memory." : accuracy >= 0.8 ? "You can name the relationships. Add the concepts of the next chapter and connect them." : "Study the relationships you missed, then test the links again tomorrow.";
+    case "mnemonics":
+      return accuracy !== null && accuracy >= 0.8 ? "Your mnemonics work. Practice the saved ones again in three days, before you look at the lists." : "Practice the lists you missed again tomorrow — if a device does not stick, write your own and save it.";
     case "dual_coding":
       return accuracy !== null && accuracy >= 0.8 ? "You can rebuild these visuals from memory. Sketch one yourself next time before you look." : "Study the visuals you missed in the Combined view, then rebuild them again tomorrow.";
     case "sq3r":

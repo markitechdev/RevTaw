@@ -179,8 +179,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 10,
     goals: ["memorize"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
-    behaviour: "RevTaw proposes mnemonics for hard-to-remember lists in the material.",
+    availableIn: "now",
+    behaviour: "RevTaw finds the lists and sequences in the material that are hard to memorize and offers two or three accurate devices for each — acronyms, acrostics, rhymes, memory phrases, associations, small stories. Pick one or write your own, save the ones that work, then recall the list from the device alone; saved mnemonics come back for practice.",
   },
   worked_examples: {
     howItHelps: "Seeing every step explained builds the pattern before you solve alone.",
@@ -385,6 +385,7 @@ export const BUILDER_METHOD_IDS = [
   "dual_coding",
   "mind_mapping",
   "concept_mapping",
+  "mnemonics",
   "error_review",
   "pomodoro",
   "socratic_questioning",

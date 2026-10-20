@@ -1,4 +1,4 @@
-import { BookOpenCheck, Layers, NotebookPen } from "lucide-react";
+import { BookOpenCheck, Brain, Layers, NotebookPen } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -18,6 +18,7 @@ import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { countOpenMistakes } from "@/lib/quizzes/queries";
 import { routes } from "@/lib/routes";
 import { methodName } from "@/lib/study/catalog";
+import { getMnemonicCounts } from "@/lib/study/flows/memory";
 import { getActivityStats, listSessions } from "@/lib/study/queries";
 import { listRoutines } from "@/lib/study/routines";
 
@@ -29,7 +30,7 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
   const params = await searchParams;
   const { user, profile } = await getCurrentUserWithProfile();
   if (!user) redirect(routes.login);
-  const [materials, sessions, openMistakes, dueCards, activity, routines] = await Promise.all([listMaterials(), listSessions({ limit: 20 }), countOpenMistakes(), countDueCards(), getActivityStats(), listRoutines()]);
+  const [materials, sessions, openMistakes, dueCards, activity, routines, mnemonics] = await Promise.all([listMaterials(), listSessions({ limit: 20 }), countOpenMistakes(), countDueCards(), getActivityStats(), listRoutines(), getMnemonicCounts()]);
   const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title, subject: material.subject?.name ?? null }));
   const inProgress = sessions.filter((session) => session.status === "in_progress");
   const finished = sessions.filter((session) => session.status !== "in_progress");
@@ -94,10 +95,26 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
             dueCards={dueCards}
             initialMethod={typeof params.method === "string" ? params.method : undefined}
             initialMaterialId={typeof params.material === "string" ? params.material : undefined}
+            savedMnemonics={mnemonics.practicable}
           />
         </div>
         <div className="flex flex-col gap-4">
           <RoutinesCard routines={routines.map((routine) => ({ id: routine.id, title: routine.title, description: routine.description, blocks: routine.blocks, totalMinutes: routine.totalMinutes, last_used_at: routine.last_used_at }))} materials={readyMaterials.map((material) => ({ id: material.id, title: material.title }))} />
+          <Card>
+            <CardHeader>
+              <CardTitle>Memory aids</CardTitle>
+              <CardDescription>Mnemonics you saved or wrote yourself.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between gap-3 text-sm">
+              <span>
+                {mnemonics.total} saved mnemonic{mnemonics.total === 1 ? "" : "s"}
+              </span>
+              <Link href={routes.memoryAids} className={buttonClasses({ size: "sm", variant: "secondary" })}>
+                <Brain className="h-4 w-4" aria-hidden="true" />
+                Open memory aids
+              </Link>
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>This week</CardTitle>

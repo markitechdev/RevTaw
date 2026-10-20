@@ -15,6 +15,7 @@ export const routes = {
   dashboard: "/dashboard",
   materials: "/materials",
   study: "/study",
+  memoryAids: "/study/memory",
   methods: "/methods",
   quiz: "/quiz",
   flashcards: "/flashcards",
