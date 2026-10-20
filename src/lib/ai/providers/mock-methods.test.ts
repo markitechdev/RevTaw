@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { blurtCompareHeuristically, chunkHeuristically, recallQuestionsHeuristically } from "@/lib/ai/providers/mock";
+import { blurtCompareHeuristically, chunkHeuristically, questionEvaluationHeuristically, recallQuestionsHeuristically } from "@/lib/ai/providers/mock";
 
 const transcript = `[Section: Photosynthesis Overview]
 Photosynthesis Overview
@@ -50,5 +50,14 @@ The Calvin cycle uses ATP.
     expect(chunks[0].title).toBe("Photosynthesis Overview");
     expect(chunks[1].recall_question).toMatch(/Calvin cycle/);
     expect(chunks[1].details.length).toBeGreaterThan(0);
+  });
+
+  it("rates a relevant question above an off-topic one", () => {
+    const material = `[Passage 1 — Calvin Cycle]\nThe Calvin cycle is the set of reactions that fixes carbon dioxide into sugar using ATP and NADPH.`;
+    const good = questionEvaluationHeuristically(material, "Student's question: Why does the Calvin cycle need ATP and NADPH to fix carbon dioxide?\nExpected answer: It uses ATP and NADPH to fix carbon dioxide into sugar.");
+    const bad = questionEvaluationHeuristically(material, "Student's question: who won\nExpected answer: (not given)");
+    expect(good.relevance).toBeGreaterThan(bad.relevance);
+    expect(good.overall).toBeGreaterThan(bad.overall);
+    expect(good.difficulty).toBe("hard");
   });
 });

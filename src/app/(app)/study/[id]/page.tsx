@@ -7,6 +7,7 @@ import { BlurtingRunner } from "@/components/study/blurting-runner";
 import { ChunkRunner } from "@/components/study/chunk-runner";
 import { FeynmanRunner } from "@/components/study/feynman-runner";
 import { PomodoroRunner } from "@/components/study/pomodoro-runner";
+import { QuestionGenRunner } from "@/components/study/question-gen-runner";
 import { RecallRunner } from "@/components/study/recall-runner";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { SmartSessionView } from "@/components/study/smart-session";
@@ -123,6 +124,8 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
       return <BlurtingRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
     case "chunking":
       return <ChunkRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
+    case "question_generation":
+      return <QuestionGenRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
     case "pomodoro":
       return <PomodoroRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
     default:

@@ -67,6 +67,9 @@ export class MockProvider implements AiProvider {
       case "chunk_material":
         text = JSON.stringify(chunkHeuristically(rawMaterial, userText));
         break;
+      case "question_evaluate":
+        text = JSON.stringify(questionEvaluationHeuristically(rawMaterial, userText));
+        break;
       case "ocr_image":
         text = "Mock transcription: the image was read by the mock provider. Configure a real AI provider to extract the actual text.";
         break;
@@ -661,6 +664,37 @@ export function chunkHeuristically(transcript: string, prompt: string) {
     };
   });
   return { chunks };
+}
+
+/** Deterministic question evaluation: keyword overlap with the material and simple wording checks. */
+export function questionEvaluationHeuristically(material: string, prompt: string) {
+  const question = prompt.match(/^Student's question:\s*(.+)$/m)?.[1]?.trim() ?? "";
+  const expected = prompt.match(/^Expected answer:\s*(.+)$/m)?.[1]?.trim() ?? "";
+  const passages = parsePassages(material);
+  const sentences = passages.flatMap((passage) => passage.sentences);
+  const terms = keywordsOf(question);
+  const scored = sentences.map((sentence) => ({ sentence, score: keywordsOf(sentence).filter((word) => terms.includes(word)).length })).sort((a, b) => b.score - a.score);
+  const best = scored[0];
+  const relevance = best && best.score > 0 ? Math.min(100, 50 + best.score * 20) : 15;
+  const clarity = Math.max(20, Math.min(100, (/\?$/.test(question) ? 60 : 40) + (question.split(" ").length >= 6 ? 20 : 0) + (/\b(what|why|how|which|when|where|explain|describe|compare)\b/i.test(question) ? 20 : 0)));
+  const noAnswer = !expected || /^\(not given\)$/.test(expected);
+  const covered = Boolean(best && best.score > 0);
+  const expectedTerms = keywordsOf(expected);
+  const sourceTerms = covered ? keywordsOf(best!.sentence) : [];
+  const accuracy = noAnswer ? (covered ? 100 : 40) : covered && expectedTerms.length ? Math.round((expectedTerms.filter((term) => sourceTerms.includes(term)).length / expectedTerms.length) * 100) : 30;
+  const difficulty = /\b(why|how|compare|evaluate|explain)\b/i.test(question) ? "hard" : question.split(" ").length > 10 ? "medium" : "easy";
+  const overall = Math.round(relevance * 0.4 + clarity * 0.25 + accuracy * 0.35);
+  return {
+    relevance,
+    clarity,
+    accuracy,
+    difficulty,
+    overall,
+    feedback: relevance < 50 ? "The material does not seem to cover this; anchor the question in a definition or process it states." : clarity < 70 ? "Good topic — make the wording more specific so there is exactly one defensible answer." : "Clear, relevant question that an examiner could ask.",
+    improved_question: covered && !/^according to the material/i.test(question) ? `According to the material, ${question.charAt(0).toLowerCase()}${question.slice(1).replace(/\?$/, "")}?` : question,
+    model_answer: covered ? best!.sentence : "Not covered by the material.",
+    concept: (covered ? keywordsOf(best!.sentence)[0] : null) ?? "general",
+  };
 }
 
 /** Deterministic recall check: key-point overlap decides verdict and score. */

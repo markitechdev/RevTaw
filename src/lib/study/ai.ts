@@ -339,3 +339,46 @@ ${transcript}
   const result = await generateJson(provider, chunkPlanSchema, { task: "chunk_material", system, messages: [{ role: "user", content: user }], maxTokens: 7000, temperature: 0.3 });
   return { chunks: result.data.chunks.slice(0, Math.max(1, input.count)), provider: result.raw.provider, model: result.raw.model };
 }
+
+// ---------------------------------------------------------------------------
+// Question generation (Phase 8)
+// ---------------------------------------------------------------------------
+
+export const questionEvaluationSchema = z.object({
+  relevance: z.number().min(0).max(100),
+  clarity: z.number().min(0).max(100),
+  accuracy: z.number().min(0).max(100),
+  difficulty: z.enum(["easy", "medium", "hard"]),
+  overall: z.number().min(0).max(100),
+  feedback: text(1500),
+  improved_question: text(1000),
+  model_answer: text(2000),
+  concept: text(120),
+});
+
+export type QuestionEvaluation = z.infer<typeof questionEvaluationSchema>;
+
+export async function evaluateStudentQuestion(input: { materialTitle: string; chunks: AnalysisChunkInput[]; question: string; expectedAnswer: string | null }): Promise<{ evaluation: QuestionEvaluation; provider: string; model: string }> {
+  const provider = getAiProvider("fast");
+  const { transcript } = buildTranscript(input.chunks, 60_000);
+  const system = `You are RevTaw's question coach. A student wrote an exam-style question about their material (and optionally the answer they expect). Evaluate it against the material only.
+- "relevance": 0-100 — does it test something the material covers and that matters?
+- "clarity": 0-100 — unambiguous, one defensible answer, well worded?
+- "accuracy": 0-100 — is the expected answer correct per the material (100 when no answer was given but the question is answerable)?
+- "difficulty": easy | medium | hard.
+- "overall": 0-100 weighted judgement.
+- "feedback": 1-3 specific sentences on how to improve it.
+- "improved_question": a better version (or the same if already good).
+- "model_answer": the correct answer per the material.
+- "concept": the 1-4 word concept tested.
+Respond with JSON only.`;
+  const user = `Material title: ${input.materialTitle}
+Student's question: ${input.question.slice(0, 1000)}
+Expected answer: ${input.expectedAnswer?.slice(0, 2000) || "(not given)"}
+
+<material>
+${transcript}
+</material>`;
+  const result = await generateJson(provider, questionEvaluationSchema, { task: "question_evaluate", system, messages: [{ role: "user", content: user }], maxTokens: 1500, temperature: 0 });
+  return { evaluation: result.data, provider: result.raw.provider, model: result.raw.model };
+}

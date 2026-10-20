@@ -7,7 +7,7 @@ import { z } from "zod";
 import { completeSmartSession, markSmartBlock, parseSmartPlan } from "@/lib/adaptive/smart";
 import { isAiError } from "@/lib/ai";
 import { routes } from "@/lib/routes";
-import { compareBlurtItem, type BlurtResult } from "@/lib/study/advanced";
+import { compareBlurtItem, evaluateQuestionItem, type BlurtResult, type EvaluatedQuestion } from "@/lib/study/advanced";
 import { BUILDER_METHOD_IDS } from "@/lib/study/catalog";
 import {
   analyzeFeynmanItem,
@@ -100,6 +100,20 @@ export async function compareBlurtAction(input: { itemId: string; text: string; 
     return { ok: true, data };
   } catch (error) {
     return failure(error, "Your text could not be compared.");
+  }
+}
+
+export async function evaluateQuestionAction(input: { sessionId: string; question: string; expectedAnswer: string | null; responseMs: number | null }): Promise<StudyActionResult<EvaluatedQuestion>> {
+  const user = await getCurrentUser();
+  if (!user) redirect(routes.login);
+  const parsed = z.object({ sessionId: uuid, question: z.string().trim().min(5, "Write a full question.").max(1000), expectedAnswer: z.string().trim().max(2000).nullable(), responseMs: z.number().int().min(0).max(86_400_000).nullable() }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid question." };
+  try {
+    const data = await evaluateQuestionItem({ ...parsed.data, expectedAnswer: parsed.data.expectedAnswer || null });
+    revalidate(parsed.data.sessionId);
+    return { ok: true, data };
+  } catch (error) {
+    return failure(error, "The question could not be evaluated.");
   }
 }
 

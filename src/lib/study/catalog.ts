@@ -269,7 +269,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 15,
     goals: ["understand", "exam_prep"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
+    availableIn: "now",
     behaviour: "You write questions about the material (with the answer you expect); RevTaw rates each for relevance, clarity, difficulty and accuracy, suggests an improved version, and the session ends with your question set and its average quality.",
   },
   custom_routine: {
@@ -372,6 +372,7 @@ export const BUILDER_METHOD_IDS = [
   "rapid_review",
   "cumulative_review",
   "interleaving",
+  "question_generation",
   "error_review",
   "pomodoro",
   "socratic_questioning",

@@ -5,7 +5,15 @@ import { isAiError } from "@/lib/ai";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { parseAnalysisData } from "@/lib/materials/analysis-schema";
 import { loadMaterialContext } from "@/lib/reviewers/service";
-import { chunkMaterial, compareBlurt, generateRecallQuestions, type BlurtComparison, type RecallQuestion } from "@/lib/study/ai";
+import {
+  chunkMaterial,
+  compareBlurt,
+  evaluateStudentQuestion,
+  generateRecallQuestions,
+  type BlurtComparison,
+  type QuestionEvaluation,
+  type RecallQuestion,
+} from "@/lib/study/ai";
 import { RAPID_REVIEW_MINUTES } from "@/lib/study/catalog";
 import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
 import { createSession, loadSession, SessionError, sessionTitle, type CreateSessionInput } from "@/lib/study/sessions";
@@ -444,4 +452,74 @@ export async function startChunking(supabase: Client, userId: string, input: Adv
     })),
   );
   return { sessionId, redirect: `/study/${sessionId}` };
+}
+
+// ---------------------------------------------------------------------------
+// Question generation: the student writes questions, RevTaw evaluates them
+// ---------------------------------------------------------------------------
+
+export async function startQuestionGeneration(supabase: Client, userId: string, input: AdvancedStartInput): Promise<StartResult> {
+  const context = await loadMaterialContext(supabase, input.materialId!);
+  const target = Math.max(3, Math.min(12, Math.round(input.plannedMinutes / 3)));
+  const sessionId = await openSession(supabase, userId, {
+    method: "question_generation",
+    materialId: context.material.id,
+    subjectId: context.material.subject_id,
+    goal: input.goal ?? "exam_prep",
+    plannedMinutes: input.plannedMinutes,
+    title: sessionTitle("question_generation", context.material.title),
+    state: { target },
+  });
+  return { sessionId, redirect: `/study/${sessionId}` };
+}
+
+export type EvaluatedQuestion = { itemId: string; question: string; expectedAnswer: string | null; evaluation: QuestionEvaluation };
+
+/** Evaluates one student-written question and stores it as a session item. */
+export async function evaluateQuestionItem(input: { sessionId: string; question: string; expectedAnswer: string | null; responseMs: number | null }): Promise<EvaluatedQuestion> {
+  const supabase = await createClient();
+  const session = await loadSession(supabase, input.sessionId);
+  if (session.status !== "in_progress") throw new SessionError("This session is already finished.", 409);
+  if (session.method !== "question_generation" || !session.material_id) throw new SessionError("This session does not take questions.", 400);
+  const context = await loadMaterialContext(supabase, session.material_id);
+  let evaluation: QuestionEvaluation;
+  try {
+    evaluation = (await evaluateStudentQuestion({ materialTitle: context.material.title, chunks: context.chunks, question: input.question, expectedAnswer: input.expectedAnswer })).evaluation;
+  } catch (error) {
+    if (!isAiError(error)) throw error;
+    evaluation = { relevance: 50, clarity: 50, accuracy: 50, difficulty: "medium", overall: 50, feedback: "The AI coach is unavailable; the question was saved without a rating.", improved_question: input.question, model_answer: input.expectedAnswer ?? "", concept: "general" };
+  }
+  const concepts = await conceptsFor(supabase, session.user_id, context, [evaluation.concept]);
+  const { count } = await supabase.from("study_session_items").select("id", { count: "exact", head: true }).eq("session_id", session.id);
+  const position = count ?? 0;
+  const good = evaluation.overall >= 60;
+  const now = new Date().toISOString();
+  const { data: item, error } = await supabase
+    .from("study_session_items")
+    .insert({
+      session_id: session.id,
+      user_id: session.user_id,
+      position,
+      kind: "question",
+      concept_id: concepts.get(normalizeConceptName(evaluation.concept)) ?? null,
+      prompt: input.question.slice(0, 4000),
+      model_answer: evaluation.model_answer.slice(0, 4000),
+      key_points: [] as unknown as Json,
+      response: input.expectedAnswer?.slice(0, 8000) ?? null,
+      analysis: evaluation as unknown as Json,
+      is_correct: good,
+      score: evaluation.overall,
+      response_ms: input.responseMs,
+      attempts: 1,
+      answered_at: now,
+      format: evaluation.difficulty,
+    })
+    .select("id")
+    .single();
+  if (error || !item) throw new Error(`study_session_items: insert failed: ${error?.message}`);
+  await supabase
+    .from("study_sessions")
+    .update({ items_total: session.items_total + 1, items_correct: session.items_correct + (good ? 1 : 0), items_incorrect: session.items_incorrect + (good ? 0 : 1), last_active_at: now })
+    .eq("id", session.id);
+  return { itemId: item.id, question: input.question, expectedAnswer: input.expectedAnswer, evaluation };
 }
