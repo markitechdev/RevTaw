@@ -11,9 +11,9 @@ export default function MarketingLayout({ children }: LayoutProps<"/"> ) {
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <Logo />
           <nav aria-label="Primary" className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
+            <a href="#features" className="hover:text-foreground">What it does</a>
             <a href="#how-it-works" className="hover:text-foreground">How it works</a>
             <a href="#study-methods" className="hover:text-foreground">Study methods</a>
-            <a href="#benefits" className="hover:text-foreground">Benefits</a>
           </nav>
           <div className="flex items-center gap-2">
             <ThemeToggle className="hidden sm:inline-flex" />
@@ -21,7 +21,7 @@ export default function MarketingLayout({ children }: LayoutProps<"/"> ) {
               Sign in
             </Link>
             <Link href="/register" className={buttonClasses({ size: "sm" })}>
-              Start Studying
+              Start studying
             </Link>
           </div>
         </div>
