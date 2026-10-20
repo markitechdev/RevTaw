@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { ConfidenceLevel, QuestionDifficulty, QuestionType, QuizMode } from "@/lib/supabase/database.types";
+import type { ConfidenceLevel, MistakeType, QuestionDifficulty, QuestionType, QuizMode } from "@/lib/supabase/database.types";
 
 /**
  * Shared quiz vocabulary (safe for client and server): the question type
@@ -39,6 +39,15 @@ export const DIFFICULTY_LABEL: Record<QuestionDifficulty, string> = {
   easy: "Easy",
   medium: "Medium",
   hard: "Hard",
+};
+
+export const MISTAKE_TYPE_LABEL: Record<MistakeType, string> = {
+  unclassified: "Not classified",
+  misunderstood_concept: "Misunderstood the concept",
+  forgotten_information: "Forgot the information",
+  calculation_error: "Calculation error",
+  misread_question: "Misread the question",
+  confused_concepts: "Confused two concepts",
 };
 
 export const QUIZ_MODE_LABEL: Record<QuizMode, string> = {

@@ -12,17 +12,11 @@ import { Select } from "@/components/ui/select";
 import { AskWhyWrongButton } from "@/components/tutor/ask-why-wrong";
 import { updateMistakeAction } from "@/lib/quizzes/actions";
 import type { MistakeListItem } from "@/lib/quizzes/queries";
+import { MISTAKE_TYPE_LABEL } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
 import type { MistakeType } from "@/lib/supabase/database.types";
 
-export const MISTAKE_TYPE_LABEL: Record<MistakeType, string> = {
-  unclassified: "Not classified",
-  misunderstood_concept: "Misunderstood the concept",
-  forgotten_information: "Forgot the information",
-  calculation_error: "Calculation error",
-  misread_question: "Misread the question",
-  confused_concepts: "Confused two concepts",
-};
+export { MISTAKE_TYPE_LABEL };
 
 /** One mistake notebook entry: what was asked, what went wrong, and why. */
 export function MistakeItem({ mistake }: { mistake: MistakeListItem }) {
