@@ -4,7 +4,7 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-20 (Phase 6 complete)_
+_Last updated: 2026-10-20 (Phase 7 complete)_
 
 ## Completed
 
@@ -265,18 +265,66 @@ _Last updated: 2026-10-20 (Phase 6 complete)_
   plan page tracks status (start/resume/skip/view summary) and the session
   ends with one combined summary.
 
+### Phase 7 — Planner
+
+- **Schema** — `exams` + `exam_materials`, `study_plans` (one per exam),
+  `study_tasks` (plan tasks, 1-3-7-14 reviews, custom tasks), `study_goals`,
+  `notifications`, `profiles.timezone` (`supabase/migrations/0007_planner.sql`).
+- **Exams** (§30) — title, date, subject, priority, confidence, topics,
+  notes and the materials covered; countdown and a readiness estimate
+  (mastery of the exam's materials blended with plan completion) on the
+  planner, the exam page and the dashboard's "Upcoming exams".
+- **Generated study plans** (spec "Exam Study Plan", "Cram Mode",
+  "1-3-7-14 Review") — `generatePlan()` in `src/lib/planner/generate.ts` is
+  pure and unit-tested: study days from the student's available weekdays,
+  slots from the daily budget, interleaved first passes weighted by each
+  material's size and mastery gap (recall → test → Feynman for concept-heavy
+  material), 1-3-7-14 reviews after each first pass, consolidation days with
+  adaptive tests, mistake reviews and flashcard sweeps, final days with a
+  mistake review and an exam simulation, and a rapid review on exam day.
+  Cram Mode (chosen, or forced with fewer than three study days) packs each
+  day with mistakes, weak-concept recall, definitions and practice and
+  carries the "not a substitute for spaced study" note.
+- **Plans adjust** (§30) — once a day per plan: missed tasks move forward
+  into free days (or are marked missed when nothing fits), a material at
+  85%+ mastery loses a recall task, one under 40% gains an extra one; a
+  changed exam date, material set or settings regenerates the plan keeping
+  finished tasks; the adjustment note is shown on the exam page and "Adjust
+  now" / "Regenerate" run it on demand.
+- **Due-today system** (§22) — today's plan tasks with minutes done, overdue
+  tasks, due flashcards and fading concepts on the planner and the
+  dashboard. "Start" opens a session of the task's method sized to its
+  minutes (flashcard tasks open the review page); completing the session
+  closes the task (§51/§53: the task carries the session that did it);
+  Done / Skip / Reopen; custom tasks on any day.
+- **Scheduled reviews** — "Schedule 1-3-7-14 reviews" on a material adds
+  short recall passes on days 1, 3, 7 and 14.
+- **Study goals** (§32) — study N minutes (today/this week), review N
+  flashcards, answer N questions, reach N% mastery of a material, finish a
+  material by a date; progress is computed from sessions, reviews, answers
+  and mastery, mastery goals complete themselves, once-goals can be ticked.
+- **Notifications** (§35) — internal reminder feed generated server-side
+  with deduplication keys (reviews due, exams in 7/3/1/0 days, planned tasks
+  today, goals reached, streak at risk in the evening) with a bell, unread
+  badge, panel and "mark all read"; email/push can read the same rows later.
+- **Time zone** — captured from the browser once, editable in Preferences;
+  "today", due dates, streak and focus-time days follow it.
+
 ## In Progress
 
-- Nothing at the moment. Phase 7 starts next.
+- Nothing at the moment. Phase 8 starts next.
 
 ## Next (priority order)
 
-1. **Phase 7 — Planner**: exam dates, availability, generated daily plans,
-   cram mode, 1-3-7-14 reviews, plan adjustment (mastery and due reviews
-   are already available as inputs).
-2. Phases 8–10 as listed in the spec (advanced methods such as blurting,
-   interleaving, chunking, worked examples, mind maps, dual coding,
-   teach-back; analytics/gamification; export).
+1. **Phase 8 — Advanced study methods**: blurting, SQ3R/PQ4R guides,
+   interleaving, chunking, worked and faded examples, practice problems,
+   scenario/case-based learning, mind and concept maps, dual coding,
+   mnemonics, memory palace, story method, teach-back, question generation,
+   pre-testing / before-and-after, rapid review, custom routines.
+2. **Phase 9 — Analytics and gamification**: detailed progress charts,
+   mastery map, XP, levels, badges, daily/weekly goals as milestones.
+3. **Phase 10 — Export and refinement**: PDF/Word/print export, global
+   search, accessibility, security and performance reviews.
 
 ## Database
 
@@ -304,13 +352,21 @@ _Last updated: 2026-10-20 (Phase 6 complete)_
 | `public.tutor_conversations` | Tutor chat: material, optional study session, mode, title, message count, last message | owner full access; material/session FKs set null |
 | `public.tutor_messages` | One turn: role, content, quick action, selection, grounding, `sources` JSON, additional explanation, follow-ups, flashcard draft, provider/model | owner full access; cascade from conversation |
 | `public.concept_mastery` | Recomputable cache per student and concept: mastery, retrieval strength, status, next difficulty, counters, streak, open mistakes, misconceptions, underconfident, average confidence/response time, trend, last practised, next review | owner full access; unique `(user_id, concept_id)`; cascade from concept |
+| `public.exams` | An exam: title, date, subject, priority, confidence, topics, notes, `archived_at` | owner full access; subject FK set null |
+| `public.exam_materials` | Materials an exam covers, with position | owner full access; cascade from exam and material |
+| `public.study_plans` | One plan per exam: mode (exam/cram), status, start/end, `available_days`, `minutes_per_day`, `settings` (warnings), `generated_at`, `adjusted_at`, `adjustment_note` | owner full access; unique `exam_id`; cascade from exam |
+| `public.study_tasks` | A scheduled activity: kind (plan/review/custom), method, title, reason, `scheduled_for`, position, minutes, concepts, status (pending/done/skipped/missed), `session_id`, `completed_at` | owner full access; cascade from plan/exam; material and session FKs set null |
+| `public.study_goals` | A goal: kind, period (day/week/once), target, optional material/subject, title, `due_date`, status | owner full access; cascade from material/subject |
+| `public.notifications` | Reminder feed: kind, title, body, href, `dedupe_key`, `read_at` | owner full access; unique `(user_id, dedupe_key)` |
 | `storage.objects` (bucket `materials`) | Private files under `<user_id>/<material_id>/<file>` | policies on first path segment = `auth.uid()` |
 
 Enums: `education_level`, `study_goal`, `material_source`, `material_status`,
 `difficulty_level`, `reviewer_kind`, `generation_status`, `question_type`,
 `question_difficulty`, `quiz_mode`, `attempt_status`, `confidence_level`,
 `mistake_type`, `session_status`, `session_goal`, `flashcard_rating`,
-`tutor_mode`, `tutor_role`, `mastery_status`, `next_difficulty`. Helper functions: `public.set_updated_at()`,
+`tutor_mode`, `tutor_role`, `mastery_status`, `next_difficulty`,
+`exam_priority`, `plan_mode`, `plan_status`, `task_kind`, `task_status`,
+`goal_kind`, `goal_period`, `goal_status`, `notification_kind`. Helper functions: `public.set_updated_at()`,
 `public.handle_new_user()` (security definer, pinned `search_path`).
 
 Types for queries live in `src/lib/supabase/database.types.ts` (hand-written
@@ -401,6 +457,18 @@ linked).
   recommendation list, material mastery) and
   `src/components/study/smart-session.tsx`. Mastery is a cache: deleting
   the rows and answering anything rebuilds them.
+- **Planner** — `src/lib/planner/`: `dates.ts` (time-zone aware calendar
+  helpers), `generate.ts` (pure plan generator, readiness score),
+  `types.ts` (labels, zod schemas shared with the client), `service.ts`
+  (exams, plan generation/regeneration, daily `rebalancePlan`, tasks,
+  review cycle, `plannerClock`), `goals.ts` (goal progress from evidence
+  tables), `queries.ts` (exam summaries with readiness, due today, tasks),
+  `actions.ts`. `src/lib/notifications/` generates and lists the reminder
+  feed. UI in `src/components/planner/` and `src/components/app/
+  notifications-menu.tsx`. Sessions started from a task carry
+  `state.taskId`; `completeSession()` closes the task. Next.js dedupes
+  identical GET requests inside one render, so pages run the daily
+  adjustment before reading the data they display.
 
 ## Known Issues / Limitations
 
@@ -430,7 +498,12 @@ linked).
 - Session items and flashcard generation also run inside a single request
   (`maxDuration = 120` for routes; Server Actions for sessions). Very long
   materials rely on the transcript budget.
-- The streak counts UTC days; per-user time zones arrive with the planner.
+- The daily plan adjustment runs when the dashboard, planner or exam page
+  loads (no background scheduler yet); reminders are generated the same
+  way, so a student who does not open the app gets them on the next visit.
+  Email/push delivery reads the same `notifications` rows later.
+- Plan generation is rule-based and deterministic (no model call); it uses
+  each material's analysis, mastery, open mistakes and decks.
 - Smart Study plans are rule-based (budget split by what the data shows);
   routines/habits and the exam-aware pacing of blocks arrive with the
   planner (Phase 7) and Phase 8.
@@ -514,10 +587,23 @@ Flows verified end to end against a local Supabase-compatible stack
   skip, combined summary (persisted after reload), a second plan that picks
   the material itself and drops error review; the next quiz follows each
   concept's next difficulty; anonymous progress page redirects
+- Planner: browser time zone stored; empty states; exam dialog creates a
+  plan (countdown, priority, confidence, topics; tasks between today and
+  the exam within the daily budget, 1-3-7-14 reviews, exam simulation,
+  rapid review on exam day; settings persisted); starting a task links its
+  session and completing the session closes the task; Done / Skip and plan
+  progress; goals computed from answers and mastery; dashboard due today
+  and exam countdown; notifications generated, unread badge, panel, mark
+  all read; 1-3-7-14 cycle from the material page; a missed task is moved
+  forward with an adjustment note; custom task add/delete; moving the date
+  close regenerates in cram mode keeping finished tasks; mobile layouts;
+  delete cascades plan tasks but keeps the review cycle; anonymous
+  redirect
 - Unit tests (`npm test`): JSON extraction, chunking, content helpers,
   analysis transcript, markdown renderer, quiz distribution/grading/config,
   the mock quiz generator, the flashcard scheduler, the tutor context
-  selector and the mastery model
+  selector, the mastery model, the planner date helpers and the plan
+  generator
 
 Commands: `npm run lint`, `npx tsc --noEmit`, `npm test` (vitest unit tests),
 `npm run build`.

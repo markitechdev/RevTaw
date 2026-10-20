@@ -56,6 +56,11 @@ working.
   right), adaptive quiz difficulty, a progress page, recommendations that
   say why, and Smart Study sessions that RevTaw plans from your data
   (Phase 6)
+- Planner: exam countdowns with readiness, generated day-by-day plans
+  (coverage, 1-3-7-14 reviews, practice tests, exam simulation, cram mode)
+  that adjust to missed days and scores, a due-today list that starts
+  sessions and closes tasks, study goals, scheduled reviews and an
+  in-app reminder feed (Phase 7)
 
 ## Scripts
 
@@ -82,6 +87,7 @@ src/components        ui primitives, forms, app shell, feature components
 src/lib               supabase clients, ai providers, materials pipeline,
                       reviewers, quizzes, flashcards, study sessions, tutor,
                       adaptive engine (mastery, recommendations, smart study),
+                      planner (exams, plans, tasks, goals), notifications,
                       concepts, validation, routes, env
 supabase/migrations   SQL migrations (apply in order)
 ```
