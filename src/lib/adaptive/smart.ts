@@ -68,6 +68,19 @@ export async function planSmartSession(input: { materialId: string | null; minut
     return granted;
   };
 
+  // Longer sessions open with a blurt (spec example: "10 min — Blurting"): it shows what stuck before the drills.
+  if (materialId && total >= 40) {
+    blocks.push({
+      key: "blurt",
+      method: "blurting",
+      minutes: take(10),
+      reason: "Start by writing everything you remember about the material — the comparison shows what stuck before the other blocks drill the gaps.",
+      concepts: [],
+      status: "pending",
+      childSessionId: null,
+    });
+  }
+
   if (input.openMistakes > 0 && total >= 10) {
     const minutes = take(Math.max(5, Math.min(10, Math.round(total * 0.2))));
     if (minutes >= 3) {
