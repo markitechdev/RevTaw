@@ -10,7 +10,7 @@ import { QUESTION_TYPE_IDS } from "@/lib/quizzes/types";
 import { loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
 import { startBlurting, startChunking, startCumulativeReview, startInterleaving, startQuestionGeneration, startRapidReview, startRetrievalPractice } from "@/lib/study/advanced";
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
-import { isTutorMethod, METHOD_BEHAVIOUR, type BuilderMethodId, type TestMethodId } from "@/lib/study/catalog";
+import { isTutorMethod, METHOD_BEHAVIOUR, TEST_METHOD_IDS, type BuilderMethodId, type TestMethodId } from "@/lib/study/catalog";
 import type { StudyMethodId } from "@/lib/study/methods";
 import { completeSession, createSession, loadSession, SessionError, sessionTitle, suggestNext, updateSessionState, type SessionSummary } from "@/lib/study/sessions";
 import type { ConfidenceLevel, Json, SessionGoal, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
@@ -627,6 +627,21 @@ export async function completePomodoro(sessionId: string, focusSeconds: number, 
     nextReviewAt: await nextFlashcardDue(supabase),
     extra: { completedRounds },
   });
+}
+
+/** Closes the practice-test blocks of a smart session whose attempt has been submitted. */
+export async function syncPlanChildren(parentId: string): Promise<void> {
+  const supabase = await createClient();
+  const { data: children } = await supabase
+    .from("study_sessions")
+    .select("*")
+    .contains("state", { parentId })
+    .eq("status", "in_progress")
+    .in("method", [...TEST_METHOD_IDS])
+    .limit(20);
+  for (const child of children ?? []) {
+    await syncPracticeTesting(child).catch((error) => console.error("study_sessions: block sync failed", error));
+  }
 }
 
 /**

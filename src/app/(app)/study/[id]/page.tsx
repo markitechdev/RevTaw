@@ -17,7 +17,7 @@ import { getSmartSessionView } from "@/lib/adaptive/smart";
 import { routes } from "@/lib/routes";
 import { isRecallMethod, isTestMethod, isTutorMethod, methodName } from "@/lib/study/catalog";
 import { getSession } from "@/lib/study/queries";
-import { syncPracticeTesting } from "@/lib/study/service";
+import { syncPlanChildren, syncPracticeTesting } from "@/lib/study/service";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -39,6 +39,8 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
   ) : null;
 
   if (session.method === "smart_study" && session.status === "in_progress") {
+    // Practice-test blocks close when their attempt is submitted; settle them before reading the plan.
+    await syncPlanChildren(session.id);
     const view = await getSmartSessionView(session.id);
     if (!view) return <ErrorState title="This smart session has no plan" description="Start a new one from the Study page." />;
     return <SmartSessionView key={session.id} session={session} view={view} />;
