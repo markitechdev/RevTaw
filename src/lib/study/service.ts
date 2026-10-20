@@ -7,7 +7,7 @@ import { isAiError } from "@/lib/ai";
 import { getConceptPerformance } from "@/lib/quizzes/queries";
 import { createQuiz, startAttempt } from "@/lib/quizzes/service";
 import { loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
-import { startCumulativeReview, startInterleaving, startRapidReview, startRetrievalPractice } from "@/lib/study/advanced";
+import { startBlurting, startCumulativeReview, startInterleaving, startRapidReview, startRetrievalPractice } from "@/lib/study/advanced";
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
 import { isTutorMethod, METHOD_BEHAVIOUR, type BuilderMethodId } from "@/lib/study/catalog";
 import type { StudyMethodId } from "@/lib/study/methods";
@@ -136,6 +136,8 @@ async function startSessionInner(userId: string, input: StartSessionInput): Prom
       return startCumulativeReview(supabase, userId, input);
     case "interleaving":
       return startInterleaving(supabase, userId, input);
+    case "blurting":
+      return startBlurting(supabase, userId, input);
   }
 }
 
@@ -341,7 +343,7 @@ async function loadItem(supabase: Client, itemId: string): Promise<{ item: Study
 export async function answerRecallItem(input: { itemId: string; response: string; confidence: ConfidenceLevel | null; responseMs: number | null }): Promise<RecallItemResult> {
   const supabase = await createClient();
   const { item, session } = await loadItem(supabase, input.itemId);
-  if (item.kind === "feynman") throw new SessionError("Use the Feynman flow for this item.", 400);
+  if (item.kind === "feynman" || item.kind === "blurt") throw new SessionError("This item uses a different flow.", 400);
   if (item.answered_at && item.analysis) {
     const comparison = item.analysis as unknown as RecallComparison;
     return { comparison, isCorrect: Boolean(item.is_correct), modelAnswer: item.model_answer ?? "", sourceExcerpt: item.source_excerpt };
@@ -532,6 +534,8 @@ function itemSessionNext(method: StudyMethodId, accuracy: number | null, weak: s
   switch (method) {
     case "error_review":
       return accuracy !== null && accuracy >= 0.8 ? "Most of those mistakes are learned now. Take a practice test to confirm it under exam conditions." : suggestNext(accuracy, weak, "active_recall");
+    case "blurting":
+      return accuracy !== null && accuracy >= 0.8 ? "Strong recall after reading. Blurt again in three days to check it held." : weak[0] ? `Re-read the section on ${weak[0]}, then blurt it again tomorrow before looking.` : "Re-read the sections you forgot, then blurt them again tomorrow.";
     case "retrieval_practice":
     case "rapid_review":
     case "cumulative_review":

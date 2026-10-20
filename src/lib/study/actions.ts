@@ -7,6 +7,7 @@ import { z } from "zod";
 import { completeSmartSession, markSmartBlock, parseSmartPlan } from "@/lib/adaptive/smart";
 import { isAiError } from "@/lib/ai";
 import { routes } from "@/lib/routes";
+import { compareBlurtItem, type BlurtResult } from "@/lib/study/advanced";
 import { BUILDER_METHOD_IDS } from "@/lib/study/catalog";
 import {
   analyzeFeynmanItem,
@@ -86,6 +87,19 @@ export async function answerRecallAction(input: { itemId: string; response: stri
     return { ok: true, data: result };
   } catch (error) {
     return failure(error, "Your answer could not be checked. Please try again.");
+  }
+}
+
+export async function compareBlurtAction(input: { itemId: string; text: string; responseMs: number | null }): Promise<StudyActionResult<BlurtResult>> {
+  const user = await getCurrentUser();
+  if (!user) redirect(routes.login);
+  const parsed = z.object({ itemId: uuid, text: z.string().max(8000), responseMs: z.number().int().min(0).max(86_400_000).nullable() }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Invalid blurt." };
+  try {
+    const data = await compareBlurtItem(parsed.data);
+    return { ok: true, data };
+  } catch (error) {
+    return failure(error, "Your text could not be compared.");
   }
 }
 

@@ -1,14 +1,15 @@
 import "server-only";
 
-import { getMasterySummary } from "@/lib/adaptive/engine";
+import { getMasterySummary, refreshMastery } from "@/lib/adaptive/engine";
+import { isAiError } from "@/lib/ai";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { parseAnalysisData } from "@/lib/materials/analysis-schema";
 import { loadMaterialContext } from "@/lib/reviewers/service";
-import { generateRecallQuestions, type RecallQuestion } from "@/lib/study/ai";
+import { compareBlurt, generateRecallQuestions, type BlurtComparison, type RecallQuestion } from "@/lib/study/ai";
 import { RAPID_REVIEW_MINUTES } from "@/lib/study/catalog";
 import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
-import { createSession, SessionError, sessionTitle, type CreateSessionInput } from "@/lib/study/sessions";
-import type { Json, SessionGoal, SessionItemKind } from "@/lib/supabase/database.types";
+import { createSession, loadSession, SessionError, sessionTitle, type CreateSessionInput } from "@/lib/study/sessions";
+import type { Json, SessionGoal, SessionItemKind, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
@@ -254,4 +255,154 @@ export async function startInterleaving(supabase: Client, userId: string, input:
   if (rows.length === 0) throw new SessionError("No recall prompts could be written.", 422);
   await insertItems(supabase, rows.map((row, position) => ({ ...row, position })));
   return { sessionId, redirect: `/study/${sessionId}` };
+}
+
+// ---------------------------------------------------------------------------
+// Blurting: write everything you remember about a section, then compare
+// ---------------------------------------------------------------------------
+
+export type BlurtRound = BlurtComparison & { round: number };
+
+function headingLike(line: string): boolean {
+  const trimmed = line.trim();
+  return trimmed.length > 0 && trimmed.length <= 60 && !/[.!?:;,]$/.test(trimmed) && /^[A-Z0-9]/.test(trimmed) && trimmed.split(/\s+/).length <= 6;
+}
+
+/** Sections of a material: chunk headings, split again at inline headings (short notes keep several sections). */
+export function materialSections(chunks: Array<{ heading: string | null; content: string }>): Array<{ heading: string; text: string }> {
+  const sections: Array<{ heading: string; text: string }> = [];
+  for (const chunk of chunks) {
+    let current = { heading: (chunk.heading ?? "").trim() || `Part ${sections.length + 1}`, lines: [] as string[] };
+    for (const line of chunk.content.split("\n")) {
+      if (headingLike(line)) {
+        if (current.lines.join(" ").trim()) sections.push({ heading: current.heading, text: current.lines.join("\n").trim() });
+        current = { heading: line.trim(), lines: [] };
+        continue;
+      }
+      current.lines.push(line);
+    }
+    if (current.lines.join(" ").trim()) sections.push({ heading: current.heading, text: current.lines.join("\n").trim() });
+  }
+  // Merge repeated headings (a section split across pages) and drop fragments.
+  const merged = new Map<string, string[]>();
+  for (const section of sections) merged.set(section.heading, [...(merged.get(section.heading) ?? []), section.text]);
+  return [...merged.entries()].map(([heading, parts]) => ({ heading, text: parts.join("\n\n") })).filter((section) => section.text.length > 80);
+}
+
+export async function startBlurting(supabase: Client, userId: string, input: AdvancedStartInput): Promise<StartResult> {
+  const context = await loadMaterialContext(supabase, input.materialId!);
+  // One blurt per section, in the material's order.
+  const sections = materialSections(context.chunks);
+  if (sections.length === 0) throw new SessionError("This material is too short to blurt.", 422);
+  const count = Math.max(1, Math.min(sections.length, Math.round(input.plannedMinutes / 6)));
+  const chosen = sections.slice(0, count);
+  const { data: analysisRow } = await supabase.from("material_analyses").select("data").eq("material_id", context.material.id).maybeSingle();
+  const analysis = analysisRow ? parseAnalysisData(analysisRow.data) : null;
+  const concepts = await conceptsFor(supabase, userId, context, chosen.map((section) => section.heading));
+  const sessionId = await openSession(supabase, userId, {
+    method: "blurting",
+    materialId: context.material.id,
+    subjectId: context.material.subject_id,
+    goal: input.goal ?? "memorize",
+    plannedMinutes: input.plannedMinutes,
+    title: sessionTitle("blurting", context.material.title),
+    state: { index: 0 },
+  });
+  const rows: ItemRow[] = chosen.map((section, position) => {
+    const lower = section.text.toLowerCase();
+    const keyPoints = [
+      ...(analysis?.definitions ?? []).filter((definition) => lower.includes(definition.term.toLowerCase())).map((definition) => definition.term),
+      ...(analysis?.key_concepts ?? []).filter((concept) => lower.includes(concept.name.toLowerCase())).map((concept) => concept.name),
+    ]
+      .filter((point, index, all) => all.indexOf(point) === index)
+      .slice(0, 8);
+    return {
+      session_id: sessionId,
+      user_id: userId,
+      position,
+      kind: "blurt",
+      concept_id: concepts.get(normalizeConceptName(section.heading)) ?? null,
+      prompt: section.heading,
+      model_answer: section.text.slice(0, 4000),
+      key_points: keyPoints as unknown as Json,
+      // The source stays server-side until the last round (never in the client payload).
+      source_excerpt: null,
+      material_id: null,
+      format: null,
+    };
+  });
+  await insertItems(supabase, rows);
+  return { sessionId, redirect: `/study/${sessionId}` };
+}
+
+export const BLURT_MAX_ROUNDS = 2;
+
+export type BlurtResult = { analysis: BlurtComparison; round: number; final: boolean; source: string | null };
+
+async function loadItem(supabase: Client, itemId: string): Promise<{ item: StudySessionItem; session: StudySession }> {
+  const { data: item } = await supabase.from("study_session_items").select("*").eq("id", itemId).maybeSingle();
+  if (!item) throw new SessionError("Item not found.", 404);
+  const session = await loadSession(supabase, item.session_id);
+  if (session.status !== "in_progress") throw new SessionError("This session is already finished.", 409);
+  return { item, session };
+}
+
+/** Compares one blurt attempt with the section; the source is revealed only after the last round. */
+export async function compareBlurtItem(input: { itemId: string; text: string; responseMs: number | null }): Promise<BlurtResult> {
+  const supabase = await createClient();
+  const { item, session } = await loadItem(supabase, input.itemId);
+  if (item.kind !== "blurt") throw new SessionError("This item is not a blurt.", 400);
+  const previous = ((item.analysis as { rounds?: BlurtRound[] } | null)?.rounds ?? []) as BlurtRound[];
+  if (previous.length >= BLURT_MAX_ROUNDS) {
+    const last = previous[previous.length - 1];
+    return { analysis: last, round: last.round, final: true, source: item.model_answer };
+  }
+  const round = previous.length + 1;
+  let comparison: BlurtComparison;
+  try {
+    comparison = (await compareBlurt({ materialTitle: session.title, topic: item.prompt, source: item.model_answer ?? "", keyPoints: Array.isArray(item.key_points) ? (item.key_points as string[]) : [], studentText: input.text, attempt: round })).comparison;
+  } catch (error) {
+    if (!isAiError(error)) throw error;
+    comparison = { remembered: [], missing: [], incorrect: [], forgotten_important: [], score: 50, feedback: "The AI checker is unavailable; compare your text with the source yourself." };
+  }
+  // A near-complete first blurt needs no retry; otherwise the student gets one more go.
+  const final = round >= BLURT_MAX_ROUNDS || comparison.score >= 90;
+  const rounds = [...previous, { ...comparison, round }];
+  const best = Math.max(...rounds.map((entry) => entry.score));
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("study_session_items")
+    .update({
+      response: input.text.slice(0, 8000),
+      analysis: { rounds } as unknown as Json,
+      score: best,
+      is_correct: final ? best >= 60 : null,
+      response_ms: input.responseMs,
+      attempts: item.attempts + 1,
+      answered_at: final ? now : null,
+    })
+    .eq("id", item.id);
+  if (error) throw new Error(`study_session_items: update failed: ${error.message}`);
+  if (final) {
+    const isCorrect = best >= 60;
+    await supabase
+      .from("study_sessions")
+      .update({ items_total: session.items_total + 1, items_correct: session.items_correct + (isCorrect ? 1 : 0), items_incorrect: session.items_incorrect + (isCorrect ? 0 : 1), state: { ...((session.state as Record<string, unknown>) ?? {}), index: item.position + 1 } as Json, last_active_at: now })
+      .eq("id", session.id);
+    if (!isCorrect && comparison.forgotten_important.length) {
+      await supabase.from("mistakes").insert({
+        user_id: session.user_id,
+        concept_id: item.concept_id,
+        material_id: session.material_id,
+        question_text: `Blurt everything you remember about: ${item.prompt}`.slice(0, 4000),
+        student_answer: input.text.slice(0, 4000) || null,
+        correct_answer: `Forgotten: ${comparison.forgotten_important.join("; ")}`.slice(0, 4000),
+        explanation: comparison.feedback.slice(0, 4000),
+      });
+    }
+    if (item.concept_id) await refreshMastery([item.concept_id]);
+  } else {
+    await supabase.from("study_sessions").update({ last_active_at: now }).eq("id", session.id);
+  }
+  return { analysis: comparison, round, final, source: final ? item.model_answer : null };
 }

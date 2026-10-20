@@ -71,8 +71,8 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 15,
     goals: ["memorize", "quick_review"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
-    behaviour: "Notes are hidden while you write; RevTaw compares your text with the source and lists what was remembered, missing and incorrect.",
+    availableIn: "now",
+    behaviour: "Each section of the material becomes a blurt: the notes stay hidden while you write everything you remember, then RevTaw compares your text with the source and lists what you remembered, what was missing, what was incorrect and which important concepts you forgot. You get one retry before the source is shown.",
   },
   pomodoro: {
     howItHelps: "Fixed focus intervals with breaks keep attention high across a long block.",
@@ -365,6 +365,7 @@ export const BUILDER_METHOD_IDS = [
   "smart_study",
   "active_recall",
   "retrieval_practice",
+  "blurting",
   "feynman",
   "practice_testing",
   "rapid_review",

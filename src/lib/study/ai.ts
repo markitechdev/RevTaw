@@ -251,3 +251,43 @@ Student explanation: ${input.explanation.slice(0, 6000) || "(blank)"}`;
   });
   return { analysis: result.data, provider: result.raw.provider, model: result.raw.model };
 }
+
+// ---------------------------------------------------------------------------
+// Blurting (Phase 8)
+// ---------------------------------------------------------------------------
+
+export const blurtComparisonSchema = z.object({
+  remembered: points,
+  missing: points,
+  incorrect: points,
+  forgotten_important: points,
+  score: z.number().min(0).max(100),
+  feedback: text(1500),
+});
+
+export type BlurtComparison = z.infer<typeof blurtComparisonSchema>;
+
+export async function compareBlurt(input: { materialTitle: string; topic: string; source: string; keyPoints: string[]; studentText: string; attempt: number }): Promise<{ comparison: BlurtComparison; provider: string; model: string }> {
+  const provider = getAiProvider("fast");
+  const system = `You are RevTaw's blurting checker for "${input.materialTitle}". The student wrote everything they remembered about a section WITHOUT looking at it. Compare their text with the source section only.
+- "remembered": ideas from the source the student stated correctly (short phrases).
+- "missing": ideas in the source the student did not mention.
+- "incorrect": statements that contradict the source.
+- "forgotten_important": the subset of missing ideas that are definitions, key terms or the main point — the ones that matter most.
+- "score": 0-100 share of the source's key ideas remembered, minus clear errors.
+- "feedback": 1-3 encouraging, specific sentences${input.attempt === 1 ? " that tell the student what to add on their retry WITHOUT quoting the source" : ""}.
+Respond with JSON only.`;
+  const user = `Section: ${input.topic}
+Key points:
+${input.keyPoints.map((point) => `- ${point}`).join("\n") || "(derive from the source)"}
+Source:
+"""
+${input.source.slice(0, 6000)}
+"""
+Student blurt (attempt ${input.attempt}):
+"""
+${input.studentText.slice(0, 6000) || "(blank)"}
+"""`;
+  const result = await generateJson(provider, blurtComparisonSchema, { task: "blurting_compare", system, messages: [{ role: "user", content: user }], maxTokens: 1500, temperature: 0 });
+  return { comparison: result.data, provider: result.raw.provider, model: result.raw.model };
+}

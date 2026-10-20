@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { recallQuestionsHeuristically } from "@/lib/ai/providers/mock";
+import { blurtCompareHeuristically, recallQuestionsHeuristically } from "@/lib/ai/providers/mock";
 
 const transcript = `[Section: Photosynthesis Overview]
 Photosynthesis Overview
@@ -19,5 +19,28 @@ describe("mock study-method heuristics", () => {
     expect(questions[0].prompt).toMatch(/^Fill in the blank: .*____/);
     expect(questions[0].key_points).toEqual([questions[0].model_answer]);
     expect(questions[1].prompt).toMatch(/^Define /);
+  });
+
+  it("scores a blurt by the key ideas it covers and lists what was forgotten", () => {
+    const prompt = `Section: Calvin Cycle
+Key points:
+- Calvin cycle
+- ATP
+- stroma
+Source:
+"""
+The Calvin cycle fixes carbon dioxide into sugar using ATP and NADPH. It takes place in the stroma.
+"""
+Student blurt (attempt 1):
+"""
+The Calvin cycle uses ATP.
+"""`;
+    const result = blurtCompareHeuristically(prompt);
+    expect(result.remembered).toEqual(["Calvin cycle", "ATP"]);
+    expect(result.missing).toEqual(["stroma"]);
+    expect(result.score).toBe(67);
+    const blank = blurtCompareHeuristically(prompt.replace("The Calvin cycle uses ATP.", "(blank)"));
+    expect(blank.score).toBe(0);
+    expect(blank.remembered).toEqual([]);
   });
 });

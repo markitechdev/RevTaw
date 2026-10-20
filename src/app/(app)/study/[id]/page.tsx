@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { BlurtingRunner } from "@/components/study/blurting-runner";
 import { FeynmanRunner } from "@/components/study/feynman-runner";
 import { PomodoroRunner } from "@/components/study/pomodoro-runner";
 import { RecallRunner } from "@/components/study/recall-runner";
@@ -117,6 +118,8 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
   switch (session.method) {
     case "feynman":
       return <FeynmanRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
+    case "blurting":
+      return <BlurtingRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
     case "pomodoro":
       return <PomodoroRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} />;
     default:

@@ -61,6 +61,9 @@ export class MockProvider implements AiProvider {
       case "tutor_evaluate":
         text = JSON.stringify(tutorEvaluationHeuristically(userText));
         break;
+      case "blurting_compare":
+        text = JSON.stringify(blurtCompareHeuristically(userText));
+        break;
       case "ocr_image":
         text = "Mock transcription: the image was read by the mock provider. Configure a real AI provider to extract the actual text.";
         break;
@@ -590,6 +593,32 @@ export function recallQuestionsHeuristically(transcript: string, prompt: string)
     };
   });
   return { questions };
+}
+
+/** Deterministic blurting check: which key terms of the source appear in the blurt. */
+export function blurtCompareHeuristically(prompt: string) {
+  const source = prompt.match(/Source:\n"""\n([\s\S]*?)\n"""/)?.[1] ?? "";
+  const student = prompt.match(/Student blurt \(attempt \d+\):\n"""\n([\s\S]*?)\n"""/)?.[1]?.trim() ?? "";
+  const keyBlock = prompt.match(/Key points:\n([\s\S]*?)\nSource:/)?.[1] ?? "";
+  const keyPoints = [...keyBlock.matchAll(/^- (.+)$/gm)].map((match) => match[1].trim()).filter((point) => !/^\(derive/.test(point));
+  const sentences = sentencesOf(source);
+  const terms = keyPoints.length ? keyPoints : [...new Set(sentences.flatMap((sentence) => keywordsOf(sentence).slice(0, 2)))].slice(0, 8);
+  const blank = student.length < 3 || /^\(blank\)$/.test(student);
+  const lower = student.toLowerCase();
+  const remembered = blank ? [] : terms.filter((term) => lower.includes(term.toLowerCase()));
+  const missing = terms.filter((term) => !remembered.includes(term));
+  const definitions = sentences.filter((sentence) => /\b(?:is|are|refers to|means)\b/.test(sentence)).map((sentence) => keywordsOf(sentence)[0]).filter(Boolean);
+  const forgotten = missing.filter((term) => definitions.includes(term.toLowerCase()) || /^[A-Z]/.test(term)).slice(0, 5);
+  const contradiction = !blank && /\bnot\b/i.test(student) && !/\bnot\b/i.test(source);
+  const score = blank ? 0 : Math.max(0, Math.round((remembered.length / Math.max(1, terms.length)) * 100) - (contradiction ? 20 : 0));
+  return {
+    remembered,
+    missing,
+    incorrect: contradiction ? ["Your text negates something the section states."] : [],
+    forgotten_important: forgotten,
+    score,
+    feedback: blank ? "Nothing written yet — write whatever you remember, even single words." : score >= 80 ? `Strong recall: you covered ${remembered.slice(0, 3).join(", ")}.` : `You remembered ${remembered.length} of ${terms.length} key ideas. Think about ${missing.slice(0, 2).join(" and ") || "the main definitions"} before you retry.`,
+  };
 }
 
 /** Deterministic recall check: key-point overlap decides verdict and score. */
