@@ -29,9 +29,9 @@ export default async function NotesPage({ searchParams }: PageProps<"/notes">) {
         title="Notes"
         description="Reviewers generated from your materials. Every section is editable, and any section can be regenerated without touching the rest."
         actions={
-          <Link href={routes.materials} className={buttonClasses({ size: "sm" })}>
+          <Link href={routes.notesNew} className={buttonClasses({ size: "sm" })}>
             <NotebookPen className="h-4 w-4" aria-hidden="true" />
-            Create from a material
+            Create a reviewer
           </Link>
         }
       />
@@ -40,10 +40,10 @@ export default async function NotesPage({ searchParams }: PageProps<"/notes">) {
         <EmptyState
           icon={NotebookPen}
           title="No reviewers yet"
-          description="Open a processed material and choose Create reviewer: complete reviewer, concise summary, bullet notes, Q&A, Cornell notes, cheat sheet and more."
+          description="Turn a material into a complete reviewer, concise summary, bullet notes, Q&A, Cornell notes, cheat sheet and more."
           action={
-            <Link href={routes.materials} className={buttonClasses({ size: "sm" })}>
-              Go to Materials
+            <Link href={routes.notesNew} className={buttonClasses({ size: "sm" })}>
+              Create a reviewer
             </Link>
           }
         />

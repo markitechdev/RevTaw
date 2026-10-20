@@ -27,7 +27,7 @@ export default async function AppLayout({ children }: LayoutProps<"/"> ) {
 
   return (
     <AppearanceRoot appearance={preferences.appearance}>
-      <AppShell displayName={profile?.display_name ?? ""} email={user.email} notifications={<NotificationsMenu notifications={notifications} unread={unread} />}>
+      <AppShell displayName={profile?.display_name ?? ""} email={user.email} pinned={preferences.tools.pinned} notifications={<NotificationsMenu notifications={notifications} unread={unread} />}>
         <TimezoneSync current={profile?.timezone ?? null} />
         {children}
       </AppShell>

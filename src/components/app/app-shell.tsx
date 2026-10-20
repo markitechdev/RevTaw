@@ -4,10 +4,10 @@ import type { ReactNode } from "react";
 
 import { MobileNav } from "@/components/app/mobile-nav";
 import { SearchBox } from "@/components/app/search-box";
-import { SidebarNav } from "@/components/app/sidebar-nav";
+import { AccountNav, SidebarNav } from "@/components/app/sidebar-nav";
 import { UserCard } from "@/components/app/user-card";
 import { Logo } from "@/components/brand/logo";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
+import type { ToolId } from "@/lib/preferences/schema";
 import { routes } from "@/lib/routes";
 
 /**
@@ -17,11 +17,14 @@ import { routes } from "@/lib/routes";
 export function AppShell({
   displayName,
   email,
+  pinned,
   notifications,
   children,
 }: {
   displayName: string;
   email: string | null;
+  /** Tools pinned to the navigation (Settings → RevTaw tools). */
+  pinned: readonly ToolId[];
   /** Server-rendered notifications bell (see NotificationsMenu). */
   notifications?: ReactNode;
   children: ReactNode;
@@ -43,11 +46,11 @@ export function AppShell({
           {notifications}
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-2">
-          <SearchBox className="mb-3 px-1" />
-          <SidebarNav section="primary" label="Primary" />
+          <SearchBox className="mb-4 px-1" />
+          <SidebarNav pinned={pinned} />
         </div>
         <div className="flex flex-col gap-3 border-t border-border px-3 py-3">
-          <SidebarNav section="secondary" label="Account" />
+          <AccountNav />
           <div className="px-1">{userCard}</div>
         </div>
       </aside>
@@ -60,7 +63,6 @@ export function AppShell({
               <Search className="h-4 w-4" aria-hidden="true" />
             </Link>
             {notifications}
-            <ThemeToggle />
           </div>
         </header>
 
@@ -72,7 +74,7 @@ export function AppShell({
           <div className="mx-auto w-full max-w-6xl">{children}</div>
         </main>
 
-        <MobileNav userCard={userCard} />
+        <MobileNav userCard={userCard} pinned={pinned} />
       </div>
     </div>
   );
