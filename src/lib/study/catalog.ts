@@ -233,7 +233,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     suggestedMinutes: 20,
     goals: ["understand", "master_topic"],
     requiresMaterial: true,
-    availableIn: "Phase 8",
+    availableIn: "now",
     behaviour: "The AI plays a curious beginner: it asks you to teach a concept, interrupts with the questions a learner would ask whenever something is unclear or skipped, and the session ends with a teaching score, strengths, missing concepts and one suggested improvement.",
   },
   cumulative_review: {
@@ -378,12 +378,13 @@ export const BUILDER_METHOD_IDS = [
   "socratic_questioning",
   "elaborative_interrogation",
   "self_explanation",
+  "teach_back",
   "spaced_repetition",
   "flashcards",
 ] as const;
 
 /** Methods whose session is a tutor conversation in a special mode. */
-export const TUTOR_METHOD_IDS = ["socratic_questioning", "elaborative_interrogation", "self_explanation"] as const;
+export const TUTOR_METHOD_IDS = ["socratic_questioning", "elaborative_interrogation", "self_explanation", "teach_back"] as const;
 
 /** Methods whose items run in the recall runner. */
 export const RECALL_METHOD_IDS = ["active_recall", "error_review", "retrieval_practice", "rapid_review", "cumulative_review", "interleaving"] as const;

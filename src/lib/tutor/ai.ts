@@ -44,6 +44,8 @@ const MODE_RULES: Record<TutorMode, string> = {
     "Elaborative interrogation mode: push the student to explain causes and reasons: Why is this true? Why does it happen? What causes it? Why is it important? What changes if a condition changes? Evaluate the reasoning they give, point out gaps, and ask the next why.",
   self_explanation:
     "Self-explanation mode: walk through a worked solution or process from the material one step at a time. Present a step, ask the student to explain why it works or what should happen next, evaluate their reasoning (not just the final answer), then continue.",
+  teach_back:
+    "Teach-back mode: YOU are the learner and the student is the teacher. Ask the student to teach you a concept from the material, listen, and ask the questions a curious beginner would ask whenever the explanation is unclear, skips a step or contradicts the material (What do you mean by…? Why does that happen? Can you give an example? How is that different from…?). Never lecture; at most one short clarification per turn, then another learner question. Keep track of what the student has explained well and what is still missing.",
 };
 
 const ACTION_RULES: Partial<Record<TutorActionId, string>> = {
@@ -138,11 +140,12 @@ export async function evaluateTutorSession(input: {
   history: Array<{ role: "user" | "assistant"; content: string }>;
 }): Promise<{ evaluation: TutorEvaluation; provider: string; model: string }> {
   const provider = getAiProvider("fast");
-  const system = `You are RevTaw's coach. A ${input.mode.replace("_", " ")} session about "${input.materialTitle ?? "a topic"}" just ended. Evaluate the STUDENT's reasoning across the conversation (not the tutor's), kindly and specifically.
-- "score": 0-100 for accuracy and depth of the student's own explanations.
-- "strengths": what they reasoned well.
+  const teachBack = input.mode === "teach_back";
+  const system = `You are RevTaw's coach. A ${input.mode.replace("_", " ")} session about "${input.materialTitle ?? "a topic"}" just ended. ${teachBack ? "The STUDENT was teaching the AI learner. Grade the teaching: accuracy against the material, completeness, clarity and whether the learner's questions were answered." : "Evaluate the STUDENT's reasoning across the conversation (not the tutor's), kindly and specifically."}
+- "score": 0-100 ${teachBack ? "teaching score (accuracy, completeness, clarity)" : "for accuracy and depth of the student's own explanations"}.
+- "strengths": what they ${teachBack ? "explained well" : "reasoned well"}.
 - "missing_concepts": ideas they skipped or got wrong.
-- "suggestion": one concrete next step.
+- "suggestion": one concrete ${teachBack ? "improvement to the explanation" : "next step"}.
 - "concepts_covered": the concepts discussed (1-4 words each).
 Respond with JSON only.`;
   const user = input.history

@@ -802,7 +802,7 @@ export function tutorReplyHeuristically(material: string, prompt: string, system
   const selection = prompt.match(/Highlighted text the student selected:\n"""\n([\s\S]*?)\n"""/)?.[1]?.trim() ?? "";
   const action = prompt.match(/^Requested action:\s*([^—\n]+)/m)?.[1]?.trim().toLowerCase() ?? "";
   const noMaterial = /no material selected/.test(prompt) || /\(none\)/.test(material.trim()) || material.trim().length === 0;
-  const mode = /Socratic mode/.test(system) ? "socratic" : /Guided mode/.test(system) ? "guided" : /Elaborative interrogation mode/.test(system) ? "elaborative" : /Self-explanation mode/.test(system) ? "self_explanation" : "tutor";
+  const mode = /Socratic mode/.test(system) ? "socratic" : /Guided mode/.test(system) ? "guided" : /Elaborative interrogation mode/.test(system) ? "elaborative" : /Self-explanation mode/.test(system) ? "self_explanation" : /Teach-back mode/.test(system) ? "teach_back" : "tutor";
 
   const passages = noMaterial ? [] : parsePassages(material);
   // Follow-ups ("Simplify this.") carry no topic words of their own; fall back to the previous answer's keywords.
@@ -817,7 +817,7 @@ export function tutorReplyHeuristically(material: string, prompt: string, system
   const flashcard = best ? { front: `What does the material say about ${keywordsOf(best.sentence)[0] ?? "this"}?`, back: best.sentence } : null;
   const sources = scored.map((entry) => ({ position: entry.passage.position, heading: entry.passage.heading, pages: entry.passage.pages, quote: entry.sentence.slice(0, 200) }));
 
-  if (mode === "socratic" || mode === "guided" || mode === "elaborative" || mode === "self_explanation") {
+  if (mode === "socratic" || mode === "guided" || mode === "elaborative" || mode === "self_explanation" || mode === "teach_back") {
     const topic = best ? keywordsOf(best.sentence)[0] ?? "this idea" : "this idea";
     const question =
       mode === "socratic"
@@ -826,9 +826,13 @@ export function tutorReplyHeuristically(material: string, prompt: string, system
           ? `Why is that true? What causes ${topic} to work the way the material describes?`
           : mode === "self_explanation"
             ? `Look at this step: "${best?.sentence ?? "the first step of the process"}". Why does this step work, and what should happen next?`
-            : `Here is a hint instead of the answer: look for where the material mentions ${topic}. What do you think the key idea is?`;
+            : mode === "teach_back"
+              ? /^Start this/.test(message)
+                ? `I have never heard of ${topic} before. Could you teach it to me from the beginning — what is it, and why does it matter?`
+                : `Thanks, that helps. One thing I do not get yet: what do you mean by ${topic}? Could you give me an example of how it works?`
+              : `Here is a hint instead of the answer: look for where the material mentions ${topic}. What do you think the key idea is?`;
     return {
-      answer: `${/^Start this/.test(message) ? "Let's begin. " : "Good — let's reason through it together. "}${question}`,
+      answer: `${/^Start this/.test(message) ? (mode === "teach_back" ? "Okay, I'm your student today. " : "Let's begin. ") : mode === "teach_back" ? "" : "Good — let's reason through it together. "}${question}`,
       grounding: best ? "material" : "general",
       sources,
       additional_explanation: null,

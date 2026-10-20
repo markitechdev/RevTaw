@@ -89,6 +89,11 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
   if (session.status !== "in_progress") {
     const summary = session.parsedSummary;
     const blocks = (summary?.extra as { blocksDone?: number; blocksTotal?: number } | undefined) ?? {};
+    const tutorScore = isTutorMethod(session.method) ? (summary?.extra as { score?: number } | undefined)?.score : undefined;
+    const extraStats = [
+      ...(session.method === "smart_study" && blocks.blocksTotal ? [{ label: "Blocks done", value: `${blocks.blocksDone ?? 0}/${blocks.blocksTotal}` }] : []),
+      ...(typeof tutorScore === "number" ? [{ label: session.method === "teach_back" ? "Teaching score" : "Reasoning score", value: `${Math.round(tutorScore)}%` }] : []),
+    ];
     return (
       <div className="flex flex-col gap-4">
         <Link href={routes.study} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
@@ -99,7 +104,7 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
           <SessionSummaryCard
             title={session.status === "abandoned" ? `${name} stopped early` : `${name} complete`}
             summary={summary}
-            extraStats={session.method === "smart_study" && blocks.blocksTotal ? [{ label: "Blocks done", value: `${blocks.blocksDone ?? 0}/${blocks.blocksTotal}` }] : []}
+            extraStats={extraStats}
             actions={
               <>
                 {parentLink}

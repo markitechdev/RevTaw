@@ -301,6 +301,16 @@ const SESSION_MODE: Record<string, TutorMode> = {
   socratic_questioning: "socratic",
   elaborative_interrogation: "elaborative",
   self_explanation: "self_explanation",
+  teach_back: "teach_back",
+};
+
+const SESSION_TITLE: Record<TutorMode, string> = {
+  tutor: "Tutor",
+  guided: "Guided",
+  socratic: "Socratic Questioning",
+  elaborative: "Elaborative Interrogation",
+  self_explanation: "Self-Explanation",
+  teach_back: "Teach-Back",
 };
 
 const OPENERS: Record<TutorMode, string> = {
@@ -309,6 +319,7 @@ const OPENERS: Record<TutorMode, string> = {
   socratic: "Start this Socratic session by asking the student one probing question about the most important idea in the material, and briefly say what you are doing.",
   elaborative: "Start this elaborative interrogation by stating one key claim from the material and asking the student why it is true.",
   self_explanation: "Start this self-explanation session: pick a worked example, procedure or multi-step idea from the material, present its first step, and ask the student to explain why that step works or what comes next.",
+  teach_back: "Start this teach-back session as the learner: name the most important concept in the material, say you have never heard of it, and ask the student to teach it to you from the beginning.",
 };
 
 export async function startTutorSession(userId: string, input: { method: keyof typeof SESSION_MODE; materialId: string; goal: StudySession["goal"]; plannedMinutes: number; materialTitle: string }): Promise<{ sessionId: string; conversationId: string }> {
@@ -319,10 +330,10 @@ export async function startTutorSession(userId: string, input: { method: keyof t
     materialId: input.materialId,
     goal: input.goal,
     plannedMinutes: input.plannedMinutes,
-    title: `${input.materialTitle} — ${mode === "socratic" ? "Socratic Questioning" : mode === "elaborative" ? "Elaborative Interrogation" : "Self-Explanation"}`,
+    title: `${input.materialTitle} — ${SESSION_TITLE[mode]}`,
     state: { mode },
   });
-  const { id: conversationId } = await createConversation({ materialId: input.materialId, mode, sessionId, title: `${input.materialTitle} — ${mode === "socratic" ? "Socratic" : mode === "elaborative" ? "Why chain" : "Self-explanation"} session` });
+  const { id: conversationId } = await createConversation({ materialId: input.materialId, mode, sessionId, title: `${input.materialTitle} — ${mode === "socratic" ? "Socratic" : mode === "elaborative" ? "Why chain" : mode === "teach_back" ? "Teach-back" : "Self-explanation"} session` });
   await supabase.from("study_sessions").update({ state: { mode, conversationId } as Json }).eq("id", sessionId);
   // The tutor opens the session so the student is not staring at an empty box.
   const conversation = await loadConversation(supabase, conversationId);
