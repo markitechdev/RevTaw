@@ -39,6 +39,7 @@ supabase db push
 | `0010_gamification.sql` | `xp_events` (XP ledger, idempotent per source key) with a trigger that keeps `profiles.xp` in step, `achievements` (unlocked badges); `notification_kind` gains `achievement` and `level_up`; owner-only RLS |
 | `0011_search.sql` | full-text (GIN) indexes for global search over materials, chunks, reviewers and sections, quiz questions, flashcards, concepts and tutor conversations; generated `search_text` columns on `reviewer_sections` and `flashcards` |
 | `0012_preferences.sql` | `profiles.preferences` (JSON object by section: appearance, dashboard, tools, ai, study, notifications, assistant; size-capped) and `set_preference_section()` — saves one section atomically, security invoker so RLS applies |
+| `0013_planner_fk_fix.sql` | fix: the exam → subject and task → material / session foreign keys clear only their own id column on delete (`set null (column)`), so a material with scheduled reviews or a subject used by an exam can be deleted |
 
 Migrations are additive. Never edit an applied migration; add a new numbered
 file instead.
