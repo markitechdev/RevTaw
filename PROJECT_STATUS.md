@@ -552,6 +552,13 @@ no longer has a "coming later" section.
   (the dashboard ~110 ms after this change). Shared client JavaScript is ~430 KB
   (React, Next runtime, app shell); the PDF.js viewer (~420 KB) loads only
   on the material page.
+- **Landing LCP** — the hero's words are visible from the first paint: the
+  hero column rises in without fading (`animate-rise`), because Chrome does
+  not count text at opacity 0 and the line under the headline (the largest
+  element) was only recorded after hydration. Lighthouse mobile on the
+  production build: LCP 3.4 s → 2.0–2.4 s, performance 89 → 97–99. Keep
+  above-the-fold text out of opacity-0 entrances; measure with
+  `npm run build && npm start` (the dev server's numbers swing widely).
 
 ### UI/UX Improvement and Personalization Phase
 
