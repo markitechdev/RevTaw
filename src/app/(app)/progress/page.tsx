@@ -56,7 +56,7 @@ export default async function ProgressPage() {
             </Link>
             <Link href={`${routes.study}?method=smart_study`} className={buttonClasses({ size: "sm" })}>
               <Sparkles className="h-4 w-4" aria-hidden="true" />
-              Smart Study
+              Tamari&apos;s Study Plan
             </Link>
           </>
         }

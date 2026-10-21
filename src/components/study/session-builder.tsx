@@ -36,7 +36,7 @@ const PREPARING: Partial<Record<BuilderMethodId, string>> = {
   active_recall: "picking what to ask",
   feynman: "picking what to ask",
   practice_testing: "writing the test",
-  smart_study: "planning the blocks from your data",
+  smart_study: "Tamari is planning the blocks from your data",
   retrieval_practice: "picking what to ask",
   rapid_review: "picking what to ask",
   cumulative_review: "picking what to ask",

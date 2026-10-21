@@ -541,6 +541,10 @@
   .tamari-still i {
     animation: none;
   }
+  /* A page that seats Tamari (Home, a plan) hides the edge-of-screen Tamari from the first paint, so it never shows twice. */
+  body:has([data-tamari-seat]) [data-tamari-corner] {
+    display: none;
+  }
 }
 
 @keyframes shade-in {

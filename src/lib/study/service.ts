@@ -42,6 +42,8 @@ export type StartSessionInput = {
   timed?: boolean;
   /** Practice testing only: the topic or concepts the test should stay on. */
   focus?: string | null;
+  /** Active recall and Feynman: the concepts to ask about first (a plan block's fading or weak concepts); else the weakest ones. */
+  focusConcepts?: string[];
   /** Practice problems only. */
   problemDifficulty?: ProblemDifficulty | "adaptive";
   /** Dual coding only: draw new visuals instead of reusing the saved set. */
@@ -109,15 +111,12 @@ async function startSessionInner(userId: string, input: StartSessionInput): Prom
   if (behaviour.requiresMaterial && !input.materialId) throw new SessionError("Choose a material for this method.", 400);
 
   if (input.method === "smart_study") {
-    let materialTitle: string | null = null;
     if (input.materialId) {
-      const { data: material } = await supabase.from("materials").select("title, status").eq("id", input.materialId).maybeSingle();
+      const { data: material } = await supabase.from("materials").select("status").eq("id", input.materialId).maybeSingle();
       if (!material) throw new SessionError("Material not found.", 404);
       if (material.status !== "ready") throw new SessionError("This material has not finished processing yet.", 409);
-      materialTitle = material.title;
     }
-    const { count } = await supabase.from("mistakes").select("id", { count: "exact", head: true }).is("resolved_at", null);
-    const { sessionId } = await startSmartSession(userId, { materialId: input.materialId, goal: input.goal, minutes: input.plannedMinutes, materialTitle, openMistakes: count ?? 0 });
+    const { sessionId } = await startSmartSession(userId, { materialId: input.materialId, goal: input.goal, minutes: input.plannedMinutes });
     return { sessionId, redirect: `/study/${sessionId}` };
   }
 
@@ -197,7 +196,7 @@ async function startSessionInner(userId: string, input: StartSessionInput): Prom
 async function startRecallSession(supabase: Client, userId: string, input: StartSessionInput): Promise<StartSessionResult> {
   const context = await loadMaterialContext(supabase, input.materialId!);
   const [weak, { data: mistakes }] = await Promise.all([
-    weakConceptNames(context.material.id),
+    input.focusConcepts?.length ? Promise.resolve(input.focusConcepts.slice(0, 6)) : weakConceptNames(context.material.id),
     supabase.from("mistakes").select("question_text").eq("material_id", context.material.id).is("resolved_at", null).order("created_at", { ascending: false }).limit(5),
   ]);
   const count = recallCount(input.plannedMinutes);
@@ -243,7 +242,7 @@ async function startRecallSession(supabase: Client, userId: string, input: Start
 
 async function startFeynmanSession(supabase: Client, userId: string, input: StartSessionInput): Promise<StartSessionResult> {
   const context = await loadMaterialContext(supabase, input.materialId!);
-  const weak = await weakConceptNames(context.material.id);
+  const weak = input.focusConcepts?.length ? input.focusConcepts.slice(0, 6) : await weakConceptNames(context.material.id);
   const generated = await pickFeynmanConcepts({
     materialTitle: context.material.title,
     chunks: context.chunks,

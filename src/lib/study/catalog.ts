@@ -27,7 +27,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["memorize", "understand", "practice", "exam_prep", "quick_review", "master_topic"],
     requiresMaterial: false,
     availableIn: "now",
-    behaviour: "RevTaw builds a plan of blocks — a blurt to open longer sessions, error review, active recall on weak concepts, a Feynman block for misconceptions, due flashcards, a short practice test — sized to your time, each with the reason it was picked. You run the blocks one by one and get one combined summary.",
+    behaviour: "Tamari builds a plan of blocks sized to your time — active recall on what is fading, a quiz on your weakest topics, one concept to explain back, your mistake notebook and a last retest on what you missed (longer plans open with a blurt and add due flashcards) — on your next exam's material when one is close, each with the reason it was picked. You run the blocks one by one and get one combined summary.",
   },
   active_recall: {
     howItHelps: "Pulling an answer from memory strengthens it far more than re-reading it.",

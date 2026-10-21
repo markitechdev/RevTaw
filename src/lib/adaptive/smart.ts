@@ -4,16 +4,21 @@ import { z } from "zod";
 
 import { getMasterySummary } from "@/lib/adaptive/engine";
 import { countDueCards } from "@/lib/flashcards/queries";
+import { getNextExam } from "@/lib/planner/queries";
+import { getPreferences } from "@/lib/preferences/queries";
 import { BUILDER_METHOD_IDS } from "@/lib/study/catalog";
 import { completeSession, createSession, loadSession, SessionError, updateSessionState, type SessionSummary, parseSessionSummary } from "@/lib/study/sessions";
 import type { Json, SessionGoal } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
+import { tamariLanguage, type TamariLanguage } from "@/lib/tamari/lines";
+import { planTamariBlocks, type TamariPlanInput } from "@/lib/tamari/plan";
 
 /**
- * Smart Study (spec "flagship feature"): RevTaw composes a session from the
- * student's data instead of asking for a method. A smart session is a
- * parent `study_sessions` row whose `state.plan` lists blocks; each block
- * runs as an ordinary child session that carries `state.parentId`.
+ * Smart Study — Tamari's Study Plan (spec "flagship feature", companion doc
+ * §5–§6): Tamari composes a session from the student's data instead of
+ * asking for a method. A smart session is a parent `study_sessions` row whose
+ * `state.plan` lists blocks; each block runs as an ordinary child session
+ * that carries `state.parentId`.
  */
 
 export const smartBlockSchema = z.object({
@@ -46,7 +51,7 @@ export function parseSmartPlan(value: unknown): SmartPlan | null {
   return parsed.success ? parsed.data : null;
 }
 
-/** Builds the block list for the available minutes from mastery, mistakes and due cards. */
+/** The material most of these concepts come from. */
 function mostCommonMaterial(rows: Array<{ concept: { material_id: string | null } | null }>): string | null {
   const counts = new Map<string, number>();
   for (const row of rows) {
@@ -56,145 +61,105 @@ function mostCommonMaterial(rows: Array<{ concept: { material_id: string | null 
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 }
 
-export async function planSmartSession(input: { materialId: string | null; minutes: number; openMistakes: number }): Promise<SmartPlan> {
-  const [summary, dueCards] = await Promise.all([getMasterySummary(input.materialId ? { materialId: input.materialId } : {}), countDueCards()]);
-  // "No specific material" means "let RevTaw pick": use the material the weak concepts come from.
-  const materialId = input.materialId ?? mostCommonMaterial([...summary.weak, ...summary.learning, ...summary.misconceptions, ...summary.dueForReview]);
-  const total = Math.max(5, input.minutes);
-  let remaining = total;
-  const blocks: SmartBlock[] = [];
-  const names = (rows: typeof summary.weak) => rows.slice(0, 4).map((row) => row.concept?.name ?? "concept");
-  const take = (minutes: number) => {
-    const granted = Math.min(remaining, minutes);
-    remaining -= granted;
-    return granted;
-  };
+/** Exams this close shape the plan (their material comes first, and Tamari says so). */
+const EXAM_HORIZON_DAYS = 14;
+/** Mistakes this recent count towards "missed three times". */
+const REPEAT_WINDOW_DAYS = 30;
 
-  // Longer sessions open with a blurt (spec example: "10 min — Blurting"): it shows what stuck before the drills.
-  if (materialId && total >= 40) {
-    blocks.push({
-      key: "blurt",
-      method: "blurting",
-      minutes: take(10),
-      reason: "Start by writing everything you remember about the material — the comparison shows what stuck before the other blocks drill the gaps.",
-      concepts: [],
-      status: "pending",
-      childSessionId: null,
-    });
+type PlanContext = { input: TamariPlanInput; materialId: string | null };
+
+/**
+ * What Tamari plans from (companion doc §5): the minutes, the exam date,
+ * weak and fading concepts, misconceptions, the concept missed most often,
+ * open mistakes and due cards — on one material: the one asked for, else the
+ * nearest exam's, else the one the weak concepts come from, else the last
+ * one opened. Read with the student's session (RLS).
+ */
+async function planContext(request: { materialId: string | null; minutes: number }): Promise<PlanContext> {
+  const supabase = await createClient();
+  const since = new Date(Date.now() - REPEAT_WINDOW_DAYS * 86_400_000).toISOString();
+  const [summary, dueCards, exam, preferences, { data: mistakes }] = await Promise.all([
+    getMasterySummary(),
+    countDueCards(),
+    getNextExam(),
+    getPreferences(),
+    supabase.from("mistakes").select("concept_id, material_id, resolved_at, concept:concepts!mistakes_concept_fk(name)").gte("created_at", since).order("created_at", { ascending: false }).limit(500),
+  ]);
+  const lang = tamariLanguage(preferences.ai.language);
+  const practiced = [...summary.weak, ...summary.learning, ...summary.misconceptions, ...summary.dueForReview];
+  const examSoon = exam && exam.daysLeft >= 0 && exam.daysLeft <= EXAM_HORIZON_DAYS ? exam : null;
+  const examMaterials = (examSoon?.materials ?? []).filter((material) => material.status === "ready");
+
+  let materialId = request.materialId;
+  if (!materialId && examMaterials.length > 0) {
+    // The exam material with the most weak concepts, else the exam's first one.
+    materialId = mostCommonMaterial(practiced.filter((row) => examMaterials.some((material) => material.id === row.concept?.material_id))) ?? examMaterials[0].id;
+  }
+  materialId ??= mostCommonMaterial(practiced);
+  if (!materialId) {
+    const { data: recent } = await supabase.from("materials").select("id").eq("status", "ready").order("last_opened_at", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
+    materialId = recent?.id ?? null;
   }
 
-  if (input.openMistakes > 0 && total >= 10) {
-    const minutes = take(Math.max(5, Math.min(10, Math.round(total * 0.2))));
-    if (minutes >= 3) {
-      blocks.push({
-        key: "mistakes",
-        method: "error_review",
-        minutes,
-        reason: `${input.openMistakes} open mistake${input.openMistakes === 1 ? "" : "s"} in your notebook — retesting them first clears the errors that keep repeating.`,
-        concepts: [],
-        status: "pending",
-        childSessionId: null,
-      });
-    }
-  }
-
+  let material: { id: string; title: string } | null = null;
   if (materialId) {
-    const focus = [...summary.weak, ...summary.learning];
-    const minutes = take(Math.max(5, Math.round(total * (blocks.length ? 0.3 : 0.4))));
-    if (minutes >= 3) {
-      blocks.push({
-        key: "recall",
-        method: "active_recall",
-        minutes,
-        reason:
-          focus.length > 0
-            ? `${names(focus).join(", ")} ${focus.length === 1 ? "is" : "are"} below mastery; pulling the answers from memory raises them fastest.`
-            : "No history on this material yet, so a recall pass tells RevTaw which concepts need work.",
-        concepts: names(focus),
-        status: "pending",
-        childSessionId: null,
-      });
-    }
+    const { data } = await supabase.from("materials").select("id, title, status").eq("id", materialId).maybeSingle();
+    material = data && data.status === "ready" ? { id: data.id, title: data.title } : null;
   }
+  const inMaterial = (row: { concept: { material_id: string | null } | null }) => Boolean(material) && row.concept?.material_id === material?.id;
+  const names = (rows: typeof summary.weak) => [...new Set(rows.map((row) => row.concept?.name).filter((name): name is string => Boolean(name)))];
+  const weak = names([...summary.weak, ...summary.learning].filter(inMaterial).sort((a, b) => Number(a.mastery) - Number(b.mastery)));
+  const overdue = names(summary.dueForReview.filter(inMaterial));
+  const misconception = names(summary.misconceptions.filter(inMaterial))[0] ?? null;
 
-  if (summary.misconceptions.length > 0 && remaining >= 8 && materialId) {
-    const minutes = take(Math.max(8, Math.round(total * 0.25)));
-    blocks.push({
-      key: "feynman",
-      method: "feynman",
-      minutes,
-      reason: `You were confident but wrong on ${names(summary.misconceptions).join(", ")} — explaining them to a beginner surfaces the misconception.`,
-      concepts: names(summary.misconceptions),
-      status: "pending",
-      childSessionId: null,
-    });
+  const rows = (mistakes ?? []) as unknown as Array<{ concept_id: string | null; material_id: string | null; resolved_at: string | null; concept: { name: string } | null }>;
+  const relevant = material ? rows.filter((row) => row.material_id === material.id) : rows;
+  const openMistakes = relevant.filter((row) => !row.resolved_at).length;
+  // The concept missed most often lately, if it still has an open mistake.
+  const counts = new Map<string, { name: string; count: number; open: boolean }>();
+  for (const row of relevant) {
+    if (!row.concept_id || !row.concept?.name) continue;
+    const entry = counts.get(row.concept_id) ?? { name: row.concept.name, count: 0, open: false };
+    entry.count += 1;
+    entry.open ||= !row.resolved_at;
+    counts.set(row.concept_id, entry);
   }
+  const repeated = [...counts.values()].filter((entry) => entry.open && entry.count >= 3).sort((a, b) => b.count - a.count)[0] ?? null;
 
-  if (dueCards > 0 && remaining >= 5) {
-    const minutes = take(Math.max(5, Math.min(15, Math.ceil(dueCards / 4))));
-    blocks.push({
-      key: "cards",
-      method: "spaced_repetition",
-      minutes,
-      reason: `${dueCards} flashcard${dueCards === 1 ? " is" : "s are"} due; reviewing on time is what makes spaced repetition work.`,
-      concepts: [],
-      status: "pending",
-      childSessionId: null,
-    });
-  }
-
-  if (remaining >= 5 && materialId) {
-    const minutes = take(remaining);
-    blocks.push({
-      key: "test",
-      method: "practice_testing",
-      minutes,
-      reason: summary.total > 0 ? "A short adaptive test at the end checks whether today's work holds under exam conditions and updates your mastery." : "A short test gives RevTaw its first measurement of every concept in this material.",
-      concepts: [],
-      status: "pending",
-      childSessionId: null,
-      questionCount: Math.max(5, Math.min(20, Math.round(minutes / 1.5))),
-    });
-  } else if (remaining >= 5 && blocks.length === 0) {
-    blocks.push({
-      key: "focus",
-      method: "pomodoro",
-      minutes: take(remaining),
-      reason: "Nothing is due and no material was chosen, so this is a plain focus block.",
-      concepts: [],
-      status: "pending",
-      childSessionId: null,
-    });
-  }
-
-  if (blocks.length === 0) {
-    blocks.push(
-      materialId
-        ? { key: "recall", method: "active_recall", minutes: total, reason: "A short recall pass to get started.", concepts: [], status: "pending", childSessionId: null }
-        : { key: "focus", method: "pomodoro", minutes: total, reason: "No material was chosen, so this is a plain focus block.", concepts: [], status: "pending", childSessionId: null },
-    );
-  }
-
-  return { blocks, materialId, minutes: total };
+  const examFor = examSoon && material && examMaterials.some((item) => item.id === material.id) ? { title: examSoon.title, daysLeft: examSoon.daysLeft } : null;
+  return {
+    materialId: material?.id ?? null,
+    input: { minutes: request.minutes, lang, material, exam: examFor, overdue, weak, misconception, repeated: repeated ? { name: repeated.name, count: repeated.count } : null, openMistakes, dueCards },
+  };
 }
 
-export async function startSmartSession(userId: string, input: { materialId: string | null; goal: SessionGoal | null; minutes: number; materialTitle: string | null; openMistakes: number }): Promise<{ sessionId: string }> {
+/**
+ * Starts Tamari's plan (Smart Study, companion doc §5–§6): the blocks for the
+ * minutes, saved on a parent session with Tamari's line for the top of the
+ * plan. Each block then runs as an ordinary child session.
+ */
+export async function startSmartSession(userId: string, input: { materialId: string | null; goal: SessionGoal | null; minutes: number }): Promise<{ sessionId: string }> {
   const supabase = await createClient();
-  const plan = await planSmartSession({ materialId: input.materialId, minutes: input.minutes, openMistakes: input.openMistakes });
-  let materialTitle = input.materialTitle;
-  if (!materialTitle && plan.materialId) {
-    const { data: material } = await supabase.from("materials").select("title").eq("id", plan.materialId).maybeSingle();
-    materialTitle = material?.title ?? null;
-  }
+  const context = await planContext({ materialId: input.materialId, minutes: input.minutes });
+  const draft = planTamariBlocks(context.input);
+  const plan: SmartPlan = { blocks: draft.blocks, materialId: context.materialId, minutes: Math.max(5, Math.round(input.minutes)) };
   const { id } = await createSession(supabase, userId, {
     method: "smart_study",
     materialId: plan.materialId,
     goal: input.goal,
-    plannedMinutes: input.minutes,
-    title: materialTitle ? `${materialTitle} — Smart Study` : "Smart Study",
-    state: { plan },
+    plannedMinutes: plan.minutes,
+    title: draft.title,
+    state: { plan, tamari: { intro: draft.intro, language: context.input.lang, exam: context.input.exam?.title ?? null } },
   });
   return { sessionId: id };
+}
+
+/** Tamari's line for the top of a plan, saved when the plan was made. */
+export function tamariPlanNote(state: unknown): { intro: string; language: TamariLanguage } | null {
+  const parsed = z
+    .object({ tamari: z.object({ intro: z.string().max(400), language: z.enum(["en", "fil", "taglish"]) }) })
+    .safeParse(state);
+  return parsed.success ? parsed.data.tamari : null;
 }
 
 export type SmartSessionView = {
@@ -286,7 +251,13 @@ export async function completeSmartSession(sessionId: string): Promise<SessionSu
           ? `${weak.slice(0, 2).join(" and ")} still need${weak.length === 1 ? "s" : ""} work — tomorrow's smart session will start there.`
           : "Everything you practised today held up. Let spaced repetition carry it; come back when cards are due.",
     nextReviewAt: summaries.map((summary) => summary.nextReviewAt).filter((value): value is string => Boolean(value)).sort()[0] ?? null,
-    extra: { blocksDone: done, blocksTotal: view.blocks.length },
+    // Tamari's reaction compares the plan's first quiz with its last retest ("Mas okay na").
+    extra: {
+      blocksDone: done,
+      blocksTotal: view.blocks.length,
+      firstAccuracy: view.blocks.find((block) => block.key === "quiz")?.childSummary?.accuracy ?? null,
+      lastAccuracy: view.blocks.find((block) => block.key === "retest")?.childSummary?.accuracy ?? null,
+    },
     abandoned: done === 0,
   });
 }

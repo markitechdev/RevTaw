@@ -157,7 +157,7 @@ export async function RecommendationWidget() {
             </Link>
           </div>
           <Link href={`${routes.study}?method=smart_study`} className="self-start text-xs font-medium text-primary hover:underline">
-            Or plan a Smart Study session from everything that needs work
+            Or let Tamari plan a session from everything that needs work
           </Link>
         </>
       ) : (

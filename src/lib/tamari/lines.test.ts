@@ -35,20 +35,20 @@ describe("Tamari's bubbles", () => {
     expect(examBubble("en", { id: "e1", title: "Biology Midterm", daysLeft: 5 }).text).toBe("5 days left before your Biology Midterm.");
     expect(examBubble("taglish", { id: "e1", title: "Physics exam", daysLeft: 1 })).toMatchObject({ text: "Bukas na ang Physics exam mo. Review tayo?", state: "exam" });
     expect(examBubble("fil", { id: "e1", title: "Chemistry", daysLeft: 0 }).text).toBe("Araw na ng Chemistry exam mo! Kaya mo 'yan.");
-    expect(examBubble("en", { id: "e9", title: "Calculus", daysLeft: 2 }).action).toEqual({ label: "Open the plan", href: "/planner/e9" });
+    expect(examBubble("en", { id: "e9", title: "Calculus", daysLeft: 2 }).action).toEqual({ label: "Open the plan", kind: "open", href: "/planner/e9" });
   });
 
   it("nudges, never scolds, about a streak that ends tonight", () => {
     const bubble = streakBubble("taglish", 5, "2026-10-21");
     expect(bubble).toMatchObject({ id: "streak:2026-10-21", state: "idle", text: "5-day streak. Sayang pag pinutol mo ngayon." });
-    expect(bubble.action?.href).toBe("/study?method=rapid_review");
+    expect(bubble.action).toMatchObject({ kind: "open", href: "/study?method=rapid_review" });
   });
 
   it("offers to go over a weak topic, grounded in its material", () => {
     expect(weakTopicBubble("taglish", { id: "c1", name: "Binary Trees", materialId: "m1" })).toMatchObject({
       id: "weak:c1",
       text: "Balikan natin ang Binary Trees?",
-      action: { label: "Sige!", materialId: "m1" },
+      action: { label: "Sige!", kind: "ask", materialId: "m1" },
     });
   });
 
@@ -59,7 +59,7 @@ describe("Tamari's bubbles", () => {
     expect(quizBubble("taglish", { id: "a1", correct: 6, total: 10, previousPercent: 58 })).toMatchObject({ text: "6/10. Ayos! Balikan natin ang mga mali?", state: "idle" });
     const low = quizBubble("taglish", { id: "a1", correct: 2, total: 10, previousPercent: null });
     expect(low).toMatchObject({ text: "Mukhang may kailangan pa tayong balikan dito.", state: "serious" });
-    expect(low?.action?.prompt).toBe("Which questions did I get wrong, and why?");
+    expect(low?.action).toMatchObject({ kind: "ask", prompt: "Which questions did I get wrong, and why?" });
     expect(quizBubble("en", { id: "a1", correct: 0, total: 0, previousPercent: null })).toBeNull();
   });
 

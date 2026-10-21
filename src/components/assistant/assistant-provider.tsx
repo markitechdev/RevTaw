@@ -2,15 +2,15 @@
 
 import { MessageCircle } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { TamariLauncher } from "@/components/tamari/tamari-launcher";
 import { TamariSpeech } from "@/components/tamari/tamari-speech";
+import { useTamariMove } from "@/components/tamari/use-tamari-move";
 import type { PageContextRef } from "@/lib/assistant/context-schema";
 import type { AiPreferences, AssistantPreferences } from "@/lib/preferences/schema";
-import { napBubble, tamariLanguage, type TamariBubble } from "@/lib/tamari/lines";
-import type { TamariState } from "@/lib/tamari/states";
+import { napBubble, tamariLanguage, type TamariBubble, type TamariLanguage } from "@/lib/tamari/lines";
+import type { TamariReaction, TamariState } from "@/lib/tamari/states";
 import type { TutorActionId } from "@/lib/tutor/types";
 
 /** Opens Tamari's chat from anywhere: the command menu, "Ask why" buttons, highlight-and-ask. */
@@ -57,6 +57,30 @@ type AssistantContextValue = {
 };
 
 const AssistantContext = createContext<AssistantContextValue | null>(null);
+
+/** Everything a picture of Tamari needs: what it is doing and saying, its settings, and a way to seat it on a page. */
+export type TamariContextValue = {
+  /** What Tamari is doing right now: the microphone, an answer being written, RevTaw working, a line, a nap, waiting. */
+  state: TamariState;
+  /** The latest one-off reaction (a right or wrong answer); `key` changes each time. */
+  reaction: { kind: TamariReaction; key: number } | null;
+  /** What Tamari is saying, when it is said by a seated Tamari (a nap's "Review?"). */
+  bubble: TamariBubble | null;
+  language: TamariLanguage;
+  /** Settings → Tamari: show Tamari, pixel animations, study suggestions. */
+  visible: boolean;
+  animate: boolean;
+  suggestions: boolean;
+  /** Seats Tamari on this page (Home, a plan). While a seat is mounted the edge-of-screen Tamari steps aside and Tamari's lines show there. */
+  seat: () => () => void;
+  react: (kind: TamariReaction) => void;
+  dismissBubble: () => void;
+  /** Runs the shown line's action; resolves to an error message, or null. */
+  runBubbleAction: () => Promise<string | null>;
+  openChat: () => void;
+};
+
+const TamariContext = createContext<TamariContextValue | null>(null);
 
 // The panel (chat, history, voice) is loaded on first open, so pages do not pay for it up front.
 const AssistantPanel = dynamic(() => import("@/components/assistant/assistant-panel"), {
@@ -118,7 +142,9 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
   const [offer, setOffer] = useState<TamariBubble | null>(null);
   const [bubble, setBubble] = useState<TamariBubble | null>(null);
   const [napping, setNapping] = useState(false);
-  const router = useRouter();
+  const [seats, setSeats] = useState(0);
+  const [reaction, setReaction] = useState<{ kind: TamariReaction; key: number } | null>(null);
+  const reactionTimer = useRef(0);
 
   const show = useCallback((request: AssistantRequest = {}) => {
     setBubble(null);
@@ -184,14 +210,30 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
     return () => window.removeEventListener(ASSISTANT_EVENT, onRequest);
   }, [show]);
 
+  const seat = useCallback(() => {
+    setSeats((count) => count + 1);
+    return () => setSeats((count) => Math.max(0, count - 1));
+  }, []);
+
+  const react = useCallback((kind: TamariReaction) => {
+    window.clearTimeout(reactionTimer.current);
+    setReaction({ kind, key: Date.now() });
+    reactionTimer.current = window.setTimeout(() => setReaction(null), 900);
+  }, []);
+
+  const ask = useCallback((prompt: string, materialId?: string | null) => show({ prompt, send: true, ...(materialId !== undefined ? { materialId } : {}) }), [show]);
+  const move = useTamariMove({ ask, setActivity });
+
   const value = useMemo<AssistantContextValue>(
     () => ({ open, page, ai, assistant, show, hide, register, subscribe, setActivity, offerBubble }),
     [open, page, ai, assistant, show, hide, register, subscribe, setActivity, offerBubble],
   );
 
   const launcher = page?.launcher ?? "visible";
-  const showLauncher = assistant.launcher && !open && launcher !== "hidden";
-  const withTamari = showLauncher && assistant.mascot;
+  const seated = seats > 0 && assistant.mascot;
+  const showLauncher = assistant.launcher && !open && launcher !== "hidden" && !seated;
+  // Tamari is somewhere on screen: seated on the page, or at the edge.
+  const withTamari = assistant.mascot && (seated || showLauncher);
   const hintsOn = withTamari && assistant.suggestions;
 
   // A page's offer becomes a bubble after a short pause, unless Tamari already said it this session, has said enough, or is busy saying something else.
@@ -246,13 +288,14 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
     };
   }, [withTamari, assistant.suggestions, napLanguage]);
 
-  const onBubbleAction = () => {
+  const { run: runMove } = move;
+  const runBubbleAction = useCallback(async () => {
     const action = bubble?.action;
     setBubble(null);
-    if (!action) return;
-    if (action.href) router.push(action.href);
-    else if (action.prompt) show({ prompt: action.prompt, send: true, ...(action.materialId !== undefined ? { materialId: action.materialId } : {}) });
-  };
+    return action ? runMove(action) : null;
+  }, [bubble, runMove]);
+  const dismissBubble = useCallback(() => setBubble(null), []);
+  const openChat = useCallback(() => show(), [show]);
 
   // What Tamari shows: the microphone and speech first, then an answer being written, then RevTaw working
   // through the student's things (a reviewer, a quiz, a plan), then what it is saying, a nap and waiting.
@@ -272,14 +315,34 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
               ? "sleepy"
               : "idle";
 
+  const language = tamariLanguage(ai.language);
+  const tamariValue = useMemo<TamariContextValue>(
+    () => ({
+      state: tamari,
+      reaction,
+      bubble: seated ? shownBubble : null,
+      language,
+      visible: assistant.mascot,
+      animate: assistant.idleAnimations,
+      suggestions: assistant.suggestions,
+      seat,
+      react,
+      dismissBubble,
+      runBubbleAction,
+      openChat,
+    }),
+    [tamari, reaction, seated, shownBubble, language, assistant.mascot, assistant.idleAnimations, assistant.suggestions, seat, react, dismissBubble, runBubbleAction, openChat],
+  );
+
   return (
     <AssistantContext.Provider value={value}>
+      <TamariContext.Provider value={tamariValue}>
       {children}
-      {(showLauncher || loaded) && (
+      {(showLauncher || loaded || withTamari) && (
         <aside aria-label="Tamari">
-          {shownBubble && <TamariSpeech bubble={shownBubble} mode={launcher === "desktop" ? "desktop" : "visible"} onAction={onBubbleAction} onDismiss={() => setBubble(null)} />}
+          {shownBubble && !seated && <TamariSpeech bubble={shownBubble} mode={launcher === "desktop" ? "desktop" : "visible"} onAction={() => void runBubbleAction()} onDismiss={dismissBubble} />}
           {showLauncher && (
-            <TamariLauncher ref={launcherRef} state={tamari} mode={launcher === "desktop" ? "desktop" : "visible"} mascot={assistant.mascot} animate={assistant.idleAnimations} onOpen={() => show()} />
+            <TamariLauncher ref={launcherRef} state={tamari} reaction={reaction} mode={launcher === "desktop" ? "desktop" : "visible"} mascot={assistant.mascot} animate={assistant.idleAnimations} onOpen={() => show()} />
           )}
           {/* Says each bubble to screen readers once; always present so the change is announced (a polite live region, not a status landmark pages look for). */}
           {withTamari && (
@@ -290,8 +353,14 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
           {loaded && <AssistantPanel />}
         </aside>
       )}
+      </TamariContext.Provider>
     </AssistantContext.Provider>
   );
+}
+
+/** For pictures of Tamari (Home's greeting, a plan): what Tamari is doing and saying. Null outside the signed-in app. */
+export function useTamari(): TamariContextValue | null {
+  return useContext(TamariContext);
 }
 
 /**

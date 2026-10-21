@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { completeSmartSession, markSmartBlock, parseSmartPlan } from "@/lib/adaptive/smart";
+import { completeSmartSession, getSmartSessionView, markSmartBlock, parseSmartPlan } from "@/lib/adaptive/smart";
 import { routes } from "@/lib/routes";
 import { actionFailure, revalidateStudy, uuid, type StudyActionResult } from "@/lib/study/action-helpers";
 import { compareBlurtItem, evaluateQuestionItem, type BlurtResult, type EvaluatedQuestion } from "@/lib/study/advanced";
@@ -38,6 +38,8 @@ const startSchema = z.object({
   plannedMinutes: z.number().int().min(1).max(480),
   questionCount: z.number().int().min(3).max(50).optional(),
   timed: z.boolean().optional(),
+  /** Practice testing: the topic or chapter to stay on ("quiz me about Chapter 4"). */
+  focus: z.string().trim().max(400).nullable().optional(),
   problemDifficulty: z.enum(["adaptive", ...PROBLEM_DIFFICULTIES]).optional(),
   freshVisuals: z.boolean().optional(),
   freshMap: z.boolean().optional(),
@@ -233,6 +235,13 @@ export async function startSmartBlockAction(input: { sessionId: string; key: str
       revalidate(session.id);
       return { ok: true, data: { redirect: `${routes.flashcards}/review` } };
     }
+    // A plan's last retest stays on what the earlier blocks missed today, when they missed anything.
+    let focus = block.focus ?? null;
+    if (block.key === "retest") {
+      const view = await getSmartSessionView(session.id);
+      const missed = [...new Set((view?.blocks ?? []).flatMap((item) => item.childSummary?.weakConcepts ?? []))].slice(0, 4);
+      if (missed.length > 0) focus = missed.join(", ");
+    }
     const result = await startSession(user.id, {
       method: block.method,
       materialId: block.materialId ?? plan.materialId,
@@ -240,7 +249,8 @@ export async function startSmartBlockAction(input: { sessionId: string; key: str
       plannedMinutes: block.minutes,
       questionCount: block.questionCount,
       timed: true,
-      focus: block.focus ?? null,
+      focus,
+      focusConcepts: block.concepts.length > 0 ? block.concepts : undefined,
       parentSessionId: session.id,
       parentBlockKey: block.key,
     });

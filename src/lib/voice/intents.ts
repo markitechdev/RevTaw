@@ -57,7 +57,7 @@ const CREATE_TARGETS: Target[] = [
 ];
 
 const START_TARGETS: Target[] = [
-  { label: "Smart Study", href: `${routes.study}?method=smart_study`, words: ["smart study", "smart session", "session", "study session"] },
+  { label: "Tamari's Study Plan", href: `${routes.study}?method=smart_study`, words: ["smart study", "smart session", "study plan", "session", "study session"] },
   { label: "Pomodoro", href: `${routes.study}?method=pomodoro`, words: ["pomodoro", "focus session", "focus", "timer"] },
   { label: "Flashcard review", href: `${routes.flashcards}/review`, words: ["flashcards", "flashcard review", "flash cards", "cards", "review"] },
   { label: "Retest my mistakes", href: `${routes.study}?method=error_review`, words: ["mistakes", "error review", "retest"] },

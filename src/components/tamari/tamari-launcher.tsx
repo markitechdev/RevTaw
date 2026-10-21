@@ -4,7 +4,7 @@ import { MessageCircle } from "lucide-react";
 import type { Ref } from "react";
 
 import { TamariSprite } from "@/components/tamari/tamari-sprite";
-import { TAMARI_STATES, type TamariState } from "@/lib/tamari/states";
+import { TAMARI_STATES, type TamariReaction, type TamariState } from "@/lib/tamari/states";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
  */
 export function TamariLauncher({
   state,
+  reaction = null,
   mode,
   mascot,
   animate,
@@ -24,6 +25,7 @@ export function TamariLauncher({
   ref,
 }: {
   state: TamariState;
+  reaction?: { kind: TamariReaction; key: number } | null;
   mode: "visible" | "desktop";
   mascot: boolean;
   animate: boolean;
@@ -49,7 +51,7 @@ export function TamariLauncher({
     );
   }
   return (
-    <div className={cn("tamari-enter", place)}>
+    <div data-tamari-corner="" className={cn("tamari-enter", place)}>
       <button
         ref={ref}
         type="button"
@@ -60,7 +62,7 @@ export function TamariLauncher({
         className="group relative block cursor-pointer rounded-full border border-border bg-card p-1 shadow-pop lg:p-1.5"
       >
         <span className="block group-hover:-translate-y-0.5 group-active:translate-y-0">
-          <TamariSprite state={state} size={44} lgSize={60} animate={animate} />
+          <TamariSprite state={state} size={44} lgSize={60} animate={animate} reaction={reaction?.kind ?? null} reactionKey={reaction?.key} />
         </span>
       </button>
     </div>

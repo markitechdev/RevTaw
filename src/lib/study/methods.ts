@@ -71,7 +71,7 @@ export const STUDY_METHODS: ReadonlyArray<StudyMethod> = [
   { id: "practice_problems", name: "Practice Problems", summary: "Source-grounded problems with solutions.", bestFor: "Calculation-heavy subjects" },
   { id: "error_review", name: "Error Review", summary: "Revisit and retest past mistakes.", bestFor: "Breaking repeated errors" },
   { id: "rapid_review", name: "Rapid Review", summary: "Short sessions on the highest-value points.", bestFor: "Very little time before a test" },
-  { id: "smart_study", name: "Smart Study", summary: "RevTaw picks the activities from your mastery, mistakes and due reviews.", bestFor: "When you do not want to choose a method" },
+  { id: "smart_study", name: "Tamari's Study Plan", summary: "May 30 minutes ka? Ako na bahala. Tamari plans the blocks from your mastery, mistakes, due reviews and next exam.", bestFor: "When you do not want to choose a method" },
   { id: "teach_back", name: "Teach-Back", summary: "You teach; the AI learner asks whenever something is unclear.", bestFor: "Proving you can explain a topic end to end" },
   { id: "cumulative_review", name: "Cumulative Review", summary: "Mostly current material, with older lessons mixed back in.", bestFor: "Keeping earlier chapters alive" },
   { id: "mixed_practice", name: "Mixed Practice", summary: "Unpredictable question formats in one test.", bestFor: "Exams that mix formats" },

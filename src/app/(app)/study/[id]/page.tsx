@@ -21,9 +21,11 @@ import { ScenarioRunner } from "@/components/study/scenario-runner";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { StoryRunner } from "@/components/study/story-runner";
 import { SmartSessionView } from "@/components/study/smart-session";
+import { TamariSays } from "@/components/tamari/tamari-says";
 import { buttonClasses } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
-import { getSmartSessionView } from "@/lib/adaptive/smart";
+import { getSmartSessionView, tamariPlanNote } from "@/lib/adaptive/smart";
+import { planReaction } from "@/lib/tamari/plan";
 import { routes } from "@/lib/routes";
 import { isPlanMethod, isRecallMethod, isTestMethod, isTutorMethod, methodName } from "@/lib/study/catalog";
 import { getSessionMap, type MapView } from "@/lib/study/flows/maps";
@@ -62,7 +64,8 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
     const pretest = session.method === "pre_testing" ? await syncPreTestPlan(session.id) : null;
     const view = await getSmartSessionView(session.id, pretest?.plan ?? null);
     if (!view) return <ErrorState title="This session has no plan" description="Start a new one from the Study page." />;
-    return <SmartSessionView key={session.id} session={session} view={view} methodName={name} routine={session.method === "custom_routine"} pretest={pretest} />;
+    const tamari = session.method === "smart_study" ? tamariPlanNote(session.state) : null;
+    return <SmartSessionView key={session.id} session={session} view={view} methodName={name} routine={session.method === "custom_routine"} pretest={pretest} tamari={tamari} />;
   }
 
   // Practice tests, mixed practice and exam simulations live in the quiz runner; the session closes once the attempt is submitted.
@@ -111,12 +114,15 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
     const summary = session.parsedSummary;
     const extraStats = extraStatsFor(session.method, summary?.extra);
     const changes = session.method === "pre_testing" && Array.isArray(summary?.extra?.changes) ? (summary.extra.changes as ConceptChange[]) : [];
+    const note = session.method === "smart_study" ? tamariPlanNote(session.state) : null;
+    const reaction = note && summary && session.status === "completed" ? planReaction(note.language, summary) : null;
     return (
       <div className="flex flex-col gap-4">
         <Link href={routes.study} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Study
         </Link>
+        {reaction && <TamariSays text={reaction.text} state={reaction.state} />}
         {summary ? (
           <SessionSummaryCard
             title={session.status === "abandoned" ? `${name} stopped early` : `${name} complete`}

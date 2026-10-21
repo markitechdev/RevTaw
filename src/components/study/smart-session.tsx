@@ -9,6 +9,7 @@ import { Alert } from "@/components/forms/form-alert";
 import { BeforeAfterTable, PreTestPanel, type ConceptChangeView } from "@/components/study/pretest-panel";
 import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
+import { TamariSays } from "@/components/tamari/tamari-says";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import type { SmartSessionView as SmartView } from "@/lib/adaptive/smart";
@@ -19,15 +20,18 @@ import { methodName } from "@/lib/study/catalog";
 import type { SessionDetail } from "@/lib/study/queries";
 import type { SessionSummary } from "@/lib/study/sessions";
 import { extraStatsFor } from "@/lib/study/summary-stats";
+import type { TamariLanguage } from "@/lib/tamari/lines";
+import { planReaction } from "@/lib/tamari/plan";
 import { cn } from "@/lib/utils";
 
-/** The smart session plan: blocks with their reasons, run one at a time, then one combined summary. */
+/** The smart session plan: blocks with their reasons, run one at a time, then one combined summary. Tamari's plans open with Tamari's line. */
 export function SmartSessionView({
   session,
   view,
-  methodName: displayName = "Smart Study",
+  methodName: displayName = "Tamari's Study Plan",
   routine = false,
   pretest = null,
+  tamari = null,
 }: {
   session: SessionDetail;
   view: SmartView;
@@ -35,6 +39,8 @@ export function SmartSessionView({
   routine?: boolean;
   /** Pre-testing plans: what the diagnostic found and the before-and-after. */
   pretest?: PreTestView | null;
+  /** Tamari's plans: the line saved with the plan, in the language it was made in. */
+  tamari?: { intro: string; language: TamariLanguage } | null;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -86,8 +92,10 @@ export function SmartSessionView({
   if (summary) {
     const blocksDone = (summary.extra as { blocksDone?: number } | undefined)?.blocksDone ?? 0;
     const changes = Array.isArray(summary.extra?.changes) ? (summary.extra.changes as ConceptChangeView[]) : [];
+    const reaction = tamari ? planReaction(tamari.language, summary) : null;
     return (
       <div className="flex flex-col gap-4">
+        {reaction && <TamariSays text={reaction.text} state={reaction.state} />}
         <SessionSummaryCard
           title={blocksDone === 0 ? `${displayName} stopped early` : `${displayName} complete`}
           summary={summary}
@@ -124,6 +132,8 @@ export function SmartSessionView({
 
       {pretest ? (
         <PreTestPanel pretest={pretest.pretest} posttest={pretest.posttest} changes={pretest.changes} />
+      ) : tamari ? (
+        <TamariSays text={tamari.intro} detail="Run the blocks in order — each one is a normal session with its own summary, and this page keeps the plan." />
       ) : (
         <div className="rounded-xl border border-primary/30 bg-primary-soft/30 p-4 text-sm">
           <p className="flex items-start gap-2">
@@ -131,7 +141,7 @@ export function SmartSessionView({
             <span>
               {routine
                 ? `Your routine has ${view.blocks.length} block${view.blocks.length === 1 ? "" : "s"} (${session.planned_minutes} minutes).`
-                : `RevTaw planned ${view.blocks.length} block${view.blocks.length === 1 ? "" : "s"} for your ${session.planned_minutes} minutes from your mastery, mistakes and due reviews.`}{" "}
+                : `Tamari planned ${view.blocks.length} block${view.blocks.length === 1 ? "" : "s"} for your ${session.planned_minutes} minutes from your mastery, mistakes and due reviews.`}{" "}
               Run them in order — each one is a normal session with its own summary, and this page keeps the plan.
             </span>
           </p>
