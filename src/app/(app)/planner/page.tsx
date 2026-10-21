@@ -18,6 +18,7 @@ import { formatDate, isIsoDate } from "@/lib/planner/dates";
 import { listGoalsWithProgress } from "@/lib/planner/goals";
 import { getDueToday, listCalendar, listExams, listReviewCycles } from "@/lib/planner/queries";
 import { plannerClock, rebalanceAllPlans } from "@/lib/planner/service";
+import { getPreferences } from "@/lib/preferences/queries";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { routes } from "@/lib/routes";
 
@@ -38,7 +39,7 @@ export default async function PlannerPage({ searchParams }: PageProps<"/planner"
   const selected = date ?? (month === today.slice(0, 7) ? today : `${month}-01`);
   const grid = monthGrid(month);
   // The notification sync shares these reads (cached per request) and only writes to the bell.
-  const [due, exams, goals, materials, subjects, calendar, reviewCycles] = await Promise.all([
+  const [due, exams, goals, materials, subjects, calendar, reviewCycles, preferences] = await Promise.all([
     getDueToday(),
     listExams(),
     listGoalsWithProgress(),
@@ -46,11 +47,12 @@ export default async function PlannerPage({ searchParams }: PageProps<"/planner"
     listSubjects(),
     listCalendar({ from: grid[0][0], to: grid[grid.length - 1][6] }),
     listReviewCycles(today),
+    getPreferences(),
     syncNotifications(),
   ]);
   const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title, subject: material.subject?.name ?? null }));
   const subjectOptions = subjects.filter((subject) => !subject.archived_at).map((subject) => ({ id: subject.id, name: subject.name }));
-  const activityOptions = { materials: readyMaterials, subjects: subjectOptions, today };
+  const activityOptions = { materials: readyMaterials, subjects: subjectOptions, today, timezone, defaultReminder: preferences.notifications.defaultReminder };
 
   return (
     <div className="flex flex-col gap-6">

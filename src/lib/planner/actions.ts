@@ -236,7 +236,7 @@ export async function deleteTaskAction(taskId: string): Promise<PlannerActionRes
 }
 
 /** Adds a calendar activity, or edits one with `taskId`. */
-export async function saveActivityAction(input: ActivityInput, taskId: string | null = null): Promise<PlannerActionResult<{ taskId: string }>> {
+export async function saveActivityAction(input: ActivityInput, taskId: string | null = null): Promise<PlannerActionResult<{ taskId: string; remindAt: string | null }>> {
   const user = await getCurrentUser();
   if (!user) redirect(routes.login);
   if (taskId !== null && !uuid.safeParse(taskId).success) return { ok: false, message: "Invalid activity." };

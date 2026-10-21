@@ -9,6 +9,7 @@ import { hourIn } from "@/lib/planner/dates";
 import { listGoalsWithProgress } from "@/lib/planner/goals";
 import { getDueToday, listExams } from "@/lib/planner/queries";
 import { plannerClock } from "@/lib/planner/service";
+import { deliverDueReminders } from "@/lib/reminders/service";
 import { routes } from "@/lib/routes";
 import { getActivityStats } from "@/lib/study/queries";
 import type { Notification, NotificationKind } from "@/lib/supabase/database.types";
@@ -80,6 +81,10 @@ export const syncNotifications = cache(async (): Promise<number> => {
     if (!activeToday && activity.streakDays >= 2 && hourIn(new Date(), timezone) >= 18) {
       if (await notify({ kind: "streak", title: `Your ${activity.streakDays}-day streak ends at midnight`, body: "One short session — even five minutes of flashcards — keeps it alive.", href: routes.study, dedupeKey: `streak:${today}` })) created += 1;
     }
+
+    // Planner reminders that came due while RevTaw was closed reach the bell now (email is the scheduler's job).
+    // Ones due in the last two minutes belong to the open tab's watcher, which also shows the browser notification.
+    created += (await deliverDueReminders({ minAgeMs: 2 * 60_000 })).length;
     return created;
   } catch (error) {
     unstable_rethrow(error);

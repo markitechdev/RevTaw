@@ -7,17 +7,19 @@ import { countDueCards } from "@/lib/flashcards/queries";
 import { addDays, daysBetween } from "@/lib/planner/dates";
 import { readinessScore } from "@/lib/planner/generate";
 import { plannerClock } from "@/lib/planner/service";
-import type { Exam, StudyPlan, StudyTask } from "@/lib/supabase/database.types";
+import type { Exam, ReminderStatus, StudyPlan, StudyTask } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 export type TaskView = StudyTask & {
   material: { id: string; title: string } | null;
   exam: { id: string; title: string; exam_date: string } | null;
   subject: { id: string; name: string } | null;
+  /** The activity's reminder row, when it has one (0014). */
+  reminders: Array<{ remind_at: string; status: ReminderStatus }>;
 };
 
 const TASK_COLUMNS =
-  "*, material:materials!study_tasks_material_fk(id, title), exam:exams!study_tasks_exam_fk(id, title, exam_date), subject:subjects!study_tasks_subject_fk(id, name)";
+  "*, material:materials!study_tasks_material_fk(id, title), exam:exams!study_tasks_exam_fk(id, title, exam_date), subject:subjects!study_tasks_subject_fk(id, name), reminders!reminders_task_fk(remind_at, status)";
 
 export type ExamSummary = Exam & {
   subject: { id: string; name: string; color: string | null } | null;

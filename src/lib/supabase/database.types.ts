@@ -108,9 +108,12 @@ export type TaskStatus = "pending" | "done" | "skipped" | "missed";
 export type GoalKind = "focus_minutes" | "flashcards_reviewed" | "questions_answered" | "mastery" | "finish_material";
 export type GoalPeriod = "day" | "week" | "once";
 export type GoalStatus = "active" | "completed" | "archived";
-export type NotificationKind = "review_due" | "exam_upcoming" | "plan_reminder" | "plan_adjusted" | "daily_goal" | "streak" | "achievement" | "level_up";
+export type NotificationKind = "review_due" | "exam_upcoming" | "plan_reminder" | "plan_adjusted" | "daily_goal" | "streak" | "achievement" | "level_up" | "reminder";
 /** Calendar category of a planner activity (0014). */
 export type ActivityCategory = "study" | "review" | "assignment" | "project" | "exam" | "class" | "other";
+/** When an activity reminds the student (0014); `custom` uses reminder_minutes. */
+export type TaskReminder = "none" | "at_time" | "10m" | "30m" | "1h" | "1d" | "custom";
+export type ReminderStatus = "pending" | "sent" | "cancelled";
 export type XpSource = "answers" | "session" | "reviews" | "mastered" | "goal" | "streak_day" | "achievement";
 
 type ProfilesRow = {
@@ -553,6 +556,23 @@ type StudyTasksRow = {
   priority: ExamPriority;
   notes: string | null;
   category: ActivityCategory | null;
+  reminder: TaskReminder;
+  reminder_minutes: number | null;
+};
+
+type RemindersRow = {
+  id: string;
+  user_id: string;
+  task_id: string;
+  remind_at: string;
+  status: ReminderStatus;
+  in_app_sent_at: string | null;
+  email_sent_at: string | null;
+  email_attempts: number;
+  email_error: string | null;
+  claimed_until: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type StudyGoalsRow = {
@@ -1155,6 +1175,12 @@ export type Database = {
         Update: Partial<NotificationsRow>;
         Relationships: [];
       };
+      reminders: {
+        Row: RemindersRow;
+        Insert: Writable<RemindersRow, "task_id" | "remind_at">;
+        Update: Partial<RemindersRow>;
+        Relationships: [];
+      };
       routines: {
         Row: RoutinesRow;
         Insert: Writable<RoutinesRow, "title">;
@@ -1220,6 +1246,10 @@ export type Database = {
       set_preference_section: {
         Args: { section_name: string; section_value: Json };
         Returns: Json;
+      };
+      claim_due_reminders: {
+        Args: { batch_size?: number };
+        Returns: RemindersRow[];
       };
     };
     Enums: {
@@ -1290,6 +1320,7 @@ export type Exam = Tables<"exams">;
 export type ExamMaterial = Tables<"exam_materials">;
 export type StudyPlan = Tables<"study_plans">;
 export type StudyTask = Tables<"study_tasks">;
+export type Reminder = Tables<"reminders">;
 export type StudyGoalRow = Tables<"study_goals">;
 export type Notification = Tables<"notifications">;
 export type Routine = Tables<"routines">;

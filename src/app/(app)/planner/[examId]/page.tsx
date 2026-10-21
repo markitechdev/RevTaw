@@ -21,6 +21,7 @@ import { CRAM_NOTE } from "@/lib/planner/generate";
 import { getExam, getExamTitle, getPlanIdForExam } from "@/lib/planner/queries";
 import { plannerClock, rebalancePlan } from "@/lib/planner/service";
 import { PLAN_MODE_LABEL } from "@/lib/planner/types";
+import { getPreferences } from "@/lib/preferences/queries";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { CONFIDENCE_LABEL } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
@@ -40,11 +41,11 @@ export default async function ExamPlanPage({ params }: PageProps<"/planner/[exam
   if (planId) await rebalancePlan(planId);
   const exam = await getExam(examId);
   if (!exam) notFound();
-  const { today } = await plannerClock();
-  const [materials, subjects] = await Promise.all([listMaterials(), listSubjects()]);
+  const { today, timezone } = await plannerClock();
+  const [materials, subjects, preferences] = await Promise.all([listMaterials(), listSubjects(), getPreferences()]);
   const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title, subject: material.subject?.name ?? null }));
   const subjectOptions = subjects.filter((subject) => !subject.archived_at).map((subject) => ({ id: subject.id, name: subject.name }));
-  const activityOptions = { materials: readyMaterials, subjects: subjectOptions, today };
+  const activityOptions = { materials: readyMaterials, subjects: subjectOptions, today, timezone, defaultReminder: preferences.notifications.defaultReminder };
 
   const visible = exam.tasks.filter((task) => task.status !== "skipped" || task.scheduled_for >= today);
   const byDay = new Map<string, typeof visible>();

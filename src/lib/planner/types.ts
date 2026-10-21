@@ -2,7 +2,8 @@ import { z } from "zod";
 
 import { isIsoDate } from "@/lib/planner/dates";
 import { isClockTime } from "@/lib/planner/time";
-import type { ActivityCategory, ExamPriority, GoalKind, GoalPeriod, PlanMode, StudyTask, TaskStatus } from "@/lib/supabase/database.types";
+import { MAX_REMINDER_MINUTES } from "@/lib/reminders/time";
+import type { ActivityCategory, ExamPriority, GoalKind, GoalPeriod, PlanMode, StudyTask, TaskReminder, TaskStatus } from "@/lib/supabase/database.types";
 
 /** Labels and form schemas shared by the planner's client and server code. */
 
@@ -106,6 +107,16 @@ export function methodNeedsMaterial(method: ActivityMethod): boolean {
   return method !== "error_review" && method !== "spaced_repetition" && method !== "pomodoro" && method !== "activity";
 }
 
+export const TASK_REMINDERS: ReadonlyArray<{ id: TaskReminder; label: string }> = [
+  { id: "none", label: "No reminder" },
+  { id: "at_time", label: "At the time" },
+  { id: "10m", label: "10 minutes before" },
+  { id: "30m", label: "30 minutes before" },
+  { id: "1h", label: "1 hour before" },
+  { id: "1d", label: "1 day before" },
+  { id: "custom", label: "Custom…" },
+];
+
 export const activitySchema = z
   .object({
     title: z.string().trim().min(1, "Give the activity a name.").max(160),
@@ -119,9 +130,12 @@ export const activitySchema = z
     examId: z.uuid().nullable(),
     priority: z.enum(["low", "normal", "high"]),
     notes: z.string().trim().max(2000).nullable(),
+    reminder: z.enum(["none", "at_time", "10m", "30m", "1h", "1d", "custom"]),
+    reminderMinutes: z.number().int().min(0).max(MAX_REMINDER_MINUTES, "Reminders can be up to two weeks before.").nullable(),
   })
   .superRefine((value, ctx) => {
     if (methodNeedsMaterial(value.method) && !value.materialId) ctx.addIssue({ code: "custom", path: ["materialId"], message: "Choose a material for this method." });
+    if (value.reminder === "custom" && value.reminderMinutes === null) ctx.addIssue({ code: "custom", path: ["reminderMinutes"], message: "Say how long before the reminder should come." });
     if (value.method !== "activity" && value.category !== "study" && value.category !== "review") ctx.addIssue({ code: "custom", path: ["method"], message: "Only study and review activities start a session." });
   });
 

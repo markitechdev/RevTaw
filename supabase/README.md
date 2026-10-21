@@ -11,7 +11,7 @@ reach their own data.
    - the **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
    - the **publishable** key → `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
    - a **secret** key → `SUPABASE_SECRET_KEY` (server only, optional; needed
-     for account deletion)
+     for account deletion and the reminder scheduler)
 3. Put them in `.env.local` (see `.env.example`). `.env*` files are ignored by
    git on purpose.
 
@@ -41,6 +41,7 @@ supabase db push
 | `0012_preferences.sql` | `profiles.preferences` (JSON object by section: appearance, dashboard, tools, ai, study, notifications, assistant; size-capped) and `set_preference_section()` — saves one section atomically, security invoker so RLS applies |
 | `0013_planner_fk_fix.sql` | fix: the exam → subject and task → material / session foreign keys clear only their own id column on delete (`set null (column)`), so a material with scheduled reviews or a subject used by an exam can be deleted |
 | `0014_planner_activities.sql` | the planner calendar: `study_tasks` gains a start time (local, in the student's time zone), a subject, a priority, notes and a category (study, review, assignment, project, exam, class, other) |
+| `0015_reminders.sql` | reminders: `study_tasks.reminder` (+ `reminder_minutes` for a custom one), the `reminders` queue (one row per activity, per-channel delivery state, owner-only RLS), `claim_due_reminders()` for the scheduler (service role only) and the `reminder` notification kind |
 
 Migrations are additive. Never edit an applied migration; add a new numbered
 file instead.

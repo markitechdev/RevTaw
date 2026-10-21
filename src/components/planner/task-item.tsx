@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Clock, Flag, Pencil, Play, RotateCcw, SkipForward, Trash2 } from "lucide-react";
+import { BellRing, Check, Clock, Flag, Pencil, Play, RotateCcw, SkipForward, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -12,6 +12,7 @@ import { relativeDays } from "@/lib/planner/dates";
 import type { TaskView } from "@/lib/planner/queries";
 import { formatClock } from "@/lib/planner/time";
 import { ACTIVITY_CATEGORY_LABEL, categoryOf, TASK_STATUS_LABEL } from "@/lib/planner/types";
+import { reminderLabel } from "@/lib/reminders/time";
 import { routes } from "@/lib/routes";
 import { STUDY_METHOD_BY_ID, type StudyMethodId } from "@/lib/study/methods";
 import type { TaskStatus } from "@/lib/supabase/database.types";
@@ -49,6 +50,8 @@ export function TaskItem({
   const actionable = task.status === "pending" || task.status === "missed";
   const startable = task.method !== "activity";
   const category = categoryOf(task);
+  // Only a reminder that is still to come is worth showing.
+  const reminder = (task.reminders ?? []).find((row) => row.status === "pending");
 
   const run = (name: string, action: () => Promise<{ ok: boolean; message?: string; data?: { redirect?: string } }>) => {
     setBusy(name);
@@ -82,6 +85,12 @@ export function TaskItem({
               <Flag className="h-3 w-3" aria-hidden="true" />
               High priority
             </Badge>
+          )}
+          {reminder && task.status === "pending" && (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" title={`Reminder: ${reminderLabel(task.reminder, task.reminder_minutes)}`}>
+              <BellRing className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+              <span className="sr-only">Reminder:</span> {reminderLabel(task.reminder, task.reminder_minutes)}
+            </span>
           )}
           {task.status !== "pending" && <Badge tone={STATUS_TONE[task.status]}>{TASK_STATUS_LABEL[task.status]}</Badge>}
           {showDate && (

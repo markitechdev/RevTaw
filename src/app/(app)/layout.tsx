@@ -4,6 +4,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { NotificationsMenu } from "@/components/app/notifications-menu";
 import { TimezoneSync } from "@/components/app/timezone-sync";
 import { AssistantProvider } from "@/components/assistant/assistant-provider";
+import { ReminderWatcher } from "@/components/planner/reminder-watcher";
 import { AppearanceRoot } from "@/components/theme/appearance-root";
 import { countUnreadNotifications, listNotifications } from "@/lib/notifications/service";
 import { getPreferences } from "@/lib/preferences/queries";
@@ -31,6 +32,7 @@ export default async function AppLayout({ children }: LayoutProps<"/"> ) {
       <AssistantProvider ai={preferences.ai} assistant={preferences.assistant}>
         <AppShell displayName={profile?.display_name ?? ""} email={user.email} pinned={preferences.tools.pinned} notifications={<NotificationsMenu notifications={notifications} unread={unread} />}>
           <TimezoneSync current={profile?.timezone ?? null} />
+          <ReminderWatcher />
           {children}
         </AppShell>
       </AssistantProvider>

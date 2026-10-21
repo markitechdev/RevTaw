@@ -7,6 +7,7 @@ import { addDays, dateIn, daysBetween, todayIn, weekdayOf } from "@/lib/planner/
 import { generatePlan, type PlanMaterial, type PlannedTask } from "@/lib/planner/generate";
 import { activitySchema, examFormSchema, methodNeedsMaterial, type ExamFormValues } from "@/lib/planner/types";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
+import { cancelTaskReminder, syncTaskReminder } from "@/lib/reminders/service";
 import type { PlanMode, StudyPlan, StudyTask } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -355,12 +356,14 @@ export async function completeTask(taskId: string, sessionId: string | null = nu
   if (task.status === "done") return;
   const { error } = await supabase.from("study_tasks").update({ status: "done", completed_at: new Date().toISOString(), session_id: sessionId ?? task.session_id }).eq("id", taskId);
   if (error) throw new Error(`study_tasks: complete failed: ${error.message}`);
+  await cancelTaskReminder(supabase, taskId);
 }
 
 /** Called from session completion: closes the task a session was started from. */
 export async function completeTaskForSession(supabase: Client, taskId: string, sessionId: string): Promise<void> {
   const { error } = await supabase.from("study_tasks").update({ status: "done", completed_at: new Date().toISOString(), session_id: sessionId }).eq("id", taskId).eq("status", "pending");
   if (error) console.error("study_tasks: complete for session failed", error.message);
+  else await cancelTaskReminder(supabase, taskId);
 }
 
 export async function skipTask(taskId: string): Promise<void> {
@@ -369,12 +372,15 @@ export async function skipTask(taskId: string): Promise<void> {
   if (task.status !== "pending" && task.status !== "missed") throw new PlannerError("Only planned tasks can be skipped.", 409);
   const { error } = await supabase.from("study_tasks").update({ status: "skipped" }).eq("id", taskId);
   if (error) throw new Error(`study_tasks: skip failed: ${error.message}`);
+  await cancelTaskReminder(supabase, taskId);
 }
 
 export async function reopenTask(taskId: string): Promise<void> {
   const supabase = await createClient();
-  const { error } = await supabase.from("study_tasks").update({ status: "pending", completed_at: null }).eq("id", taskId);
+  const { data, error } = await supabase.from("study_tasks").update({ status: "pending", completed_at: null }).eq("id", taskId).select("*").maybeSingle();
   if (error) throw new Error(`study_tasks: reopen failed: ${error.message}`);
+  // A reopened activity gets its reminder back if the time is still ahead.
+  if (data) await syncTaskReminder(supabase, data, (await plannerClock()).timezone);
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
@@ -387,16 +393,17 @@ export async function deleteTask(taskId: string): Promise<void> {
 
 /**
  * Adds or edits a calendar activity (UI phase §26): your own item on the
- * schedule, with a time, subject, material, priority and notes.
+ * schedule, with a time, subject, material, priority, notes and a reminder.
  * Study and review activities start a session of their method; the other
  * categories are plain calendar items. Generated plan and review tasks are
  * changed through their plan, not here.
  */
-export async function saveActivity(raw: unknown, taskId: string | null = null): Promise<{ taskId: string }> {
+export async function saveActivity(raw: unknown, taskId: string | null = null): Promise<{ taskId: string; remindAt: string | null }> {
   const parsed = activitySchema.safeParse(raw);
   if (!parsed.success) throw new PlannerError(parsed.error.issues[0]?.message ?? "Check the activity details.", 400);
   const input = parsed.data;
   const supabase = await createClient();
+  const { timezone } = await plannerClock();
   const fields = {
     title: input.title,
     category: input.category,
@@ -408,6 +415,8 @@ export async function saveActivity(raw: unknown, taskId: string | null = null): 
     subject_id: input.subjectId,
     priority: input.priority,
     notes: input.notes || null,
+    reminder: input.reminder,
+    reminder_minutes: input.reminder === "custom" ? input.reminderMinutes : null,
   };
   let row: StudyTask | null = null;
   if (taskId) {
@@ -425,7 +434,8 @@ export async function saveActivity(raw: unknown, taskId: string | null = null): 
     if (error || !data) throw new PlannerError("The activity could not be added. Check the material, subject and exam.", 400);
     row = data;
   }
-  return { taskId: row.id };
+  const { remindAt } = await syncTaskReminder(supabase, row, timezone);
+  return { taskId: row.id, remindAt };
 }
 
 /** Schedules the optional 1-3-7-14 review cycle for a material (§16 "1-3-7-14 Review"). */

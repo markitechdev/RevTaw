@@ -293,6 +293,7 @@ export const MUTABLE_NOTIFICATION_KINDS: ReadonlyArray<{ id: NotificationKind; l
   { id: "daily_goal", label: "Goals", hint: "Goal progress and completions" },
   { id: "streak", label: "Streaks", hint: "Keeping or losing a streak" },
   { id: "achievement", label: "Badges and levels", hint: "New badges and level-ups" },
+  { id: "reminder", label: "Planner reminders", hint: "The reminders you set on calendar activities" },
 ];
 const MUTABLE_KIND_IDS = MUTABLE_NOTIFICATION_KINDS.map((item) => item.id) as [NotificationKind, ...NotificationKind[]];
 

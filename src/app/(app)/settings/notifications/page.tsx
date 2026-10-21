@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 
 import { NotificationsForm } from "@/components/settings/notifications-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { isEmailConfigured } from "@/lib/notifications/email-config";
 import { getPreferences } from "@/lib/preferences/queries";
+import { emailRemindersAvailable } from "@/lib/reminders/service";
 
 export const metadata: Metadata = {
   title: "Notifications",
@@ -18,7 +18,7 @@ export default async function NotificationSettingsPage() {
         <CardDescription>Reminders that help without nagging: choose where they reach you and what they are about.</CardDescription>
       </CardHeader>
       <CardContent>
-        <NotificationsForm initial={preferences.notifications} emailAvailable={isEmailConfigured()} />
+        <NotificationsForm initial={preferences.notifications} emailAvailable={emailRemindersAvailable()} />
       </CardContent>
     </Card>
   );

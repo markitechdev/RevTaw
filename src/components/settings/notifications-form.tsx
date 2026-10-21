@@ -79,9 +79,9 @@ export function NotificationsForm({ initial, emailAvailable }: { initial: Notifi
           onChange={setEmail}
           disabled={!emailAvailable}
           label="Email"
-          description={emailAvailable ? "Planner reminders by email at the time you choose for each activity." : "Email reminders are not set up on this RevTaw server yet. In-app reminders still work."}
+          description={emailAvailable ? "Planner reminders by email at the time you choose for each activity, to the address you sign in with." : "Email reminders are not set up on this RevTaw server yet (an email provider and the reminder scheduler). In-app reminders still work."}
         />
-        <Switch checked={browser} onChange={(next) => void toggleBrowser(next)} label="Browser notifications" description="A pop-up from your browser when a planner reminder is due while RevTaw is open." />
+        <Switch checked={browser} onChange={(next) => void toggleBrowser(next)} label="Browser notifications" description="A pop-up from your browser when a planner reminder is due while RevTaw is open in a tab." />
         {browserNote && (
           <p className="text-xs text-warning" role="status">
             {browserNote}
