@@ -6,6 +6,7 @@ import { cache } from "react";
 import { ACHIEVEMENT_BY_KEY, longestStreak, newlyUnlocked, type AchievementDef, type GamificationStats } from "@/lib/gamification/achievements";
 import { awardXp } from "@/lib/gamification/service";
 import { levelFor, XP_RULES, type LevelInfo } from "@/lib/gamification/xp";
+import { inAppAllowed } from "@/lib/notifications/allowed";
 import { routes } from "@/lib/routes";
 import { getActivityStats } from "@/lib/study/queries";
 import type { Achievement, XpEvent } from "@/lib/supabase/database.types";
@@ -116,10 +117,12 @@ export const syncGamification = cache(async (): Promise<AchievementDef[]> => {
       added.map((achievement) => ({ source: "achievement" as const, sourceKey: `achievement:${achievement.key}`, points: XP_RULES.achievement, label: `Badge: ${achievement.title}` })),
       supabase,
     );
-    await supabase.from("notifications").upsert(
-      added.map((achievement) => ({ kind: "achievement" as const, title: `Badge unlocked: ${achievement.title}`, body: achievement.description, href: `${routes.progress}/achievements`, dedupe_key: `achievement:${achievement.key}` })),
-      { onConflict: "user_id,dedupe_key", ignoreDuplicates: true },
-    );
+    if (await inAppAllowed("achievement")) {
+      await supabase.from("notifications").upsert(
+        added.map((achievement) => ({ kind: "achievement" as const, title: `Badge unlocked: ${achievement.title}`, body: achievement.description, href: `${routes.progress}/achievements`, dedupe_key: `achievement:${achievement.key}` })),
+        { onConflict: "user_id,dedupe_key", ignoreDuplicates: true },
+      );
+    }
     return added;
   } catch (error) {
     unstable_rethrow(error);

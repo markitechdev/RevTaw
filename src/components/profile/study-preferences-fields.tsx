@@ -21,7 +21,7 @@ export type StudyPreferenceDefaults = {
   submitted?: Record<string, string>;
 };
 
-function ChoiceGroup({
+export function ChoiceGroup({
   legend,
   description,
   error,
@@ -49,7 +49,7 @@ function ChoiceGroup({
   );
 }
 
-function ChoiceCard({
+export function ChoiceCard({
   name,
   value,
   label,

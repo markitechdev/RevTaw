@@ -3,6 +3,7 @@ import "server-only";
 import { isAiError } from "@/lib/ai";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import type { StudentContext } from "@/lib/materials/analyze";
+import { parsePreferences } from "@/lib/preferences/schema";
 import { ServiceError } from "@/lib/reviewers/service";
 import { completeSession, createSession, loadSession, SessionError, type SessionSummary } from "@/lib/study/sessions";
 import type { Json, StudySession, TutorMode } from "@/lib/supabase/database.types";
@@ -18,8 +19,8 @@ export { ServiceError, SessionError };
 const HISTORY_LIMIT = 12;
 
 async function studentContext(supabase: Client): Promise<StudentContext> {
-  const { data: profile } = await supabase.from("profiles").select("education_level, main_goal").maybeSingle();
-  return { educationLevel: profile?.education_level ?? null, mainGoal: profile?.main_goal ?? null };
+  const { data: profile } = await supabase.from("profiles").select("education_level, main_goal, preferences").maybeSingle();
+  return { educationLevel: profile?.education_level ?? null, mainGoal: profile?.main_goal ?? null, response: parsePreferences(profile?.preferences ?? {}).ai };
 }
 
 async function materialChunks(supabase: Client, materialId: string): Promise<{ title: string; chunks: ContextChunk[] }> {

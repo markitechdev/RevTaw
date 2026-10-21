@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
+import { responseStyleRules } from "@/lib/ai/response-style";
 import type { AiMessage } from "@/lib/ai/types";
 import type { StudentContext } from "@/lib/materials/analyze";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
@@ -98,6 +99,7 @@ Style:
 - Write for the student directly in plain language. Keep the material's terminology. Use simple markdown only: paragraphs, "-" bullets, "1." numbered steps, **bold**, \`code\` for formulas. No headings, tables or links.
 - "follow_ups": up to 4 of explain_more, example, simplify, analogy, test_me, add_to_notes, create_flashcard that make sense next.
 - "flashcard": when the answer contains one memorable fact, propose a front/back card for it; otherwise null.
+${responseStyleRules(input.student.response).map((rule) => `- ${rule}`).join("\n")}
 - Respond with a single JSON object matching the schema. No commentary.`;
 
   const action = input.action ? ACTION_RULES[input.action] : null;

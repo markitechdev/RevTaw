@@ -10,6 +10,7 @@ import {
   successState,
   type ActionState,
 } from "@/lib/forms/action-state";
+import { aiInput, DEFAULT_AI } from "@/lib/preferences/schema";
 import { describeRetry, getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { removeMaterialObjects } from "@/lib/materials/storage";
 import { routes } from "@/lib/routes";
@@ -42,7 +43,19 @@ function preferenceValues(formData: FormData): Record<string, string> {
     mainGoal: formString(formData, "mainGoal"),
     sessionChoice: formString(formData, "sessionChoice"),
     customMinutes: formString(formData, "customMinutes"),
+    responseLanguage: formString(formData, "responseLanguage"),
   };
+}
+
+/** Onboarding's language question → Settings → AI (the rest of the AI section keeps its defaults). */
+async function saveOnboardingLanguage(formData: FormData): Promise<void> {
+  const choice = formString(formData, "responseLanguage");
+  if (!choice) return;
+  const parsed = aiInput.safeParse({ ...DEFAULT_AI, language: choice, languageChosen: true });
+  if (!parsed.success || parsed.data.language === "other") return;
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_preference_section", { section_name: "ai", section_value: parsed.data });
+  if (error) console.error("profiles: failed to save the response language", error.message);
 }
 
 async function savePreferences(
@@ -84,6 +97,7 @@ export async function completeOnboardingAction(
 
   const failure = await savePreferences(user.id, readPreferences(formData), true);
   if (failure) return { ...failure, values: preferenceValues(formData) };
+  await saveOnboardingLanguage(formData);
 
   redirect(`${routes.dashboard}?notice=welcome`);
 }

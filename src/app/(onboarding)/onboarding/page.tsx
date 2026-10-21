@@ -33,8 +33,8 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
           {firstName ? `Hi ${firstName}, let's set up your reviewer.` : "Let's set up your reviewer."}
         </h1>
         <p className="max-w-xl text-muted-foreground">
-          Three quick questions so RevTaw can pitch explanations at the right level, recommend the
-          right study methods, and build sessions that fit your time.
+          A few quick questions so RevTaw can pitch explanations at the right level, in your
+          language, recommend the right study methods, and build sessions that fit your time.
         </p>
       </div>
 

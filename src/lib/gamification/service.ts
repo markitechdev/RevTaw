@@ -2,6 +2,7 @@ import "server-only";
 
 import { unstable_rethrow } from "next/navigation";
 
+import { inAppAllowed } from "@/lib/notifications/allowed";
 import { routes } from "@/lib/routes";
 import { levelFor, XP_RULES, xpForAnswers, xpForSession } from "@/lib/gamification/xp";
 import type { XpSource } from "@/lib/supabase/database.types";
@@ -50,7 +51,7 @@ export async function awardXp(awards: XpAward[], supabase?: Client): Promise<num
 async function announceLevelUp(supabase: Client, before: number, after: number): Promise<void> {
   const from = levelFor(before).level;
   const to = levelFor(after).level;
-  if (to <= from) return;
+  if (to <= from || !(await inAppAllowed("level_up"))) return;
   await supabase
     .from("notifications")
     .upsert({ kind: "level_up", title: `Level ${to} reached`, body: `${after.toLocaleString("en-US")} XP so far. Levels come from answers, finished sessions, mastered concepts, goals and active days.`, href: routes.progress, dedupe_key: `level:${to}` }, { onConflict: "user_id,dedupe_key", ignoreDuplicates: true });

@@ -4,6 +4,7 @@ import { unstable_rethrow } from "next/navigation";
 import { cache } from "react";
 
 import { awardGoalXp } from "@/lib/gamification/service";
+import { inAppAllowed } from "@/lib/notifications/allowed";
 import { hourIn } from "@/lib/planner/dates";
 import { listGoalsWithProgress } from "@/lib/planner/goals";
 import { getDueToday, listExams } from "@/lib/planner/queries";
@@ -22,6 +23,8 @@ import { createClient } from "@/lib/supabase/server";
 export type NotificationInput = { kind: NotificationKind; title: string; body?: string | null; href?: string | null; dedupeKey: string };
 
 export async function notify(input: NotificationInput): Promise<boolean> {
+  // Settings → Notifications: in-app reminders off, or this kind muted.
+  if (!(await inAppAllowed(input.kind))) return false;
   const supabase = await createClient();
   const { error, data } = await supabase
     .from("notifications")

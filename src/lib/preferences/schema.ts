@@ -290,7 +290,6 @@ export const MUTABLE_NOTIFICATION_KINDS: ReadonlyArray<{ id: NotificationKind; l
   { id: "review_due", label: "Reviews due", hint: "Flashcards and concepts that are due" },
   { id: "exam_upcoming", label: "Upcoming exams", hint: "A heads-up as an exam gets close" },
   { id: "plan_reminder", label: "Planned sessions", hint: "Today's planned study blocks" },
-  { id: "plan_adjusted", label: "Plan changes", hint: "When RevTaw moves a plan around missed days" },
   { id: "daily_goal", label: "Goals", hint: "Goal progress and completions" },
   { id: "streak", label: "Streaks", hint: "Keeping or losing a streak" },
   { id: "achievement", label: "Badges and levels", hint: "New badges and level-ups" },

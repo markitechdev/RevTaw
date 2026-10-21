@@ -5,6 +5,7 @@ import { generateJson } from "@/lib/ai/json";
 import { analysisResponseSchema, type AnalysisResponse } from "@/lib/materials/analysis-schema";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import { CORE_STUDY_METHODS } from "@/lib/study/methods";
+import type { AiPreferences } from "@/lib/preferences/schema";
 import type { EducationLevel, StudyGoal } from "@/lib/supabase/database.types";
 
 /** Characters of material text sent to the model in one analysis (~35k tokens). */
@@ -21,6 +22,8 @@ export type AnalysisChunkInput = {
 export type StudentContext = {
   educationLevel: EducationLevel | null;
   mainGoal: StudyGoal | null;
+  /** Settings → AI (language, tone, depth); used by conversational answers. */
+  response?: AiPreferences;
 };
 
 export type AnalysisResult = {
