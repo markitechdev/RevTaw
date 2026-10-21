@@ -650,7 +650,9 @@ notebook; not a second AI). Its picture lives on Home only, in the layout
 instead of a circle; every other page has a round chat button.
 
 - **On Home** — the whole character leads the "Continue studying" card:
-  Tamari, then what to continue, then the buttons (`TamariHome`,
+  Tamari, then what to continue, then the buttons (on phones Tamari sits
+  beside the heading, the details run across the card and the two buttons
+  share a row; `TamariHome`,
   `src/components/tamari/tamari-home.tsx`; already there while the card
   loads, and at the start of the greeting when that card is hidden). Tamari
   says nothing until it is clicked; a small pixel "!" by its head means a
