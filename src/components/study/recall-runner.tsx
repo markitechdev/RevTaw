@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/input";
 import { CONFIDENCE_LEVELS } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
 import { RETRIEVAL_FORMAT_LABEL, type RetrievalFormat } from "@/lib/study/formats";
+import { useTamariReaction } from "@/components/tamari/use-tamari-reaction";
 import { answerRecallAction, completeSessionAction } from "@/lib/study/actions";
 import type { SessionDetail } from "@/lib/study/queries";
 import type { RecallItemResult } from "@/lib/study/service";
@@ -82,6 +83,8 @@ export function RecallRunner({ session, methodName, parentSessionId = null, pare
 
   const item = items[index];
   const current = item ? results[item.id] : undefined;
+  // Tamari bounces for a right answer and steps aside for a wrong one.
+  useTamariReaction(item && revealed === item.id ? current?.comparison.verdict : null, item?.id ?? "");
 
   useEffect(() => {
     shownAt.current = Date.now();
