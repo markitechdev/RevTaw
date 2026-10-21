@@ -1,9 +1,7 @@
-import { Search } from "lucide-react";
-import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { CommandMenu, CommandMenuIconButton, CommandMenuTrigger } from "@/components/app/command-menu";
 import { MobileNav } from "@/components/app/mobile-nav";
-import { SearchBox } from "@/components/app/search-box";
 import { AccountNav, SidebarNav } from "@/components/app/sidebar-nav";
 import { UserCard } from "@/components/app/user-card";
 import { Logo } from "@/components/brand/logo";
@@ -46,7 +44,9 @@ export function AppShell({
           {notifications}
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-2">
-          <SearchBox className="mb-4 px-1" />
+          <div className="mb-4 px-1">
+            <CommandMenuTrigger />
+          </div>
           <SidebarNav pinned={pinned} />
         </div>
         <div className="flex flex-col gap-3 border-t border-border px-3 py-3">
@@ -59,9 +59,7 @@ export function AppShell({
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border bg-card/90 px-4 backdrop-blur lg:hidden">
           <Logo href={routes.dashboard} />
           <div className="flex items-center gap-1">
-            <Link href={routes.search} aria-label="Search" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
-              <Search className="h-4 w-4" aria-hidden="true" />
-            </Link>
+            <CommandMenuIconButton />
             {notifications}
           </div>
         </header>
@@ -75,6 +73,7 @@ export function AppShell({
         </main>
 
         <MobileNav userCard={userCard} pinned={pinned} />
+        <CommandMenu />
       </div>
     </div>
   );

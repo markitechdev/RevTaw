@@ -39,7 +39,7 @@ export default async function QuizPage({ searchParams }: PageProps<"/quiz">) {
               <NotebookPen className="h-4 w-4" aria-hidden="true" />
               Mistake notebook{openMistakes > 0 ? ` (${openMistakes})` : ""}
             </Link>
-            <NewQuizButton materials={readyMaterials} size="sm">
+            <NewQuizButton materials={readyMaterials} size="sm" defaultOpen={params.create === "1"}>
               New quiz
             </NewQuizButton>
           </>

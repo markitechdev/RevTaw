@@ -24,7 +24,8 @@ export const metadata: Metadata = {
   title: "Planner",
 };
 
-export default async function PlannerPage() {
+export default async function PlannerPage({ searchParams }: PageProps<"/planner">) {
+  const params = await searchParams;
   const { user, profile } = await getCurrentUserWithProfile();
   if (!user) redirect(routes.login);
   // Daily adjustment first so what is shown already reflects missed days and new scores.
@@ -57,7 +58,7 @@ export default async function PlannerPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             <AddTaskButton materials={readyMaterials} today={today} />
-            <ExamDialogButton materials={readyMaterials} subjects={subjectOptions} today={today} defaultMinutes={profile?.preferred_session_minutes ?? null} size="sm" />
+            <ExamDialogButton materials={readyMaterials} subjects={subjectOptions} today={today} defaultMinutes={profile?.preferred_session_minutes ?? null} size="sm" defaultOpen={params.exam === "new"} />
           </div>
         }
       />

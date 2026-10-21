@@ -39,7 +39,7 @@ export default async function FlashcardsPage({ searchParams }: PageProps<"/flash
               <Play className="h-4 w-4" aria-hidden="true" />
               Review due{due > 0 ? ` (${due})` : ""}
             </Link>
-            <NewDeckButton materials={readyMaterials} size="sm" variant={due > 0 ? "secondary" : "primary"}>
+            <NewDeckButton materials={readyMaterials} size="sm" variant={due > 0 ? "secondary" : "primary"} defaultOpen={params.create === "1"}>
               New deck
             </NewDeckButton>
           </>

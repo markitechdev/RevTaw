@@ -19,6 +19,7 @@ import {
   quizConfigSchema,
   type QuizConfig,
 } from "@/lib/quizzes/types";
+import { clearQueryParam } from "@/lib/hooks/query-param";
 import { routes } from "@/lib/routes";
 import type { QuestionType } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
@@ -33,11 +34,12 @@ export function NewQuizButton({
   materialId,
   materials = [],
   disabled,
+  defaultOpen = false,
   children = "Create quiz",
   ...props
-}: Omit<ButtonProps, "onClick" | "type"> & { materialId?: string; materials?: QuizMaterialOption[] }) {
+}: Omit<ButtonProps, "onClick" | "type"> & { materialId?: string; materials?: QuizMaterialOption[]; /** Open on arrival (/quiz?create=1). */ defaultOpen?: boolean }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen && (Boolean(materialId) || materials.length > 0));
   const [material, setMaterial] = useState(materialId ?? materials[0]?.id ?? "");
   const [config, setConfig] = useState<QuizConfig>(DEFAULT_QUIZ_CONFIG);
   const [customCount, setCustomCount] = useState(false);
@@ -90,7 +92,9 @@ export function NewQuizButton({
       <Dialog
         open={open}
         onClose={() => {
-          if (!pending) setOpen(false);
+          if (pending) return;
+          setOpen(false);
+          clearQueryParam("create");
         }}
         dismissible={!pending}
         title="Create a quiz"

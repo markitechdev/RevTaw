@@ -11,6 +11,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { FLASHCARD_MAX, FLASHCARD_MIN, FLASHCARD_PRESETS } from "@/lib/flashcards/constants";
+import { clearQueryParam } from "@/lib/hooks/query-param";
 import { routes } from "@/lib/routes";
 
 export type DeckMaterialOption = { id: string; title: string; subject?: string | null };
@@ -20,11 +21,12 @@ export function NewDeckButton({
   materialId,
   materials = [],
   disabled,
+  defaultOpen = false,
   children = "Create flashcards",
   ...props
-}: Omit<ButtonProps, "onClick" | "type"> & { materialId?: string; materials?: DeckMaterialOption[] }) {
+}: Omit<ButtonProps, "onClick" | "type"> & { materialId?: string; materials?: DeckMaterialOption[]; /** Open on arrival (/flashcards?create=1). */ defaultOpen?: boolean }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen && (Boolean(materialId) || materials.length > 0));
   const [material, setMaterial] = useState(materialId ?? materials[0]?.id ?? "");
   const [count, setCount] = useState<number>(20);
   const [custom, setCustom] = useState(false);
@@ -68,7 +70,11 @@ export function NewDeckButton({
       </Button>
       <Dialog
         open={open}
-        onClose={() => !pending && setOpen(false)}
+        onClose={() => {
+          if (pending) return;
+          setOpen(false);
+          clearQueryParam("create");
+        }}
         dismissible={!pending}
         title="Create flashcards"
         description="Term → definition, question → answer and fill-in cards written only from the material, scheduled with spaced repetition."

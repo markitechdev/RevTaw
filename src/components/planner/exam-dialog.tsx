@@ -14,6 +14,7 @@ import { createExamAction, updateExamAction } from "@/lib/planner/actions";
 import { WEEKDAY_SHORT } from "@/lib/planner/dates";
 import { DAILY_MINUTE_PRESETS, EXAM_PRIORITIES, PLAN_MODES, type ExamFormInput } from "@/lib/planner/types";
 import { CONFIDENCE_LEVELS } from "@/lib/quizzes/types";
+import { clearQueryParam } from "@/lib/hooks/query-param";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +47,7 @@ export function ExamDialogButton({
   defaultMinutes,
   examId,
   initial,
+  defaultOpen = false,
   children,
   ...props
 }: Omit<ButtonProps, "onClick" | "type"> & {
@@ -55,9 +57,11 @@ export function ExamDialogButton({
   defaultMinutes?: number | null;
   examId?: string;
   initial?: ExamFormInitial;
+  /** Open on arrival (/planner?exam=new). */
+  defaultOpen?: boolean;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const base = initial ?? { ...EMPTY, plan: { ...EMPTY.plan, minutesPerDay: defaultMinutes && defaultMinutes >= 5 ? Math.min(480, defaultMinutes) : 45 } };
   const [title, setTitle] = useState(base.title);
   const [examDate, setExamDate] = useState(base.examDate);
@@ -112,7 +116,14 @@ export function ExamDialogButton({
         {editing ? <Pencil className="h-4 w-4" aria-hidden="true" /> : <CalendarPlus className="h-4 w-4" aria-hidden="true" />}
         {children ?? (editing ? "Edit" : "Add exam")}
       </Button>
-      <Dialog open={open} onClose={() => !pending && setOpen(false)} dismissible={!pending} title={editing ? "Edit exam" : "Add an exam"} description="RevTaw builds a day-by-day plan from the date, the materials it covers and the time you have." className="max-w-2xl">
+      <Dialog
+        open={open}
+        onClose={() => {
+          if (pending) return;
+          setOpen(false);
+          clearQueryParam("exam");
+        }}
+        dismissible={!pending} title={editing ? "Edit exam" : "Add an exam"} description="RevTaw builds a day-by-day plan from the date, the materials it covers and the time you have." className="max-w-2xl">
         <form
           className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1"
           noValidate

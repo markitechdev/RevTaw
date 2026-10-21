@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { UploadDialog } from "@/components/materials/upload-dialog";
 import { Button, type ButtonProps } from "@/components/ui/button";
+import { clearQueryParam } from "@/lib/hooks/query-param";
 import type { SubjectWithFolders } from "@/lib/materials/queries";
 
 /**
@@ -30,11 +31,7 @@ export function UploadButton({
 
   const close = () => {
     setOpen(false);
-    const url = new URL(window.location.href);
-    if (url.searchParams.has("upload")) {
-      url.searchParams.delete("upload");
-      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-    }
+    clearQueryParam("upload");
   };
 
   return (
