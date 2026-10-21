@@ -267,9 +267,9 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
           {showLauncher && (
             <TamariLauncher ref={launcherRef} state={tamari} mode={launcher === "desktop" ? "desktop" : "visible"} mascot={assistant.mascot} ambient={assistant.idleAnimations} onOpen={() => show()} />
           )}
-          {/* Says each bubble to screen readers once; always present so the change is announced. */}
+          {/* Says each bubble to screen readers once; always present so the change is announced (a polite live region, not a status landmark pages look for). */}
           {withTamari && (
-            <p role="status" className="sr-only">
+            <p aria-live="polite" aria-atomic="true" className="sr-only">
               {shownBubble ? `Tamari says: ${shownBubble.text}` : ""}
             </p>
           )}
