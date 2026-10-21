@@ -54,8 +54,8 @@ export const TAMARI_STATES: Record<TamariState, TamariStateDefinition> = {
   sleepy: { pose: "sleeping", motion: "doze", blinks: false, status: "Tamari is napping" },
 };
 
-/** One-off reactions to what just happened: a quick bounce for a right answer, a step to the side for a wrong one. */
-export const TAMARI_REACTIONS = ["correct", "wrong"] as const;
+/** One-off reactions: a quick bounce (Home's Tamari, clicked). */
+export const TAMARI_REACTIONS = ["correct"] as const;
 export type TamariReaction = (typeof TAMARI_REACTIONS)[number];
 
 export function isTamariState(value: unknown): value is TamariState {

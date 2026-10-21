@@ -20,7 +20,7 @@ type Props = {
   lgSize?: number;
   /** Pixel animations (Settings → Tamari): off holds Tamari still in the state's pose. */
   animate?: boolean;
-  /** A one-off reaction (a bounce for a right answer, a step aside for a wrong one); change `reactionKey` to play it again. */
+  /** A one-off reaction (a quick bounce); change `reactionKey` to play it again. */
   reaction?: TamariReaction | null;
   reactionKey?: number | string;
   className?: string;

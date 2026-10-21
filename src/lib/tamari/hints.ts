@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getMasterySummary, type MasteryView } from "@/lib/adaptive/engine";
+import { getMasterySummary } from "@/lib/adaptive/engine";
 import { hourIn } from "@/lib/planner/dates";
 import { getDueToday, getNextExam } from "@/lib/planner/queries";
 import { plannerClock } from "@/lib/planner/service";
@@ -10,13 +10,7 @@ import { parseSessionSummary } from "@/lib/study/sessions";
 import { createClient } from "@/lib/supabase/server";
 import { listGoalsWithProgress } from "@/lib/planner/goals";
 import { cardsLine, examLine, goalLine, improvementLine, planFinishedLine, repeatedLine, reviewsLine, streakLine, weakestLine } from "@/lib/tamari/coach";
-import { tamariLanguage, weakTopicBubble, type TamariBubble } from "@/lib/tamari/lines";
-
-/** The weakest practiced concept, as a bubble about it (Progress and Home). */
-export function weakestTopicBubble(language: ResponseLanguage, weak: MasteryView[]): TamariBubble | null {
-  const weakest = [...weak].sort((a, b) => Number(a.mastery) - Number(b.mastery)).find((row) => row.concept);
-  return weakest?.concept ? weakTopicBubble(tamariLanguage(language), { id: weakest.concept.id, name: weakest.concept.name, materialId: weakest.concept.material_id }) : null;
-}
+import { tamariLanguage, type TamariBubble } from "@/lib/tamari/lines";
 
 /** A quiz counts as "improved" by this many points over the previous one on the same material, ending at least here. */
 const IMPROVED_BY = 10;

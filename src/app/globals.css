@@ -485,9 +485,6 @@
   .tamari-steam {
     animation: tamari-shake 0.45s steps(1, end) 2;
   }
-  .tamari-react-wrong {
-    animation: tamari-sidestep 0.48s steps(1, end) 1;
-  }
   .tamari-doze {
     animation: tamari-doze 3.2s steps(1, end) infinite;
   }
@@ -643,27 +640,6 @@
   }
   40%,
   80% {
-    transform: translateX(1px);
-  }
-}
-@keyframes tamari-sidestep {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  16% {
-    transform: translateX(-2px);
-  }
-  33% {
-    transform: translateX(-3px);
-  }
-  50% {
-    transform: translateX(-1px);
-  }
-  66% {
-    transform: translateX(2px);
-  }
-  83% {
     transform: translateX(1px);
   }
 }
