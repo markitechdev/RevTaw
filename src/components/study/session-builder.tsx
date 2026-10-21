@@ -1,15 +1,18 @@
 "use client";
 
-import { Play, Sparkles } from "lucide-react";
+import { ChevronDown, Play, Search, Sparkles, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 
 import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChipGroup } from "@/components/ui/chip-group";
 import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { startSessionAction } from "@/lib/study/actions";
 import { BUILDER_METHOD_IDS, isBuilderMethod, isTestMethod, METHOD_BEHAVIOUR, RAPID_REVIEW_MINUTES, recommendMethods, TIME_PRESETS, type BuilderMethodId } from "@/lib/study/catalog";
 import { STUDY_METHOD_BY_ID } from "@/lib/study/methods";
@@ -76,6 +79,7 @@ export function SessionBuilder({
   initialMethod,
   initialMaterialId,
   savedMnemonics = {},
+  preferredMethods = [],
 }: {
   materials: BuilderMaterial[];
   defaultMinutes: number;
@@ -85,6 +89,8 @@ export function SessionBuilder({
   initialMaterialId?: string;
   /** Saved mnemonics with a list to recall, per material id. */
   savedMnemonics?: Record<string, number>;
+  /** Settings → Study: the student's favourite methods, listed with the recommendations. */
+  preferredMethods?: BuilderMethodId[];
 }) {
   const router = useRouter();
   const [materialId, setMaterialId] = useState<string>(initialMaterialId && materials.some((m) => m.id === initialMaterialId) ? initialMaterialId : (materials[0]?.id ?? ""));
@@ -101,8 +107,11 @@ export function SessionBuilder({
   const [pomodoro, setPomodoro] = useState<{ work: number; rest: number }>({ work: 25, rest: 5 });
   const [topic, setTopic] = useState("");
   const [extraMaterials, setExtraMaterials] = useState<string[]>([]);
+  const [showAllMethods, setShowAllMethods] = useState(false);
+  const [methodFilter, setMethodFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const allMethodsId = useId();
 
   const behaviour = METHOD_BEHAVIOUR[method];
   const needsMaterial = behaviour.requiresMaterial;
@@ -165,11 +174,55 @@ export function SessionBuilder({
 
   const sectionTitle = "text-sm font-semibold";
 
+  // Progressive disclosure (UI phase §7): the methods that fit the goal and the
+  // student's favourites first; every other method behind "Show all methods".
+  // The chosen method always stays in view (e.g. when it came from a link).
+  const shortList = [...new Set([...recommended.slice(0, 4), ...preferredMethods.filter((id) => BUILDER_METHOD_IDS.includes(id)), method])];
+  const needle = methodFilter.trim().toLowerCase();
+  const otherMethods = BUILDER_METHOD_IDS.filter((id) => !shortList.includes(id) && (!needle || STUDY_METHOD_BY_ID[id].name.toLowerCase().includes(needle) || STUDY_METHOD_BY_ID[id].summary.toLowerCase().includes(needle)));
+
+  const methodCard = (id: BuilderMethodId) => {
+    const info = STUDY_METHOD_BY_ID[id];
+    const disabled = methodDisabled(id);
+    const isRecommended = recommended.slice(0, 4).includes(id);
+    const isPreferred = preferredMethods.includes(id);
+    return (
+      <label
+        key={id}
+        className={cn(
+          "flex cursor-pointer items-start gap-2 rounded-lg border border-border p-3 text-sm has-checked:border-primary has-checked:bg-primary-soft",
+          "has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
+          disabled && "cursor-not-allowed opacity-60",
+        )}
+      >
+        <input type="radio" name="session-method" value={id} checked={method === id} disabled={disabled} onChange={() => chooseMethod(id)} className="mt-0.5 h-4 w-4 accent-primary" />
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="flex flex-wrap items-center gap-1.5 font-medium">
+            {info.name}
+            {isRecommended && <span className="rounded-full border border-primary/40 bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary">Recommended</span>}
+            {isPreferred && (
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-highlight px-2 py-0.5 text-[11px] font-medium text-highlight-foreground">
+                <Star className="h-3 w-3" aria-hidden="true" />
+                Your pick
+              </span>
+            )}
+          </span>
+          <span className="text-xs text-muted-foreground">{info.summary}</span>
+          {disabled && (
+            <span className="text-xs text-muted-foreground">
+              {id === "error_review" ? "No open mistakes to retest yet." : id === "spaced_repetition" ? "No flashcards are due right now." : id === "interleaving" ? "Needs at least two processed materials." : "Needs a processed material."}
+            </span>
+          )}
+        </span>
+      </label>
+    );
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Start a session</CardTitle>
-        <CardDescription>Four quick choices. The method decides how the session behaves, not just what it is called.</CardDescription>
+        <CardDescription>Four quick choices. RevTaw suggests a method for your goal; every other one is a click away.</CardDescription>
       </CardHeader>
       <CardContent>
         <form
@@ -194,179 +247,139 @@ export function SessionBuilder({
             </Select>
           </Field>
 
-          <fieldset disabled={pending}>
-            <legend className={cn(sectionTitle, "mb-1.5")}>2 · How much time do you have?</legend>
-            <div className="flex flex-wrap items-center gap-2">
-              {timePresets.map((preset) => (
-                <Button
-                  key={preset}
-                  type="button"
-                  size="sm"
-                  variant={!customMinutes && minutes === preset ? "primary" : "secondary"}
-                  onClick={() => {
-                    setCustomMinutes(false);
-                    setMinutes(preset);
-                  }}
-                >
-                  {preset} min
-                </Button>
-              ))}
-              {method !== "rapid_review" && (
-                <Button type="button" size="sm" variant={customMinutes ? "primary" : "secondary"} onClick={() => setCustomMinutes(true)}>
-                  Custom
-                </Button>
-              )}
-              {method === "rapid_review" && <span className="text-xs text-muted-foreground">Rapid review is 5, 10 or 15 minutes by design.</span>}
-              {customMinutes && method !== "rapid_review" && (
-                <Input
-                  aria-label="Custom minutes"
-                  type="number"
-                  min={1}
-                  max={480}
-                  value={minutes}
-                  onChange={(event) => setMinutes(Math.max(1, Math.min(480, Number(event.target.value) || 1)))}
-                  className="max-w-24"
-                />
-              )}
-            </div>
-          </fieldset>
+          <div className="flex flex-col gap-2">
+            <Segmented
+              label="2 · How much time do you have?"
+              hideLabel={false}
+              name="session-minutes"
+              value={customMinutes && method !== "rapid_review" ? "custom" : String(minutes)}
+              onChange={(value) => {
+                if (value === "custom") {
+                  setCustomMinutes(true);
+                  return;
+                }
+                setCustomMinutes(false);
+                setMinutes(Number(value));
+              }}
+              options={[...timePresets.map((preset) => ({ value: String(preset), label: `${preset} min` })), ...(method !== "rapid_review" ? [{ value: "custom", label: "Custom" }] : [])]}
+              className={cn(pending && "pointer-events-none opacity-60")}
+            />
+            {method === "rapid_review" && <span className="text-xs text-muted-foreground">Rapid review is 5, 10 or 15 minutes by design.</span>}
+            {customMinutes && method !== "rapid_review" && (
+              <Input
+                aria-label="Custom minutes"
+                type="number"
+                min={1}
+                max={480}
+                value={minutes}
+                disabled={pending}
+                onChange={(event) => setMinutes(Math.max(1, Math.min(480, Number(event.target.value) || 1)))}
+                className="max-w-24"
+              />
+            )}
+          </div>
 
-          <fieldset disabled={pending}>
-            <legend className={cn(sectionTitle, "mb-1.5")}>3 · What is your goal?</legend>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {GOALS.map((item) => (
-                <label key={item.id} className="flex cursor-pointer items-start gap-2 rounded-lg border border-border p-2.5 text-sm has-checked:border-primary has-checked:bg-primary-soft">
-                  <input type="radio" name="session-goal" value={item.id} checked={goal === item.id} onChange={() => setGoal(item.id)} className="mt-0.5 h-4 w-4 accent-primary" />
-                  <span className="flex flex-col">
-                    <span className="font-medium">{item.label}</span>
-                    <span className="text-xs text-muted-foreground">{item.hint}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <ChipGroup
+            type="single"
+            name="session-goal"
+            legend={<span className={sectionTitle}>3 · What is your goal?</span>}
+            value={goal}
+            onChange={setGoal}
+            options={GOALS.map((item) => ({ value: item.id, label: item.label, hint: item.hint, disabled: pending }))}
+            look="card"
+          />
 
           <fieldset disabled={pending}>
             <legend className={cn(sectionTitle, "mb-1.5")}>4 · Study method</legend>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {[...recommended, ...BUILDER_METHOD_IDS.filter((id) => !recommended.includes(id))].map((id) => {
-                const info = STUDY_METHOD_BY_ID[id];
-                const disabled = methodDisabled(id);
-                const isRecommended = recommended.includes(id);
-                return (
-                  <label
-                    key={id}
-                    className={cn(
-                      "flex cursor-pointer items-start gap-2 rounded-lg border border-border p-3 text-sm has-checked:border-primary has-checked:bg-primary-soft",
-                      disabled && "cursor-not-allowed opacity-60",
-                    )}
-                  >
-                    <input type="radio" name="session-method" value={id} checked={method === id} disabled={disabled} onChange={() => chooseMethod(id)} className="mt-0.5 h-4 w-4 accent-primary" />
-                    <span className="flex min-w-0 flex-col gap-0.5">
-                      <span className="flex flex-wrap items-center gap-1.5 font-medium">
-                        {info.name}
-                        {isRecommended && <span className="rounded-full border border-primary/40 bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary">Recommended</span>}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{info.summary}</span>
-                      {disabled && (
-                        <span className="text-xs text-muted-foreground">
-                          {id === "error_review" ? "No open mistakes to retest yet." : id === "spaced_repetition" ? "No flashcards are due right now." : id === "interleaving" ? "Needs at least two processed materials." : "Needs a processed material."}
-                        </span>
-                      )}
-                    </span>
-                  </label>
-                );
-              })}
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{shortList.map(methodCard)}</div>
+            <button
+              type="button"
+              aria-expanded={showAllMethods}
+              aria-controls={allMethodsId}
+              onClick={() => setShowAllMethods((value) => !value)}
+              className="mt-3 inline-flex cursor-pointer items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            >
+              {showAllMethods ? "Show fewer methods" : `Show all ${BUILDER_METHOD_IDS.length} methods`}
+              <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", showAllMethods && "rotate-180")} aria-hidden="true" />
+            </button>
+            <div id={allMethodsId} hidden={!showAllMethods} className="mt-3 flex flex-col gap-3">
+              <div className="relative max-w-xs">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <input
+                  type="search"
+                  aria-label="Filter study methods"
+                  value={methodFilter}
+                  onChange={(event) => setMethodFilter(event.target.value)}
+                  placeholder="Filter methods"
+                  className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm focus-visible:border-ring focus-visible:outline-none"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{otherMethods.map(methodCard)}</div>
+              {otherMethods.length === 0 && <p className="text-sm text-muted-foreground">No other method matches “{methodFilter}”.</p>}
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">{behaviour.behaviour}</p>
+            <p className="mt-3 text-xs text-muted-foreground">{behaviour.behaviour}</p>
           </fieldset>
 
           {method === "interleaving" && (
-            <fieldset disabled={pending}>
-              <legend className="mb-1.5 text-sm font-medium">Materials to mix in (up to three more)</legend>
-              <ul className="grid grid-cols-1 gap-1 rounded-lg border border-border p-2 sm:grid-cols-2">
-                {materials
-                  .filter((material) => material.id !== materialId)
-                  .map((material) => (
-                    <li key={material.id}>
-                      <label className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted">
-                        <input
-                          type="checkbox"
-                          name="interleave-material"
-                          value={material.id}
-                          checked={extraMaterials.includes(material.id)}
-                          disabled={!extraMaterials.includes(material.id) && extraMaterials.length >= 3}
-                          onChange={() => setExtraMaterials((state) => (state.includes(material.id) ? state.filter((id) => id !== material.id) : [...state, material.id]))}
-                          className="mt-0.5 h-4 w-4 accent-primary"
-                        />
-                        <span className="min-w-0">
-                          <span className="block truncate">{material.title}</span>
-                          {material.subject && <span className="block truncate text-xs text-muted-foreground">{material.subject}</span>}
-                        </span>
-                      </label>
-                    </li>
-                  ))}
-              </ul>
-            </fieldset>
+            <ChipGroup
+              type="multiple"
+              name="interleave-material"
+              legend="Materials to mix in (up to three more)"
+              value={extraMaterials}
+              onChange={(next) => setExtraMaterials(next.slice(0, 3))}
+              options={materials
+                .filter((material) => material.id !== materialId)
+                .map((material) => ({ value: material.id, label: material.title, hint: material.subject ?? undefined, disabled: pending || (!extraMaterials.includes(material.id) && extraMaterials.length >= 3) }))}
+              look="card"
+            />
           )}
 
-          {method === "dual_coding" && (
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={freshVisuals} disabled={pending} onChange={(event) => setFreshVisuals(event.target.checked)} className="h-4 w-4 accent-primary" />
-              Draw new visuals instead of reusing the saved ones
-            </label>
-          )}
+          {method === "dual_coding" && <Switch checked={freshVisuals} disabled={pending} onChange={setFreshVisuals} label="Draw new visuals instead of reusing the saved ones" />}
 
-          {(method === "mind_mapping" || method === "concept_mapping") && (
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={freshMap} disabled={pending} onChange={(event) => setFreshMap(event.target.checked)} className="h-4 w-4 accent-primary" />
-              Draw a new map instead of opening the saved one
-            </label>
-          )}
+          {(method === "mind_mapping" || method === "concept_mapping") && <Switch checked={freshMap} disabled={pending} onChange={setFreshMap} label="Draw a new map instead of opening the saved one" />}
 
           {method === "mnemonics" && (savedMnemonics[materialId] ?? 0) > 0 && (
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={practiceSaved} disabled={pending} onChange={(event) => setPracticeSaved(event.target.checked)} className="h-4 w-4 accent-primary" />
-              Practice your {savedMnemonics[materialId]} saved mnemonic{savedMnemonics[materialId] === 1 ? "" : "s"} for this material instead of new ones
-            </label>
+            <Switch
+              checked={practiceSaved}
+              disabled={pending}
+              onChange={setPracticeSaved}
+              label={`Practice your ${savedMnemonics[materialId]} saved mnemonic${savedMnemonics[materialId] === 1 ? "" : "s"} for this material instead of new ones`}
+            />
           )}
 
           {method === "practice_problems" && (
-            <fieldset disabled={pending}>
-              <legend className="mb-1.5 text-sm font-medium">Difficulty</legend>
-              <div className="flex flex-wrap gap-2">
-                {(["adaptive", ...PROBLEM_DIFFICULTIES] as const).map((level) => (
-                  <Button key={level} type="button" size="sm" variant={problemDifficulty === level ? "primary" : "secondary"} aria-pressed={problemDifficulty === level} onClick={() => setProblemDifficulty(level)}>
-                    {PROBLEM_DIFFICULTY_LABEL[level]}
-                  </Button>
-                ))}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">{problemDifficulty === "adaptive" ? "Follows each concept's next difficulty from your mastery." : `Every problem is ${PROBLEM_DIFFICULTY_LABEL[problemDifficulty].toLowerCase()}.`}</p>
-            </fieldset>
+            <div className="flex flex-col gap-1">
+              <Segmented
+                label="Difficulty"
+                hideLabel={false}
+                name="problem-difficulty"
+                value={problemDifficulty}
+                onChange={setProblemDifficulty}
+                options={(["adaptive", ...PROBLEM_DIFFICULTIES] as const).map((level) => ({ value: level, label: PROBLEM_DIFFICULTY_LABEL[level] }))}
+              />
+              <p className="text-xs text-muted-foreground">{problemDifficulty === "adaptive" ? "Follows each concept's next difficulty from your mastery." : `Every problem is ${PROBLEM_DIFFICULTY_LABEL[problemDifficulty].toLowerCase()}.`}</p>
+            </div>
           )}
 
           {isTest && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <fieldset disabled={pending}>
-                <legend className="mb-1.5 text-sm font-medium">Questions</legend>
-                <div className="flex flex-wrap gap-2">
-                  {[10, 20, 50].map((count) => (
-                    <Button key={count} type="button" size="sm" variant={questionCount === count ? "primary" : "secondary"} onClick={() => setQuestionCount(count)}>
-                      {count}
-                    </Button>
-                  ))}
-                  <Input aria-label="Custom question count" type="number" min={3} max={50} value={questionCount} onChange={(event) => setQuestionCount(Math.max(3, Math.min(50, Number(event.target.value) || 3)))} className="max-w-24" />
-                </div>
-              </fieldset>
+              <div className="flex flex-col gap-2">
+                <Segmented
+                  label="Questions"
+                  hideLabel={false}
+                  name="test-questions"
+                  value={[10, 20, 50].includes(questionCount) ? String(questionCount) : "custom"}
+                  onChange={(value) => setQuestionCount(value === "custom" ? 15 : Number(value))}
+                  options={[{ value: "10", label: "10" }, { value: "20", label: "20" }, { value: "50", label: "50" }, { value: "custom", label: "Other" }]}
+                />
+                <Input aria-label="Custom question count" type="number" min={3} max={50} value={questionCount} disabled={pending} onChange={(event) => setQuestionCount(Math.max(3, Math.min(50, Number(event.target.value) || 3)))} className="max-w-24" />
+              </div>
               <fieldset disabled={pending}>
                 <legend className="mb-1.5 text-sm font-medium">Timer</legend>
                 {method === "exam_simulation" ? (
                   <p className="text-sm text-muted-foreground">Exam mode: {minutes} minutes, shuffled questions and options, no hints, automatic submission.</p>
                 ) : (
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={timed} onChange={(event) => setTimed(event.target.checked)} className="h-4 w-4 accent-primary" />
-                    Timed — {minutes} minutes for the whole test
-                  </label>
+                  <Switch checked={timed} onChange={setTimed} disabled={pending} label={`Timed — ${minutes} minutes for the whole test`} />
                 )}
                 {method === "mixed_practice" && <p className="mt-1 text-xs text-muted-foreground">All nine question types, shuffled.</p>}
               </fieldset>
@@ -377,19 +390,16 @@ export function SessionBuilder({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <fieldset disabled={pending}>
                 <legend className="mb-1.5 text-sm font-medium">Work / break</legend>
-                <div className="flex flex-wrap gap-2">
-                  {POMODORO_PRESETS.map((preset) => (
-                    <Button
-                      key={`${preset.work}/${preset.rest}`}
-                      type="button"
-                      size="sm"
-                      variant={pomodoro.work === preset.work && pomodoro.rest === preset.rest ? "primary" : "secondary"}
-                      onClick={() => setPomodoro(preset)}
-                    >
-                      {preset.work}/{preset.rest}
-                    </Button>
-                  ))}
-                </div>
+                <Segmented
+                  label="Work / break presets"
+                  name="pomodoro-preset"
+                  value={POMODORO_PRESETS.some((preset) => preset.work === pomodoro.work && preset.rest === pomodoro.rest) ? `${pomodoro.work}/${pomodoro.rest}` : "custom"}
+                  onChange={(value) => {
+                    const preset = POMODORO_PRESETS.find((item) => `${item.work}/${item.rest}` === value);
+                    if (preset) setPomodoro(preset);
+                  }}
+                  options={[...POMODORO_PRESETS.map((preset) => ({ value: `${preset.work}/${preset.rest}`, label: `${preset.work}/${preset.rest}` })), ...(POMODORO_PRESETS.some((preset) => preset.work === pomodoro.work && preset.rest === pomodoro.rest) ? [] : [{ value: "custom", label: "Custom" }])]}
+                />
                 <div className="mt-2 flex items-center gap-2 text-sm">
                   <Input aria-label="Work minutes" type="number" min={1} max={120} value={pomodoro.work} onChange={(event) => setPomodoro({ ...pomodoro, work: Math.max(1, Math.min(120, Number(event.target.value) || 1)) })} className="max-w-20" />
                   <span className="text-muted-foreground">work /</span>

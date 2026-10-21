@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { countDueCards } from "@/lib/flashcards/queries";
 import { listMaterials } from "@/lib/materials/queries";
+import { getPreferences } from "@/lib/preferences/queries";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { countOpenMistakes } from "@/lib/quizzes/queries";
 import { routes } from "@/lib/routes";
@@ -30,7 +31,7 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
   const params = await searchParams;
   const { user, profile } = await getCurrentUserWithProfile();
   if (!user) redirect(routes.login);
-  const [materials, sessions, openMistakes, dueCards, activity, routines, mnemonics] = await Promise.all([listMaterials(), listSessions({ limit: 20 }), countOpenMistakes(), countDueCards(), getActivityStats(), listRoutines(), getMnemonicCounts()]);
+  const [materials, sessions, openMistakes, dueCards, activity, routines, mnemonics, preferences] = await Promise.all([listMaterials(), listSessions({ limit: 20 }), countOpenMistakes(), countDueCards(), getActivityStats(), listRoutines(), getMnemonicCounts(), getPreferences()]);
   const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title, subject: material.subject?.name ?? null }));
   const inProgress = sessions.filter((session) => session.status === "in_progress");
   const finished = sessions.filter((session) => session.status !== "in_progress");
@@ -89,6 +90,7 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <SessionBuilder
+            preferredMethods={preferences.study.preferredMethods}
             materials={readyMaterials}
             defaultMinutes={profile?.preferred_session_minutes ?? 30}
             openMistakes={openMistakes}
@@ -105,11 +107,11 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
               <CardTitle>Memory aids</CardTitle>
               <CardDescription>Mnemonics you saved or wrote yourself, and your memory palaces.</CardDescription>
             </CardHeader>
-            <CardContent className="flex items-center justify-between gap-3 text-sm">
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 text-sm">
               <span>
                 {mnemonics.total} saved mnemonic{mnemonics.total === 1 ? "" : "s"}
               </span>
-              <Link href={routes.memoryAids} className={buttonClasses({ size: "sm", variant: "secondary" })}>
+              <Link href={routes.memoryAids} className={buttonClasses({ size: "sm", variant: "secondary", className: "shrink-0 whitespace-nowrap" })}>
                 <Brain className="h-4 w-4" aria-hidden="true" />
                 Open memory aids
               </Link>

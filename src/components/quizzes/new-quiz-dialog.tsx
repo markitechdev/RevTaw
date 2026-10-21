@@ -7,22 +7,26 @@ import { useState, useTransition } from "react";
 import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
 import { Button, type ButtonProps } from "@/components/ui/button";
+import { ChipGroup } from "@/components/ui/chip-group";
 import { Dialog } from "@/components/ui/dialog";
+import { Disclosure } from "@/components/ui/disclosure";
 import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   DEFAULT_QUIZ_CONFIG,
+  QUESTION_TYPE_IDS,
   QUESTION_TYPES,
   QUIZ_MAX_QUESTIONS,
   QUIZ_MIN_QUESTIONS,
   QUIZ_PRESET_COUNTS,
   quizConfigSchema,
+  typeCoverageError,
   type QuizConfig,
 } from "@/lib/quizzes/types";
 import { clearQueryParam } from "@/lib/hooks/query-param";
 import { routes } from "@/lib/routes";
-import type { QuestionType } from "@/lib/supabase/database.types";
-import { cn } from "@/lib/utils";
 
 export type QuizMaterialOption = { id: string; title: string; subject?: string | null };
 
@@ -47,12 +51,16 @@ export function NewQuizButton({
   const [pending, startTransition] = useTransition();
 
   const update = (patch: Partial<QuizConfig>) => setConfig((current) => ({ ...current, ...patch }));
-  const toggleType = (type: QuestionType) =>
-    update({
-      questionTypes: config.questionTypes.includes(type)
-        ? config.questionTypes.filter((item) => item !== type)
-        : [...config.questionTypes, type],
-    });
+  const coverage = config.questionTypes.length > 0 ? typeCoverageError(config) : null;
+  const advancedSummary = [
+    config.mode === "exam" ? "Exam simulation" : "Practice",
+    config.mode === "exam" || config.feedback === "after" ? "feedback at the end" : "feedback after each answer",
+    config.timeLimitMinutes ? `${config.timeLimitMinutes} min` : "no timer",
+    config.shuffleQuestions ? "shuffled" : "in order",
+    config.focus ? `focus: ${config.focus}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const generate = () => {
     setError(null);
@@ -64,6 +72,11 @@ export function NewQuizButton({
     const parsed = quizConfigSchema.safeParse(config);
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Check the quiz settings.");
+      return;
+    }
+    const coverageProblem = typeCoverageError(parsed.data);
+    if (coverageProblem) {
+      setError(coverageProblem);
       return;
     }
     startTransition(async () => {
@@ -124,56 +137,47 @@ export function NewQuizButton({
             </Field>
           )}
 
-          <fieldset disabled={pending}>
-            <legend className="mb-1.5 text-sm font-medium">Question types</legend>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              {QUESTION_TYPES.map((type) => (
-                <label
-                  key={type.id}
-                  className={cn(
-                    "flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-card p-2.5 text-sm transition-colors",
-                    "hover:bg-muted/60 has-checked:border-primary has-checked:bg-primary-soft",
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    name="question-type"
-                    value={type.id}
-                    checked={config.questionTypes.includes(type.id)}
-                    onChange={() => toggleType(type.id)}
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
-                  />
-                  <span className="flex min-w-0 flex-col">
-                    <span className="font-medium text-foreground">{type.name}</span>
-                    <span className="text-xs text-muted-foreground">{type.grading === "ai" ? "AI-graded" : "Auto-graded"}</span>
-                  </span>
-                </label>
-              ))}
+          <div className="flex flex-col gap-2">
+            <ChipGroup
+              type="multiple"
+              name="question-type"
+              legend="Question types"
+              description="Pick as many as you like — a mixed quiz gets every type you pick."
+              value={config.questionTypes}
+              onChange={(next) => update({ questionTypes: QUESTION_TYPE_IDS.filter((id) => next.includes(id)) })}
+              options={QUESTION_TYPES.map((type) => ({ value: type.id, label: type.name, hint: type.grading === "ai" ? "Graded by AI" : "Graded instantly", disabled: pending }))}
+              look="card"
+            />
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+              <button type="button" className="cursor-pointer font-medium text-primary hover:underline" onClick={() => update({ questionTypes: [...QUESTION_TYPE_IDS] })} disabled={pending}>
+                All types
+              </button>
+              <button type="button" className="cursor-pointer font-medium text-primary hover:underline" onClick={() => update({ questionTypes: QUESTION_TYPES.filter((type) => type.grading === "auto").map((type) => type.id) })} disabled={pending}>
+                Quick check (instant grading)
+              </button>
+              <button type="button" className="cursor-pointer font-medium text-primary hover:underline" onClick={() => update({ questionTypes: QUESTION_TYPES.filter((type) => type.grading === "ai").map((type) => type.id) })} disabled={pending}>
+                Written answers
+              </button>
             </div>
-          </fieldset>
+          </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <fieldset disabled={pending}>
-              <legend className="mb-1.5 text-sm font-medium">Number of questions</legend>
-              <div className="flex flex-wrap gap-2">
-                {QUIZ_PRESET_COUNTS.map((count) => (
-                  <Button
-                    key={count}
-                    type="button"
-                    size="sm"
-                    variant={!customCount && config.questionCount === count ? "primary" : "secondary"}
-                    onClick={() => {
-                      setCustomCount(false);
-                      update({ questionCount: count });
-                    }}
-                  >
-                    {count}
-                  </Button>
-                ))}
-                <Button type="button" size="sm" variant={customCount ? "primary" : "secondary"} onClick={() => setCustomCount(true)}>
-                  Custom
-                </Button>
-              </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,16.5rem)]">
+            <div className="flex flex-col gap-2">
+              <Segmented
+                label="Number of questions"
+                hideLabel={false}
+                name="question-count"
+                value={customCount ? "custom" : String(config.questionCount)}
+                onChange={(value) => {
+                  if (value === "custom") {
+                    setCustomCount(true);
+                    return;
+                  }
+                  setCustomCount(false);
+                  update({ questionCount: Number(value) });
+                }}
+                options={[...QUIZ_PRESET_COUNTS.map((count) => ({ value: String(count), label: String(count) })), { value: "custom", label: "Custom" }]}
+              />
               {customCount && (
                 <Input
                   aria-label="Custom number of questions"
@@ -182,11 +186,10 @@ export function NewQuizButton({
                   max={QUIZ_MAX_QUESTIONS}
                   value={config.questionCount}
                   onChange={(event) => update({ questionCount: Number(event.target.value) || QUIZ_MIN_QUESTIONS })}
-                  className="mt-2 max-w-32"
+                  className="max-w-32"
                 />
               )}
-            </fieldset>
-
+            </div>
             <Field id="quiz-difficulty" label="Difficulty">
               <Select {...fieldA11y("quiz-difficulty")} value={config.difficulty} disabled={pending} onChange={(event) => update({ difficulty: event.target.value as QuizConfig["difficulty"] })}>
                 <option value="adaptive">Adaptive — from your mastery</option>
@@ -197,84 +200,79 @@ export function NewQuizButton({
               </Select>
             </Field>
           </div>
+          {coverage && (
+            <p className="-mt-2 text-sm text-warning" role="status">
+              {coverage}
+            </p>
+          )}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <fieldset disabled={pending}>
-              <legend className="mb-1.5 text-sm font-medium">Default mode</legend>
-              <div className="flex flex-col gap-2">
-                {(
-                  [
-                    ["practice", "Practice", "Untimed by default, with feedback as you go."],
-                    ["exam", "Exam simulation", "Timed, shuffled, no hints; results after submission."],
-                  ] as const
-                ).map(([value, label, hint]) => (
-                  <label key={value} className="flex cursor-pointer items-start gap-2 rounded-lg border border-border p-2.5 text-sm has-checked:border-primary has-checked:bg-primary-soft">
-                    <input
-                      type="radio"
-                      name="quiz-mode"
-                      value={value}
-                      checked={config.mode === value}
-                      onChange={() => update({ mode: value, feedback: value === "exam" ? "after" : config.feedback })}
-                      className="mt-0.5 h-4 w-4 accent-primary"
-                    />
-                    <span className="flex flex-col">
-                      <span className="font-medium">{label}</span>
-                      <span className="text-xs text-muted-foreground">{hint}</span>
-                    </span>
-                  </label>
-                ))}
+          <Disclosure label="Advanced options" summary={advancedSummary} className="rounded-xl border border-border px-4">
+            <div className="flex flex-col gap-5 pb-4">
+              <ChipGroup
+                type="single"
+                name="quiz-mode"
+                legend="Mode"
+                value={config.mode}
+                onChange={(mode) => update({ mode, feedback: mode === "exam" ? "after" : config.feedback })}
+                options={[
+                  { value: "practice", label: "Practice", hint: "Untimed by default, with feedback as you go.", disabled: pending },
+                  { value: "exam", label: "Exam simulation", hint: "Timed, shuffled, no hints; results after you submit.", disabled: pending },
+                ]}
+                look="card"
+              />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <Segmented
+                    label="Feedback"
+                    hideLabel={false}
+                    name="quiz-feedback"
+                    value={config.mode === "exam" ? "after" : config.feedback}
+                    onChange={(feedback) => {
+                      if (config.mode !== "exam") update({ feedback });
+                    }}
+                    options={[
+                      { value: "immediate", label: "After each answer" },
+                      { value: "after", label: "At the end" },
+                    ]}
+                  />
+                  {config.mode === "exam" && <p className="text-xs text-muted-foreground">Exam mode always shows feedback after you submit.</p>}
+                </div>
+                <Field id="quiz-timer" label="Time limit (minutes)" hint="Empty means no timer. Exam mode defaults to a minute per question.">
+                  <Input
+                    {...fieldA11y("quiz-timer")}
+                    type="number"
+                    min={1}
+                    max={240}
+                    placeholder="None"
+                    value={config.timeLimitMinutes ?? ""}
+                    disabled={pending}
+                    onChange={(event) => update({ timeLimitMinutes: event.target.value ? Math.max(1, Math.min(240, Number(event.target.value))) : null })}
+                  />
+                </Field>
               </div>
-            </fieldset>
-
-            <div className="flex flex-col gap-4">
-              <Field id="quiz-feedback" label="Feedback" hint={config.mode === "exam" ? "Exam mode always shows feedback after submission." : undefined}>
-                <Select
-                  {...fieldA11y("quiz-feedback")}
-                  value={config.mode === "exam" ? "after" : config.feedback}
-                  disabled={pending || config.mode === "exam"}
-                  onChange={(event) => update({ feedback: event.target.value as QuizConfig["feedback"] })}
-                >
-                  <option value="immediate">Immediately after each answer</option>
-                  <option value="after">After I finish the quiz</option>
-                </Select>
-              </Field>
-              <Field id="quiz-timer" label="Time limit (minutes)" hint="Leave empty for no timer. Exam mode defaults to one minute per question.">
-                <Input
-                  {...fieldA11y("quiz-timer")}
-                  type="number"
-                  min={1}
-                  max={240}
-                  placeholder="None"
-                  value={config.timeLimitMinutes ?? ""}
+              <div className="flex flex-col gap-3">
+                <Switch checked={config.shuffleQuestions} onChange={(shuffleQuestions) => update({ shuffleQuestions })} disabled={pending} label="Shuffle question order" />
+                <Switch checked={config.shuffleOptions} onChange={(shuffleOptions) => update({ shuffleOptions })} disabled={pending} label="Shuffle multiple-choice options" />
+                <Switch
+                  checked={config.askConfidence}
+                  onChange={(askConfidence) => update({ askConfidence })}
                   disabled={pending}
-                  onChange={(event) => update({ timeLimitMinutes: event.target.value ? Math.max(1, Math.min(240, Number(event.target.value))) : null })}
+                  label="Ask how sure I am"
+                  description="A quick “How sure are you?” per answer helps RevTaw spot lucky guesses and misconceptions."
+                />
+              </div>
+              <Field id="quiz-focus" label="Focus on a topic (optional)" hint="Only questions about this part of the material, e.g. a chapter or a concept.">
+                <Input
+                  {...fieldA11y("quiz-focus")}
+                  value={config.focus ?? ""}
+                  maxLength={200}
+                  placeholder="e.g. Chapter 2, photosynthesis equations"
+                  disabled={pending}
+                  onChange={(event) => update({ focus: event.target.value || null })}
                 />
               </Field>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-2 text-sm">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={config.shuffleQuestions} disabled={pending} onChange={(event) => update({ shuffleQuestions: event.target.checked })} className="h-4 w-4 accent-primary" />
-                Shuffle question order
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={config.shuffleOptions} disabled={pending} onChange={(event) => update({ shuffleOptions: event.target.checked })} className="h-4 w-4 accent-primary" />
-                Shuffle multiple-choice options
-              </label>
-            </div>
-            <Field id="quiz-focus" label="Focus (optional)" hint="A topic or chapter to concentrate on.">
-              <Input
-                {...fieldA11y("quiz-focus")}
-                value={config.focus ?? ""}
-                maxLength={200}
-                placeholder="e.g. Chapter 2, photosynthesis equations"
-                disabled={pending}
-                onChange={(event) => update({ focus: event.target.value || null })}
-              />
-            </Field>
-          </div>
+          </Disclosure>
 
           {pending && (
             <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">

@@ -7,12 +7,13 @@ import { useState, useTransition } from "react";
 import { Alert } from "@/components/forms/form-alert";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { ChipGroup } from "@/components/ui/chip-group";
 import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { archiveExamAction, deleteExamAction, rebalancePlanAction, regeneratePlanAction, updatePlanSettingsAction } from "@/lib/planner/actions";
 import { WEEKDAY_SHORT } from "@/lib/planner/dates";
 import { DAILY_MINUTE_PRESETS, PLAN_MODES } from "@/lib/planner/types";
 import { routes } from "@/lib/routes";
-import { cn } from "@/lib/utils";
 
 /** Delete (with confirmation) and archive for an exam. */
 export function ExamDangerActions({ examId, archived }: { examId: string; archived: boolean }) {
@@ -79,7 +80,6 @@ export function PlanSettings({ planId, mode, availableDays, minutesPerDay }: { p
   const [busy, setBusy] = useState<string | null>(null);
   const dirty = style !== mode || minutes !== minutesPerDay || days.join(",") !== availableDays.join(",");
 
-  const toggleDay = (day: number) => setDays((state) => (state.includes(day) ? state.filter((item) => item !== day) : [...state, day].sort((a, b) => a - b)));
 
   const save = () => {
     setError(null);
@@ -125,36 +125,36 @@ export function PlanSettings({ planId, mode, availableDays, minutesPerDay }: { p
     <div className="flex flex-col gap-3">
       {error && <Alert tone="error">{error}</Alert>}
       {note && <Alert tone="success">{note}</Alert>}
-      <div>
-        <p className="mb-1.5 text-xs font-medium text-muted-foreground">Study days</p>
-        <div className="flex flex-wrap gap-1.5">
-          {WEEKDAY_SHORT.map((label, index) => (
-            <button key={label} type="button" aria-pressed={days.includes(index)} disabled={pending} onClick={() => toggleDay(index)} className={cn("h-8 w-11 rounded-md border text-xs font-medium", days.includes(index) ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:bg-muted")}>
-              {label}
-            </button>
-          ))}
-        </div>
+      <ChipGroup
+        type="multiple"
+        name="plan-days"
+        legend="Study days"
+        value={days.map(String)}
+        onChange={(next) => setDays(next.map(Number).sort((a, b) => a - b))}
+        options={WEEKDAY_SHORT.map((label, index) => ({ value: String(index), label, disabled: pending }))}
+      />
+      <div className="flex flex-col gap-2">
+        <Segmented
+          label="Minutes per study day"
+          hideLabel={false}
+          name="plan-minutes"
+          value={(DAILY_MINUTE_PRESETS as readonly number[]).includes(minutes) ? String(minutes) : "custom"}
+          onChange={(value) => {
+            if (value !== "custom") setMinutes(Number(value));
+          }}
+          options={[...DAILY_MINUTE_PRESETS.map((preset) => ({ value: String(preset), label: `${preset}` })), ...((DAILY_MINUTE_PRESETS as readonly number[]).includes(minutes) ? [] : [{ value: "custom", label: "Custom" }])]}
+        />
+        <Input aria-label="Custom minutes per day" type="number" min={5} max={480} value={minutes} disabled={pending} onChange={(event) => setMinutes(Number(event.target.value) || 5)} className="max-w-24" />
       </div>
       <div>
-        <p className="mb-1.5 text-xs font-medium text-muted-foreground">Minutes per study day</p>
-        <div className="flex flex-wrap items-center gap-2">
-          {DAILY_MINUTE_PRESETS.map((preset) => (
-            <Button key={preset} type="button" size="sm" variant={minutes === preset ? "primary" : "secondary"} disabled={pending} onClick={() => setMinutes(preset)}>
-              {preset}
-            </Button>
-          ))}
-          <Input aria-label="Custom minutes per day" type="number" min={5} max={480} value={minutes} disabled={pending} onChange={(event) => setMinutes(Number(event.target.value) || 5)} className="max-w-24" />
-        </div>
-      </div>
-      <div>
-        <p className="mb-1.5 text-xs font-medium text-muted-foreground">Plan style</p>
-        <div className="flex flex-wrap gap-2">
-          {PLAN_MODES.map((item) => (
-            <Button key={item.id} type="button" size="sm" variant={style === item.id ? "primary" : "secondary"} disabled={pending} onClick={() => setStyle(item.id)} title={item.hint}>
-              {item.label}
-            </Button>
-          ))}
-        </div>
+        <Segmented
+          label="Plan style"
+          hideLabel={false}
+          name="plan-style"
+          value={style}
+          onChange={setStyle}
+          options={PLAN_MODES.map((item) => ({ value: item.id, label: item.label, title: item.hint }))}
+        />
         {style === "cram" && <p className="mt-2 text-xs text-warning">Cram Mode makes the most of limited time; it is not a substitute for regular spaced study.</p>}
       </div>
       <div className="flex flex-wrap gap-2 border-t border-border pt-3">

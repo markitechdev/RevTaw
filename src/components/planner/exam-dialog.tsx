@@ -9,6 +9,8 @@ import { Alert } from "@/components/forms/form-alert";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Textarea } from "@/components/ui/input";
+import { ChipGroup } from "@/components/ui/chip-group";
+import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
 import { createExamAction, updateExamAction } from "@/lib/planner/actions";
 import { WEEKDAY_SHORT } from "@/lib/planner/dates";
@@ -16,7 +18,6 @@ import { DAILY_MINUTE_PRESETS, EXAM_PRIORITIES, PLAN_MODES, type ExamFormInput }
 import { CONFIDENCE_LEVELS } from "@/lib/quizzes/types";
 import { clearQueryParam } from "@/lib/hooks/query-param";
 import { routes } from "@/lib/routes";
-import { cn } from "@/lib/utils";
 
 export type PlannerMaterialOption = { id: string; title: string; subject: string | null };
 export type PlannerSubjectOption = { id: string; name: string };
@@ -78,7 +79,6 @@ export function ExamDialogButton({
   const [pending, startTransition] = useTransition();
   const editing = Boolean(examId);
 
-  const toggleDay = (day: number) => setDays((state) => (state.includes(day) ? state.filter((item) => item !== day) : [...state, day].sort((a, b) => a - b)));
   const toggleMaterial = (id: string) => setMaterialIds((state) => (state.includes(id) ? state.filter((item) => item !== id) : [...state, id]));
 
   const submit = () => {
@@ -162,17 +162,14 @@ export function ExamDialogButton({
             </Field>
           </div>
 
-          <fieldset disabled={pending}>
-            <legend className="mb-1.5 text-sm font-medium">Priority</legend>
-            <div className="flex flex-wrap gap-2">
-              {EXAM_PRIORITIES.map((item) => (
-                <label key={item.id} className={cn("cursor-pointer rounded-lg border border-border px-3 py-1.5 text-sm has-checked:border-primary has-checked:bg-primary-soft")} title={item.hint}>
-                  <input type="radio" name="exam-priority" value={item.id} checked={priority === item.id} onChange={() => setPriority(item.id)} className="sr-only" />
-                  {item.label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <ChipGroup
+            type="single"
+            name="exam-priority"
+            legend="Priority"
+            value={priority}
+            onChange={setPriority}
+            options={EXAM_PRIORITIES.map((item) => ({ value: item.id, label: item.label, disabled: pending }))}
+          />
 
           <fieldset disabled={pending}>
             <legend className="mb-1.5 text-sm font-medium">Materials this exam covers</legend>
@@ -202,32 +199,27 @@ export function ExamDialogButton({
           <fieldset disabled={pending} className="rounded-lg border border-border p-3">
             <legend className="px-1 text-sm font-medium">Your time</legend>
             <div className="flex flex-col gap-3">
-              <div>
-                <p className="mb-1.5 text-xs font-medium text-muted-foreground">Study days</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {WEEKDAY_SHORT.map((label, index) => (
-                    <button
-                      key={label}
-                      type="button"
-                      aria-pressed={days.includes(index)}
-                      onClick={() => toggleDay(index)}
-                      className={cn("h-8 w-11 rounded-md border text-xs font-medium", days.includes(index) ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:bg-muted")}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="mb-1.5 text-xs font-medium text-muted-foreground">Minutes per study day</p>
-                <div className="flex flex-wrap items-center gap-2">
-                  {DAILY_MINUTE_PRESETS.map((preset) => (
-                    <Button key={preset} type="button" size="sm" variant={minutes === preset ? "primary" : "secondary"} onClick={() => setMinutes(preset)}>
-                      {preset}
-                    </Button>
-                  ))}
-                  <Input aria-label="Custom minutes per day" type="number" min={5} max={480} value={minutes} onChange={(event) => setMinutes(Number(event.target.value) || 5)} className="max-w-24" />
-                </div>
+              <ChipGroup
+                type="multiple"
+                name="exam-days"
+                legend="Study days"
+                description="Pick every day you can study; the plan only uses these."
+                value={days.map(String)}
+                onChange={(next) => setDays(next.map(Number).sort((a, b) => a - b))}
+                options={WEEKDAY_SHORT.map((label, index) => ({ value: String(index), label, disabled: pending }))}
+              />
+              <div className="flex flex-col gap-2">
+                <Segmented
+                  label="Minutes per study day"
+                  hideLabel={false}
+                  name="exam-minutes"
+                  value={(DAILY_MINUTE_PRESETS as readonly number[]).includes(minutes) ? String(minutes) : "custom"}
+                  onChange={(value) => {
+                    if (value !== "custom") setMinutes(Number(value));
+                  }}
+                  options={[...DAILY_MINUTE_PRESETS.map((preset) => ({ value: String(preset), label: `${preset}` })), ...((DAILY_MINUTE_PRESETS as readonly number[]).includes(minutes) ? [] : [{ value: "custom", label: "Custom" }])]}
+                />
+                <Input aria-label="Custom minutes per day" type="number" min={5} max={480} value={minutes} onChange={(event) => setMinutes(Number(event.target.value) || 5)} className="max-w-24" />
               </div>
               <div>
                 <p className="mb-1.5 text-xs font-medium text-muted-foreground">Plan style</p>

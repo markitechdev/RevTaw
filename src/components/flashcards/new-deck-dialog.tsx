@@ -9,6 +9,7 @@ import { Alert } from "@/components/forms/form-alert";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
 import { FLASHCARD_MAX, FLASHCARD_MIN, FLASHCARD_PRESETS } from "@/lib/flashcards/constants";
 import { clearQueryParam } from "@/lib/hooks/query-param";
@@ -100,27 +101,23 @@ export function NewDeckButton({
               </Select>
             </Field>
           )}
-          <fieldset disabled={pending}>
-            <legend className="mb-1.5 text-sm font-medium">Number of cards</legend>
-            <div className="flex flex-wrap gap-2">
-              {FLASHCARD_PRESETS.map((preset) => (
-                <Button
-                  key={preset}
-                  type="button"
-                  size="sm"
-                  variant={!custom && count === preset ? "primary" : "secondary"}
-                  onClick={() => {
-                    setCustom(false);
-                    setCount(preset);
-                  }}
-                >
-                  {preset}
-                </Button>
-              ))}
-              <Button type="button" size="sm" variant={custom ? "primary" : "secondary"} onClick={() => setCustom(true)}>
-                Custom
-              </Button>
-            </div>
+          <div className="flex flex-col">
+            <Segmented
+              label="Number of cards"
+              hideLabel={false}
+              name="deck-count"
+              value={custom ? "custom" : String(count)}
+              onChange={(value) => {
+                if (value === "custom") {
+                  setCustom(true);
+                  return;
+                }
+                setCustom(false);
+                setCount(Number(value));
+              }}
+              options={[...FLASHCARD_PRESETS.map((preset) => ({ value: String(preset), label: String(preset) })), { value: "custom", label: "Custom" }]}
+              className={pending ? "pointer-events-none opacity-60" : undefined}
+            />
             {custom && (
               <Input
                 aria-label="Custom number of cards"
@@ -132,7 +129,7 @@ export function NewDeckButton({
                 className="mt-2 max-w-32"
               />
             )}
-          </fieldset>
+          </div>
           <Field id="deck-focus" label="Focus (optional)" hint="A topic or chapter to concentrate on.">
             <Input {...fieldA11y("deck-focus")} value={focus} maxLength={200} placeholder="e.g. Chapter 3 definitions" disabled={pending} onChange={(event) => setFocus(event.target.value)} />
           </Field>
