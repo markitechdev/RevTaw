@@ -55,7 +55,7 @@ export function RunnerSummary({
   summary,
   stoppedEarly = false,
   parentSessionId = null,
-  parentLabel = "Back to smart session",
+  parentLabel = "Back to Tamari's plan",
   extraStats,
   extraActions,
 }: {

@@ -175,7 +175,7 @@ function AnswerStep({ items, label, onDone, doneLabel, sections }: { items: Item
  * (Reflect), Recite, Review. The stage and progress are saved on the server,
  * so a refresh comes back to the same place.
  */
-export function ReadingRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: RunnerProps) {
+export function ReadingRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to Tamari's plan" }: RunnerProps) {
   const router = useRouter();
   const method = session.method as ReadingMethod;
   const initial = readReadingState(session.state);

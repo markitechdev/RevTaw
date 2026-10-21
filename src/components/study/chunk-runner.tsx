@@ -29,7 +29,7 @@ function chunkOf(item: SessionDetail["items"][number]): ChunkText {
  * Chunking: one manageable section at a time — main idea, important details,
  * mini summary — then its recall question before the next chunk unlocks.
  */
-export function ChunkRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: { session: SessionDetail; methodName: string; parentSessionId?: string | null; parentLabel?: string }) {
+export function ChunkRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to Tamari's plan" }: { session: SessionDetail; methodName: string; parentSessionId?: string | null; parentLabel?: string }) {
   const router = useRouter();
   const items = session.items;
   const [index, setIndex] = useState(() => {

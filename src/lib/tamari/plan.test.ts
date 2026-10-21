@@ -36,6 +36,7 @@ describe("planTamariBlocks", () => {
     const draft = planTamariBlocks(base);
     expect(draft.title).toBe("Tamari's 20-Minute Bitaw");
     expect(shape(base)).toEqual(["recall:3", "quiz:7", "feynman:5", "mistakes:3", "retest:2"]);
+    expect(draft.blocks.map((block) => block.label)).toEqual(["Active Recall", "Weak Topic Quiz", "Feynman", "Mistake Review", "Retest"]);
     const [recall, quiz, feynman] = draft.blocks;
     expect(recall).toMatchObject({ method: "active_recall", concepts: ["Stacks", "Queues"] });
     expect(recall.reason).toBe("Stacks and Queues — malapit nang makalimutan. Balikan muna natin.");

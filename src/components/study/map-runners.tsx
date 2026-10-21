@@ -22,7 +22,7 @@ type BranchQuestion = { id: string; prompt: string; branch: string; result: Reca
  * Mind mapping (§16): the editable map plus "quiz me on this branch" —
  * recall questions about the chosen branch, answered right below the map.
  */
-export function MindMapRunner({ session, methodName, map, parentSessionId = null, parentLabel = "Back to smart session" }: RunnerProps & { map: MapView<MindMapData> | null }) {
+export function MindMapRunner({ session, methodName, map, parentSessionId = null, parentLabel = "Back to Tamari's plan" }: RunnerProps & { map: MapView<MindMapData> | null }) {
   const { summary, stoppedEarly, ending, error, setError, finish } = useSessionCompletion(session);
   const [questions, setQuestions] = useState<BranchQuestion[]>(() =>
     session.items
@@ -85,7 +85,7 @@ export function MindMapRunner({ session, methodName, map, parentSessionId = null
  * Concept mapping (§16): edit the map, then "test the links" — every
  * relationship hidden, named from memory, checked and explained.
  */
-export function ConceptMapRunner({ session, methodName, map, parentSessionId = null, parentLabel = "Back to smart session" }: RunnerProps & { map: MapView<ConceptMapData> | null }) {
+export function ConceptMapRunner({ session, methodName, map, parentSessionId = null, parentLabel = "Back to Tamari's plan" }: RunnerProps & { map: MapView<ConceptMapData> | null }) {
   const { summary, stoppedEarly, ending, error, setError, finish, pending, startTransition } = useSessionCompletion(session);
   const openLinks = session.items.filter((item) => item.kind === "link");
   const [mode, setMode] = useState<"edit" | "test">(() => (openLinks.some((item) => !item.answered_at) ? "test" : "edit"));

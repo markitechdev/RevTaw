@@ -30,7 +30,7 @@ function storedRounds(item: SessionDetail["items"][number]): RoundRecord[] {
  * (correct / missing / incorrect / too complex), improve it once, and only
  * then see the ideal explanation.
  */
-export function FeynmanRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: { session: SessionDetail; methodName: string; parentSessionId?: string | null; parentLabel?: string }) {
+export function FeynmanRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to Tamari's plan" }: { session: SessionDetail; methodName: string; parentSessionId?: string | null; parentLabel?: string }) {
   const router = useRouter();
   const items = session.items;
   const [index, setIndex] = useState(() => {

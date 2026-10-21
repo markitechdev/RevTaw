@@ -64,7 +64,7 @@ function expertText(result: CaseResult, field: CaseField): string {
  * — problem, evidence, possible solutions, best solution, justification —
  * scored field by field beside the expert analysis. Drafts survive a refresh.
  */
-export function CaseRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: RunnerProps) {
+export function CaseRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to Tamari's plan" }: RunnerProps) {
   const items = session.items;
   const { summary, stoppedEarly, ending, error, setError, finish, pending, startTransition } = useSessionCompletion(session);
   const [index, setIndex] = useState(() => {

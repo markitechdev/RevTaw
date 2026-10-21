@@ -53,7 +53,7 @@ function StepList({ steps, given = 0, start = 0 }: { steps: SolutionView["steps"
  * Practice: solve, then see the solution, every step's reason and any
  * alternative approach. The reasoning is graded, not only the answer.
  */
-export function ProblemRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: RunnerProps) {
+export function ProblemRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to Tamari's plan" }: RunnerProps) {
   const router = useRouter();
   const items = session.items;
   const { summary, stoppedEarly, ending, error, setError, finish, pending, startTransition } = useSessionCompletion(session);

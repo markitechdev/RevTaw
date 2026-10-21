@@ -200,7 +200,7 @@ function Exercise({ item, visual, answer, onAnswer, marks }: { item: Item; visua
  * Dual coding (§16): each topic as text and as a visual, with Text / Visual /
  * Combined views, then a rebuild-from-memory exercise checked on the server.
  */
-export function DualCodingRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: RunnerProps) {
+export function DualCodingRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to Tamari's plan" }: RunnerProps) {
   const items = session.items;
   const { summary, stoppedEarly, ending, error, setError, finish, pending, startTransition } = useSessionCompletion(session);
   const [index, setIndex] = useState(() => {

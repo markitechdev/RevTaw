@@ -224,7 +224,7 @@ export async function startSmartBlockAction(input: { sessionId: string; key: str
   try {
     const supabase = await createClient();
     const session = await loadSession(supabase, parsed.data.sessionId);
-    if (session.status !== "in_progress") return { ok: false, message: "This smart session has already ended." };
+    if (session.status !== "in_progress") return { ok: false, message: "This plan has already ended." };
     const plan = parseSmartPlan(session.state);
     const block = plan?.blocks.find((item) => item.key === parsed.data.key);
     if (!plan || !block) return { ok: false, message: "That block no longer exists." };

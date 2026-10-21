@@ -29,7 +29,7 @@ function storedRounds(item: SessionDetail["items"][number]): Round[] {
  * everything they remember; the comparison lists remembered, missing,
  * incorrect and forgotten-important ideas. One retry, then the source.
  */
-export function BlurtingRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: { session: SessionDetail; methodName: string; parentSessionId?: string | null; parentLabel?: string }) {
+export function BlurtingRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to Tamari's plan" }: { session: SessionDetail; methodName: string; parentSessionId?: string | null; parentLabel?: string }) {
   const router = useRouter();
   const items = session.items;
   const [index, setIndex] = useState(() => {

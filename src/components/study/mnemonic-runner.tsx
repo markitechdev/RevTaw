@@ -35,7 +35,7 @@ function draftOf(item: Item | undefined): Draft | null {
  * generated acronyms, acrostics, rhymes or phrases, or write your own — save
  * the ones that work, then recall the whole list from the device alone.
  */
-export function MnemonicRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: RunnerProps) {
+export function MnemonicRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to Tamari's plan" }: RunnerProps) {
   const items = session.items;
   const { summary, stoppedEarly, ending, error, setError, finish, pending, startTransition } = useSessionCompletion(session);
   const [index, setIndex] = useState(() => {

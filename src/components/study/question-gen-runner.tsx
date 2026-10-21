@@ -33,7 +33,7 @@ function scoreTone(value: number): BadgeTone {
  * answer they expect); RevTaw rates relevance, clarity, difficulty and
  * accuracy and suggests an improved version.
  */
-export function QuestionGenRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: { session: SessionDetail; methodName: string; parentSessionId?: string | null; parentLabel?: string }) {
+export function QuestionGenRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to Tamari's plan" }: { session: SessionDetail; methodName: string; parentSessionId?: string | null; parentLabel?: string }) {
   const router = useRouter();
   const target = Number((session.state as { target?: number } | null)?.target ?? 5);
   const [questions, setQuestions] = useState<EvaluatedQuestion[]>(() => storedQuestions(session));

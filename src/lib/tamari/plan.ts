@@ -100,6 +100,7 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
       head.push({
         key: "blurt",
         method: "blurting",
+        label: "Blurting",
         minutes: 10,
         reason: say(lang, {
           taglish: "Isulat mo muna lahat ng naaalala mo. Doon tayo magsisimula.",
@@ -119,6 +120,7 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
       block: (minutes) => ({
         key: "recall",
         method: "active_recall",
+        label: "Active Recall",
         minutes,
         reason:
           overdue.length > 0
@@ -150,6 +152,7 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
       block: (minutes) => ({
         key: "quiz",
         method: "practice_testing",
+        label: weak.length > 0 ? "Weak Topic Quiz" : "Quiz",
         minutes,
         reason:
           weak.length > 0
@@ -179,6 +182,7 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
         block: (minutes) => ({
           key: "feynman",
           method: "feynman",
+          label: "Feynman",
           minutes,
           reason:
             input.repeated && input.repeated.name === explain && input.repeated.count >= 3
@@ -212,6 +216,7 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
         block: (minutes) => ({
           key: "mistakes",
           method: "error_review",
+          label: "Mistake Review",
           minutes,
           reason: say(lang, {
             taglish: `${input.openMistakes} mali sa notebook mo. Balikan natin para hindi na maulit.`,
@@ -232,6 +237,7 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
         block: (minutes) => ({
           key: "cards",
           method: "spaced_repetition",
+          label: "Due Flashcards",
           minutes,
           reason: say(lang, {
             taglish: `${input.dueCards} cards ang due. Ngayon na, habang sakto ang timing.`,
@@ -251,6 +257,7 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
       block: (minutes) => ({
         key: "retest",
         method: "practice_testing",
+        label: "Retest",
         minutes,
         reason: say(lang, {
           taglish: "Huling check: ilang tanong ulit sa mga namiss mo kanina.",
@@ -282,6 +289,7 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
         block: (minutes) => ({
           key: "mistakes",
           method: "error_review",
+          label: "Mistake Review",
           minutes,
           reason: say(lang, {
             taglish: `${input.openMistakes} mali sa notebook mo. Balikan natin para hindi na maulit.`,
@@ -301,6 +309,7 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
         block: (minutes) => ({
           key: "cards",
           method: "spaced_repetition",
+          label: "Due Flashcards",
           minutes,
           reason: say(lang, {
             taglish: `${input.dueCards} cards ang due. Ngayon na, habang sakto ang timing.`,
@@ -320,6 +329,7 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
         block: (minutes) => ({
           key: "focus",
           method: "pomodoro",
+          label: "Focus Block",
           minutes,
           reason: say(lang, {
             taglish: "Wala pang due at wala pang material, kaya focus block muna. Ikaw ang bahala sa aaralin.",

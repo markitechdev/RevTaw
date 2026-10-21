@@ -34,6 +34,8 @@ export const smartBlockSchema = z.object({
   materialId: z.string().nullable().optional(),
   /** Practice-test blocks: the topic or concepts the test should stay on (pre-testing's post-test). */
   focus: z.string().max(400).nullable().optional(),
+  /** What the block is called in the plan when it is more than its method ("Weak Topic Quiz", "Retest"). */
+  label: z.string().max(60).optional(),
 });
 
 export type SmartBlock = z.infer<typeof smartBlockSchema>;
@@ -246,9 +248,9 @@ export async function completeSmartSession(sessionId: string): Promise<SessionSu
     strongConcepts: strong,
     suggestedNext:
       done === 0
-        ? "No block was completed. Try a shorter smart session so the first block is easy to finish."
+        ? "No block was completed. Try a shorter plan so the first block is easy to finish."
         : weak.length > 0
-          ? `${weak.slice(0, 2).join(" and ")} still need${weak.length === 1 ? "s" : ""} work — tomorrow's smart session will start there.`
+          ? `${weak.slice(0, 2).join(" and ")} still need${weak.length === 1 ? "s" : ""} work — Tamari's next plan will start there.`
           : "Everything you practised today held up. Let spaced repetition carry it; come back when cards are due.",
     nextReviewAt: summaries.map((summary) => summary.nextReviewAt).filter((value): value is string => Boolean(value)).sort()[0] ?? null,
     // Tamari's reaction compares the plan's first quiz with its last retest ("Mas okay na").

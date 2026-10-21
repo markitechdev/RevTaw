@@ -89,7 +89,7 @@ function StoryVersion({ view, highlighted, onHover }: { view: StoryView; highlig
  * accurate story. Original notes and story version side by side; then the
  * student retells the story and every fact is checked.
  */
-export function StoryRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: RunnerProps) {
+export function StoryRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to Tamari's plan" }: RunnerProps) {
   const items = session.items;
   const { summary, stoppedEarly, ending, error, setError, finish, pending, startTransition } = useSessionCompletion(session);
   const [index, setIndex] = useState(() => {

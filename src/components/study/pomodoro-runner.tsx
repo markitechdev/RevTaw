@@ -76,7 +76,7 @@ function settle(timer: TimerState, settings: Settings, now: number): TimerState 
 }
 
 /** Pomodoro runner: work/break cycles with a long break every four rounds; progress survives refreshes. */
-export function PomodoroRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: { session: SessionDetail; methodName: string; parentSessionId?: string | null; parentLabel?: string }) {
+export function PomodoroRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to Tamari's plan" }: { session: SessionDetail; methodName: string; parentSessionId?: string | null; parentLabel?: string }) {
   const router = useRouter();
   const settings = readSettings((session.state as Record<string, unknown>) ?? {});
   const [stored, setStored] = useState<TimerState>(() => readTimer((session.state as Record<string, unknown>) ?? {}));

@@ -35,7 +35,7 @@ function draftOf(item: Item | undefined): Draft {
  * Scenario-based learning (§16): a realistic situation, plausible actions,
  * and a justification. The choice and the reasoning are graded separately.
  */
-export function ScenarioRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to smart session" }: RunnerProps) {
+export function ScenarioRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to Tamari's plan" }: RunnerProps) {
   const items = session.items;
   const { summary, stoppedEarly, ending, error, setError, finish, pending, startTransition } = useSessionCompletion(session);
   const [index, setIndex] = useState(() => {
