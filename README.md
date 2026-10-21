@@ -100,9 +100,9 @@ stay in server environment variables only.
   Filipino, Taglish or another language), chips and simple-first forms,
   **Tamari** — RevTaw's pixel-art study companion, at the start of your
   "Continue studying" card on Home with a line from your own data when you
-  click it ("May 3 reviews ka today. Unahin natin Binary Trees?"), peeking
-  from the edge of every other
-  page, planning your free minutes ("20 minutes lang ako. Bahala ka na." →
+  click it ("May 3 reviews ka today. Unahin natin Binary Trees?"), a chat
+  button on every other page, planning your free minutes ("20 minutes lang
+  ako. Bahala ka na." →
   Tamari's 20-Minute Bitaw) and taking typed or **voice** requests in
   English, Filipino or Taglish ("Quiz me about Chapter 4", "Move this to
   Friday") — and a **planner calendar** with activities and reminders by

@@ -646,7 +646,8 @@ assistant instead of a page change).
 Tamari — the provided pixel-art bull in a hoodie — is the face and voice of
 RevTaw's one assistant (the same chat, AI, voice, page context, study data,
 Smart Study engine, planner, materials, quizzes, mastery and mistake
-notebook; not a second AI). It lives in the layout instead of a circle.
+notebook; not a second AI). Its picture lives on Home only, in the layout
+instead of a circle; every other page has a round chat button.
 
 - **On Home** — the whole character leads the "Continue studying" card:
   Tamari, then what to continue, then the buttons (`TamariHome`,
@@ -672,27 +673,28 @@ notebook; not a second AI). It lives in the layout instead of a circle.
   bahala." with 10 / 20 / 30 minutes. The bubble also opens the chat;
   Escape, a click outside or Tamari again closes it. With study suggestions
   off, a click on Tamari opens the chat. Customize sits in the corner.
-- **Elsewhere** — Tamari peeks up from the bottom edge of the screen (from
-  behind the tab bar on phones), head and book showing; pointing lifts it a
-  little, clicking hops and opens the chat (`TamariPeek`). While the chat is
-  open on a wide screen it peeks beside the panel. Speech bubbles (quiz
-  results, the planner's exam countdown, Progress, a nap) sit just above
-  it. A page that seats Tamari (Home, a plan) hides it from the first paint
-  (`[data-tamari-seat]`), so Tamari never shows twice. Hidden during a quiz.
+- **Other pages** — no Tamari: a round chat button with a chat icon in the
+  bottom-right corner, above the tab bar on phones and fully on screen
+  (`ChatLauncher`, `src/components/assistant/chat-launcher.tsx`). It opens
+  the chat, steps aside while the chat is open, and is hidden during a quiz,
+  on the AI Tutor and on phones where the page has bottom actions. Home,
+  where Tamari opens the chat, hides it from the first paint
+  (`[data-tamari-seat]`); with Tamari turned off, Home gets it too. Plans
+  keep Tamari's words without the picture (`TamariSays`), and no line pops
+  up on its own anywhere.
 - **The chat** — simply "Ask Tamari", with what Tamari is doing in words in
   Tamari's language ("Nakikinig ako…", "Iniisip ko…"); no mascot inside the
   panel and no avatar on messages. The microphone and spoken answers are
-  reported to the provider, so Tamari outside the panel listens and talks.
+  reported to the provider, so Home's Tamari listens and talks.
 - **States** (`src/lib/tamari/states.ts`) — idle (1–2 px breath and a blink:
   a closed-eye frame of the reading pose, only the eye pixels differ),
   learning (laptop, typing: a PDF, notes, a reviewer, a quiz or a plan
   being prepared), thinking (an answer being written), listening (pixel
   sound bars by the ear), speaking, serious (steam; repeated mistakes),
   exam (the serious face held still), confident (one bounce) and sleepy
-  (five quiet minutes; "Uy, buhay ka pa pala. Review?" on return). Answers
-  checked in a session make Tamari bounce (right) or step aside (wrong).
-  Every motion is stepped (transforms, opacity, frame switches) and holds
-  still with pixel animations off or reduced motion.
+  (five quiet minutes on Home; on return a "!" and "Uy, buhay ka pa pala.
+  Review?"). Every motion is stepped (transforms, opacity, frame switches)
+  and holds still with pixel animations off or reduced motion.
 - **Tamari's N-Minute Bitaw** — Smart Study is now Tamari's Study Plan
   (`planTamariBlocks()` in `src/lib/tamari/plan.ts`, data in
   `src/lib/adaptive/smart.ts`): minutes become blocks from the student's
@@ -704,8 +706,8 @@ notebook; not a second AI). It lives in the layout instead of a circle.
   runs as its method's own session and links back to the plan); short plans
   keep three blocks, long ones open with a blurt and add due cards; the
   minutes always add up. The nearest exam's material comes first ("Ako na bahala.
-  20 minutes, 5 blocks — para sa Calculus exam mo in 3 days."). Tamari
-  sits on the plan's card and reacts when it is done ("Bitaw. 9/10. Mas
+  20 minutes, 5 blocks — para sa Calculus exam mo in 3 days."). The plan
+  opens with Tamari's line and reacts when it is done ("Bitaw. 9/10. Mas
   okay na." when the retest beat the first quiz).
 - **Natural commands** (`src/lib/tamari/commands.ts`), typed or spoken,
   English / Filipino / Taglish: "20 minutes lang ako. Bahala ka na." or "I
@@ -719,9 +721,10 @@ notebook; not a second AI). It lives in the layout instead of a circle.
   mo naman", "Easy lang muna", "Di ko gets bakit mali 'to") and keeps the
   Filipino voice subtle (no "bro/lods/pare"; "Bitaw.", "Isa pa.", "Ayun."
   sparingly).
-- **Settings → Tamari & AI** — Show Tamari (off: a plain chat button, which
-  can be hidden too), Pixel animations, Study suggestions, Contextual
-  reactions, Voice commands, Sound responses and the Response language;
+- **Settings → Tamari & AI** — Show Tamari (Home only; off: Home gets the
+  chat button too), Show the chat button, Pixel animations, Study
+  suggestions, Contextual reactions, Voice commands, Sound responses and the
+  Response language;
   "How Tamari explains" (style, depth) is its own card. Each saves only its
   own fields; none is mandatory.
 
@@ -838,15 +841,15 @@ linked).
   `data-motion` and custom-color variables on `<html>` from the cookie;
   `AppearanceRoot` keeps the cookie in step with the account.
 - **Tamari (the assistant)** — `src/components/assistant/`:
-  `AssistantProvider` (in the signed-in layout: the edge-of-screen Tamari,
-  a stack of page registrations, request queue, lazy panel, and everything
-  about how Tamari looks right now: activity, bubbles, naps, reactions),
-  two contexts — the chat API (`useAssistant()`) and Tamari's picture
-  (`useTamari()`: state, reaction, bubble, settings, `seat()`, `react()`) —
-  `TamariHint` (a page offers a bubble), `useTamariActivity()` (work in
-  progress shows as learning), `AssistantPage`/`AssistantLauncher` (pages,
-  or a part of one such as a picked planner task, register context and
-  where Tamari may sit), `assistant-panel.tsx` (native `<dialog>`: `show()`
+  `AssistantProvider` (in the signed-in layout: the chat button
+  `ChatLauncher`, a stack of page registrations, request queue, lazy panel,
+  and everything about how Home's Tamari looks right now: activity, its
+  nap line, naps, reactions), two contexts — the chat API (`useAssistant()`)
+  and Tamari's picture (`useTamari()`: state, reaction, bubble, settings,
+  `seat()`, `react()`) — `useTamariActivity()` (work in progress shows as
+  learning), `AssistantPage`/`AssistantLauncher` (pages, or a part of one
+  such as a picked planner task, register context and how the chat button
+  behaves), `assistant-panel.tsx` (native `<dialog>`: `show()`
   on desktop, `showModal()` on phones; Tamari's commands), `openAssistant()`
   for any button. Page context is a discriminated union of ids
   (`src/lib/assistant/context-schema.ts`, now with planner tasks) resolved
@@ -857,10 +860,9 @@ linked).
   `coach.ts` Home lines, `hints.ts` picks them, `plan.ts` the time-boxed
   plan, `commands.ts` natural commands) and `src/components/tamari/`
   (`sprites.ts` with blink frames, `TamariSprite`, `TamariHome` on Home,
-  `TamariPerch`/`TamariSays` seated on a card, `TamariPeek` at the screen
-  edge, `TamariSpeech`, `useTamariMove()` to start what a line offers,
-  `useTamariReaction()` for checked answers); the motions are the
-  `.tamari-*` classes in `globals.css`.
+  `TamariPerch` (the seated, clickable Tamari), `TamariSays` (Tamari's
+  words on a plan), `useTamariMove()` to start what a line offers); the
+  motions are the `.tamari-*` classes in `globals.css`.
 - **Voice** — `src/lib/voice/`: `types.ts` (SpeechToText / TextToSpeech
   interfaces), `web-speech.ts` (default provider, loaded on first use),
   `intents.ts` (commands, confirmations), `speech-text.ts` (what to read,
@@ -1256,7 +1258,7 @@ Flows verified end to end against a local Supabase-compatible stack
   hide, reorder, reset, empty board, persisted), navigation groups and
   pinning, command menu (19 checks incl. keyboard and axe), settings (20
   checks), contrast of every theme color in light and dark; the assistant
-  (`assistant-e2e.mjs`: Tamari on Home and peeking elsewhere, non-modal desktop panel, phone sheet,
+  (`assistant-e2e.mjs`: Tamari on Home and the chat button elsewhere, non-modal desktop panel, phone sheet,
   language question, context across pages, new chat about the page, quick
   actions, add to notes, restore after reload, history, expand, Escape,
   highlight-and-ask in the material's thread, command menu, quiz results
@@ -1266,9 +1268,9 @@ Flows verified end to end against a local Supabase-compatible stack
   once, silent until clicked with a "!" for a waiting line, the line from
   the data in exam mode in a compact bubble, Escape / outside click / the
   chat button, "Later" for the day and the 10/20/30-minute offer, a blink
-  frame, a 10-minute plan with
-  Tamari on it, peeking from the screen edge with the bubble above, beside
-  the open chat and thinking while it answers, a nap and "Uy, buhay ka pa
+  frame, a 10-minute plan with Tamari's words, no Tamari and no pop-up line
+  on other pages but a round chat button fully on screen that opens the
+  chat and comes back with the focus, a nap on Home and "Uy, buhay ka pa
   pala. Review?", each setting, phone, axe); commands (`commands-e2e.mjs`:
   "20 minutes lang ako" → a 3/7/5/3/2 plan, a question stays a question,
   "Quiz mo 'ko dito" → a quiz and the chat steps aside, "May exam ako
