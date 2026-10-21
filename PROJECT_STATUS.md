@@ -574,7 +574,14 @@ assistant instead of a page change).
 - **Landing page** (priority 2) — typed hero line ("Reviewer na may
   Bitaw." ⇄ "A reviewer that delivers.") without layout shift, an
   interactive study desk, "How it works" as accessible tabs, a method
-  picker; CSS motion only, reduced-motion aware.
+  picker; mastery is drawn as pencil-shaded answer-sheet ovals
+  (`components/marketing/answer-sheet.tsx`) instead of progress bars; the
+  hero credits the creator, Mark Francis Entredicho, and the page closes
+  with "Ano G ayaw mag-aral? Aray mo."; CSS motion only, reduced-motion
+  aware.
+- **Logo** — the navy RevTaw app icon is the logo next to the wordmark
+  (`components/brand/revtaw-logo.png`, 96 px for 32 px) and the browser and
+  home-screen icon (`src/app/favicon.ico`, `icon.png`, `apple-icon.png`).
 - **Preferences** — `profiles.preferences` (sections appearance, dashboard,
   tools, ai, study, notifications, assistant; migration 0012) saved one
   section at a time by `set_preference_section()`; strict zod schemas for
