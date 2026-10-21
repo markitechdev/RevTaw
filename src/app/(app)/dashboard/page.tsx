@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { after } from "next/server";
 import { Suspense, type ReactNode } from "react";
 
-import { TamariHint } from "@/components/assistant/assistant-provider";
 import { DashboardBoard } from "@/components/dashboard/board";
 import { ContinueWidget, DueTodayWidget, RecommendationWidget } from "@/components/dashboard/focus-widgets";
 import { ExamWidget, MasteryWidget, StreakWidget, StudyTimeWidget } from "@/components/dashboard/glance-widgets";
 import { FlashcardsWidget, GoalsWidget, PlannerWidget, RecentMaterialsWidget, WeakTopicsWidget } from "@/components/dashboard/list-widgets";
 import { WidgetSkeleton } from "@/components/dashboard/widget-shell";
 import { Alert } from "@/components/forms/form-alert";
+import { TamariStage } from "@/components/tamari/tamari-stage";
 import { syncGamification } from "@/lib/gamification/sync";
 import { syncNotifications } from "@/lib/notifications/service";
 import { hourIn } from "@/lib/planner/dates";
@@ -18,7 +19,8 @@ import { getPreferences } from "@/lib/preferences/queries";
 import type { ResponseLanguage, WidgetId } from "@/lib/preferences/schema";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { routes } from "@/lib/routes";
-import { homeBubble } from "@/lib/tamari/hints";
+import { LATER_COOKIE, parseLater } from "@/lib/tamari/coach";
+import { homeLine } from "@/lib/tamari/hints";
 
 export const metadata: Metadata = {
   title: "Home",
@@ -40,16 +42,17 @@ function greetingFor(timezone: string | null, name: string | undefined): string 
   return name ? `${greeting}, ${name}.` : `${greeting}.`;
 }
 
-/** What Tamari might say on Home (streams in on its own; a failure just means no bubble). */
-async function HomeHint({ language, planning }: { language: ResponseLanguage; planning: Promise<unknown> }) {
-  let bubble = null;
+/** Tamari beside the greeting, with its line (streams in on its own; a failure just means Tamari offers to plan instead). */
+async function HomeStage({ language, planning, today }: { language: ResponseLanguage; planning: Promise<unknown>; today: string }) {
+  let line = null;
   try {
-    bubble = await homeBubble(language, planning);
+    const later = parseLater((await cookies()).get(LATER_COOKIE)?.value, today);
+    line = await homeLine(language, planning, later);
   } catch (error) {
     unstable_rethrow(error);
-    console.error("dashboard: Tamari's hint failed", error);
+    console.error("dashboard: Tamari's line failed", error);
   }
-  return <TamariHint bubble={bubble} />;
+  return <TamariStage line={line} today={today} />;
 }
 
 function longDate(date: string): string {
@@ -103,13 +106,15 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
 
   return (
     <div className="flex flex-col gap-6">
-      <Suspense fallback={null}>
-        <HomeHint language={preferences.ai.language} planning={planning} />
-      </Suspense>
       {notice && <Alert tone="success">{notice}</Alert>}
       <DashboardBoard
         layout={layout}
         widgets={widgets}
+        stage={
+          <Suspense fallback={<TamariStage line={null} today={clock.today} pending />}>
+            <HomeStage language={preferences.ai.language} planning={planning} today={clock.today} />
+          </Suspense>
+        }
         header={
           <div className="min-w-0">
             <p className="text-sm font-medium text-muted-foreground">{longDate(clock.today)}</p>

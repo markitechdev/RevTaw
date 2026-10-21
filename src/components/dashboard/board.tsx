@@ -27,7 +27,7 @@ function skeletonFor(id: WidgetId) {
  * this component only arranges them, so showing, hiding and reordering feel
  * instant while the change is saved to the account.
  */
-export function DashboardBoard({ layout, header, widgets }: { layout: DashboardPreferences; header: ReactNode; widgets: Partial<Record<WidgetId, ReactNode>> }) {
+export function DashboardBoard({ layout, header, stage, widgets }: { layout: DashboardPreferences; header: ReactNode; stage?: ReactNode; widgets: Partial<Record<WidgetId, ReactNode>> }) {
   const [optimistic, setOptimistic] = useOptimistic(layout);
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -48,14 +48,23 @@ export function DashboardBoard({ layout, header, widgets }: { layout: DashboardP
   const lists = visible.filter((id) => widgetGroup(id) === "lists");
   const node = (id: WidgetId) => widgets[id] ?? skeletonFor(id);
 
+  const customize = (className: string) => (
+    <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label="Customize dashboard" title="Customize dashboard" className={className}>
+      <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+      <span className="hidden sm:inline">Customize</span>
+    </Button>
+  );
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-        {header}
-        <Button type="button" variant="secondary" size="sm" onClick={() => setOpen(true)} aria-haspopup="dialog">
-          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-          Customize
-        </Button>
+      {/* The greeting, with Tamari beside it (sitting on the first card's edge) and the Customize button in the corner. */}
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:gap-8">
+        <div className="flex min-w-0 items-start justify-between gap-3 xl:flex-1">
+          {header}
+          {customize("-mr-2 shrink-0 xl:hidden")}
+        </div>
+        {stage}
+        {customize("hidden shrink-0 self-start xl:-mr-2 xl:inline-flex")}
       </div>
 
       {visible.length === 0 ? (

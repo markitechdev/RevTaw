@@ -40,6 +40,8 @@ const startSchema = z.object({
   timed: z.boolean().optional(),
   /** Practice testing: the topic or chapter to stay on ("quiz me about Chapter 4"). */
   focus: z.string().trim().max(400).nullable().optional(),
+  /** Active recall and Feynman: the concepts to ask about first (Tamari's "explain Binary Trees to me"). */
+  focusConcepts: z.array(z.string().trim().min(1).max(120)).max(6).optional(),
   problemDifficulty: z.enum(["adaptive", ...PROBLEM_DIFFICULTIES]).optional(),
   freshVisuals: z.boolean().optional(),
   freshMap: z.boolean().optional(),

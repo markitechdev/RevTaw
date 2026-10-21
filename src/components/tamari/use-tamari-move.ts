@@ -40,7 +40,14 @@ export function useTamariMove({ ask, setActivity }: { ask: (prompt: string, mate
           move.kind === "task"
             ? await startTaskAction(move.taskId)
             : move.kind === "session"
-              ? await startSessionAction({ method: move.method, materialId: move.materialId, goal: null, plannedMinutes: move.minutes, ...(move.focus ? { focus: move.focus } : {}) })
+              ? await startSessionAction({
+                  method: move.method,
+                  materialId: move.materialId,
+                  goal: null,
+                  plannedMinutes: move.minutes,
+                  ...(move.focus ? { focus: move.focus } : {}),
+                  ...(move.concepts?.length ? { focusConcepts: move.concepts } : {}),
+                })
               : await startSessionAction({ method: "smart_study", materialId: move.materialId ?? null, goal: null, plannedMinutes: move.minutes });
         if (!result.ok) return stop(result.message);
         // Stays busy until the new page takes over, so a second click cannot start it twice.

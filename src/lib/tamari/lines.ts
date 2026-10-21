@@ -29,7 +29,7 @@ export type TamariMove =
   | { kind: "open"; href: string }
   | { kind: "ask"; prompt: string; materialId?: string | null }
   | { kind: "task"; taskId: string }
-  | { kind: "session"; method: TamariSessionMethod; materialId: string | null; minutes: number; focus?: string | null }
+  | { kind: "session"; method: TamariSessionMethod; materialId: string | null; minutes: number; focus?: string | null; concepts?: string[] }
   | { kind: "plan"; minutes: number; materialId?: string | null };
 
 export type TamariAction = { label: string } & TamariMove;
