@@ -3,7 +3,7 @@ import "server-only";
 import { listMastery } from "@/lib/adaptive/engine";
 import { countDueCards } from "@/lib/flashcards/queries";
 import { parseAnalysisData } from "@/lib/materials/analysis-schema";
-import { addDays, dateIn, daysBetween, todayIn, weekdayOf } from "@/lib/planner/dates";
+import { addDays, dateIn, daysBetween, isIsoDate, todayIn, weekdayOf } from "@/lib/planner/dates";
 import { generatePlan, type PlanMaterial, type PlannedTask } from "@/lib/planner/generate";
 import { activitySchema, examFormSchema, methodNeedsMaterial, type ExamFormValues } from "@/lib/planner/types";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
@@ -381,6 +381,28 @@ export async function reopenTask(taskId: string): Promise<void> {
   if (error) throw new Error(`study_tasks: reopen failed: ${error.message}`);
   // A reopened activity gets its reminder back if the time is still ahead.
   if (data) await syncTaskReminder(supabase, data, (await plannerClock()).timezone);
+}
+
+/**
+ * Moves a task to another day (Tamari's "Move this to Friday", companion doc
+ * §15): never into the past, never past its exam. The time of day stays and
+ * the reminder follows. A missed or skipped task moved ahead is pending again.
+ */
+export async function moveTask(taskId: string, date: string): Promise<{ scheduledFor: string; remindAt: string | null }> {
+  const supabase = await createClient();
+  const { timezone, today } = await plannerClock();
+  if (!isIsoDate(date)) throw new PlannerError("Pick a day for the task.", 400);
+  if (date < today) throw new PlannerError("That day has already passed. Pick today or a day ahead.", 400);
+  const task = await loadTask(supabase, taskId);
+  if (task.status === "done") throw new PlannerError("That task is already done.", 409);
+  if (task.exam_id) {
+    const { data: exam } = await supabase.from("exams").select("exam_date").eq("id", task.exam_id).maybeSingle();
+    if (exam && date > exam.exam_date) throw new PlannerError("That's after the exam. Pick a day before it.", 400);
+  }
+  const { data, error } = await supabase.from("study_tasks").update({ scheduled_for: date, status: "pending" }).eq("id", taskId).select("*").single();
+  if (error || !data) throw new PlannerError("The task could not be moved. Please try again.", 400);
+  const { remindAt } = await syncTaskReminder(supabase, data, timezone);
+  return { scheduledFor: data.scheduled_for, remindAt };
 }
 
 export async function deleteTask(taskId: string): Promise<void> {

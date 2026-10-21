@@ -14,6 +14,8 @@ export const pageContextSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("exam"), id: z.uuid() }),
   z.object({ kind: z.literal("session"), id: z.uuid() }),
   z.object({ kind: z.literal("progress") }),
+  /** A planner task the student picked ("Move this to Friday"). */
+  z.object({ kind: z.literal("task"), id: z.uuid() }),
 ]);
 
 export type PageContextRef = z.infer<typeof pageContextSchema>;

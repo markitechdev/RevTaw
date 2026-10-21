@@ -55,6 +55,10 @@ export default async function PlannerPage({ searchParams }: PageProps<"/planner"
   const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title, subject: material.subject?.name ?? null }));
   const subjectOptions = subjects.filter((subject) => !subject.archived_at).map((subject) => ({ id: subject.id, name: subject.name }));
   const activityOptions = { materials: readyMaterials, subjects: subjectOptions, today, timezone, defaultReminder: preferences.notifications.defaultReminder };
+  // "May exam ako Friday" (asked of Tamari) opens the exam form with the day and the name filled in.
+  const examDate = params.exam === "new" && typeof params.examDate === "string" && isIsoDate(params.examDate) && params.examDate >= today ? params.examDate : undefined;
+  const examTitle = params.exam === "new" && typeof params.examTitle === "string" ? params.examTitle.replace(/[\u0000-\u001f]/g, "").trim().slice(0, 120) || undefined : undefined;
+  const examMaterial = params.exam === "new" && typeof params.examMaterial === "string" ? params.examMaterial : undefined;
   // A countdown from Tamari when an exam is within a week.
   const soonest = exams.filter((exam) => exam.daysLeft >= 0 && exam.daysLeft <= 7).sort((a, b) => a.daysLeft - b.daysLeft)[0];
 
@@ -67,7 +71,18 @@ export default async function PlannerPage({ searchParams }: PageProps<"/planner"
         actions={
           <div className="flex flex-wrap gap-2">
             <AddActivityButton options={activityOptions} date={selected >= today ? selected : today} variant="primary" />
-            <ExamDialogButton materials={readyMaterials} subjects={subjectOptions} today={today} defaultMinutes={profile?.preferred_session_minutes ?? null} size="sm" variant="secondary" defaultOpen={params.exam === "new"} />
+            <ExamDialogButton
+              materials={readyMaterials}
+              subjects={subjectOptions}
+              today={today}
+              defaultMinutes={profile?.preferred_session_minutes ?? null}
+              size="sm"
+              variant="secondary"
+              defaultOpen={params.exam === "new"}
+              defaultDate={examDate}
+              defaultTitle={examTitle}
+              defaultMaterialIds={examMaterial && readyMaterials.some((item) => item.id === examMaterial) ? [examMaterial] : undefined}
+            />
           </div>
         }
       />

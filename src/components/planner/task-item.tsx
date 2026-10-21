@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { AssistantPage } from "@/components/assistant/assistant-provider";
+import { pickTask, usePickedTask } from "@/components/planner/picked-task";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { completeTaskAction, deleteTaskAction, reopenTaskAction, skipTaskAction, startTaskAction } from "@/lib/planner/actions";
@@ -50,6 +52,8 @@ export function TaskItem({
   const actionable = task.status === "pending" || task.status === "missed";
   const startable = task.method !== "activity";
   const category = categoryOf(task);
+  // Touching or focusing a task makes it the one Tamari is about ("Move this to Friday").
+  const picked = usePickedTask() === task.id && task.status !== "done";
   // Only a reminder that is still to come is worth showing.
   const reminder = (task.reminders ?? []).find((row) => row.status === "pending");
 
@@ -68,7 +72,26 @@ export function TaskItem({
   };
 
   return (
-    <li className={cn("flex flex-col gap-2 rounded-lg border border-border bg-card p-3", !stacked && "sm:flex-row sm:items-start sm:justify-between", task.status === "done" && "opacity-75", task.status === "skipped" && "opacity-60")}>
+    <li
+      aria-current={picked ? "true" : undefined}
+      onPointerDown={() => pickTask(task.id)}
+      onFocusCapture={() => pickTask(task.id)}
+      className={cn(
+        "flex flex-col gap-2 rounded-lg border border-border bg-card p-3",
+        !stacked && "sm:flex-row sm:items-start sm:justify-between",
+        task.status === "done" && "opacity-75",
+        task.status === "skipped" && "opacity-60",
+        picked && "border-primary/60 ring-2 ring-primary/15",
+      )}
+    >
+      {picked && (
+        <AssistantPage
+          context={{ kind: "task", id: task.id }}
+          label={`Planner → ${task.title}`}
+          materialId={task.material?.id ?? null}
+          suggestions={["Move this to tomorrow", "Move this to Friday", "How should I prepare for this?"]}
+        />
+      )}
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           {task.starts_at && (

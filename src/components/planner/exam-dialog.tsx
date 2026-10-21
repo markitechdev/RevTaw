@@ -49,6 +49,9 @@ export function ExamDialogButton({
   examId,
   initial,
   defaultOpen = false,
+  defaultDate,
+  defaultTitle,
+  defaultMaterialIds,
   children,
   ...props
 }: Omit<ButtonProps, "onClick" | "type"> & {
@@ -60,10 +63,20 @@ export function ExamDialogButton({
   initial?: ExamFormInitial;
   /** Open on arrival (/planner?exam=new). */
   defaultOpen?: boolean;
+  /** A new exam's day and name, filled in (Tamari: "May exam ako Friday"). */
+  defaultDate?: string;
+  defaultTitle?: string;
+  defaultMaterialIds?: string[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(defaultOpen);
-  const base = initial ?? { ...EMPTY, plan: { ...EMPTY.plan, minutesPerDay: defaultMinutes && defaultMinutes >= 5 ? Math.min(480, defaultMinutes) : 45 } };
+  const base = initial ?? {
+    ...EMPTY,
+    title: defaultTitle ? (/\b(exam|test|quiz|midterms?|finals?|prelims?)$/i.test(defaultTitle) ? defaultTitle : `${defaultTitle} exam`) : "",
+    examDate: defaultDate ?? "",
+    materialIds: defaultMaterialIds ?? [],
+    plan: { ...EMPTY.plan, minutesPerDay: defaultMinutes && defaultMinutes >= 5 ? Math.min(480, defaultMinutes) : 45 },
+  };
   const [title, setTitle] = useState(base.title);
   const [examDate, setExamDate] = useState(base.examDate);
   const [subjectId, setSubjectId] = useState(base.subjectId ?? "");
@@ -122,6 +135,8 @@ export function ExamDialogButton({
           if (pending) return;
           setOpen(false);
           clearQueryParam("exam");
+          clearQueryParam("examDate");
+          clearQueryParam("examTitle");
         }}
         dismissible={!pending} title={editing ? "Edit exam" : "Add an exam"} description="RevTaw builds a day-by-day plan from the date, the materials it covers and the time you have." className="max-w-2xl">
         <form

@@ -189,3 +189,32 @@ export function napBubble(lang: TamariLanguage): TamariBubble {
     action: { label: say(lang, { taglish: "Tara!", en: "Let's go", fil: "Tara!" }), kind: "plan", minutes: 10 },
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Tamari's replies to what the student asked it to do                 */
+/* ------------------------------------------------------------------ */
+
+export const commandLines = {
+  plan: (lang: TamariLanguage, minutes: number) =>
+    say(lang, { taglish: `Sige! Ako na bahala sa ${minutes} minutes mo…`, en: `On it — planning your ${minutes} minutes…`, fil: `Sige! Ako na ang bahala sa ${minutes} minuto mo…` }),
+  quiz: (lang: TamariLanguage, topic: string | null) =>
+    say(lang, {
+      taglish: `Sige! Gagawa ako ng quiz${topic ? ` sa ${topic}` : ""}…`,
+      en: `On it — writing a quiz${topic ? ` on ${topic}` : ""}…`,
+      fil: `Sige! Gagawa ako ng quiz${topic ? ` tungkol sa ${topic}` : ""}…`,
+    }),
+  quizReady: (lang: TamariLanguage) => say(lang, { taglish: "Ready na. Ready ka?", en: "It's ready. Ready?", fil: "Handa na. Handa ka na?" }),
+  quizNeedsMaterial: (lang: TamariLanguage) =>
+    say(lang, { taglish: "Saang material? I-attach mo muna, tapos sabihin mo ulit.", en: "Which material? Attach one first, then ask me again.", fil: "Saang material? I-attach mo muna, tapos sabihin mo ulit." }),
+  exam: (lang: TamariLanguage, day: string) =>
+    say(lang, {
+      taglish: `Sige! I-set natin ang exam mo sa ${day}, tapos gagawa ako ng review plan.`,
+      en: `Let's add your exam on ${day} — then I'll build its review plan.`,
+      fil: `Sige! Ilagay natin ang exam mo sa ${day}, tapos gagawa ako ng review plan.`,
+    }),
+  moveAsk: (lang: TamariLanguage, title: string, day: string) => say(lang, { taglish: `Ilipat ang “${title}” sa ${day}?`, en: `Move “${title}” to ${day}?`, fil: `Ilipat ang “${title}” sa ${day}?` }),
+  moveDone: (lang: TamariLanguage, day: string) => say(lang, { taglish: `Done! Nasa ${day} na siya.`, en: `Done — it's on ${day} now.`, fil: `Ayan! Nasa ${day} na.` }),
+  moveNeedsTask: (lang: TamariLanguage) =>
+    say(lang, { taglish: "Alin? Pumili ka muna ng task sa planner, tapos sabihin mo ulit.", en: "Which one? Pick a task in the planner first, then ask me again.", fil: "Alin? Pumili ka muna ng task sa planner, tapos sabihin mo ulit." }),
+  nothingMoved: (lang: TamariLanguage) => say(lang, { taglish: "Okay, hindi ko ginalaw.", en: "Okay, I left it where it is.", fil: "Sige, hindi ko ginalaw." }),
+};

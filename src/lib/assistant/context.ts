@@ -85,6 +85,20 @@ export async function resolvePageContext(ref: PageContextRef | null): Promise<Re
           note: `The student is in the study session "${clip(data.title, 160)}" (${methodName(data.method)})${active ? ". It is still running: do not give away the answers to its prompts before the student has tried them; hints and explanations of ideas are fine." : ", which is finished."}`,
         };
       }
+      case "task": {
+        const { data } = await supabase
+          .from("study_tasks")
+          .select("id, title, method, minutes, status, scheduled_for, starts_at, material_id, material:materials!study_tasks_material_fk(title), exam:exams!study_tasks_exam_fk(title, exam_date)")
+          .eq("id", ref.id)
+          .maybeSingle();
+        if (!data) return NONE;
+        const exam = data.exam as unknown as { title: string; exam_date: string } | null;
+        const material = data.material as unknown as { title: string } | null;
+        return {
+          materialId: data.material_id,
+          note: `The student picked the planner task "${clip(data.title, 160)}" on ${data.scheduled_for}${data.starts_at ? ` at ${String(data.starts_at).slice(0, 5)}` : ""} (${data.minutes} min, ${data.status})${material ? `, on "${clip(material.title, 120)}"` : ""}${exam ? `, part of the plan for "${clip(exam.title, 120)}" on ${exam.exam_date}` : ""}. RevTaw moves it itself when the student asks to move it to another day; do not claim to have moved anything.`,
+        };
+      }
       case "progress": {
         const summary = await getMasterySummary();
         const weak = [...summary.weak, ...summary.learning].sort((a, b) => Number(a.mastery) - Number(b.mastery)).slice(0, 8);

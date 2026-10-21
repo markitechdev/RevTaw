@@ -132,7 +132,9 @@ function focusable(element: Element | null): element is HTMLElement {
 export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferences; assistant: AssistantPreferences; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [page, setPage] = useState<RegisteredPage | null>(null);
+  // Pages register what they are about; a part of a page (a picked planner task) can stack on top and step back off.
+  const [pages, setPages] = useState<readonly RegisteredPage[]>([]);
+  const page = pages[pages.length - 1] ?? null;
   const listeners = useRef(new Set<(request: AssistantRequest) => void>());
   const pending = useRef<AssistantRequest | null>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
@@ -182,8 +184,8 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
   }, []);
 
   const register = useCallback((entry: RegisteredPage) => {
-    setPage(entry);
-    return () => setPage((current) => (current === entry ? null : current));
+    setPages((list) => [...list, entry]);
+    return () => setPages((list) => list.filter((item) => item !== entry));
   }, []);
 
   const setActivity = useCallback((key: string, active: boolean) => {
@@ -229,7 +231,8 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
     [open, page, ai, assistant, show, hide, register, subscribe, setActivity, offerBubble],
   );
 
-  const launcher = page?.launcher ?? "visible";
+  // The strictest wish wins: any registered part saying "hidden" (a quiz in progress) hides Tamari's corner.
+  const launcher: LauncherMode = pages.some((item) => item.launcher === "hidden") ? "hidden" : pages.some((item) => item.launcher === "desktop") ? "desktop" : "visible";
   const seated = seats > 0 && assistant.mascot;
   // Tamari peeks from the screen edge unless the page seats it; it stays while the chat is open (beside the panel on wide screens).
   const showLauncher = assistant.launcher && launcher !== "hidden" && !seated;

@@ -9,12 +9,15 @@ import { useAssistant, type AssistantRequest, type RegisteredPage } from "@/comp
 import { useVoice } from "@/components/assistant/use-voice";
 import { Alert } from "@/components/forms/form-alert";
 import { useTheme } from "@/components/theme/theme-provider";
+import { useTamariMove } from "@/components/tamari/use-tamari-move";
 import { MessageBubble, type MessageExtras } from "@/components/tutor/message-bubble";
 import { Button } from "@/components/ui/button";
+import { moveTaskAction } from "@/lib/planner/actions";
 import { saveAiPreferencesAction } from "@/lib/preferences/actions";
 import type { ResponseLanguage } from "@/lib/preferences/schema";
 import { routes } from "@/lib/routes";
-import { hereLine, tamariLanguage, tamariStatus } from "@/lib/tamari/lines";
+import { parseTamariCommand, spokenDay, type TamariCommand } from "@/lib/tamari/commands";
+import { commandLines, hereLine, tamariLanguage, tamariStatus } from "@/lib/tamari/lines";
 import { TAMARI_TAGLINE, type TamariState } from "@/lib/tamari/states";
 import { addToNotesAction, createFlashcardAction } from "@/lib/tutor/actions";
 import type { MessageView } from "@/lib/tutor/queries";
@@ -38,6 +41,13 @@ type Reply = {
 type SendResponse = { error?: string; id?: string; conversation?: ConversationInfo | null; reused?: boolean; userMessageId?: string | null; assistantMessageId?: string; reply?: Reply };
 type SendInput = { content: string; action: TutorActionId | null; selection?: string | null; materialId?: string | null; continueThread?: boolean; fromVoice?: boolean };
 type PendingSave = { kind: "save_note" | "save_flashcard"; message: MessageView };
+type PendingMove = { taskId: string; title: string; date: string };
+
+/** Today on the student's device, as YYYY-MM-DD (what "Friday" and "bukas" count from). */
+function localToday(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
 
 /** The four quick actions above the composer (UI phase §18); saving to notes and flashcards sits under each answer. */
 const QUICK_ACTIONS: ReadonlyArray<{ id: TutorActionId; label: string }> = [
@@ -214,6 +224,8 @@ export default function AssistantPanel() {
   const [filter, setFilter] = useState("");
   const [languageAsked, setLanguageAsked] = useState(ai.languageChosen);
   const [pendingSave, setPendingSave] = useState<PendingSave | null>(null);
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
+  const [moving, setMoving] = useState(false);
   const [, startSaving] = useTransition();
   const voice = useVoice({
     onPartial: (text) => setDraft(text),
@@ -221,6 +233,7 @@ export default function AssistantPanel() {
   });
   /** The microphone shows when the browser can listen and the student keeps voice on. */
   const canListen = voice.supported && assistant.voice;
+  const lang = tamariLanguage(ai.language);
 
   const pageKey = page?.ref ? JSON.stringify(page.ref) : null;
   const includeContext = pageKey !== null && contextOffFor !== pageKey;
@@ -303,6 +316,93 @@ export default function AssistantPanel() {
     if (list && (messages.length > 0 || sending)) list.scrollTop = list.scrollHeight;
   }, [messages.length, sending, view, open, restoring]);
 
+  const { run: runMove } = useTamariMove({ ask: (prompt, material) => void send({ content: prompt, action: null, materialId: material }), setActivity });
+
+  /** Says a short line in the chat (and aloud when the student is talking to Tamari). */
+  const tell = (line: string, aloud: boolean) => {
+    setNotice(line);
+    setError(null);
+    if (aloud && voiceReplies) void voice.speak(line, speakingLanguage(ai.language, line, navigator.language));
+  };
+
+  /** Runs one of Tamari's commands; false when it cannot (the message then goes to Tamari as a question). */
+  const runCommand = (command: TamariCommand, aloud: boolean): boolean => {
+    switch (command.kind) {
+      case "plan": {
+        tell(commandLines.plan(lang, command.minutes), aloud);
+        void runMove({ kind: "plan", minutes: command.minutes, materialId: wantedMaterial?.id ?? conversation?.material?.id ?? null }).then((problem) => {
+          if (problem) setError(problem);
+          else if (!desktop) hide();
+        });
+        return true;
+      }
+      case "quiz": {
+        const material = wantedMaterial ?? conversation?.material ?? null;
+        if (!material && !command.topic) return false;
+        tell(commandLines.quiz(lang, command.topic), aloud);
+        const findMaterial = async (): Promise<string | null> => {
+          if (material) return material.id;
+          // "Quiz me about recursion" with nothing open: the material the topic is in, by name.
+          const response = await fetch(`/api/search/quick?q=${encodeURIComponent(command.topic ?? "")}`, { headers: { accept: "application/json" } }).catch(() => null);
+          const body = (response?.ok ? await response.json().catch(() => ({})) : {}) as { results?: Array<{ type: string; href: string }> };
+          const hit = (body.results ?? []).find((result) => result.type === "material");
+          return hit?.href.match(/\/materials\/([0-9a-f-]{36})/i)?.[1] ?? null;
+        };
+        void findMaterial().then(async (id) => {
+          if (!id) {
+            tell(commandLines.quizNeedsMaterial(lang), aloud);
+            return;
+          }
+          const problem = await runMove({ kind: "session", method: "practice_testing", materialId: id, minutes: 10, focus: command.topic });
+          if (problem) {
+            setError(problem);
+            return;
+          }
+          // The quiz is ready: say so, then get out of the way (a quiz is never interrupted).
+          tell(commandLines.quizReady(lang), aloud);
+          hide();
+        });
+        return true;
+      }
+      case "exam": {
+        tell(commandLines.exam(lang, spokenDay(command.date)), aloud);
+        // The material in view is likely what the exam covers.
+        const covers = wantedMaterial?.id ?? conversation?.material?.id ?? null;
+        router.push(`${routes.planner}?exam=new&examDate=${command.date}${command.title ? `&examTitle=${encodeURIComponent(command.title)}` : ""}${covers ? `&examMaterial=${covers}` : ""}`);
+        if (!desktop) hide();
+        return true;
+      }
+      case "move": {
+        if (page?.ref?.kind !== "task") {
+          tell(commandLines.moveNeedsTask(lang), aloud);
+          return true;
+        }
+        const title = page.label.replace(/^Planner → /, "");
+        setPendingMove({ taskId: page.ref.id, title, date: command.date });
+        if (aloud && voiceReplies) void voice.speak(commandLines.moveAsk(lang, title, spokenDay(command.date)), speakingLanguage(ai.language, title, navigator.language));
+        return true;
+      }
+    }
+  };
+
+  const confirmMove = () => {
+    if (!pendingMove || moving) return;
+    const move = pendingMove;
+    setMoving(true);
+    void moveTaskAction(move.taskId, move.date)
+      .then((result) => {
+        setPendingMove(null);
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
+        setNotice(commandLines.moveDone(lang, spokenDay(result.data.scheduledFor)));
+        router.refresh();
+      })
+      .catch(() => setError("The task could not be moved. Check your connection and try again."))
+      .finally(() => setMoving(false));
+  };
+
   const startNewChat = () => {
     touched.current = true;
     setRestoring(false);
@@ -318,6 +418,14 @@ export default function AssistantPanel() {
   const send = async ({ content, action, selection: quoted = selection, materialId, continueThread = false, fromVoice = false }: SendInput) => {
     const text = content.trim();
     if (sending || (!text && !action)) return;
+    // "20 minutes lang ako", "quiz me about Chapter 4", "may exam ako Friday", "move this to Friday": Tamari does it.
+    if (!action && !quoted && materialId === undefined && !continueThread) {
+      const command = parseTamariCommand(text, localToday());
+      if (command && runCommand(command, fromVoice)) {
+        setDraft("");
+        return;
+      }
+    }
     touched.current = true;
     setRestoring(false);
     const refocus = document.activeElement === textareaRef.current;
@@ -463,6 +571,17 @@ export default function AssistantPanel() {
         return;
       }
     }
+    if (pendingMove) {
+      const answer = confirmationAnswer(text);
+      if (answer === "yes") return confirmMove();
+      if (answer === "no") {
+        setPendingMove(null);
+        setNotice(commandLines.nothingMoved(lang));
+        return;
+      }
+    }
+    const command = parseTamariCommand(text, localToday());
+    if (command && runCommand(command, true)) return;
     const intent = routeVoiceCommand(text);
     switch (intent.kind) {
       case "stop":
@@ -625,7 +744,6 @@ export default function AssistantPanel() {
 
   const suggestions = suggestionsFor(page, includeContext);
   const tamariState: TamariState = voice.status === "listening" ? "listening" : sending ? "thinking" : voice.status === "speaking" ? "speaking" : "idle";
-  const lang = tamariLanguage(ai.language);
   const shownMaterials = (materials ?? []).filter((material) => !filter.trim() || `${material.title} ${material.subject ?? ""}`.toLowerCase().includes(filter.trim().toLowerCase()));
   const contextLine = includeContext && page ? page.label : (conversation?.material?.title ?? attached?.title ?? null);
 
@@ -857,6 +975,20 @@ export default function AssistantPanel() {
                     {pendingSave.kind === "save_note" ? "Save to notes" : "Create flashcard"}
                   </Button>
                   <Button type="button" size="sm" variant="secondary" onClick={() => setPendingSave(null)}>
+                    Cancel
+                  </Button>
+                  {canListen && <span className="text-xs text-muted-foreground">or say “yes” or “no”</span>}
+                </div>
+              </div>
+            )}
+            {pendingMove && (
+              <div role="group" aria-label="Move the task" className="flex flex-col gap-2 rounded-xl border border-primary/30 bg-primary-soft p-3">
+                <p className="text-sm font-medium text-foreground">{commandLines.moveAsk(lang, pendingMove.title, spokenDay(pendingMove.date))}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="button" size="sm" loading={moving} onClick={confirmMove}>
+                    Move to {spokenDay(pendingMove.date).split(",")[0]}
+                  </Button>
+                  <Button type="button" size="sm" variant="secondary" disabled={moving} onClick={() => setPendingMove(null)}>
                     Cancel
                   </Button>
                   {canListen && <span className="text-xs text-muted-foreground">or say “yes” or “no”</span>}
