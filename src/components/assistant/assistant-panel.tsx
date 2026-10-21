@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, BookOpen, Check, FileText, History, Maximize2, Mic, Minimize2, Minus, Paperclip, Plus, Quote, SendHorizontal, Square, Volume2, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Check, FileText, History, Maximize2, MessageCircle, Mic, Minimize2, Minus, Paperclip, Plus, Quote, SendHorizontal, Square, Volume2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useEffectEvent, useId, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
@@ -175,7 +175,8 @@ const chip =
  * the chat carries across pages.
  */
 export default function AssistantPanel() {
-  const { open, page, ai, voiceReplies, hide, subscribe, setActivity } = useAssistant();
+  const { open, page, ai, assistant, hide, subscribe, setActivity } = useAssistant();
+  const { voiceReplies, mascot } = assistant;
   const router = useRouter();
   const { setTheme } = useTheme();
   const desktop = useDesktop();
@@ -216,6 +217,8 @@ export default function AssistantPanel() {
     onPartial: (text) => setDraft(text),
     onFinal: (text) => onVoice(text),
   });
+  /** The microphone shows when the browser can listen and the student keeps voice on. */
+  const canListen = voice.supported && assistant.voice;
 
   const pageKey = page?.ref ? JSON.stringify(page.ref) : null;
   const includeContext = pageKey !== null && contextOffFor !== pageKey;
@@ -623,7 +626,13 @@ export default function AssistantPanel() {
       <div aria-hidden="true" className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border lg:hidden" />
       <header className="flex items-center gap-2.5 border-b border-border py-2 pr-2 pl-3">
         {/* Remounted on every open, so Tamari hops once when called. */}
-        <TamariSprite key={open ? "open" : "closed"} state={tamariState} size={40} frame="portrait" greet={open} />
+        {mascot ? (
+          <TamariSprite key={open ? "open" : "closed"} state={tamariState} size={40} frame="portrait" greet={open} ambient={assistant.idleAnimations} />
+        ) : (
+          <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+            <MessageCircle className="h-5 w-5" />
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <h2 id={titleId} className="font-display text-base leading-tight font-semibold">
             {view === "history" ? "Your chats" : TAMARI_NAME}
@@ -727,7 +736,7 @@ export default function AssistantPanel() {
               </p>
             ) : messages.length === 0 ? (
               <div className="flex flex-col items-center gap-4 py-2 text-center">
-                <TamariSprite state={tamariState} size={96} />
+                {mascot && <TamariSprite state={tamariState} size={96} ambient={assistant.idleAnimations} />}
                 <div className="flex flex-col gap-1">
                   <p className="font-display text-lg font-semibold text-foreground">What are we studying?</p>
                   <p className="text-sm text-muted-foreground">
@@ -786,7 +795,7 @@ export default function AssistantPanel() {
             )}
             {sending && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-                <TamariSprite state="thinking" size={28} frame="portrait" />
+                {mascot && <TamariSprite state="thinking" size={28} frame="portrait" />}
                 Tamari is thinking…
               </div>
             )}
@@ -812,7 +821,7 @@ export default function AssistantPanel() {
                   <Button type="button" size="sm" variant="secondary" onClick={() => setPendingSave(null)}>
                     Cancel
                   </Button>
-                  {voice.supported && <span className="text-xs text-muted-foreground">or say “yes” or “no”</span>}
+                  {canListen && <span className="text-xs text-muted-foreground">or say “yes” or “no”</span>}
                 </div>
               </div>
             )}
@@ -866,7 +875,7 @@ export default function AssistantPanel() {
                 }}
                 className="field-sizing-content max-h-36 min-h-9 flex-1 resize-none bg-transparent py-2 text-sm leading-5 text-foreground outline-none placeholder:text-muted-foreground"
               />
-              {voice.supported && (
+              {canListen && (
                 <button
                   type="button"
                   onClick={toggleListening}

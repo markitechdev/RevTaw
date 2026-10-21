@@ -1,5 +1,6 @@
 "use client";
 
+import { MessageCircle } from "lucide-react";
 import type { Ref } from "react";
 
 import { TamariSprite } from "@/components/tamari/tamari-sprite";
@@ -11,12 +12,44 @@ import { cn } from "@/lib/utils";
  * Tamari in it, above the phone tab bar and clear of page actions (pages that
  * need the corner on phones show it from the lg breakpoint only). The round
  * card keeps Tamari readable over whatever scrolls underneath. Clicking opens
- * the chat; the picture and its words follow what Tamari is doing.
+ * the chat; the picture and its words follow what Tamari is doing. With
+ * Tamari turned off in Settings it is a plain chat button that does the same.
  */
-export function TamariLauncher({ state, mode, ambient, onOpen, ref }: { state: TamariState; mode: "visible" | "desktop"; ambient: boolean; onOpen: () => void; ref?: Ref<HTMLButtonElement> }) {
+export function TamariLauncher({
+  state,
+  mode,
+  mascot,
+  ambient,
+  onOpen,
+  ref,
+}: {
+  state: TamariState;
+  mode: "visible" | "desktop";
+  mascot: boolean;
+  ambient: boolean;
+  onOpen: () => void;
+  ref?: Ref<HTMLButtonElement>;
+}) {
   const status = TAMARI_STATES[state].status;
+  const place = cn("fixed right-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 lg:right-6 lg:bottom-6", mode === "desktop" ? "hidden lg:block" : "block");
+  if (!mascot) {
+    return (
+      <div className={place}>
+        <button
+          ref={ref}
+          type="button"
+          onClick={onOpen}
+          aria-haspopup="dialog"
+          className="flex cursor-pointer items-center gap-2 rounded-full border border-border bg-card p-3 text-sm font-semibold text-foreground shadow-pop transition-transform duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 sm:px-4"
+        >
+          <MessageCircle className="h-5 w-5 text-primary" aria-hidden="true" />
+          <span className="sr-only sm:not-sr-only">Ask Tamari</span>
+        </button>
+      </div>
+    );
+  }
   return (
-    <div className={cn("tamari-enter fixed right-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 lg:right-6 lg:bottom-6", mode === "desktop" ? "hidden lg:block" : "block")}>
+    <div className={cn("tamari-enter", place)}>
       <button
         ref={ref}
         type="button"

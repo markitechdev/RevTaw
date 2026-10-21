@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   aiInput,
   appearanceInput,
+  assistantInput,
   DEFAULT_PREFERENCES,
   DEFAULT_HIDDEN_WIDGETS,
   dashboardInput,
@@ -41,6 +42,18 @@ describe("parsePreferences", () => {
   it("falls back to Auto when Other has no language name", () => {
     expect(parsePreferences({ ai: { language: "other", otherLanguage: "" } }).ai.language).toBe("auto");
     expect(parsePreferences({ ai: { language: "other", otherLanguage: "Cebuano" } }).ai).toMatchObject({ language: "other", otherLanguage: "Cebuano" });
+  });
+
+  it("turns on Tamari's newer switches for an assistant section saved before they existed", () => {
+    expect(parsePreferences({ assistant: { launcher: false, voiceReplies: false } }).assistant).toEqual({
+      launcher: false,
+      mascot: true,
+      idleAnimations: true,
+      suggestions: true,
+      voice: true,
+      voiceReplies: false,
+    });
+    expect(parsePreferences({ assistant: { mascot: "no", suggestions: false } }).assistant).toMatchObject({ mascot: true, suggestions: false });
   });
 
   it("never shares default arrays between results", () => {
@@ -99,6 +112,13 @@ describe("section inputs", () => {
   it("limits preferred methods and dedupes them", () => {
     expect(studyInput.parse({ preferredMethods: ["feynman", "feynman", "blurting"] })).toEqual({ preferredMethods: ["feynman", "blurting"] });
     expect(studyInput.safeParse({ preferredMethods: ["not_a_method"] }).success).toBe(false);
+  });
+
+  it("saves Tamari's settings only as a complete set of switches", () => {
+    const all = { launcher: true, mascot: false, idleAnimations: false, suggestions: true, voice: true, voiceReplies: false };
+    expect(assistantInput.safeParse(all).success).toBe(true);
+    expect(assistantInput.safeParse({ launcher: true, voiceReplies: true }).success).toBe(false);
+    expect(assistantInput.safeParse({ ...all, extra: true }).success).toBe(false);
   });
 
   it("accepts only known reminder offsets and mutable kinds", () => {

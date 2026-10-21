@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { AiPreferencesForm } from "@/components/settings/ai-form";
-import { AssistantPreferencesForm } from "@/components/settings/assistant-form";
+import { TamariPreferencesForm } from "@/components/settings/assistant-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getPreferences } from "@/lib/preferences/queries";
 
@@ -24,11 +24,11 @@ export default async function AiSettingsPage() {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Tamari</CardTitle>
-          <CardDescription>Your study companion: it follows you around RevTaw and knows which page you are on.</CardDescription>
+          <CardTitle>Tamari Assistant</CardTitle>
+          <CardDescription>Your study companion: it follows you around RevTaw, knows which page you are on and stays quiet until you need it.</CardDescription>
         </CardHeader>
         <CardContent>
-          <AssistantPreferencesForm initial={preferences.assistant} />
+          <TamariPreferencesForm initial={preferences.assistant} />
         </CardContent>
       </Card>
     </div>

@@ -324,20 +324,36 @@ const notificationsReader = z
   .catch(() => ({ ...DEFAULT_NOTIFICATIONS, muted: [] }));
 
 /* ------------------------------------------------------------------ */
-/* Ask RevTaw (floating assistant)                                     */
+/* Tamari (the assistant and its corner button)                        */
 /* ------------------------------------------------------------------ */
 
 export const assistantInput = z.strictObject({
-  /** Show the floating Ask RevTaw button on every page. */
+  /** Show the corner button on every page. */
   launcher: z.boolean(),
+  /** Tamari in the corner button and the chat; off shows a plain chat button. */
+  mascot: z.boolean(),
+  /** Tamari's small idle movements (a 1–2 px bob, breathing while napping). */
+  idleAnimations: z.boolean(),
+  /** Short contextual hints in a speech bubble now and then. */
+  suggestions: z.boolean(),
+  /** The microphone in the chat: voice questions and commands. */
+  voice: z.boolean(),
   /** Read answers aloud in voice mode. */
   voiceReplies: z.boolean(),
 });
 export type AssistantPreferences = z.output<typeof assistantInput>;
-export const DEFAULT_ASSISTANT: AssistantPreferences = { launcher: true, voiceReplies: true };
+export const DEFAULT_ASSISTANT: AssistantPreferences = { launcher: true, mascot: true, idleAnimations: true, suggestions: true, voice: true, voiceReplies: true };
 
+// Saved before Tamari had settings? Every switch it did not have yet starts on.
 const assistantReader = z
-  .object({ launcher: z.boolean().catch(true), voiceReplies: z.boolean().catch(true) })
+  .object({
+    launcher: z.boolean().catch(true),
+    mascot: z.boolean().catch(true),
+    idleAnimations: z.boolean().catch(true),
+    suggestions: z.boolean().catch(true),
+    voice: z.boolean().catch(true),
+    voiceReplies: z.boolean().catch(true),
+  })
   .catch(DEFAULT_ASSISTANT);
 
 /* ------------------------------------------------------------------ */

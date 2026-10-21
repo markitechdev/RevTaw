@@ -127,7 +127,7 @@ export async function saveNotificationPreferencesAction(input: unknown): Promise
   return result;
 }
 
-/** The floating Ask RevTaw button and spoken replies. */
+/** Tamari: the corner button, idle animations, contextual hints, voice and spoken replies. */
 export async function saveAssistantPreferencesAction(input: unknown): Promise<SavePreferencesResult> {
   const parsed = assistantInput.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);

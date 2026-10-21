@@ -40,7 +40,8 @@ type AssistantContextValue = {
   open: boolean;
   page: RegisteredPage | null;
   ai: AiPreferences;
-  voiceReplies: boolean;
+  /** Tamari's settings: corner button, mascot, idle animations, hints, voice, spoken answers. */
+  assistant: AssistantPreferences;
   show: (request?: AssistantRequest) => void;
   hide: () => void;
   register: (entry: RegisteredPage) => () => void;
@@ -140,8 +141,8 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
   }, [show]);
 
   const value = useMemo<AssistantContextValue>(
-    () => ({ open, page, ai, voiceReplies: assistant.voiceReplies, show, hide, register, subscribe, setActivity }),
-    [open, page, ai, assistant.voiceReplies, show, hide, register, subscribe, setActivity],
+    () => ({ open, page, ai, assistant, show, hide, register, subscribe, setActivity }),
+    [open, page, ai, assistant, show, hide, register, subscribe, setActivity],
   );
 
   const launcher = page?.launcher ?? "visible";
@@ -154,7 +155,9 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
       {children}
       {(showLauncher || loaded) && (
         <aside aria-label="Tamari">
-          {showLauncher && <TamariLauncher ref={launcherRef} state={tamari} mode={launcher === "desktop" ? "desktop" : "visible"} ambient onOpen={() => show()} />}
+          {showLauncher && (
+            <TamariLauncher ref={launcherRef} state={tamari} mode={launcher === "desktop" ? "desktop" : "visible"} mascot={assistant.mascot} ambient={assistant.idleAnimations} onOpen={() => show()} />
+          )}
           {loaded && <AssistantPanel />}
         </aside>
       )}
