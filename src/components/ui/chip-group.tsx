@@ -99,7 +99,7 @@ export function ChipGroup<T extends string>(props: MultipleProps<T> | SingleProp
               </span>
               <span className="flex min-w-0 flex-col">
                 <span className="font-medium leading-5">{option.label}</span>
-                {option.hint && <span className={cn("text-xs", selected ? "text-primary/80" : "text-muted-foreground")}>{option.hint}</span>}
+                {option.hint && <span className={cn("text-xs", selected ? "text-primary" : "text-muted-foreground")}>{option.hint}</span>}
               </span>
             </label>
           );
