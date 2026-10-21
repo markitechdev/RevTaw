@@ -13,7 +13,8 @@ const securityHeaders = [
   { key: "X-DNS-Prefetch-Control", value: "off" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()",
+    // The microphone is allowed for RevTaw itself (Ask RevTaw's voice mode), never for embedded frames.
+    value: "camera=(), microphone=(self), geolocation=(), payment=(), usb=(), browsing-topics=()",
   },
   ...(isProduction
     ? [

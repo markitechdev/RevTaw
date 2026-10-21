@@ -1,13 +1,17 @@
 "use client";
 
-import { ArrowLeft, BookOpen, Check, FileText, History, Maximize2, Minimize2, Minus, Paperclip, Plus, Quote, SendHorizontal, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Check, FileText, History, Maximize2, Mic, Minimize2, Minus, Paperclip, Plus, Quote, SendHorizontal, Square, Volume2, X } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useEffectEvent, useId, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 
 import { useAssistant, type AssistantRequest, type RegisteredPage } from "@/components/assistant/assistant-provider";
-import { RevTawAvatar } from "@/components/assistant/avatar";
+import { RevTawAvatar, type AvatarState } from "@/components/assistant/avatar";
+import { useVoice } from "@/components/assistant/use-voice";
 import { Alert } from "@/components/forms/form-alert";
+import { useTheme } from "@/components/theme/theme-provider";
 import { MessageBubble, type MessageExtras } from "@/components/tutor/message-bubble";
+import { Button } from "@/components/ui/button";
 import { saveAiPreferencesAction } from "@/lib/preferences/actions";
 import type { ResponseLanguage } from "@/lib/preferences/schema";
 import { routes } from "@/lib/routes";
@@ -15,6 +19,8 @@ import { addToNotesAction, createFlashcardAction } from "@/lib/tutor/actions";
 import type { MessageView } from "@/lib/tutor/queries";
 import { TUTOR_ACTION_BY_ID, type FollowUpId, type TutorActionId } from "@/lib/tutor/types";
 import { cn } from "@/lib/utils";
+import { confirmationAnswer, routeVoiceCommand } from "@/lib/voice/intents";
+import { listeningLanguage, speakableText, speakingLanguage } from "@/lib/voice/speech-text";
 
 type ConversationInfo = { id: string; title: string; material: { id: string; title: string } | null };
 type HistoryItem = { id: string; title: string; detail: string };
@@ -29,7 +35,8 @@ type Reply = {
   visual?: MessageView["visual"];
 };
 type SendResponse = { error?: string; id?: string; conversation?: ConversationInfo | null; reused?: boolean; userMessageId?: string | null; assistantMessageId?: string; reply?: Reply };
-type SendInput = { content: string; action: TutorActionId | null; selection?: string | null; materialId?: string | null; continueThread?: boolean };
+type SendInput = { content: string; action: TutorActionId | null; selection?: string | null; materialId?: string | null; continueThread?: boolean; fromVoice?: boolean };
+type PendingSave = { kind: "save_note" | "save_flashcard"; message: MessageView };
 
 /** The four quick actions above the composer (UI phase §18); saving to notes and flashcards sits under each answer. */
 const QUICK_ACTIONS: ReadonlyArray<{ id: TutorActionId; label: string }> = [
@@ -159,13 +166,16 @@ const chip =
   "inline-flex min-h-8 max-w-full cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 /**
- * The Ask RevTaw panel (UI phase §16–§19): header with the page it is about,
- * the conversation, quick actions and a composer that can attach a material
- * and send the page's context. It is mounted once and only hidden when
- * minimized, so the chat carries across pages.
+ * The Ask RevTaw panel (UI phase §16–§22): header with the page it is about,
+ * the conversation, quick actions and a composer that can attach a material,
+ * send the page's context and listen (voice questions and commands, answers
+ * read aloud). It is mounted once and only hidden when minimized, so the chat
+ * carries across pages.
  */
 export default function AssistantPanel() {
-  const { open, page, ai, hide, subscribe } = useAssistant();
+  const { open, page, ai, voiceReplies, hide, subscribe } = useAssistant();
+  const router = useRouter();
+  const { setTheme } = useTheme();
   const desktop = useDesktop();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -177,6 +187,7 @@ export default function AssistantPanel() {
   const pickerId = useId();
   const filterId = useId();
   const languageId = useId();
+  const confirmId = useId();
 
   const [restoreId] = useState(readStoredConversation);
   const [restoring, setRestoring] = useState(restoreId !== null);
@@ -197,7 +208,12 @@ export default function AssistantPanel() {
   const [materials, setMaterials] = useState<MaterialOption[] | null>(null);
   const [filter, setFilter] = useState("");
   const [languageAsked, setLanguageAsked] = useState(ai.languageChosen);
+  const [pendingSave, setPendingSave] = useState<PendingSave | null>(null);
   const [, startSaving] = useTransition();
+  const voice = useVoice({
+    onPartial: (text) => setDraft(text),
+    onFinal: (text) => onVoice(text),
+  });
 
   const pageKey = page?.ref ? JSON.stringify(page.ref) : null;
   const includeContext = pageKey !== null && contextOffFor !== pageKey;
@@ -221,6 +237,14 @@ export default function AssistantPanel() {
       else dialog.focus();
     }
   }, [open, desktop]);
+
+  // Minimizing stops listening and reading aloud.
+  const { cancelListening, stopSpeaking } = voice;
+  useEffect(() => {
+    if (open) return;
+    cancelListening();
+    stopSpeaking();
+  }, [open, cancelListening, stopSpeaking]);
 
   // A phone sheet keeps the page behind it from scrolling.
   useEffect(() => {
@@ -270,7 +294,7 @@ export default function AssistantPanel() {
     storeConversation(null);
   };
 
-  const send = async ({ content, action, selection: quoted = selection, materialId, continueThread = false }: SendInput) => {
+  const send = async ({ content, action, selection: quoted = selection, materialId, continueThread = false, fromVoice = false }: SendInput) => {
     const text = content.trim();
     if (sending || (!text && !action)) return;
     touched.current = true;
@@ -330,6 +354,8 @@ export default function AssistantPanel() {
         return;
       }
       const reply = assistantMessage(body.assistantMessageId, body.reply);
+      // A spoken question gets a spoken answer (Settings → AI preferences can turn this off).
+      if (fromVoice && voiceReplies) void voice.speak(speakableText(reply.content), speakingLanguage(ai.language, reply.content, navigator.language));
       if (current) {
         setMessages([...base.filter((message) => message.id !== optimistic.id), { ...optimistic, id: body.userMessageId ?? optimistic.id }, reply]);
         return;
@@ -391,9 +417,90 @@ export default function AssistantPanel() {
     if (action) void send({ content: "", action });
   };
 
-  /** Escape: close the material list first, then minimize. */
+  /** Says a short line aloud when the student is talking to RevTaw (and spoken replies are on). */
+  const say = (line: string) => {
+    if (voiceReplies) void voice.speak(line, speakingLanguage(ai.language, line, navigator.language));
+  };
+
+  const confirmSave = () => {
+    if (!pendingSave) return;
+    followUp(pendingSave.kind === "save_note" ? "add_to_notes" : "create_flashcard", undefined, pendingSave.message);
+    setPendingSave(null);
+  };
+
+  // What the student said: an answer to "Save this?", a command, or a question.
+  const onVoice = (transcript: string) => {
+    setDraft("");
+    const text = transcript.trim();
+    if (!text) return;
+    if (pendingSave) {
+      const answer = confirmationAnswer(text);
+      if (answer === "yes") return confirmSave();
+      if (answer === "no") {
+        setPendingSave(null);
+        setNotice("Okay, nothing was saved.");
+        return;
+      }
+    }
+    const intent = routeVoiceCommand(text);
+    switch (intent.kind) {
+      case "stop":
+        voice.stopSpeaking();
+        setPendingSave(null);
+        return;
+      case "new_chat":
+        startNewChat();
+        setNotice("New chat. What are we studying?");
+        return;
+      case "theme":
+        setTheme(intent.theme);
+        setNotice(intent.theme === "dark" ? "Dark mode is on." : "Light mode is on.");
+        return;
+      case "navigate":
+        setNotice(`Opening ${intent.label}…`);
+        router.push(intent.href);
+        if (!desktop) hide();
+        return;
+      case "save_note":
+      case "save_flashcard": {
+        const last = [...messages].reverse().find((message) => message.role === "assistant" && !message.id.startsWith("pending-"));
+        if (!last) {
+          setNotice("There is no answer to save yet. Ask me something first.");
+          return;
+        }
+        if (!conversation?.material) {
+          setNotice("Saving needs a material: attach one or ask from a material's page.");
+          return;
+        }
+        if (intent.kind === "save_flashcard" && !last.flashcard) {
+          setNotice("That answer has no flashcard yet. Ask me to make one, then save it.");
+          return;
+        }
+        setPendingSave({ kind: intent.kind, message: last });
+        say(intent.kind === "save_note" ? "Save the last answer to your notes?" : "Make a flashcard from the last answer?");
+        return;
+      }
+      case "ask":
+        void send({ content: intent.text, action: null, fromVoice: true });
+        return;
+    }
+  };
+
+  const toggleListening = () => {
+    if (voice.status === "listening") {
+      voice.stopListening();
+      return;
+    }
+    setNotice(null);
+    setError(null);
+    void voice.listen(listeningLanguage(ai.language, navigator.language));
+  };
+
+  /** Escape: stop listening or reading first, then close the material list, then minimize. */
   const onEscape = () => {
-    if (pickerOpen) setPickerOpen(false);
+    if (voice.status === "listening") voice.cancelListening();
+    else if (voice.status === "speaking") voice.stopSpeaking();
+    else if (pickerOpen) setPickerOpen(false);
     else hide();
   };
 
@@ -470,6 +577,7 @@ export default function AssistantPanel() {
   };
 
   const suggestions = suggestionsFor(page, includeContext);
+  const avatarState: AvatarState = voice.status === "listening" ? "listening" : sending ? "thinking" : voice.status === "speaking" ? "speaking" : "idle";
   const shownMaterials = (materials ?? []).filter((material) => !filter.trim() || `${material.title} ${material.subject ?? ""}`.toLowerCase().includes(filter.trim().toLowerCase()));
   const contextLine = includeContext && page ? page.label : (conversation?.material?.title ?? attached?.title ?? "Ask about any lesson");
 
@@ -506,7 +614,7 @@ export default function AssistantPanel() {
     >
       <div aria-hidden="true" className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border lg:hidden" />
       <header className="flex items-center gap-2.5 border-b border-border py-2 pr-2 pl-3">
-        <RevTawAvatar state={sending ? "thinking" : "idle"} size={34} />
+        <RevTawAvatar state={avatarState} size={34} />
         <div className="min-w-0 flex-1">
           <h2 id={titleId} className="font-display text-base leading-tight font-semibold">
             {view === "history" ? "Your chats" : "Ask RevTaw"}
@@ -675,6 +783,22 @@ export default function AssistantPanel() {
             }}
           >
             {error && <Alert tone="error">{error}</Alert>}
+            {pendingSave && (
+              <div role="group" aria-labelledby={confirmId} className="flex flex-col gap-2 rounded-xl border border-primary/30 bg-primary-soft p-3">
+                <p id={confirmId} className="text-sm font-medium text-foreground">
+                  {pendingSave.kind === "save_note" ? "Save the last answer to your notes?" : "Make a flashcard from the last answer?"}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="button" size="sm" onClick={confirmSave}>
+                    {pendingSave.kind === "save_note" ? "Save to notes" : "Create flashcard"}
+                  </Button>
+                  <Button type="button" size="sm" variant="secondary" onClick={() => setPendingSave(null)}>
+                    Cancel
+                  </Button>
+                  {voice.supported && <span className="text-xs text-muted-foreground">or say “yes” or “no”</span>}
+                </div>
+              </div>
+            )}
             {notice && (
               <p role="status" className="text-xs text-muted-foreground">
                 {notice}
@@ -725,6 +849,22 @@ export default function AssistantPanel() {
                 }}
                 className="field-sizing-content max-h-36 min-h-9 flex-1 resize-none bg-transparent py-2 text-sm leading-5 text-foreground outline-none placeholder:text-muted-foreground"
               />
+              {voice.supported && (
+                <button
+                  type="button"
+                  onClick={toggleListening}
+                  disabled={sending}
+                  aria-pressed={voice.status === "listening"}
+                  aria-label="Ask by voice"
+                  title={voice.status === "listening" ? "Stop listening" : "Ask by voice: a question, or a command like “open the planner”"}
+                  className={cn(
+                    "flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                    voice.status === "listening" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                >
+                  {voice.status === "listening" ? <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" /> : <Mic className="h-4 w-4" aria-hidden="true" />}
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={sending || !draft.trim()}
@@ -734,6 +874,27 @@ export default function AssistantPanel() {
                 <SendHorizontal className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
+
+            {voice.status === "listening" && (
+              <p role="status" className="flex items-center gap-2 text-xs font-medium text-primary">
+                <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+                Listening… ask a question, or say “open the planner”.
+              </p>
+            )}
+            {voice.status === "speaking" && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Volume2 className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                <span role="status">Reading the answer aloud</span>
+                <button type="button" onClick={voice.stopSpeaking} className="cursor-pointer rounded-md px-1.5 py-0.5 font-semibold text-primary hover:bg-primary-soft">
+                  Stop
+                </button>
+              </div>
+            )}
+            {voice.error && (
+              <p role="alert" className="text-xs text-danger">
+                {voice.error}
+              </p>
+            )}
 
             <div className="flex flex-wrap items-center gap-1.5">
               {page?.ref && (
