@@ -8,7 +8,8 @@ import type { ResponseLanguage } from "@/lib/preferences/schema";
 import { getActivityStats } from "@/lib/study/queries";
 import { parseSessionSummary } from "@/lib/study/sessions";
 import { createClient } from "@/lib/supabase/server";
-import { cardsLine, examLine, improvementLine, planFinishedLine, repeatedLine, reviewsLine, streakLine, weakestLine } from "@/lib/tamari/coach";
+import { listGoalsWithProgress } from "@/lib/planner/goals";
+import { cardsLine, examLine, goalLine, improvementLine, planFinishedLine, repeatedLine, reviewsLine, streakLine, weakestLine } from "@/lib/tamari/coach";
 import { tamariLanguage, weakTopicBubble, type TamariBubble } from "@/lib/tamari/lines";
 
 /** The weakest practiced concept, as a bubble about it (Progress and Home). */
@@ -84,18 +85,26 @@ async function finishedPlan(): Promise<{ sessionId: string; correct: number; ans
   return { sessionId: data.id, correct: summary.correct, answered: summary.questionsAnswered, firstAccuracy: accuracy(extra.firstAccuracy), lastAccuracy: accuracy(extra.lastAccuracy) };
 }
 
+/** A study goal reached this period (or a one-off goal completed in the last day). */
+async function reachedGoal(): Promise<{ id: string; label: string } | null> {
+  const goals = await listGoalsWithProgress();
+  const fresh = goals.find((item) => item.reached && (item.goal.status === "active" || (item.goal.completed_at !== null && Date.now() - new Date(item.goal.completed_at).getTime() < 86_400_000)));
+  return fresh ? { id: `${fresh.goal.id}:${fresh.periodStart ?? "once"}`, label: fresh.label } : null;
+}
+
 /**
  * Tamari's line on Home, most urgent first (companion doc §3–§4): an exam
  * today or tomorrow, a streak that ends tonight, a concept missed three times
  * or more, an exam within three days, today's planned reviews, cards due, a
- * plan finished today, a clear improvement, then the weakest topic. Lines the
+ * plan finished today, a goal reached, a clear improvement, then the weakest
+ * topic. Lines the
  * student put off with "Later" today are skipped — Tamari then offers to plan
  * their time instead of saying the next thing. Reads what the Home widgets
  * read (cached per request), after the day's plan adjustment.
  */
 export async function homeLine(language: ResponseLanguage, planning: Promise<unknown>, later: string[]): Promise<TamariBubble | null> {
   await planning;
-  const [clock, activity, due, exam, mastery, missed, better, finished] = await Promise.all([
+  const [clock, activity, due, exam, mastery, missed, better, finished, goal] = await Promise.all([
     plannerClock(),
     getActivityStats(),
     getDueToday(),
@@ -104,6 +113,7 @@ export async function homeLine(language: ResponseLanguage, planning: Promise<unk
     mostMissedConcept(),
     freshImprovement(),
     finishedPlan(),
+    reachedGoal(),
   ]);
   const lang = tamariLanguage(language);
   const pick = (line: TamariBubble | null): TamariBubble | null => (line && !later.includes(line.id) ? line : null);
@@ -118,6 +128,7 @@ export async function homeLine(language: ResponseLanguage, planning: Promise<unk
     },
     () => (due.dueCards > 0 ? cardsLine(lang, due.dueCards, clock.today) : null),
     () => (finished ? planFinishedLine(lang, finished) : null),
+    () => (goal ? goalLine(lang, goal) : null),
     () => (better ? improvementLine(lang, better) : null),
     () => {
       const weakest = [...mastery.weak].sort((a, b) => Number(a.mastery) - Number(b.mastery)).find((row) => row.concept);

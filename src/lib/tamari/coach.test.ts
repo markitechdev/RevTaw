@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cardsLine, examLine, formatLater, improvementLine, offerLine, parseLater, planFinishedLine, repeatedLine, reviewsLine, streakLine, weakestLine } from "@/lib/tamari/coach";
+import { cardsLine, examLine, formatLater, goalLine, improvementLine, offerLine, parseLater, planFinishedLine, repeatedLine, reviewsLine, streakLine, weakestLine } from "@/lib/tamari/coach";
 
 describe("Tamari's lines on Home", () => {
   it("says today's reviews and offers to start the first one", () => {
@@ -32,6 +32,7 @@ describe("Tamari's lines on Home", () => {
     expect(planFinishedLine("taglish", { sessionId: "s1", correct: 9, answered: 10, firstAccuracy: 0.6, lastAccuracy: 1 })).toMatchObject({ state: "confident", text: "Bitaw. 9/10. Mas okay na." });
     expect(weakestLine("taglish", { id: "c2", name: "Recursion", materialId: "m1" }).text).toBe("Recursion pa rin pinakamahinang topic mo.");
     expect(offerLine("taglish")).toBe("May 20 minutes ka? Ako na bahala.");
+    expect(goalLine("taglish", { id: "g1:2026-10-21", label: "Study 60 minutes today" })).toMatchObject({ id: "goal:g1:2026-10-21", state: "confident", text: "Bitaw! Naabot mo na: Study 60 minutes today." });
   });
 
   it("remembers today's \"Later\" in a cookie-safe value and forgets it tomorrow", () => {

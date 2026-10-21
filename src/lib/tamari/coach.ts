@@ -122,6 +122,16 @@ export function planFinishedLine(lang: TamariLanguage, plan: { sessionId: string
   };
 }
 
+/** A study goal reached (today's minutes, this week's cards, a mastery target). */
+export function goalLine(lang: TamariLanguage, goal: { id: string; label: string }): TamariBubble {
+  return {
+    id: `goal:${goal.id}`,
+    state: "confident",
+    text: say(lang, { taglish: `Bitaw! Naabot mo na: ${goal.label}.`, en: `Bitaw! Goal reached: ${goal.label}.`, fil: `Bitaw! Naabot mo na ang layunin: ${goal.label}.` }),
+    action: { label: say(lang, { taglish: "Tingnan", en: "See your goals", fil: "Tingnan" }), kind: "open", href: routes.planner },
+  };
+}
+
 export function weakestLine(lang: TamariLanguage, concept: { id: string; name: string; materialId: string | null }): TamariBubble {
   return {
     id: `weakest:${concept.id}`,
