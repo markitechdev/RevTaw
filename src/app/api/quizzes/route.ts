@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createQuiz, ServiceError } from "@/lib/quizzes/service";
-import { quizConfigSchema } from "@/lib/quizzes/types";
+import { quizConfigSchema, typeCoverageError } from "@/lib/quizzes/types";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/supabase/server";
 
@@ -21,6 +21,11 @@ export async function POST(request: Request) {
   const body = bodySchema.safeParse(await request.json().catch(() => null));
   if (!body.success) {
     return NextResponse.json({ error: body.error.issues[0]?.message ?? "Check the quiz settings." }, { status: 400 });
+  }
+
+  const coverage = typeCoverageError(body.data);
+  if (coverage) {
+    return NextResponse.json({ error: coverage }, { status: 400 });
   }
 
   const ip = await getClientAddress();

@@ -284,27 +284,29 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
             />
           </div>
 
-          <div className="mt-4">
-            <p className="mb-1.5 text-xs font-medium text-muted-foreground">How sure are you?</p>
-            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Confidence">
-              {CONFIDENCE_LEVELS.map((level) => (
-                <button
-                  key={level.id}
-                  type="button"
-                  disabled={checked || pending}
-                  aria-pressed={confidence[question.id] === level.id}
-                  onClick={() => setConfidence((state) => ({ ...state, [question.id]: state[question.id] === level.id ? null : level.id }))}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                    confidence[question.id] === level.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted",
-                    "disabled:cursor-not-allowed disabled:opacity-60",
-                  )}
-                >
-                  {level.label}
-                </button>
-              ))}
+          {view.quiz.config.askConfidence && (
+            <div className="mt-4">
+              <p className="mb-1.5 text-xs font-medium text-muted-foreground">How sure are you?</p>
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Confidence">
+                {CONFIDENCE_LEVELS.map((level) => (
+                  <button
+                    key={level.id}
+                    type="button"
+                    disabled={checked || pending}
+                    aria-pressed={confidence[question.id] === level.id}
+                    onClick={() => setConfidence((state) => ({ ...state, [question.id]: state[question.id] === level.id ? null : level.id }))}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                      confidence[question.id] === level.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted",
+                      "disabled:cursor-not-allowed disabled:opacity-60",
+                    )}
+                  >
+                    {level.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {error && (
             <Alert tone="error" className="mt-4">

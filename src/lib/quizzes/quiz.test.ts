@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { gradeHeuristically, quizHeuristically } from "@/lib/ai/providers/mock";
 import { finalizeQuestions, quizResponseSchema } from "@/lib/quizzes/generate";
 import { gradeObjective, normalizeText, textMatches } from "@/lib/quizzes/grade";
-import { DEFAULT_QUIZ_CONFIG, describeAnswer, distributeQuestions, parseQuizConfig, type QuizConfig } from "@/lib/quizzes/types";
+import { DEFAULT_QUIZ_CONFIG, describeAnswer, distributeQuestions, parseQuizConfig, typeCoverageError, type QuizConfig } from "@/lib/quizzes/types";
 
 describe("distributeQuestions", () => {
   it("splits the count evenly and gives the remainder to the first types", () => {
@@ -136,5 +136,35 @@ student answer: I do not know.`;
     expect(grades).toHaveLength(2);
     expect(grades[0]).toMatchObject({ id: "q1", score: 2 });
     expect(grades[1]).toMatchObject({ id: "q2", score: 0 });
+  });
+});
+
+describe("mixed quizzes keep every selected type", () => {
+  const question = (type: "multiple_choice" | "true_false" | "identification", index: number) =>
+    type === "multiple_choice"
+      ? { type, difficulty: "easy" as const, prompt: `Which option ${index}?`, options: [{ id: "a", text: "A" }, { id: "b", text: "B" }, { id: "c", text: "C" }, { id: "d", text: "D" }], answer: { option_id: "a" }, explanation: "Because.", concept: "Topic", source_excerpt: "Quote." }
+      : type === "true_false"
+        ? { type, difficulty: "easy" as const, prompt: `Is statement ${index} true?`, answer: { value: true }, explanation: "Because.", concept: "Topic", source_excerpt: "Quote." }
+        : { type, difficulty: "easy" as const, prompt: `Name thing ${index}.`, answer: { accepted: ["Thing"] }, explanation: "Because.", concept: "Topic", source_excerpt: "Quote." };
+
+  it("takes each type's share even when the model front-loads one type", () => {
+    const generated = [
+      ...Array.from({ length: 8 }, (_, index) => question("multiple_choice", index)),
+      question("true_false", 1),
+      question("true_false", 2),
+      question("identification", 1),
+      question("identification", 2),
+    ];
+    const config: QuizConfig = { ...DEFAULT_QUIZ_CONFIG, questionCount: 6, questionTypes: ["multiple_choice", "true_false", "identification"] };
+    const final = finalizeQuestions(generated as never, config);
+    expect(final).toHaveLength(6);
+    expect(final.filter((item) => item.type === "multiple_choice")).toHaveLength(2);
+    expect(final.filter((item) => item.type === "true_false")).toHaveLength(2);
+    expect(final.filter((item) => item.type === "identification")).toHaveLength(2);
+  });
+
+  it("asks for at least one question per selected type", () => {
+    expect(typeCoverageError({ questionCount: 3, questionTypes: ["multiple_choice", "true_false", "essay", "scenario"] })).toMatch(/4 question types need at least 4 questions/);
+    expect(typeCoverageError({ questionCount: 4, questionTypes: ["multiple_choice", "true_false", "essay", "scenario"] })).toBeNull();
   });
 });

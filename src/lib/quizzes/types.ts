@@ -82,6 +82,8 @@ export const quizConfigSchema = z.object({
   feedback: z.enum(["immediate", "after"]),
   /** Optional topic or chapter to focus on (free text, matched by the model). */
   focus: z.string().trim().max(200).nullable(),
+  /** Ask "How sure are you?" for every answer (feeds confidence calibration). Older quizzes default to on. */
+  askConfidence: z.boolean().default(true),
 });
 
 export type QuizConfig = z.infer<typeof quizConfigSchema>;
@@ -96,6 +98,7 @@ export const DEFAULT_QUIZ_CONFIG: QuizConfig = {
   shuffleOptions: true,
   feedback: "immediate",
   focus: null,
+  askConfidence: true,
 };
 
 /** Reads a stored config, filling anything missing with defaults. */
@@ -129,6 +132,15 @@ export type QuestionResponse = z.infer<typeof responseSchema>;
 
 export function isObjectiveType(type: QuestionType): boolean {
   return QUESTION_TYPE_BY_ID[type].grading === "auto";
+}
+
+/**
+ * A mixed quiz only contains every selected type when there is at least one
+ * question per type; returns the message to show when there is not.
+ */
+export function typeCoverageError(config: Pick<QuizConfig, "questionCount" | "questionTypes">): string | null {
+  const types = new Set(config.questionTypes).size;
+  return config.questionCount < types ? `${types} question types need at least ${types} questions, one of each.` : null;
 }
 
 /** Splits a question budget across the chosen types as evenly as possible. */

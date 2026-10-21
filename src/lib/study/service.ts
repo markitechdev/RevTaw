@@ -340,6 +340,7 @@ async function startPracticeTesting(supabase: Client, userId: string, input: Sta
     shuffleOptions: true,
     feedback: "after",
     focus: input.focus?.trim() || null,
+    askConfidence: true,
   });
   if (quiz.status !== "ready") throw new SessionError(quiz.detail ?? "The practice test could not be generated.", 422);
   const attempt = await startAttempt(quiz.id, { mode: exam ? "exam" : "practice", timeLimitMinutes: timed ? input.plannedMinutes : null });

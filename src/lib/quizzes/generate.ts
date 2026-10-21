@@ -133,7 +133,18 @@ export function finalizeQuestions(questions: GeneratedQuestion[], config: QuizCo
   const wanted = new Set(config.questionTypes);
   const matching = kept.filter((question) => wanted.has(question.type));
   const pool = matching.length >= Math.min(config.questionCount, 3) ? matching : kept;
-  return pool.slice(0, config.questionCount);
+  // Take each type's planned share first, so a mixed quiz really contains every
+  // selected type even when the model over-produces the first ones, then fill
+  // any shortfall with the rest; the model's order (types interleaved) is kept.
+  const picked = new Set<GeneratedQuestion>();
+  for (const item of distributeQuestions(config.questionCount, config.questionTypes)) {
+    for (const question of pool.filter((candidate) => candidate.type === item.type).slice(0, item.count)) picked.add(question);
+  }
+  for (const question of pool) {
+    if (picked.size >= config.questionCount) break;
+    picked.add(question);
+  }
+  return pool.filter((question) => picked.has(question)).slice(0, config.questionCount);
 }
 
 /** Generates quiz questions of the configured types from the material chunks. */
