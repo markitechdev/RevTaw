@@ -31,7 +31,9 @@ export default function LandingPage() {
           <div className="animate-fade-up">
             <p className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-muted-foreground">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
-              Bitaw na. Let&apos;s review.
+              <span>
+                Created by <span className="text-foreground">{BRAND.creator}</span>
+              </span>
             </p>
             <h1 className="mt-5 text-[clamp(2.4rem,6.2vw,4.25rem)] font-extrabold leading-[1.04] tracking-tight text-foreground">
               <TypingHeadline phrases={HEADLINE} />
