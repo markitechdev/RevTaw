@@ -48,23 +48,29 @@ export function DashboardBoard({ layout, header, stage, widgets }: { layout: Das
   const lists = visible.filter((id) => widgetGroup(id) === "lists");
   const node = (id: WidgetId) => widgets[id] ?? skeletonFor(id);
 
-  const customize = (className: string) => (
-    <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label="Customize dashboard" title="Customize dashboard" className={className}>
-      <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-      <span className="hidden sm:inline">Customize</span>
-    </Button>
-  );
-
   return (
     <div className="flex flex-col gap-6">
-      {/* The greeting, with Tamari beside it (sitting on the first card's edge) and the Customize button in the corner. */}
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:gap-8">
-        <div className="flex min-w-0 items-start justify-between gap-3 xl:flex-1">
-          {header}
-          {customize("-mr-2 shrink-0 xl:hidden")}
-        </div>
-        {stage}
-        {customize("hidden shrink-0 self-start xl:-mr-2 xl:inline-flex")}
+      {/*
+        The greeting, with Tamari beside it (sitting on the first card's edge) and the Customize
+        button in the corner: greeting | Customize, then Tamari on its own row on narrower screens;
+        greeting | Tamari | Customize in one row on wide ones.
+      */}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-3 xl:grid-cols-[minmax(0,1fr)_auto_auto] xl:gap-x-8">
+        <div className="min-w-0 xl:self-end">{header}</div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setOpen(true)}
+          aria-haspopup="dialog"
+          aria-label="Customize dashboard"
+          title="Customize dashboard"
+          className="col-start-2 row-start-1 -mr-2 xl:col-start-3"
+        >
+          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+          <span className="hidden sm:inline">Customize</span>
+        </Button>
+        {stage && <div className="col-span-2 min-w-0 xl:col-span-1 xl:col-start-2 xl:row-start-1 xl:self-end">{stage}</div>}
       </div>
 
       {visible.length === 0 ? (

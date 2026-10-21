@@ -239,7 +239,8 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
   const launcher: LauncherMode = pages.some((item) => item.launcher === "hidden") ? "hidden" : pages.some((item) => item.launcher === "desktop") ? "desktop" : "visible";
   const seated = seats > 0 && assistant.mascot;
   // Tamari peeks from the screen edge unless the page seats it; it stays while the chat is open (beside the panel on wide screens).
-  const showLauncher = assistant.launcher && launcher !== "hidden" && !seated;
+  // "Show the chat button" only applies with Tamari hidden; Tamari itself always peeks.
+  const showLauncher = (assistant.mascot || assistant.launcher) && launcher !== "hidden" && !seated;
   // Tamari is somewhere on screen: seated on the page, or at the edge.
   const withTamari = assistant.mascot && (seated || showLauncher);
   const hintsOn = withTamari && assistant.suggestions;
