@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import { pageContextSchema } from "@/lib/assistant/context-schema";
 import { resolvePageContext } from "@/lib/assistant/context";
+import { studySnapshot } from "@/lib/assistant/snapshot";
+import { asksAboutStudyData } from "@/lib/assistant/study-question";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { getConversation } from "@/lib/tutor/queries";
@@ -64,8 +66,10 @@ export async function POST(request: Request, context: RouteContext<"/api/tutor/c
     return NextResponse.json({ error: "You have sent a lot of messages. Please wait a little." }, { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } });
   }
   try {
-    const page = await resolvePageContext(body.data.context);
-    const result = await sendMessage({ conversationId: params.data.id, content: body.data.message, action: body.data.action, selection: body.data.selection, pageNote: page.note });
+    // The page the student asked from, plus their study data when the question is about it ("what am I weak at?").
+    const [page, snapshot] = await Promise.all([resolvePageContext(body.data.context), asksAboutStudyData(body.data.message) ? studySnapshot() : null]);
+    const pageNote = [page.note, snapshot].filter(Boolean).join("\n\n") || null;
+    const result = await sendMessage({ conversationId: params.data.id, content: body.data.message, action: body.data.action, selection: body.data.selection, pageNote });
     return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     if (error instanceof ServiceError) {

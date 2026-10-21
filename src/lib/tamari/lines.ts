@@ -137,6 +137,11 @@ export function quizBubble(lang: TamariLanguage, attempt: { id: string; correct:
   };
 }
 
+/** When the student only says "Tamari". */
+export function hereLine(lang: TamariLanguage): string {
+  return say(lang, { taglish: "Nandito ako! Ask me anything.", en: "I'm here! Ask me anything.", fil: "Nandito ako! Magtanong ka lang." });
+}
+
 /** After a long nap, when the student comes back. */
 export function napBubble(lang: TamariLanguage): TamariBubble {
   return {

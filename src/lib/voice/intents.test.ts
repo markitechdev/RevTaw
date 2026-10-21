@@ -63,6 +63,37 @@ describe("routeVoiceCommand", () => {
   });
 });
 
+describe("talking to Tamari", () => {
+  it("takes \"Tamari\" (or \"Hey Tamari\") in front of commands and questions", () => {
+    expect(normalizeSpeech("Tamari, open the planner")).toBe("open the planner");
+    expect(routeVoiceCommand("Tamari, open the planner")).toMatchObject({ kind: "navigate", href: "/planner" });
+    expect(routeVoiceCommand("Hey Tamari, start a 25-minute Pomodoro")).toMatchObject({ kind: "navigate", href: "/study?method=pomodoro" });
+    expect(routeVoiceCommand("Tamari, explain recursion.")).toEqual({ kind: "ask", text: "explain recursion." });
+    expect(routeVoiceCommand("Tamari, explain mo sakin yung recursion")).toEqual({ kind: "ask", text: "explain mo sakin yung recursion" });
+    expect(routeVoiceCommand("Tamari")).toEqual({ kind: "ask", text: "" });
+  });
+
+  it("reviews mistakes and flashcards", () => {
+    expect(routeVoiceCommand("Tamari, review my mistakes")).toMatchObject({ kind: "navigate", href: "/study?method=error_review" });
+    expect(routeVoiceCommand("review my flashcards")).toMatchObject({ href: "/flashcards/review" });
+    expect(routeVoiceCommand("review the Calvin cycle")).toMatchObject({ kind: "ask" });
+  });
+
+  it("finds an item by name, and keeps plain lists as lists", () => {
+    expect(routeVoiceCommand("Tamari, open my Calculus reviewer")).toEqual({ kind: "find", query: "calculus", type: "note", href: "/notes", label: "Notes" });
+    expect(routeVoiceCommand("buksan ang biology quiz")).toMatchObject({ kind: "find", query: "biology", type: "quiz" });
+    expect(routeVoiceCommand("open the reviewer about binary trees")).toMatchObject({ kind: "find", query: "binary trees", type: "note" });
+    expect(routeVoiceCommand("open my notes")).toEqual({ kind: "navigate", href: "/notes", label: "Notes" });
+    expect(routeVoiceCommand("open study methods")).toMatchObject({ kind: "navigate", href: "/methods" });
+  });
+
+  it("leaves questions about study data to Tamari", () => {
+    expect(routeVoiceCommand("Tamari, what topics am I weak at?")).toEqual({ kind: "ask", text: "what topics am I weak at?" });
+    expect(routeVoiceCommand("Tamari, what should I study today?")).toMatchObject({ kind: "ask" });
+    expect(routeVoiceCommand("Tamari, quiz me about chapter 3")).toMatchObject({ kind: "ask" });
+  });
+});
+
 describe("confirmationAnswer", () => {
   it("reads yes and no in English and Filipino", () => {
     expect(confirmationAnswer("Yes please")).toBe("yes");

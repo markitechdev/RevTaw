@@ -1,19 +1,26 @@
 import { routes } from "@/lib/routes";
 
 /**
- * Voice commands (UI phase §21): a spoken sentence becomes either a command
- * ("open the planner", "buksan ang flashcards", "save that to my notes") or
- * a question for RevTaw. English, Filipino and Taglish phrasings. Only short
- * sentences that start like a command are treated as one, so a question that
- * happens to begin with "show me…" is still answered. Pure and client-safe.
+ * Voice commands (UI phase §21, mascot doc §7): a spoken sentence becomes
+ * either a command ("Tamari, open the planner", "buksan ang flashcards",
+ * "open my Calculus reviewer", "review my mistakes", "save that to my notes")
+ * or a question for Tamari. English, Filipino and Taglish phrasings; "Tamari"
+ * (or "Hey Tamari") in front is optional. Only short sentences that start like
+ * a command are treated as one, so a question that happens to begin with
+ * "show me…" is still answered. Pure and client-safe.
  *
  * Nothing that changes the student's data runs straight from voice: saving
  * an answer asks for a confirmation first, and the "create" commands open
  * the usual dialog, where the student still chooses and confirms.
  */
 
+/** Kinds of items a spoken name can find (the quick search's result types). */
+export type VoiceSearchType = "material" | "note" | "quiz" | "deck";
+
 export type VoiceIntent =
   | { kind: "navigate"; href: string; label: string }
+  /** "Open my Calculus reviewer": find the item by name, else open its list (`href`). */
+  | { kind: "find"; query: string; type: VoiceSearchType; href: string; label: string }
   | { kind: "theme"; theme: "light" | "dark" }
   | { kind: "save_note" }
   | { kind: "save_flashcard" }
@@ -21,16 +28,16 @@ export type VoiceIntent =
   | { kind: "stop" }
   | { kind: "ask"; text: string };
 
-type Target = { label: string; href: string; words: string[] };
+type Target = { label: string; href: string; words: string[]; search?: VoiceSearchType };
 
 const OPEN_TARGETS: Target[] = [
   { label: "Home", href: routes.dashboard, words: ["home", "dashboard", "homepage", "home page"] },
   { label: "Study", href: routes.study, words: ["study", "study page", "aral", "pag aaral"] },
-  { label: "Materials", href: routes.materials, words: ["materials", "material", "files", "modules", "module", "documents", "lessons", "handouts"] },
+  { label: "Materials", href: routes.materials, words: ["materials", "material", "files", "file", "modules", "module", "documents", "document", "lessons", "lesson", "handouts", "handout"], search: "material" },
   { label: "Planner", href: routes.planner, words: ["planner", "calendar", "schedule", "plan", "kalendaryo", "iskedyul"] },
-  { label: "Quizzes", href: routes.quiz, words: ["quizzes", "quiz", "tests", "test", "pagsusulit"] },
-  { label: "Flashcards", href: routes.flashcards, words: ["flashcards", "flashcard", "flash cards", "cards", "decks", "deck"] },
-  { label: "Notes", href: routes.notes, words: ["notes", "reviewers", "reviewer", "tala"] },
+  { label: "Quizzes", href: routes.quiz, words: ["quizzes", "quiz", "tests", "test", "pagsusulit"], search: "quiz" },
+  { label: "Flashcards", href: routes.flashcards, words: ["flashcards", "flashcard", "flash cards", "cards", "decks", "deck"], search: "deck" },
+  { label: "Notes", href: routes.notes, words: ["notes", "reviewers", "reviewer", "tala"], search: "note" },
   { label: "Study Methods", href: routes.methods, words: ["study methods", "methods", "techniques"] },
   { label: "Progress", href: routes.progress, words: ["progress", "stats", "statistics", "scores", "grades"] },
   { label: "Mistake notebook", href: routes.mistakes, words: ["mistake notebook", "mistakes", "wrong answers", "mga mali", "mali"] },
@@ -59,9 +66,12 @@ const START_TARGETS: Target[] = [
 
 const OPEN_VERBS = ["take me to", "bring me to", "navigate to", "go to", "go back to", "show me", "show", "open", "pumunta sa", "punta sa", "pumunta", "buksan", "ipakita", "tingnan", "puntahan"];
 const CREATE_VERBS = ["generate", "create", "make", "upload", "add", "new", "gumawa ng", "gawa ng", "gumawa", "magdagdag ng", "magdagdag", "mag upload"];
-const START_VERBS = ["lets start", "start", "begin", "simulan", "umpisahan", "magsimula ng", "magsimula"];
-const FILLERS = new Set(["a", "an", "the", "my", "me", "some", "new", "page", "please", "ang", "ng", "mga", "sa", "ko", "aking", "mo", "nga", "po", "natin", "yung", "iyong", "for", "to", "of"]);
-const WAKE = /^(hey |hi |ok |okay )?(revtaw|rev taw)[,\s]+/;
+const START_VERBS = ["lets start", "start", "begin", "review", "simulan", "umpisahan", "magsimula ng", "magsimula", "i review", "mag review"];
+const FILLERS = new Set(["a", "an", "the", "my", "me", "some", "new", "page", "please", "ang", "ng", "mga", "sa", "ko", "aking", "mo", "nga", "po", "natin", "yung", "iyong", "for", "to", "of", "about", "on", "called", "named", "titled", "tungkol", "na"]);
+/** "Tamari, …" / "Hey Tamari …" (and the older "RevTaw, …") in front of a command or question. */
+const WAKE = /^(hey |hi |ok |okay |uy |oy |hoy )?(tamari|tamary|tamaree|tamarie|tamare|revtaw|rev taw)([,\s]+|$)/;
+/** The same wake word on the original transcript, so a question keeps its own case and punctuation. */
+const WAKE_ORIGINAL = /^\s*(?:(?:hey|hi|ok|okay|uy|oy|hoy)[\s,]+)?(?:tamari|tamary|tamaree|tamarie|tamaré|tamare|revtaw|rev taw)\b[\s,.!?]*/i;
 const POLITE = /^(please |pakiusap |paki |pwede (mo )?(bang |ba )?|can you |could you )+/;
 
 /** Lowercase words without punctuation or accents; wake words and "please" removed. */
@@ -87,18 +97,20 @@ function stripVerb(text: string, verbs: string[]): string | null {
   return null;
 }
 
-function findTarget(rest: string, targets: Target[]): Target | null {
+/** The target a short command names, and any other words in it (the name of an item: "calculus" in "open my calculus reviewer"). */
+function findTarget(rest: string, targets: Target[]): { target: Target; extra: string } | null {
   const words = rest.split(" ").filter((word) => word && !FILLERS.has(word));
   if (words.length === 0) return null;
   const phrase = ` ${words.join(" ")} `;
   // The longest matching phrase wins ("study methods" over "study").
-  let best: { target: Target; length: number } | null = null;
+  let best: { target: Target; word: string } | null = null;
   for (const target of targets) {
     for (const word of target.words) {
-      if (phrase.includes(` ${word} `) && (!best || word.length > best.length)) best = { target, length: word.length };
+      if (phrase.includes(` ${word} `) && (!best || word.length > best.word.length)) best = { target, word };
     }
   }
-  return best?.target ?? null;
+  if (!best) return null;
+  return { target: best.target, extra: phrase.replace(` ${best.word} `, " ").trim() };
 }
 
 const STOP = /^(stop|stop talking|stop reading|stop speaking|be quiet|quiet|tama na|hinto|tumigil|cancel|never mind|nevermind|wag na|huwag na|okay stop)$/;
@@ -127,21 +139,22 @@ export function routeVoiceCommand(transcript: string): VoiceIntent {
   if (text.split(" ").length <= 7) {
     const start = stripVerb(text, START_VERBS);
     if (start !== null) {
-      const target = findTarget(start || "studying", START_TARGETS);
-      if (target) return { kind: "navigate", href: target.href, label: target.label };
+      const found = findTarget(start || "studying", START_TARGETS);
+      if (found) return { kind: "navigate", href: found.target.href, label: found.target.label };
     }
     const create = stripVerb(text, CREATE_VERBS);
     if (create !== null) {
-      const target = findTarget(create, CREATE_TARGETS);
-      if (target) return { kind: "navigate", href: target.href, label: target.label };
+      const found = findTarget(create, CREATE_TARGETS);
+      if (found) return { kind: "navigate", href: found.target.href, label: found.target.label };
     }
     const open = stripVerb(text, OPEN_VERBS);
     if (open !== null) {
-      const target = findTarget(open, OPEN_TARGETS);
-      if (target) return { kind: "navigate", href: target.href, label: target.label };
+      const found = findTarget(open, OPEN_TARGETS);
+      if (found?.target.search && found.extra) return { kind: "find", query: found.extra, type: found.target.search, href: found.target.href, label: found.target.label };
+      if (found) return { kind: "navigate", href: found.target.href, label: found.target.label };
     }
   }
-  return { kind: "ask", text: original };
+  return { kind: "ask", text: original.replace(WAKE_ORIGINAL, "").trim() };
 }
 
 const YES = /^(yes|yeah|yep|yup|sure|ok|okay|go|go ahead|do it|save it|confirm|oo|opo|oho|sige|sige na|tama|game)$/;

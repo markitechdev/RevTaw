@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { saveAiPreferencesAction } from "@/lib/preferences/actions";
 import type { ResponseLanguage } from "@/lib/preferences/schema";
 import { routes } from "@/lib/routes";
+import { hereLine, tamariLanguage } from "@/lib/tamari/lines";
 import { TAMARI_NAME, TAMARI_STATES, TAMARI_TAGLINE, type TamariState } from "@/lib/tamari/states";
 import { addToNotesAction, createFlashcardAction } from "@/lib/tutor/actions";
 import type { MessageView } from "@/lib/tutor/queries";
@@ -472,6 +473,25 @@ export default function AssistantPanel() {
         router.push(intent.href);
         if (!desktop) hide();
         return;
+      case "find":
+        // "Open my Calculus reviewer": the best match by name, else the list it would be in.
+        setNotice(`Looking for “${intent.query}”…`);
+        void fetch(`/api/search/quick?q=${encodeURIComponent(intent.query)}`, { headers: { accept: "application/json" } })
+          .then((response) => (response.ok ? response.json() : { results: [] }))
+          .catch(() => ({ results: [] }))
+          .then((body: { results?: Array<{ type: string; title: string; href: string }> }) => {
+            const results = body.results ?? [];
+            const match = results.find((result) => result.type === intent.type) ?? results[0];
+            if (match) {
+              setNotice(`Opening ${match.title}…`);
+              router.push(match.href);
+            } else {
+              setNotice(`I couldn't find “${intent.query}”, so here are your ${intent.label.toLowerCase()}.`);
+              router.push(intent.href);
+            }
+            if (!desktop) hide();
+          });
+        return;
       case "save_note":
       case "save_flashcard": {
         const last = [...messages].reverse().find((message) => message.role === "assistant" && !message.id.startsWith("pending-"));
@@ -492,6 +512,13 @@ export default function AssistantPanel() {
         return;
       }
       case "ask":
+        // Just "Tamari": answer, without sending anything to the AI.
+        if (!intent.text) {
+          const line = hereLine(tamariLanguage(ai.language));
+          setNotice(line);
+          say(line);
+          return;
+        }
         void send({ content: intent.text, action: null, fromVoice: true });
         return;
     }

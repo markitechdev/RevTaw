@@ -757,6 +757,20 @@ export function tutorReplyHeuristically(material: string, prompt: string, system
   const noMaterial = /no material selected/.test(prompt) || /\(none\)/.test(material.trim()) || material.trim().length === 0;
   const mode = /Socratic mode/.test(system) ? "socratic" : /Guided mode/.test(system) ? "guided" : /Elaborative interrogation mode/.test(system) ? "elaborative" : /Self-explanation mode/.test(system) ? "self_explanation" : /Teach-back mode/.test(system) ? "teach_back" : "tutor";
 
+  // A question about the student's own study data: answer from the snapshot Tamari's request carries.
+  const snapshot = prompt.match(/The student's study data in RevTaw right now:\n((?:- .*(?:\n|$))+)/)?.[1]?.trim();
+  if (snapshot) {
+    const facts = snapshot.split("\n").map((line) => line.replace(/^- /, "").trim()).filter(Boolean);
+    return {
+      answer: `Here's what RevTaw shows for you right now:\n\n${facts.map((fact) => `- ${fact}`).join("\n")}\n\nStart with the first weak concept on that list — a short active recall round on it moves it fastest.`,
+      grounding: "general",
+      sources: [],
+      additional_explanation: null,
+      follow_ups: ["test_me", "explain_more"],
+      flashcard: null,
+    };
+  }
+
   const passages = noMaterial ? [] : parsePassages(material);
   // Follow-ups ("Simplify this.") carry no topic words of their own; fall back to the previous answer's keywords.
   const ownTerms = keywordsOf(`${selection} ${message}`).filter((word) => !/^(explain|simplify|summarize|example|analogy|step|quiz|guide|material|answer|wrong|more|like|beginner|mnemonic|compare|related|ideas|give|keep|asking|until|reason|clear|true|without|giving|this)$/.test(word));
