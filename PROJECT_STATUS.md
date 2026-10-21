@@ -601,8 +601,8 @@ assistant instead of a page change).
 - **Settings** (priority 5) — grouped into Account and Preferences:
   Appearance (mode per device, theme color, custom color, reduce motion),
   Dashboard, RevTaw tools, AI preferences (response language Auto /
-  English / Filipino / Taglish / other, style, depth; the Ask RevTaw button
-  and spoken answers), Study (preferred methods), Notifications (in-app,
+  English / Filipino / Taglish / other, style, depth; Tamari's settings),
+  Study (preferred methods), Notifications (in-app,
   email, browser; default reminder; mutable kinds). Onboarding asks for the
   response language.
 - **Selection controls** (priority 6) — the quiz generator shows material,
@@ -611,13 +611,14 @@ assistant instead of a page change).
   multi-select and a mixed quiz keeps every selected type
   (`typeCoverageError`); the session builder, exam and deck dialogs use
   chips and segments.
-- **Ask RevTaw** (priority 7) — a floating assistant on every signed-in page
-  (`AssistantProvider` in the app layout, panel loaded on first open):
+- **The assistant** (priority 7; first "Ask RevTaw", now Tamari) — a
+  floating assistant on every signed-in page (`AssistantProvider` in the
+  app layout, panel loaded on first open):
   desktop panel / phone bottom sheet, page context ("Subject → Material")
   sent as ids and resolved on the server with the student's session,
   quick actions, history, new chat, expand, minimize, attach material,
   context-aware suggestions ("Why did I get number 7 wrong?"); highlight-
-  and-ask and "Ask RevTaw why" answer in place. Hidden during a quiz and on
+  and-ask and "Ask Tamari why" answer in place. Hidden during a quiz and on
   the AI Tutor pages; desktop-only where phones have bottom actions.
 - **Voice** (priority 8) — mic in the composer where the browser supports
   speech recognition; avatar states idle / listening / thinking / speaking;
@@ -640,10 +641,50 @@ assistant instead of a page change).
   hint fell below 4.5:1 with some custom colors; the user bubble's action
   label in the tutor was below 4.5:1.
 
+### Tamari, the study companion (mascot integration)
+
+Tamari — the provided pixel-art bull in a hoodie — is the face and voice of
+RevTaw's one assistant (the same chat, AI, voice and page context; not a
+second AI).
+
+- **Pictures** — the four poses (reading, laptop, serious laptop, sleeping)
+  cut out of their navy squares without redrawing, on one shared frame,
+  64–256 px, drawn with `image-rendering: pixelated` and sharp at DPR 1,
+  1.25, 1.5 and 2 (`src/components/tamari/sprites/`).
+- **States** — idle, listening, thinking, speaking, studying, celebrating,
+  serious and sleeping, each mapped to a pose, a whole-pixel stepped CSS
+  motion (1–2 px bob, talking bounce, hop, shake, dozing, a listening ring,
+  thinking dots) and its words (`src/lib/tamari/states.ts`). Every motion is
+  transform-only and holds still under reduced motion. A new pose is one
+  picture set plus one line.
+- **Where** — a small round button bottom right (above the phone tab bar;
+  desktop-only where phones have bottom actions); the chat header shows
+  Tamari's portrait ("Tamari · Your RevTaw Study Companion", what Tamari is
+  doing, and a Context line), hopping once when opened. Listening, thinking
+  and talking follow the voice and the answer in flight; Tamari works in
+  the corner while a quiz, deck or reviewer is generated or an answer
+  arrives with the chat minimized, and studies along on session pages.
+- **Speech bubbles** — Home (a streak ending tonight, an exam within three
+  days, today's reviews, due flashcards, the weakest topic), quiz results
+  ("Bitaw! 8/10.", "Bitaw! From 68% to 84%.", or going over the misses),
+  the planner (exam within a week) and Progress (weakest topic); once per
+  session each, three at most, never while the chat is open; English,
+  Filipino or Taglish by the response language. After five quiet minutes
+  Tamari naps and wakes with "Review tayo?".
+- **Personality and voice** — the tutor prompt speaks as Tamari (smart,
+  confident, playful; accurate first); "Tamari, …" works in front of any
+  voice command; "review my mistakes", "open my Calculus reviewer" (found by
+  name); questions about the student's own data carry a study snapshot
+  (`src/lib/assistant/snapshot.ts`).
+- **Settings → AI preferences → Tamari Assistant** — corner: Tamari, a plain
+  chat button or nothing; idle animations; contextual suggestions; voice
+  interaction; spoken answers; reduce motion (the account switch).
+
 ## In Progress
 
-- Nothing at the moment. All ten phases of the specification and the
-  UI/UX Improvement and Personalization Phase are implemented.
+- Nothing at the moment. All ten phases of the specification, the UI/UX
+  Improvement and Personalization Phase and the Tamari mascot integration
+  are implemented.
 
 ## Next (priority order)
 
@@ -657,6 +698,9 @@ assistant instead of a page change).
 4. Pagination of the Content tab for very large materials; map-reduce
    analysis for books.
 5. A Redis-backed rate limiter when running several instances.
+6. More Tamari poses (happy, confused, exam mode, Pomodoro, a blink frame):
+   one picture set in `src/components/tamari/sprites.ts` and a line in
+   `src/lib/tamari/states.ts` each.
 
 ## Database
 
@@ -747,14 +791,23 @@ linked).
   builder, appearance cookie). The root layout sets `data-accent`,
   `data-motion` and custom-color variables on `<html>` from the cookie;
   `AppearanceRoot` keeps the cookie in step with the account.
-- **Ask RevTaw** — `src/components/assistant/`: `AssistantProvider` (in the
-  signed-in layout: launcher, page registry, request queue, lazy panel),
+- **Tamari (the assistant)** — `src/components/assistant/`:
+  `AssistantProvider` (in the signed-in layout: launcher, page registry,
+  request queue, lazy panel, and
+  everything about how Tamari looks right now: activity, bubbles, naps),
+  `TamariHint` (a page offers a bubble), `useTamariActivity()` (work in
+  progress shows as thinking),
   `AssistantPage`/`AssistantLauncher` (pages register context and launcher
   mode), `assistant-panel.tsx` (native `<dialog>`: `show()` on desktop,
   `showModal()` on phones), `openAssistant()` for any button. Page context
   is a discriminated union of ids (`src/lib/assistant/context-schema.ts`)
   resolved by `resolvePageContext()` with the student's session and added
-  to the tutor prompt inside `<page_context>` as data.
+  to the tutor prompt inside `<page_context>` as data, with a study snapshot
+  when `asksAboutStudyData()` matches. Tamari's pieces: `src/lib/tamari/`
+  (`states.ts` registry, `lines.ts` bubbles in three languages, `hints.ts`
+  Home and weak-topic bubbles) and `src/components/tamari/` (`sprites.ts`,
+  `TamariSprite`, `TamariLauncher`, `TamariSpeech`); the motions are the
+  `.tamari-*` classes in `globals.css`.
 - **Voice** — `src/lib/voice/`: `types.ts` (SpeechToText / TextToSpeech
   interfaces), `web-speech.ts` (default provider, loaded on first use),
   `intents.ts` (commands, confirmations), `speech-text.ts` (what to read,
@@ -992,7 +1045,11 @@ linked).
   next visit.
 - Browser notifications show only while a RevTaw tab is open (no Web Push
   yet).
-- Ask RevTaw keeps one conversation per material for highlight threads;
+- Tamari's bubbles remember what they said per browser session
+  (sessionStorage), so a new tab can repeat one; naps are per tab. The
+  wake word only works after the microphone is tapped — Tamari never
+  listens on its own.
+- Tamari keeps one conversation per material for highlight threads;
   general chats have no material, so "Add to notes" and "Create flashcard"
   appear only in chats about a material.
 
@@ -1145,16 +1202,22 @@ Flows verified end to end against a local Supabase-compatible stack
   forged cookie ignored, account sync), dashboard customization (show,
   hide, reorder, reset, empty board, persisted), navigation groups and
   pinning, command menu (19 checks incl. keyboard and axe), settings (20
-  checks), contrast of every theme color in light and dark; Ask RevTaw
-  (`assistant-e2e.mjs`: launcher, non-modal desktop panel, phone sheet,
+  checks), contrast of every theme color in light and dark; the assistant
+  (`assistant-e2e.mjs`: Tamari in the corner, non-modal desktop panel, phone sheet,
   language question, context across pages, new chat about the page, quick
   actions, add to notes, restore after reload, history, expand, Escape,
   highlight-and-ask in the material's thread, command menu, quiz results
-  suggestion and "Ask RevTaw why", hidden during a quiz and on the tutor,
-  button off in settings, axe light/dark/phone); voice (`voice-e2e.mjs`
+  suggestion and "Ask Tamari why", hidden during a quiz and on the tutor,
+  chat button / nothing / idle animations in settings, axe light/dark/phone);
+  Tamari (`tamari-e2e.mjs`: a bubble a moment after load, once per session,
+  status line, above the button and the tab bar, its button, suggestions
+  off, a nap after five quiet minutes and waking with "Review tayo?", serious
+  the day before an exam, axe); voice (`voice-e2e.mjs`
   with a stand-in speech engine: commands, Taglish, live words, spoken
   answers without markdown, save with spoken "oo", theme, blocked
-  microphone, Escape, no mic without recognition, Permissions-Policy);
+  microphone, Escape, no mic without recognition, Permissions-Policy, voice
+  off in settings, "Tamari" alone, "open my … material" by name, a
+  weak-topics question answered from the study snapshot);
   calendar and reminders (`calendar-e2e.mjs`: empty-day form, every field
   saved, reminder at 2:00 PM Manila time, edit to a custom reminder,
   filters, keyboard grid and month paging, study activities start, a due
@@ -1165,7 +1228,7 @@ Flows verified end to end against a local Supabase-compatible stack
   0013, 0014 and 0015 tested in SQL (RLS, cross-student references,
   claiming)
 - Accessibility: `~/preview/a11y-audit.mjs` (axe-core, 43 states incl. the
-  new settings pages, the activity form and Ask RevTaw, light) and
+  new settings pages, the activity form and Tamari's chat, light) and
   `a11y-dark.mjs` (dark) report no violations; keyboard paths are
   exercised by the suites above (flashcard flip with Space, rating keys,
   Escape on dialogs and menus)

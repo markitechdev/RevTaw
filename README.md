@@ -98,9 +98,11 @@ stay in server environment variables only.
   reduced motion, a dashboard you arrange, grouped navigation with pinned
   tools and a Ctrl/Cmd+K command menu, AI preferences (answers in English,
   Filipino, Taglish or another language), chips and simple-first forms,
-  **Ask RevTaw** — an assistant on every page that knows what you are
-  looking at, with **voice** questions and commands — and a **planner
-  calendar** with activities and reminders by bell, browser and email
+  **Tamari** — RevTaw's pixel-art study companion, an assistant on every
+  page that knows what you are looking at, says a short word now and then
+  and takes **voice** questions and commands ("Tamari, open my Calculus
+  reviewer") — and a **planner calendar** with activities and reminders by
+  bell, browser and email
 
 ## Scripts
 
@@ -125,7 +127,7 @@ src/app/auth          email-link route handlers (callback, confirm)
 src/app/api           route handlers (material processing, analysis, files,
                       reviewer, quiz and flashcard generation, tutor, export,
                       quick search, reminders and the reminder scheduler)
-src/components        ui primitives, forms, app shell, Ask RevTaw, feature
+src/components        ui primitives, forms, app shell, Tamari, feature
                       components
 src/lib               supabase clients, ai providers, materials pipeline,
                       reviewers, quizzes, flashcards, study sessions, tutor,
