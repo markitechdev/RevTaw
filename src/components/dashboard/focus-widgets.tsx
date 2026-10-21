@@ -21,8 +21,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * The hero (UI phase §5): one clear "Continue" — a bookmark where the student
- * left off. `tamari` (Home's Tamari) leads the row: Tamari, then what to
- * continue, then the buttons.
+ * left off. `tamari` (Home's Tamari) leads it: Tamari, then what to continue,
+ * then the buttons.
  */
 export async function ContinueWidget({ tamari }: { tamari?: ReactNode }) {
   const item = await getContinueItem();
@@ -35,21 +35,22 @@ export async function ContinueWidget({ tamari }: { tamari?: ReactNode }) {
 
   if (!item) {
     return (
-      <HeroFrame tamari={tamari}>
-        <div className="min-w-0 flex-1">
-          <HeroEyebrow>Start here</HeroEyebrow>
-          <p className="mt-2 font-display text-2xl font-semibold leading-tight text-foreground @2xl:text-[1.75rem]">Bring your first material.</p>
-          <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
+      <HeroFrame
+        tamari={tamari}
+        eyebrow="Start here"
+        title="Bring your first material."
+        details={
+          <p className="max-w-xl text-sm text-muted-foreground">
             A PDF, a Word file, a photo of the board or notes you paste. RevTaw turns it into reviewers, quizzes and flashcards — and this spot will always show where you left off.
           </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href={`${routes.materials}?upload=1`} className={buttonClasses({ size: "lg" })}>
+        }
+        actions={
+          <Link href={`${routes.materials}?upload=1`} className={buttonClasses({ size: "md", className: HERO_BUTTON })}>
             <Upload className="h-4 w-4" aria-hidden="true" />
             Upload material
           </Link>
-        </div>
-      </HeroFrame>
+        }
+      />
     );
   }
 
@@ -76,57 +77,75 @@ export async function ContinueWidget({ tamari }: { tamari?: ReactNode }) {
   }
 
   return (
-    <HeroFrame tamari={tamari}>
-      <div className="min-w-0 flex-1">
-        <HeroEyebrow>Continue studying</HeroEyebrow>
-        <p className="mt-2 line-clamp-2 font-display text-2xl font-semibold leading-tight text-foreground @2xl:text-[1.75rem]">{title}</p>
-        <p className="mt-1.5 text-sm text-muted-foreground">{meta}</p>
-        {progress && (
-          <div className="mt-4 flex max-w-md items-center gap-3">
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Session progress" aria-valuenow={progress.value} aria-valuemin={0} aria-valuemax={100} aria-valuetext={progress.label}>
-              <div className="h-full rounded-full bg-progress" style={{ width: `${progress.value}%` }} />
+    <HeroFrame
+      tamari={tamari}
+      eyebrow="Continue studying"
+      title={title}
+      details={
+        <>
+          <p className="line-clamp-2 text-sm text-muted-foreground">{meta}</p>
+          {progress && (
+            <div className="mt-3 flex max-w-md items-center gap-3">
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Session progress" aria-valuenow={progress.value} aria-valuemin={0} aria-valuemax={100} aria-valuetext={progress.label}>
+                <div className="h-full rounded-full bg-progress" style={{ width: `${progress.value}%` }} />
+              </div>
+              <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">{progress.label}</span>
             </div>
-            <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">{progress.label}</span>
-          </div>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Link href={primary.href} className={buttonClasses({ size: "lg" })}>
-          <Play className="h-4 w-4" aria-hidden="true" />
-          {primary.label}
-        </Link>
-        {secondary && (
-          <Link href={secondary.href} className={buttonClasses({ size: "lg", variant: "ghost" })}>
-            {secondary.label}
+          )}
+        </>
+      }
+      actions={
+        <>
+          <Link href={primary.href} className={buttonClasses({ size: "md", className: HERO_BUTTON })}>
+            <Play className="h-4 w-4" aria-hidden="true" />
+            {primary.label}
           </Link>
-        )}
-      </div>
-    </HeroFrame>
+          {secondary && (
+            <Link href={secondary.href} className={buttonClasses({ size: "md", variant: "secondary", className: HERO_BUTTON })}>
+              {secondary.label}
+            </Link>
+          )}
+        </>
+      }
+    />
   );
 }
 
+/** The hero's buttons: 44 px and sharing the card's width on phones, the large size side by side on wide cards. */
+const HERO_BUTTON = "h-11 min-w-0 px-3 @2xl:h-12 @2xl:px-6 @2xl:text-base";
+
+/** "10-Minute" stays on one line: a title never breaks right after a number's hyphen. */
+function keepNumberWords(text: string): string {
+  return text.replace(/(\d)-(?=\p{L})/gu, "$1‑");
+}
+
 /**
- * The hero card. Its first child (what to continue) shares a row with Tamari
- * (while Tamari talks, its bubble takes that child's place); the second (the
- * buttons) goes under it on narrow cards and to the right on wide ones.
+ * The hero card, laid out for phones first: Tamari beside the heading (what
+ * to continue), the details (where, when, how far) across the card's full
+ * width under them, then the buttons sharing a row. On a wide card it is one
+ * row: Tamari, the heading over the details, and the buttons at the end.
+ * While Tamari talks, its bubble takes the place of the heading and details.
  * Nothing is clipped, so the bubble can reach past the card's edge, and the
  * card sits above the cards after it.
  */
-function HeroFrame({ tamari, children }: { tamari?: ReactNode; children: [ReactNode, ReactNode] }) {
-  const [lead, actions] = children;
+function HeroFrame({ tamari, eyebrow, title, details, actions }: { tamari?: ReactNode; eyebrow: string; title: string; details: ReactNode; actions: ReactNode }) {
   return (
     <section aria-labelledby="w-continue" className="@container relative z-10 h-full rounded-2xl border border-border bg-card">
       {/* Decoration: lined paper fading in from the right, and a bookmark ribbon. */}
       <span aria-hidden="true" className="paper-lines pointer-events-none absolute inset-y-0 right-0 hidden w-1/2 rounded-r-2xl [mask-image:linear-gradient(to_left,black,transparent)] @2xl:block" />
-      <span aria-hidden="true" className="absolute top-0 right-6 h-10 w-5 bg-primary [clip-path:polygon(0_0,100%_0,100%_100%,50%_76%,0_100%)]" />
-      <div className="relative flex h-full flex-col gap-5 p-5 pr-14 sm:p-6 sm:pr-16 @2xl:flex-row @2xl:items-end @2xl:justify-between">
-        <div data-tamari-row="" className="flex min-w-0 flex-1 items-center gap-4 sm:gap-5">
-          {tamari}
-          <div data-tamari-lead="" className="flex min-w-0 flex-1">
-            {lead}
+      <span aria-hidden="true" className="absolute top-0 right-5 h-9 w-4.5 bg-primary [clip-path:polygon(0_0,100%_0,100%_100%,50%_76%,0_100%)] sm:right-6 sm:h-10 sm:w-5" />
+      <div className="relative flex h-full flex-col gap-4 p-4 sm:p-5 @2xl:flex-row @2xl:items-end @2xl:justify-between @2xl:gap-6 @2xl:p-6 @2xl:pr-16">
+        <div data-tamari-row="" className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-center gap-y-3 has-[[data-tamari-stage]]:gap-x-4 @2xl:gap-y-1.5 @2xl:has-[[data-tamari-stage]]:gap-x-5">
+          <div className="@2xl:row-span-2">{tamari}</div>
+          <div data-tamari-lead="" className="min-w-0 pr-8 @2xl:pr-0">
+            <HeroEyebrow>{eyebrow}</HeroEyebrow>
+            <p className="mt-1.5 line-clamp-3 font-display text-xl leading-tight font-semibold text-foreground @md:text-2xl @2xl:mt-2 @2xl:line-clamp-2 @2xl:text-[1.75rem]">{keepNumberWords(title)}</p>
+          </div>
+          <div data-tamari-lead="" className="col-span-2 min-w-0 @2xl:col-span-1 @2xl:col-start-2">
+            {details}
           </div>
         </div>
-        {actions}
+        <div className="flex gap-2 *:flex-1 @2xl:*:flex-none">{actions}</div>
       </div>
     </section>
   );

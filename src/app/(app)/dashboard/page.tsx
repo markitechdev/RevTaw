@@ -85,6 +85,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const stream = (id: WidgetId, variant: "hero" | "panel" | "tile" | "list", element: ReactNode) =>
     shown.has(id) ? <Suspense fallback={<WidgetSkeleton variant={variant} />}>{element}</Suspense> : undefined;
   // Tamari leads the "Continue studying" card (already there while the card loads); with that card hidden, the greeting.
+  // 64 and 96 px are sizes the pixel art is drawn at, so Tamari stays crisp.
   const waiting = (size: number, lgSize: number) => <TamariHome line={null} today={clock.today} pending size={size} lgSize={lgSize} />;
   const tamari = (size: number, lgSize: number) => (
     <Suspense fallback={waiting(size, lgSize)}>
@@ -94,8 +95,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
 
   const widgets: Partial<Record<WidgetId, ReactNode>> = {
     continue: shown.has("continue") ? (
-      <Suspense fallback={<HeroSkeleton tamari={waiting(72, 96)} />}>
-        <ContinueWidget tamari={tamari(72, 96)} />
+      <Suspense fallback={<HeroSkeleton tamari={waiting(64, 96)} />}>
+        <ContinueWidget tamari={tamari(64, 96)} />
       </Suspense>
     ) : undefined,
     recommendation: stream("recommendation", "panel", <RecommendationWidget />),
@@ -121,7 +122,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       <DashboardBoard
         layout={layout}
         widgets={widgets}
-        stage={shown.has("continue") ? undefined : tamari(64, 80)}
+        stage={shown.has("continue") ? undefined : tamari(64, 96)}
         header={
           <div className="min-w-0">
             <p className="text-sm font-medium text-muted-foreground">{longDate(clock.today)}</p>

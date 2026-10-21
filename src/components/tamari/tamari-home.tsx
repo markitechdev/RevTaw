@@ -163,12 +163,12 @@ export function TamariHome({ line, today, pending = false, size, lgSize }: Props
         <div
           id={bubbleId}
           data-tamari-line={shown?.id ?? "offer"}
-          className="tamari-enter absolute top-1/2 left-full z-30 ml-3 w-[min(15rem,calc(100vw-9rem))] -translate-y-1/2 border-2 border-foreground bg-card px-3 pt-2 pb-2.5 text-foreground shadow-[3px_3px_0_0_var(--foreground)]"
+          className="tamari-enter absolute top-0 left-full z-30 ml-3 w-[min(15rem,calc(100vw-9rem))] border-2 sm:top-1/2 sm:-translate-y-1/2 border-foreground bg-card px-3 pt-2 pb-2.5 text-foreground shadow-[3px_3px_0_0_var(--foreground)]"
         >
           {/* Two pixel blocks trailing back to Tamari. */}
-          <span aria-hidden="true" className="absolute top-1/2 -left-[0.5625rem] block size-1.5 bg-foreground" />
-          <span aria-hidden="true" className="absolute top-[calc(50%+0.5rem)] -left-[1rem] block size-1 bg-foreground" />
-          <p className="text-[0.8125rem] leading-snug font-semibold">
+          <span aria-hidden="true" className="absolute top-6 -left-[0.5625rem] block size-1.5 bg-foreground sm:top-1/2" />
+          <span aria-hidden="true" className="absolute top-8 -left-[1rem] block size-1 bg-foreground sm:top-[calc(50%+0.5rem)]" />
+          <p className="pr-6 text-[0.8125rem] leading-snug font-semibold">
             <span className="sr-only">Tamari says: </span>
             {shown ? shown.text : offerLine(lang)}
           </p>
@@ -209,7 +209,7 @@ export function TamariHome({ line, today, pending = false, size, lgSize }: Props
               }}
               aria-label="Ask Tamari"
               title="Ask Tamari"
-              className="ml-auto inline-flex size-8 cursor-pointer items-center justify-center text-muted-foreground hover:text-foreground"
+              className="absolute top-0.5 right-0.5 inline-flex size-8 cursor-pointer items-center justify-center text-muted-foreground hover:text-foreground"
             >
               <MessageCircle className="h-4 w-4" aria-hidden="true" />
             </button>

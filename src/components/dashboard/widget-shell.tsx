@@ -86,23 +86,25 @@ export function WidgetSkeleton({ variant }: { variant: "hero" | "panel" | "tile"
 /**
  * The "Continue studying" card while it loads, shaped like the card itself,
  * with Home's Tamari already at its start (`tamari`) — so Tamari is there from
- * the first paint and never shows up at the screen's edge in the meantime.
+ * the first paint and nothing jumps when the card arrives.
  */
 export function HeroSkeleton({ tamari }: { tamari?: ReactNode }) {
   return (
     <div className="@container relative h-full min-h-[11rem] rounded-2xl border border-border bg-card">
-      <div className="flex h-full flex-col gap-5 p-5 pr-14 sm:p-6 sm:pr-16 @2xl:flex-row @2xl:items-end @2xl:justify-between">
-        <div className="flex min-w-0 flex-1 items-center gap-4 sm:gap-5">
-          {tamari}
-          <div className="flex min-w-0 flex-1 flex-col gap-3" aria-hidden="true">
+      <div className="flex h-full flex-col gap-4 p-4 sm:p-5 @2xl:flex-row @2xl:items-end @2xl:justify-between @2xl:gap-6 @2xl:p-6 @2xl:pr-16">
+        <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-center gap-y-3 has-[[data-tamari-stage]]:gap-x-4 @2xl:gap-y-1.5 @2xl:has-[[data-tamari-stage]]:gap-x-5">
+          <div className="@2xl:row-span-2">{tamari}</div>
+          <div className="flex min-w-0 flex-col gap-2.5 pr-8 @2xl:pr-0" aria-hidden="true">
             <Skeleton className="h-3 w-32" />
-            <Skeleton className="h-8 w-2/3" />
+            <Skeleton className="h-7 w-3/4" />
+          </div>
+          <div className="col-span-2 @2xl:col-span-1 @2xl:col-start-2" aria-hidden="true">
             <Skeleton className="h-3 w-1/2" />
           </div>
         </div>
-        <div className="flex gap-2" aria-hidden="true">
-          <Skeleton className="h-11 w-32 rounded-xl" />
-          <Skeleton className="h-11 w-28 rounded-xl" />
+        <div className="flex gap-2 *:flex-1 @2xl:*:flex-none" aria-hidden="true">
+          <Skeleton className="h-11 rounded-lg @2xl:h-12 @2xl:w-32" />
+          <Skeleton className="h-11 rounded-lg @2xl:h-12 @2xl:w-36" />
         </div>
       </div>
     </div>
