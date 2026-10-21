@@ -28,7 +28,8 @@ export default function LandingPage() {
       {/* Hero: the RevTaw line, typed out, next to a desk you can actually use. */}
       <section className="relative overflow-x-clip">
         <div className="mx-auto grid w-full max-w-6xl gap-14 px-4 pb-20 pt-12 sm:px-6 sm:pt-20 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center lg:gap-10">
-          <div className="animate-fade-up">
+          {/* Rises in without fading, so the headline and the line under it are visible (and count for LCP) from the first paint. */}
+          <div className="animate-rise">
             <p className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-muted-foreground">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
               <span>

@@ -248,6 +248,8 @@
   --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   --animate-fade-up: fade-up 360ms var(--ease-out) both;
+  /* An entrance for the page's main words: it moves but never hides them, so they count as painted from the first frame (LCP). */
+  --animate-rise: rise 420ms var(--ease-out) both;
   --animate-pop-in: pop-in 220ms var(--ease-pop) both;
   --animate-sheet-up: sheet-up 320ms var(--ease-out) both;
   --animate-panel-in: panel-in 260ms var(--ease-out) both;
@@ -261,6 +263,14 @@
     }
     to {
       opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes rise {
+    from {
+      transform: translateY(12px);
+    }
+    to {
       transform: translateY(0);
     }
   }
