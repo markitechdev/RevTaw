@@ -98,10 +98,13 @@ stay in server environment variables only.
   reduced motion, a dashboard you arrange, grouped navigation with pinned
   tools and a Ctrl/Cmd+K command menu, AI preferences (answers in English,
   Filipino, Taglish or another language), chips and simple-first forms,
-  **Tamari** — RevTaw's pixel-art study companion, an assistant on every
-  page that knows what you are looking at, says a short word now and then
-  and takes **voice** questions and commands ("Tamari, open my Calculus
-  reviewer") — and a **planner calendar** with activities and reminders by
+  **Tamari** — RevTaw's pixel-art study companion, sitting beside your
+  greeting on Home with one line from your own data ("May 3 reviews ka
+  today. Unahin natin Binary Trees?"), peeking from the edge of every other
+  page, planning your free minutes ("20 minutes lang ako. Bahala ka na." →
+  Tamari's 20-Minute Bitaw) and taking typed or **voice** requests in
+  English, Filipino or Taglish ("Quiz me about Chapter 4", "Move this to
+  Friday") — and a **planner calendar** with activities and reminders by
   bell, browser and email
 
 ## Scripts
