@@ -24,11 +24,11 @@ type Props = {
 
 /**
  * Tamari seated on the page (companion doc §1, §11–§12): the whole character,
- * part of the layout rather than floating in a circle — inside a card or
- * sitting on its edge, as the parent places it. While it is on screen the
- * edge-of-screen Tamari steps aside, so Tamari never shows twice. Clicking it:
- * a small hop, then the chat (or the page's `disclosure`). It shows what
- * Tamari is doing right now, else the page's `state`.
+ * part of the layout rather than floating in a circle — on Home, at the start
+ * of the Continue studying card. While it is on screen the chat button steps
+ * aside (Tamari opens the chat). Clicking it: a small hop, then the chat (or
+ * the page's `disclosure`). It shows what Tamari is doing right now, else the
+ * page's `state`.
  */
 export function TamariPerch({ state = "idle", size, lgSize, className, disclosure, noteId }: Props) {
   const tamari = useTamari();

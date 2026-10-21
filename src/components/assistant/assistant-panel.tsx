@@ -181,10 +181,10 @@ const chip =
  * Tamari is doing right now (listening, thinking, talking) in words, the page
  * it is about, the conversation, quick actions and a composer that can attach
  * a material, send the page's context and listen (voice questions and
- * commands, answers read aloud). Tamari itself stays outside the panel — on
- * the dashboard or at the edge of the screen — and reacts to the chat from
- * there, so the mascot never shows twice. It is mounted once and only hidden
- * when minimized, so the chat carries across pages.
+ * commands, answers read aloud). Tamari's picture stays outside the panel, on
+ * Home only, and reacts to the chat from there, so the mascot never shows
+ * twice. It is mounted once and only hidden when minimized, so the chat
+ * carries across pages.
  */
 export default function AssistantPanel() {
   const { open, page, ai, assistant, hide, subscribe, setActivity } = useAssistant();

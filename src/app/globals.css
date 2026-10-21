@@ -735,23 +735,14 @@
 }
 
 /*
- * Where the edge-of-screen Tamari goes (unlayered, so it wins over the
- * utility classes that place it). A page that seats Tamari itself (Home, a
- * plan) hides it from the first paint, so Tamari never shows twice; with the
- * chat open on a wide screen it peeks beside the panel instead of behind it.
+ * The chat button steps aside where Tamari is seated (Home), from the first
+ * paint: there Tamari opens the chat. Unlayered, so it wins over the utility
+ * classes that place the button.
  */
-body:has([data-tamari-seat]) [data-tamari-corner] {
+body:has([data-tamari-seat]) [data-chat-button] {
   display: none;
 }
 /* While Home's Tamari talks, its bubble takes the place of the words beside it (the card's, or the greeting's). */
 [data-tamari-row]:has([data-tamari-line]) > [data-tamari-lead] {
   visibility: hidden;
-}
-@media (min-width: 64rem) {
-  aside:has(> #ask-revtaw[open]) [data-tamari-corner] {
-    right: calc(26rem + 2.5rem);
-  }
-  aside:has(> #ask-revtaw[open][data-expanded]) [data-tamari-corner] {
-    right: calc(min(46rem, 100vw - 20rem) + 2.5rem);
-  }
 }

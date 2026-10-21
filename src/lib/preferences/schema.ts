@@ -328,17 +328,17 @@ const notificationsReader = z
 /* ------------------------------------------------------------------ */
 
 export const assistantInput = z.strictObject({
-  /** With Tamari hidden: a plain "Ask Tamari" button in the corner (off: the chat opens from Ctrl/Cmd+K and "Ask Tamari why"). */
+  /** The round chat button in the corner of every page but Home (and of Home too with Tamari hidden); off: the chat opens from Ctrl/Cmd+K and "Ask Tamari why". */
   launcher: z.boolean(),
-  /** Show Tamari: on Home beside the greeting and peeking from the edge of other pages. */
+  /** Show Tamari: in the Continue studying card on Home (Tamari's picture is on Home only). */
   mascot: z.boolean(),
-  /** Pixel animations: Tamari's small stepped movements (breathing, blinking, typing, a bounce). */
+  /** Pixel animations: Tamari's small stepped movements on Home (breathing, blinking, typing, a hop). */
   idleAnimations: z.boolean(),
-  /** Study suggestions: short lines from the student's data, and the offer to plan their time. */
+  /** Study suggestions: Tamari's lines on Home from the student's data, and the offer to plan their time. */
   suggestions: z.boolean(),
   /** Voice commands: the microphone in the chat. */
   voice: z.boolean(),
-  /** Contextual reactions: Tamari's face follows what happens (a right answer, a repeated mistake, an exam, a nap). */
+  /** Contextual reactions: Tamari's face on Home follows what is going on (a repeated mistake, an exam, a nap). */
   reactions: z.boolean(),
   /** Sound responses: read answers aloud when the student asks by voice. */
   voiceReplies: z.boolean(),

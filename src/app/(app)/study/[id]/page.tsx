@@ -122,7 +122,7 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Study
         </Link>
-        {reaction && <TamariSays text={reaction.text} state={reaction.state} />}
+        {reaction && <TamariSays text={reaction.text} />}
         {summary ? (
           <SessionSummaryCard
             title={session.status === "abandoned" ? `${name} stopped early` : `${name} complete`}

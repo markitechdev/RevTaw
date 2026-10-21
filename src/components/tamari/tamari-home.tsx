@@ -1,7 +1,7 @@
 "use client";
 
 import { MessageCircle } from "lucide-react";
-import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useEffectEvent, useId, useRef, useState, useSyncExternalStore } from "react";
 
 import { useAssistant, useTamari } from "@/components/assistant/assistant-provider";
 import { TamariPerch } from "@/components/tamari/tamari-perch";
@@ -80,16 +80,24 @@ export function TamariHome({ line, today, pending = false, size, lgSize }: Props
     () => false,
   );
 
+  // Closing the bubble: a line from the provider (back from a nap) has been said, so Home's own line comes back next time.
+  const sayDone = () => {
+    if (shown && tamari && shown === tamari.bubble) tamari.dismissBubble();
+  };
+  const closeFromOutside = useEffectEvent((focusTamari: boolean) => {
+    setOpen(false);
+    sayDone();
+    if (focusTamari) root.current?.querySelector<HTMLButtonElement>("button[data-tamari-seat]")?.focus();
+  });
+
   // While the bubble is open: a click outside or Escape closes it (Escape hands the focus back to Tamari).
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
+      if (!root.current?.contains(event.target as Node)) closeFromOutside(false);
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setOpen(false);
-      root.current?.querySelector<HTMLButtonElement>("button[data-tamari-seat]")?.focus();
+      if (event.key === "Escape") closeFromOutside(true);
     };
     document.addEventListener("pointerdown", outside);
     document.addEventListener("keydown", escape);
@@ -134,7 +142,8 @@ export function TamariHome({ line, today, pending = false, size, lgSize }: Props
 
   const toggle = () => {
     setError(null);
-    if (!open) {
+    if (open) sayDone();
+    else {
       tamari.react("correct");
       if (shown) markRead(shown.id);
     }
@@ -195,6 +204,7 @@ export function TamariHome({ line, today, pending = false, size, lgSize }: Props
               type="button"
               onClick={() => {
                 setOpen(false);
+                sayDone();
                 tamari.openChat();
               }}
               aria-label="Ask Tamari"

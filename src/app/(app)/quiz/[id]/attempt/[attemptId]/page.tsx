@@ -3,17 +3,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { AssistantLauncher, AssistantPage, TamariHint } from "@/components/assistant/assistant-provider";
+import { AssistantLauncher, AssistantPage } from "@/components/assistant/assistant-provider";
 import { ExportMenu } from "@/components/export/export-menu";
 import { AttemptResults } from "@/components/quizzes/attempt-results";
 import { QuizRunner } from "@/components/quizzes/quiz-runner";
 import { buttonClasses } from "@/components/ui/button";
 import { getAttemptResults, getAttemptRunner, getQuiz } from "@/lib/quizzes/queries";
 import { expireIfNeeded } from "@/lib/quizzes/service";
-import { getPreferences } from "@/lib/preferences/queries";
 import { routes } from "@/lib/routes";
 import { getSessionForAttempt } from "@/lib/study/queries";
-import { quizBubble, tamariLanguage } from "@/lib/tamari/lines";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -47,20 +45,9 @@ export default async function AttemptPage({ params }: PageProps<"/quiz/[id]/atte
     );
   }
 
-  const [results, session, preferences] = await Promise.all([getAttemptResults(attemptId), getSessionForAttempt(attemptId), getPreferences()]);
+  const [results, session] = await Promise.all([getAttemptResults(attemptId), getSessionForAttempt(attemptId)]);
   if (!results) notFound();
   const firstWrong = results.questions.findIndex((question) => question.isCorrect === false);
-  // Tamari cheers a good score (or a jump since the last try) and offers to go over the misses otherwise.
-  const submittedAt = results.attempt.submitted_at ?? "";
-  const previous = quiz.attempts
-    .filter((attempt) => attempt.id !== attemptId && attempt.status === "submitted" && attempt.question_count > 0 && (attempt.submitted_at ?? "") < submittedAt)
-    .sort((a, b) => (b.submitted_at ?? "").localeCompare(a.submitted_at ?? ""))[0];
-  const bubble = quizBubble(tamariLanguage(preferences.ai.language), {
-    id: attemptId,
-    correct: results.attempt.correct_count ?? 0,
-    total: results.attempt.question_count,
-    previousPercent: previous ? Math.round(((previous.correct_count ?? 0) / previous.question_count) * 100) : null,
-  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -70,7 +57,6 @@ export default async function AttemptPage({ params }: PageProps<"/quiz/[id]/atte
         materialId={quiz.material_id}
         suggestions={firstWrong >= 0 ? [`Why did I get number ${firstWrong + 1} wrong?`, "Explain my mistakes simply", "Quiz me again on what I missed"] : ["What should I study next?", "Explain the trickiest question", "Quiz me on something harder"]}
       />
-      <TamariHint bubble={bubble} />
       <div className="flex flex-col gap-1">
         <Link href={`${routes.quiz}/${quiz.id}`} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />

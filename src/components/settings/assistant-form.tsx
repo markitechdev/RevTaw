@@ -5,7 +5,6 @@ import { useId, useOptimistic, useState, useTransition } from "react";
 
 import { useModifierLabel } from "@/components/app/command-menu";
 import { Alert } from "@/components/forms/form-alert";
-import { TamariSprite } from "@/components/tamari/tamari-sprite";
 import { useAppearance } from "@/components/theme/appearance-root";
 import { Button } from "@/components/ui/button";
 import { ChipGroup } from "@/components/ui/chip-group";
@@ -28,12 +27,12 @@ function sampleFor(language: ResponseLanguage, other: string): string {
 }
 
 /**
- * Tamari's settings (companion doc §19): show Tamari, pixel animations, study
- * suggestions, voice commands, contextual reactions, sound responses and the
- * response language — none of them mandatory. Every switch saves on its own;
- * the language saves with its button (it may need a name typed in). With
- * Tamari hidden the chat keeps working from a plain button, Ctrl/Cmd+K and the
- * "Ask Tamari why" buttons.
+ * Tamari's settings (companion doc §19): show Tamari, the chat button, pixel
+ * animations, study suggestions, voice commands, contextual reactions, sound
+ * responses and the response language — none of them mandatory. Every switch
+ * saves on its own; the language saves with its button (it may need a name
+ * typed in). Tamari's picture is on Home only; the chat also opens from the
+ * chat button, Ctrl/Cmd+K and the "Ask Tamari why" buttons.
  */
 export function TamariPreferencesForm({ initial, ai }: { initial: AssistantPreferences; ai: AiPreferences }) {
   const [saved, setSaved] = useState(initial);
@@ -69,43 +68,38 @@ export function TamariPreferencesForm({ initial, ai }: { initial: AssistantPrefe
   return (
     <div className="flex flex-col gap-5">
       {error && <Alert tone="error">{error}</Alert>}
-      <div className="flex items-start gap-4">
-        {shown.mascot && <TamariSprite size={72} animate={shown.idleAnimations} className="hidden shrink-0 sm:inline-block" />}
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <Switch
-            checked={shown.mascot}
-            onChange={(mascot) => save({ ...shown, mascot })}
-            label="Show Tamari"
-            description="Tamari sits beside your greeting on Home, peeks from the edge of other pages and opens the chat when you click it. Off: a plain chat button instead — the chat works the same."
-          />
-          {!shown.mascot && (
-            <Switch
-              checked={shown.launcher}
-              onChange={(launcher) => save({ ...shown, launcher })}
-              label="Show the chat button"
-              description={`A small “Ask Tamari” button in the corner. Off: open the chat from ${modifier}+K or the “Ask Tamari why” buttons.`}
-            />
-          )}
-        </div>
-      </div>
+      <Switch
+        checked={shown.mascot}
+        onChange={(mascot) => save({ ...shown, mascot })}
+        label="Show Tamari"
+        description="Tamari sits in your Continue studying card on Home and talks when you click it; it opens the chat from there too. Off: no Tamari, and Home gets the chat button like every other page."
+      />
+      <Switch
+        checked={shown.launcher}
+        onChange={(launcher) => save({ ...shown, launcher })}
+        label="Show the chat button"
+        description={`The round chat button in the corner of every other page. Off: open the chat from ${modifier}+K or the “Ask Tamari why” buttons.`}
+      />
       <Switch
         checked={shown.idleAnimations}
         disabled={!shown.mascot}
         onChange={(idleAnimations) => save({ ...shown, idleAnimations })}
         label="Pixel animations"
-        description="Tamari's small pixel movements: breathing, blinking, typing on the laptop, a bounce. Off: Tamari holds still and only changes pose."
+        description="Tamari's small pixel movements on Home: breathing, blinking, typing on the laptop, a hop. Off: Tamari holds still and only changes pose."
       />
       <Switch
         checked={shown.suggestions}
+        disabled={!shown.mascot}
         onChange={(suggestions) => save({ ...shown, suggestions })}
         label="Study suggestions"
-        description="Short lines from your own study data — today's reviews, an exam coming up, a topic you keep missing — and the offer to plan your free minutes. “Later” puts one off for the day."
+        description="Tamari's lines on Home from your own study data — today's reviews, an exam coming up, a topic you keep missing — and the offer to plan your free minutes. A “!” by Tamari means one is waiting; “Later” puts it off for the day."
       />
       <Switch
         checked={shown.reactions}
+        disabled={!shown.mascot}
         onChange={(reactions) => save({ ...shown, reactions })}
         label="Contextual reactions"
-        description="Tamari's face follows what happens: a bounce for a right answer, a serious look for a repeated mistake, exam mode before an exam, a nap when you're away. Off: Tamari stays calm."
+        description="Tamari's face on Home follows what's going on: a serious look for a repeated mistake, exam mode before an exam, a nap when you've been away. Off: Tamari stays calm."
       />
       <Switch
         checked={shown.voice}

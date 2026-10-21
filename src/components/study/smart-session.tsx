@@ -95,7 +95,7 @@ export function SmartSessionView({
     const reaction = tamari ? planReaction(tamari.language, summary) : null;
     return (
       <div className="flex flex-col gap-4">
-        {reaction && <TamariSays text={reaction.text} state={reaction.state} />}
+        {reaction && <TamariSays text={reaction.text} />}
         <SessionSummaryCard
           title={blocksDone === 0 ? `${displayName} stopped early` : `${displayName} complete`}
           summary={summary}

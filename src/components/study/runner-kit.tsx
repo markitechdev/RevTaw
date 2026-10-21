@@ -8,7 +8,6 @@ import { useState, useTransition, type ReactNode } from "react";
 import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Button, buttonClasses } from "@/components/ui/button";
-import { useTamariReaction } from "@/components/tamari/use-tamari-reaction";
 import { Textarea } from "@/components/ui/input";
 import { routes } from "@/lib/routes";
 import { answerRecallAction, completeSessionAction } from "@/lib/study/actions";
@@ -117,8 +116,6 @@ export function verdictOf(score: number): Verdict {
 
 /** Coloured result box; the verdict is spelled out so status never relies on colour alone (§41). */
 export function VerdictBox({ verdict, score, children }: { verdict: Verdict; score: number; children?: ReactNode }) {
-  // Tamari bounces for a right answer and steps aside for a wrong one.
-  useTamariReaction(verdict, `${verdict}:${score}`);
   return (
     <div
       className={cn(
