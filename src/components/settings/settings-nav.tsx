@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 
 const ITEMS = [
   { href: routes.settingsProfile, label: "Profile" },
+  { href: routes.settingsAppearance, label: "Appearance" },
   { href: routes.settingsPreferences, label: "Study preferences" },
   { href: routes.settingsDashboard, label: "Dashboard" },
   { href: routes.settingsTools, label: "RevTaw tools" },

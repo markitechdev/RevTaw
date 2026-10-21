@@ -30,6 +30,10 @@
   --ring: var(--primary);
   --progress: var(--primary);
 
+  /* The logo keeps RevTaw Purple whatever the theme color, so the brand stays recognizable. */
+  --brand: #7d4de7;
+  --brand-foreground: #ffffff;
+
   /* The highlighter: a marker swipe behind key words and the text selection. */
   --highlight: #fff1a8;
   --highlight-foreground: #16132a;
@@ -72,6 +76,9 @@
   --primary-hover: #b6a4ff;
   --primary-foreground: #0f0d17;
   --primary-soft: #272041;
+
+  --brand: #a88fff;
+  --brand-foreground: #0f0d17;
 
   --highlight: #3d3412;
   --highlight-foreground: #ecebf3;
@@ -217,6 +224,8 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-soft: var(--primary-soft);
   --color-progress: var(--progress);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
   --color-highlight: var(--highlight);
   --color-highlight-foreground: var(--highlight-foreground);
   --color-success: var(--success);

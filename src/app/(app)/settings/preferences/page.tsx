@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 
 import { PreferencesForm } from "@/components/settings/preferences-form";
 import { TimezoneForm } from "@/components/settings/timezone-form";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { routes } from "@/lib/routes";
@@ -46,15 +45,6 @@ export default async function PreferencesSettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Appearance</CardTitle>
-          <CardDescription>Choose light, dark, or follow your device setting.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ThemeToggle />
-        </CardContent>
-      </Card>
     </div>
   );
 }

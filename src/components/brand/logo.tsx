@@ -11,19 +11,19 @@ export function LogoMark({ className }: { className?: string }) {
       className={cn("h-8 w-8", className)}
       fill="none"
     >
-      <rect width="32" height="32" rx="8" className="fill-primary" />
+      <rect width="32" height="32" rx="8" className="fill-brand" />
       <path
         d="M8 10.5c2.6-1.2 5.3-1.2 8 0v12c-2.7-1.2-5.4-1.2-8 0v-12Z"
-        className="fill-primary-foreground"
+        className="fill-brand-foreground"
         opacity="0.55"
       />
       <path
         d="M16 10.5c2.6-1.2 5.3-1.2 8 0v12c-2.7-1.2-5.4-1.2-8 0v-12Z"
-        className="fill-primary-foreground"
+        className="fill-brand-foreground"
       />
       <path
         d="M11.5 16.5l2.2 2.2 4.3-4.6"
-        className="stroke-primary"
+        className="stroke-brand"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
