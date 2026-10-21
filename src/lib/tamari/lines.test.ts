@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cardsBubble, examBubble, napBubble, quizBubble, reviewsBubble, streakBubble, tamariLanguage, weakTopicBubble } from "@/lib/tamari/lines";
+import { cardsBubble, examBubble, napBubble, quizBubble, reviewsBubble, streakBubble, tamariLanguage, tamariStatus, weakTopicBubble } from "@/lib/tamari/lines";
 
 describe("tamariLanguage", () => {
   it("speaks the response language, Taglish when the student has not chosen", () => {
@@ -9,6 +9,14 @@ describe("tamariLanguage", () => {
     expect(tamariLanguage("fil")).toBe("fil");
     expect(tamariLanguage("en")).toBe("en");
     expect(tamariLanguage("other")).toBe("en");
+  });
+});
+
+describe("tamariStatus", () => {
+  it("says what Tamari is doing in Tamari's language", () => {
+    expect(tamariStatus("listening", "taglish")).toBe("Nakikinig ako…");
+    expect(tamariStatus("thinking", "fil")).toBe("Iniisip ko…");
+    expect(tamariStatus("thinking", "en")).toBe("Thinking…");
   });
 });
 

@@ -1,12 +1,12 @@
 "use client";
 
+import { MessageCircle } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { TamariLauncher } from "@/components/tamari/tamari-launcher";
 import { TamariSpeech } from "@/components/tamari/tamari-speech";
-import { TamariSprite } from "@/components/tamari/tamari-sprite";
 import type { PageContextRef } from "@/lib/assistant/context-schema";
 import type { AiPreferences, AssistantPreferences } from "@/lib/preferences/schema";
 import { napBubble, tamariLanguage, type TamariBubble } from "@/lib/tamari/lines";
@@ -50,7 +50,7 @@ type AssistantContextValue = {
   register: (entry: RegisteredPage) => () => void;
   /** The panel listens for requests here (they can arrive before it has loaded). */
   subscribe: (listener: (request: AssistantRequest) => void) => () => void;
-  /** Work Tamari is doing out of sight (an answer on its way while the chat is minimized): Tamari shows it in the corner. */
+  /** Work Tamari is doing (an answer on its way, a quiz being written) or the microphone and speech ("voice:listening", "voice:speaking"): Tamari shows it wherever it sits. */
   setActivity: (key: string, active: boolean) => void;
   /** A page offers something for Tamari to say; returns a function that takes it back (the page went away). */
   offerBubble: (bubble: TamariBubble) => () => void;
@@ -63,8 +63,8 @@ const AssistantPanel = dynamic(() => import("@/components/assistant/assistant-pa
   ssr: false,
   loading: () => (
     <div role="status" className="fixed inset-x-0 bottom-0 z-50 flex h-40 items-center justify-center gap-3 rounded-t-2xl border border-border bg-card text-sm text-muted-foreground shadow-pop lg:inset-x-auto lg:right-6 lg:bottom-6 lg:w-[26rem] lg:rounded-2xl">
-      <TamariSprite state="thinking" size={36} frame="portrait" />
-      Opening Tamari…
+      <MessageCircle className="h-5 w-5 text-primary" aria-hidden="true" />
+      Opening the chat…
     </div>
   ),
 });
@@ -254,9 +254,22 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
     else if (action.prompt) show({ prompt: action.prompt, send: true, ...(action.materialId !== undefined ? { materialId: action.materialId } : {}) });
   };
 
-  // What Tamari shows in the corner: busy beats what it is saying, which beats a nap, studying along, and waiting.
+  // What Tamari shows: the microphone and speech beat work in progress, which beats what it is saying, a nap, studying along and waiting.
   const shownBubble = hintsOn ? bubble : null;
-  const tamari: TamariState = activities.size > 0 ? "thinking" : shownBubble ? shownBubble.state : napping ? "sleeping" : page?.ref?.kind === "session" ? "studying" : "idle";
+  const working = [...activities].some((key) => !key.startsWith("voice:"));
+  const tamari: TamariState = activities.has("voice:listening")
+    ? "listening"
+    : activities.has("voice:speaking")
+      ? "speaking"
+      : working
+        ? "thinking"
+        : shownBubble
+          ? shownBubble.state
+          : napping
+            ? "sleeping"
+            : page?.ref?.kind === "session"
+              ? "studying"
+              : "idle";
 
   return (
     <AssistantContext.Provider value={value}>

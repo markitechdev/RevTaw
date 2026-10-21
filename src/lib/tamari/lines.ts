@@ -137,6 +137,22 @@ export function quizBubble(lang: TamariLanguage, attempt: { id: string; correct:
   };
 }
 
+/** What Tamari is doing, in a few words (the chat's header, Tamari's button), in Tamari's language. */
+const STATUS: Record<TamariState, Lines> = {
+  idle: { taglish: "Nandito lang ako.", en: "I'm here.", fil: "Nandito lang ako." },
+  listening: { taglish: "Nakikinig ako…", en: "Listening…", fil: "Nakikinig ako…" },
+  thinking: { taglish: "Iniisip ko…", en: "Thinking…", fil: "Iniisip ko…" },
+  speaking: { taglish: "Nagsasalita ako…", en: "Talking…", fil: "Nagsasalita ako…" },
+  studying: { taglish: "Nag-aaral din ako.", en: "Studying with you.", fil: "Nag-aaral din ako." },
+  celebrating: { taglish: "Bitaw!", en: "Nice work!", fil: "Bitaw!" },
+  serious: { taglish: "Seryoso na tayo.", en: "Let's fix this.", fil: "Seryoso na tayo." },
+  sleeping: { taglish: "Naiidlip…", en: "Napping…", fil: "Naiidlip…" },
+};
+
+export function tamariStatus(state: TamariState, lang: TamariLanguage): string {
+  return STATUS[state][lang];
+}
+
 /** When the student only says "Tamari". */
 export function hereLine(lang: TamariLanguage): string {
   return say(lang, { taglish: "Nandito ako! Ask me anything.", en: "I'm here! Ask me anything.", fil: "Nandito ako! Magtanong ka lang." });

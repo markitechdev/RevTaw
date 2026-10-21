@@ -9,14 +9,13 @@ import { useAssistant, type AssistantRequest, type RegisteredPage } from "@/comp
 import { useVoice } from "@/components/assistant/use-voice";
 import { Alert } from "@/components/forms/form-alert";
 import { useTheme } from "@/components/theme/theme-provider";
-import { TamariSprite } from "@/components/tamari/tamari-sprite";
 import { MessageBubble, type MessageExtras } from "@/components/tutor/message-bubble";
 import { Button } from "@/components/ui/button";
 import { saveAiPreferencesAction } from "@/lib/preferences/actions";
 import type { ResponseLanguage } from "@/lib/preferences/schema";
 import { routes } from "@/lib/routes";
-import { hereLine, tamariLanguage } from "@/lib/tamari/lines";
-import { TAMARI_NAME, TAMARI_STATES, TAMARI_TAGLINE, type TamariState } from "@/lib/tamari/states";
+import { hereLine, tamariLanguage, tamariStatus } from "@/lib/tamari/lines";
+import { TAMARI_TAGLINE, type TamariState } from "@/lib/tamari/states";
 import { addToNotesAction, createFlashcardAction } from "@/lib/tutor/actions";
 import type { MessageView } from "@/lib/tutor/queries";
 import { TUTOR_ACTION_BY_ID, type FollowUpId, type TutorActionId } from "@/lib/tutor/types";
@@ -168,16 +167,18 @@ const chip =
   "inline-flex min-h-8 max-w-full cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 /**
- * Tamari's chat panel (UI phase §16–§22, mascot doc §10): Tamari in the
- * header showing what it is doing (listening, thinking, talking), the page it
- * is about, the conversation, quick actions and a composer that can attach a
- * material, send the page's context and listen (voice questions and commands,
- * answers read aloud). It is mounted once and only hidden when minimized, so
- * the chat carries across pages.
+ * The chat (UI phase §16–§22, companion doc §13): "Ask Tamari" with what
+ * Tamari is doing right now (listening, thinking, talking) in words, the page
+ * it is about, the conversation, quick actions and a composer that can attach
+ * a material, send the page's context and listen (voice questions and
+ * commands, answers read aloud). Tamari itself stays outside the panel — on
+ * the dashboard or at the edge of the screen — and reacts to the chat from
+ * there, so the mascot never shows twice. It is mounted once and only hidden
+ * when minimized, so the chat carries across pages.
  */
 export default function AssistantPanel() {
   const { open, page, ai, assistant, hide, subscribe, setActivity } = useAssistant();
-  const { voiceReplies, mascot } = assistant;
+  const { voiceReplies } = assistant;
   const router = useRouter();
   const { setTheme } = useTheme();
   const desktop = useDesktop();
@@ -244,11 +245,19 @@ export default function AssistantPanel() {
     }
   }, [open, desktop]);
 
-  // An answer still on its way after the chat is minimized: Tamari works on it in the corner.
+  // Tamari, outside the panel, shows what the chat is doing: thinking about an answer (even minimized), listening, talking.
   useEffect(() => {
     setActivity("chat", sending);
     return () => setActivity("chat", false);
   }, [sending, setActivity]);
+  useEffect(() => {
+    setActivity("voice:listening", voice.status === "listening");
+    setActivity("voice:speaking", voice.status === "speaking");
+    return () => {
+      setActivity("voice:listening", false);
+      setActivity("voice:speaking", false);
+    };
+  }, [voice.status, setActivity]);
 
   // Minimizing stops listening and reading aloud.
   const { cancelListening, stopSpeaking } = voice;
@@ -616,6 +625,7 @@ export default function AssistantPanel() {
 
   const suggestions = suggestionsFor(page, includeContext);
   const tamariState: TamariState = voice.status === "listening" ? "listening" : sending ? "thinking" : voice.status === "speaking" ? "speaking" : "idle";
+  const lang = tamariLanguage(ai.language);
   const shownMaterials = (materials ?? []).filter((material) => !filter.trim() || `${material.title} ${material.subject ?? ""}`.toLowerCase().includes(filter.trim().toLowerCase()));
   const contextLine = includeContext && page ? page.label : (conversation?.material?.title ?? attached?.title ?? null);
 
@@ -652,19 +662,16 @@ export default function AssistantPanel() {
     >
       <div aria-hidden="true" className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border lg:hidden" />
       <header className="flex items-center gap-2.5 border-b border-border py-2 pr-2 pl-3">
-        {/* Remounted on every open, so Tamari hops once when called. */}
-        {mascot ? (
-          <TamariSprite key={open ? "open" : "closed"} state={tamariState} size={40} frame="portrait" greet={open} ambient={assistant.idleAnimations} />
-        ) : (
-          <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
-            <MessageCircle className="h-5 w-5" />
-          </span>
-        )}
+        <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+          <MessageCircle className="h-5 w-5" />
+        </span>
         <div className="min-w-0 flex-1">
           <h2 id={titleId} className="font-display text-base leading-tight font-semibold">
-            {view === "history" ? "Your chats" : TAMARI_NAME}
+            {view === "history" ? "Your chats" : "Ask Tamari"}
           </h2>
-          <p className="text-xs leading-snug text-muted-foreground">{view === "history" ? "Pick one to keep going" : tamariState === "idle" ? TAMARI_TAGLINE : TAMARI_STATES[tamariState].status}</p>
+          <p className={cn("text-xs leading-snug", tamariState === "idle" || view === "history" ? "text-muted-foreground" : "font-medium text-primary")}>
+            {view === "history" ? "Pick one to keep going" : tamariState === "idle" ? TAMARI_TAGLINE : tamariStatus(tamariState, lang)}
+          </p>
         </div>
         {view === "chat" && (
           <HeaderButton label="Chat history" onClick={openHistory}>
@@ -763,7 +770,6 @@ export default function AssistantPanel() {
               </p>
             ) : messages.length === 0 ? (
               <div className="flex flex-col items-center gap-4 py-2 text-center">
-                {mascot && <TamariSprite state={tamariState} size={96} ambient={assistant.idleAnimations} />}
                 <div className="flex flex-col gap-1">
                   <p className="font-display text-lg font-semibold text-foreground">What are we studying?</p>
                   <p className="text-sm text-muted-foreground">
@@ -822,8 +828,12 @@ export default function AssistantPanel() {
             )}
             {sending && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-                {mascot && <TamariSprite state="thinking" size={28} frame="portrait" />}
-                Tamari is thinking…
+                <span aria-hidden="true" className="tamari-dots static flex">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                {tamariStatus("thinking", lang)}
               </div>
             )}
           </div>
@@ -931,7 +941,7 @@ export default function AssistantPanel() {
             {voice.status === "listening" && (
               <p role="status" className="flex items-center gap-2 text-xs font-medium text-primary">
                 <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-                Tamari is listening… ask a question, or say “open the planner”.
+                {tamariStatus("listening", lang)} Ask a question, or say “open the planner”.
               </p>
             )}
             {voice.status === "speaking" && (
