@@ -468,4 +468,40 @@
     opacity: 1;
     transform: none;
   }
+  /*
+   * A shaded oval on the landing page's answer sheet: pencil strokes in ink,
+   * a little tilted and over the printed line like a real one, filled in from
+   * left to right when it appears (instantly with reduced motion).
+   */
+  .answer-shade {
+    position: absolute;
+    inset: -1.5px;
+    border-radius: 50%;
+    background-color: var(--foreground);
+    background-image: repeating-linear-gradient(
+      115deg,
+      transparent 0 2px,
+      color-mix(in oklab, var(--card) 30%, transparent) 2px 3px
+    );
+    transform: rotate(var(--shade-tilt, -4deg)) scale(1.06);
+    animation: shade-in 320ms var(--ease-out) both;
+    animation-delay: var(--shade-delay, 0ms);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .answer-shade {
+      animation: none;
+    }
+  }
+  [data-motion="reduce"] .answer-shade {
+    animation: none;
+  }
+}
+
+@keyframes shade-in {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
 }
