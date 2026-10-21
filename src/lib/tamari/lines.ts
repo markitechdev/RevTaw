@@ -36,11 +36,11 @@ const examName = (title: string) => (/\b(exam|test|quiz|midterms?|finals?|prelim
 export function streakBubble(lang: TamariLanguage, streakDays: number, today: string): TamariBubble {
   return {
     id: `streak:${today}`,
-    state: "serious",
+    state: "idle",
     text: say(lang, {
-      taglish: `Baka maputol ang ${streakDays}-day streak mo! Isang review lang.`,
-      en: `Your ${streakDays}-day streak ends tonight. One quick review?`,
-      fil: `Mapuputol na ang ${streakDays}-araw na streak mo! Isang review lang.`,
+      taglish: `${streakDays}-day streak. Sayang pag pinutol mo ngayon.`,
+      en: `${streakDays}-day streak. Don't let it end today.`,
+      fil: `${streakDays}-araw na streak. Sayang kung mapuputol ngayon.`,
     }),
     action: { label: say(lang, { taglish: "Review na", en: "Review now", fil: "Mag-review" }), href: `${routes.study}?method=rapid_review` },
   };
@@ -54,13 +54,13 @@ export function examBubble(lang: TamariLanguage, exam: { id: string; title: stri
       : exam.daysLeft === 1
         ? say(lang, { taglish: `Bukas na ang ${name} mo. Review tayo?`, en: `Your ${name} is tomorrow. Quick review?`, fil: `Bukas na ang ${name} mo. Mag-review tayo?` })
         : say(lang, {
-            taglish: `${exam.daysLeft} days na lang before your ${name}.`,
+            taglish: `${exam.daysLeft} days na lang bago ${name} mo.`,
             en: `${exam.daysLeft} days left before your ${name}.`,
             fil: `${exam.daysLeft} araw na lang bago ang ${name} mo.`,
           });
   return {
     id: `exam:${exam.id}:${exam.daysLeft}`,
-    state: exam.daysLeft <= 1 ? "serious" : "idle",
+    state: exam.daysLeft <= 1 ? "exam" : "idle",
     text,
     action: { label: say(lang, { taglish: "Tingnan ang plan", en: "Open the plan", fil: "Tingnan ang plano" }), href: `${routes.planner}/${exam.id}` },
   };
@@ -83,7 +83,7 @@ export function cardsBubble(lang: TamariLanguage, count: number, today: string):
     id: `cards:${today}`,
     state: "idle",
     text: say(lang, {
-      taglish: `May ${plural(count, "flashcard")} kang due today.`,
+      taglish: `May ${plural(count, "card")} kang due today.`,
       en: `${plural(count, "flashcard")} ${count === 1 ? "is" : "are"} due today.`,
       fil: `May ${count} flashcard na dapat i-review ngayon.`,
     }),
@@ -110,9 +110,12 @@ export function quizBubble(lang: TamariLanguage, attempt: { id: string; correct:
   const percent = Math.round((attempt.correct / attempt.total) * 100);
   const missesAction = { label: say(lang, { taglish: "Balikan natin", en: "Go over them", fil: "Balikan natin" }), prompt: "Which questions did I get wrong, and why?" };
   if (attempt.previousPercent !== null && percent >= attempt.previousPercent + 5) {
-    return { id: `quiz:${attempt.id}`, state: "celebrating", text: `Bitaw! From ${attempt.previousPercent}% to ${percent}%.` };
+    return { id: `quiz:${attempt.id}`, state: "confident", text: `Bitaw! From ${attempt.previousPercent}% to ${percent}%.` };
   }
-  if (percent >= 80) return { id: `quiz:${attempt.id}`, state: "celebrating", text: `Bitaw! ${attempt.correct}/${attempt.total}.` };
+  if (percent === 100) {
+    return { id: `quiz:${attempt.id}`, state: "confident", text: say(lang, { taglish: "Ayun. Gets mo na 'yan.", en: "There it is. You've got this one.", fil: "Ayun. Gets mo na 'yan." }) };
+  }
+  if (percent >= 80) return { id: `quiz:${attempt.id}`, state: "confident", text: `Bitaw! ${attempt.correct}/${attempt.total}.` };
   if (percent >= 50) {
     return {
       id: `quiz:${attempt.id}`,
@@ -140,13 +143,14 @@ export function quizBubble(lang: TamariLanguage, attempt: { id: string; correct:
 /** What Tamari is doing, in a few words (the chat's header, Tamari's button), in Tamari's language. */
 const STATUS: Record<TamariState, Lines> = {
   idle: { taglish: "Nandito lang ako.", en: "I'm here.", fil: "Nandito lang ako." },
-  listening: { taglish: "Nakikinig ako…", en: "Listening…", fil: "Nakikinig ako…" },
+  learning: { taglish: "Sandali, tinitingnan ko notes mo.", en: "One sec, I'm going through your notes.", fil: "Sandali, tinitingnan ko ang notes mo." },
   thinking: { taglish: "Iniisip ko…", en: "Thinking…", fil: "Iniisip ko…" },
+  listening: { taglish: "Nakikinig ako…", en: "Listening…", fil: "Nakikinig ako…" },
   speaking: { taglish: "Nagsasalita ako…", en: "Talking…", fil: "Nagsasalita ako…" },
-  studying: { taglish: "Nag-aaral din ako.", en: "Studying with you.", fil: "Nag-aaral din ako." },
-  celebrating: { taglish: "Bitaw!", en: "Nice work!", fil: "Bitaw!" },
   serious: { taglish: "Seryoso na tayo.", en: "Let's fix this.", fil: "Seryoso na tayo." },
-  sleeping: { taglish: "Naiidlip…", en: "Napping…", fil: "Naiidlip…" },
+  exam: { taglish: "Exam mode na.", en: "Exam mode.", fil: "Exam mode na." },
+  confident: { taglish: "Bitaw!", en: "Nice work!", fil: "Bitaw!" },
+  sleepy: { taglish: "Naiidlip…", en: "Napping…", fil: "Naiidlip…" },
 };
 
 export function tamariStatus(state: TamariState, lang: TamariLanguage): string {
@@ -163,7 +167,7 @@ export function napBubble(lang: TamariLanguage): TamariBubble {
   return {
     id: "nap",
     state: "idle",
-    text: say(lang, { taglish: "Review tayo?", en: "Back for a quick review?", fil: "Mag-review tayo?" }),
+    text: say(lang, { taglish: "Uy, buhay ka pa pala. Review?", en: "Oh hey, you're back. Review?", fil: "Uy, nandiyan ka pa pala. Review tayo?" }),
     action: { label: say(lang, { taglish: "Tara!", en: "Let's go", fil: "Tara!" }), href: routes.study },
   };
 }

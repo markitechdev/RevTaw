@@ -57,7 +57,7 @@ export function TamariPreferencesForm({ initial }: { initial: AssistantPreferenc
     <div className="flex flex-col gap-5">
       {error && <Alert tone="error">{error}</Alert>}
       <div className="flex items-center gap-4">
-        {shown.mascot && <TamariSprite size={64} ambient={shown.idleAnimations} className="hidden sm:inline-block" />}
+        {shown.mascot && <TamariSprite size={64} animate={shown.idleAnimations} className="hidden sm:inline-block" />}
         <div className="min-w-0">
           <Segmented label="In the corner of every page" hideLabel={false} name="tamari-corner" value={corner} onChange={setCorner} options={CORNER_OPTIONS} />
           <p className="mt-2 text-xs text-muted-foreground">{cornerHint}</p>

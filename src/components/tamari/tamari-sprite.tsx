@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 
-import { spriteFor, spriteSrcSet } from "@/components/tamari/sprites";
-import { TAMARI_STATES, type TamariState } from "@/lib/tamari/states";
+import { spriteFor, spriteSrcSet, TAMARI_BLINK_SPRITES, TAMARI_SPRITES } from "@/components/tamari/sprites";
+import { TAMARI_STATES, type TamariReaction, type TamariState } from "@/lib/tamari/states";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -9,12 +9,11 @@ type Props = {
   /** Width and height in CSS pixels; `lgSize` from the lg breakpoint up. */
   size: number;
   lgSize?: number;
-  /** "full": the whole character; "portrait": head and shoulders on Tamari's navy tile (small spots like the chat header). */
-  frame?: "full" | "portrait";
-  /** Idle-type motions (a 1–2 px bob, breathing while asleep); off when the student turns idle animations off. */
-  ambient?: boolean;
-  /** One small hop when it appears (Tamari reacting to being opened). */
-  greet?: boolean;
+  /** Pixel animations (Settings → Tamari): off holds Tamari still in the state's pose. */
+  animate?: boolean;
+  /** A one-off reaction (a bounce for a right answer, a step aside for a wrong one); change `reactionKey` to play it again. */
+  reaction?: TamariReaction | null;
+  reactionKey?: number | string;
   className?: string;
 };
 
@@ -22,36 +21,39 @@ type Props = {
  * Tamari's picture for a state. Decorative: the state is always also said in
  * text next to it. The pixels stay sharp: the picture comes in sizes close to
  * the one on screen, is drawn with `image-rendering: pixelated`, and every
- * motion moves in whole pixels (stepped CSS animations, transforms only) and
- * stops under reduced motion.
+ * motion moves in whole pixels or switches frames (stepped CSS animations,
+ * transforms and opacity only) and stops under reduced motion.
  */
-export function TamariSprite({ state = "idle", size, lgSize, frame = "full", ambient = true, greet = false, className }: Props) {
+export function TamariSprite({ state = "idle", size, lgSize, animate = true, reaction = null, reactionKey, className }: Props) {
   const definition = TAMARI_STATES[state];
-  const moving = ambient || !definition.ambient;
-  const scale = frame === "portrait" ? 1.6 : 1;
-  const render = Math.round(size * scale);
-  const renderLg = lgSize ? Math.round(lgSize * scale) : null;
-  const style = { "--tamari-size": `${size}px`, "--tamari-size-lg": `${lgSize ?? size}px` } as CSSProperties;
+  const frames = TAMARI_SPRITES[definition.pose];
+  const blink = definition.blinks && animate ? TAMARI_BLINK_SPRITES[definition.pose] : undefined;
+  const largest = lgSize ?? size;
+  const sizes = lgSize ? `(min-width: 64rem) ${lgSize}px, ${size}px` : `${size}px`;
+  const style = { "--tamari-size": `${size}px`, "--tamari-size-lg": `${largest}px` } as CSSProperties;
 
   return (
-    <span aria-hidden="true" data-tamari={state} style={style} className={cn("relative inline-block size-(--tamari-size) shrink-0 lg:size-(--tamari-size-lg)", greet && "tamari-greet", className)}>
-      {definition.motion === "listen" && <span className={cn("tamari-ring", frame === "portrait" ? "rounded-[30%]" : "rounded-full")} />}
-      <span className={cn("absolute inset-0", frame === "portrait" && "tamari-portrait")}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- pre-sized pixel art; the image optimizer would resample it */}
-        <img
-          src={spriteFor(definition.pose, renderLg ?? render).src}
-          srcSet={spriteSrcSet(definition.pose)}
-          sizes={renderLg ? `(min-width: 64rem) ${renderLg}px, ${render}px` : `${render}px`}
-          width={render}
-          height={render}
-          alt=""
-          draggable={false}
-          decoding="async"
-          className={cn("tamari-sprite", moving && `tamari-${definition.motion}`)}
-        />
+    <span aria-hidden="true" data-tamari={state} style={style} className={cn("relative inline-block size-(--tamari-size) shrink-0 lg:size-(--tamari-size-lg)", className)}>
+      {/* Remounted per reaction, so the same reaction can play twice in a row. */}
+      <span key={reactionKey} className={cn("absolute inset-0", animate && reaction && `tamari-react-${reaction}`)}>
+        <span className={cn("absolute inset-0", animate && `tamari-${definition.motion}`)}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- pre-sized pixel art; the image optimizer would resample it */}
+          <img src={spriteFor(frames, largest).src} srcSet={spriteSrcSet(frames)} sizes={sizes} width={largest} height={largest} alt="" draggable={false} decoding="async" className="tamari-sprite" />
+          {blink && (
+            // eslint-disable-next-line @next/next/no-img-element -- the closed-eye frame of the same picture
+            <img src={spriteFor(blink, largest).src} srcSet={spriteSrcSet(blink)} sizes={sizes} width={largest} height={largest} alt="" draggable={false} decoding="async" className="tamari-sprite tamari-blink" />
+          )}
+        </span>
       </span>
+      {definition.motion === "listen" && (
+        <span className={cn("tamari-waves", !animate && "tamari-still")}>
+          <i />
+          <i />
+          <i />
+        </span>
+      )}
       {definition.motion === "think" && (
-        <span className="tamari-dots">
+        <span className={cn("tamari-dots", !animate && "tamari-still")}>
           <i />
           <i />
           <i />

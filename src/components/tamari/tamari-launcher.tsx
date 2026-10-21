@@ -19,14 +19,14 @@ export function TamariLauncher({
   state,
   mode,
   mascot,
-  ambient,
+  animate,
   onOpen,
   ref,
 }: {
   state: TamariState;
   mode: "visible" | "desktop";
   mascot: boolean;
-  ambient: boolean;
+  animate: boolean;
   onOpen: () => void;
   ref?: Ref<HTMLButtonElement>;
 }) {
@@ -60,7 +60,7 @@ export function TamariLauncher({
         className="group relative block cursor-pointer rounded-full border border-border bg-card p-1 shadow-pop lg:p-1.5"
       >
         <span className="block group-hover:-translate-y-0.5 group-active:translate-y-0">
-          <TamariSprite state={state} size={44} lgSize={60} ambient={ambient} />
+          <TamariSprite state={state} size={44} lgSize={60} animate={animate} />
         </span>
       </button>
     </div>

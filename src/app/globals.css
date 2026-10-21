@@ -445,9 +445,10 @@
 
   /*
    * Tamari, the study companion (components/tamari). Pixel art: no
-   * smoothing, and every motion moves in whole pixels (stepped animations,
-   * transforms only), so the picture never blurs mid-move. All of it holds
-   * still under reduced motion; the listening ring then stays as a plain ring.
+   * smoothing, and every motion moves in whole pixels or switches frames
+   * (stepped animations, transforms and opacity only), so the picture never
+   * blurs mid-move. All of it holds still under reduced motion; the listening
+   * bars and thinking dots then stay as they are.
    */
   .tamari-sprite {
     display: block;
@@ -458,33 +459,34 @@
     user-select: none;
     pointer-events: none;
   }
-  /* Small spots show head and shoulders on Tamari's own navy square. */
-  .tamari-portrait {
-    overflow: hidden;
-    border-radius: 22%;
-    background-color: #012d66;
-  }
-  .tamari-portrait > .tamari-sprite {
+  /* The closed-eye frame over the open one: shown for a moment, twice in seven seconds. */
+  .tamari-blink {
     position: absolute;
-    top: -6%;
-    left: -30%;
-    width: 160%;
-    height: 160%;
+    inset: 0;
+    opacity: 0;
+    animation: tamari-blink 7s steps(1, end) infinite;
   }
   .tamari-idle {
     animation: tamari-bob 3.6s steps(1, end) infinite;
   }
+  .tamari-type {
+    animation: tamari-type 0.6s steps(1, end) infinite;
+  }
+  .tamari-think {
+    animation: tamari-bob 1.8s steps(1, end) infinite;
+  }
   .tamari-talk {
     animation: tamari-talk 0.4s steps(1, end) infinite;
   }
-  .tamari-hop {
-    animation: tamari-hop 0.5s steps(1, end) 2;
+  .tamari-bounce,
+  .tamari-react-correct {
+    animation: tamari-bounce 0.5s steps(1, end) 1;
   }
-  .tamari-greet {
-    animation: tamari-hop 0.5s steps(1, end) 1;
-  }
-  .tamari-shake {
+  .tamari-steam {
     animation: tamari-shake 0.45s steps(1, end) 2;
+  }
+  .tamari-react-wrong {
+    animation: tamari-sidestep 0.48s steps(1, end) 1;
   }
   .tamari-doze {
     animation: tamari-doze 3.2s steps(1, end) infinite;
@@ -492,12 +494,30 @@
   .tamari-enter {
     animation: tamari-enter 0.36s steps(1, end) both;
   }
-  .tamari-ring {
+  /* Listening: three pixel bars by Tamari's ear, rising and falling like a voice meter. */
+  .tamari-waves {
     position: absolute;
-    inset: -4px;
-    border: 2px solid var(--primary);
-    animation: tamari-ring 1.2s steps(1, end) infinite;
+    top: 30%;
+    right: -2%;
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 12px;
   }
+  .tamari-waves i {
+    display: block;
+    width: 3px;
+    height: 6px;
+    background-color: var(--primary);
+    animation: tamari-wave 0.8s steps(1, end) infinite;
+  }
+  .tamari-waves i:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+  .tamari-waves i:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+  /* Thinking: three pixel dots above Tamari's head. */
   .tamari-dots {
     position: absolute;
     top: -3px;
@@ -518,15 +538,8 @@
   .tamari-dots i:nth-child(3) {
     animation-delay: 0.3s;
   }
-  @media (prefers-reduced-motion: reduce) {
-    .tamari-ring {
-      animation: none;
-      opacity: 0.7;
-    }
-  }
-  [data-motion="reduce"] .tamari-ring {
+  .tamari-still i {
     animation: none;
-    opacity: 0.7;
   }
 }
 
@@ -539,7 +552,25 @@
   }
 }
 
-/* Tamari's motions: whole-pixel steps (see .tamari-* above). */
+/* Tamari's motions: whole-pixel steps and frame switches (see .tamari-* above). */
+@keyframes tamari-blink {
+  0% {
+    opacity: 0;
+  }
+  46% {
+    opacity: 1;
+  }
+  48% {
+    opacity: 0;
+  }
+  84% {
+    opacity: 1;
+  }
+  86%,
+  100% {
+    opacity: 0;
+  }
+}
 @keyframes tamari-bob {
   0%,
   46% {
@@ -559,6 +590,15 @@
     transform: translateY(0);
   }
 }
+@keyframes tamari-type {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(1px);
+  }
+}
 @keyframes tamari-talk {
   0%,
   100% {
@@ -568,18 +608,24 @@
     transform: translateY(-1px);
   }
 }
-@keyframes tamari-hop {
+@keyframes tamari-bounce {
   0%,
   100% {
     transform: translateY(0);
   }
-  20%,
-  80% {
-    transform: translateY(-2px);
+  15%,
+  45% {
+    transform: translateY(-3px);
   }
-  40%,
-  60% {
-    transform: translateY(-4px);
+  30% {
+    transform: translateY(-5px);
+  }
+  60%,
+  85% {
+    transform: translateY(-1px);
+  }
+  72% {
+    transform: translateY(-2px);
   }
 }
 @keyframes tamari-shake {
@@ -593,6 +639,27 @@
   }
   40%,
   80% {
+    transform: translateX(1px);
+  }
+}
+@keyframes tamari-sidestep {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  16% {
+    transform: translateX(-2px);
+  }
+  33% {
+    transform: translateX(-3px);
+  }
+  50% {
+    transform: translateX(-1px);
+  }
+  66% {
+    transform: translateX(2px);
+  }
+  83% {
     transform: translateX(1px);
   }
 }
@@ -624,26 +691,21 @@
     transform: translateY(0);
   }
 }
-@keyframes tamari-ring {
+@keyframes tamari-wave {
   0% {
-    opacity: 0.9;
-    transform: scale(0.94);
+    height: 4px;
   }
   25% {
-    opacity: 0.7;
-    transform: scale(1);
+    height: 10px;
   }
   50% {
-    opacity: 0.45;
-    transform: scale(1.06);
+    height: 7px;
   }
   75% {
-    opacity: 0.2;
-    transform: scale(1.12);
+    height: 12px;
   }
   100% {
-    opacity: 0;
-    transform: scale(1.12);
+    height: 6px;
   }
 }
 @keyframes tamari-dot {

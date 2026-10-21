@@ -27,19 +27,20 @@ describe("Tamari's bubbles", () => {
     expect(reviewsBubble("en", 2, "2026-10-21").text).toBe("You have 2 reviews today.");
     expect(reviewsBubble("fil", 2, "2026-10-21").text).toBe("May 2 review ka ngayong araw.");
     expect(cardsBubble("en", 1, "2026-10-21").text).toBe("1 flashcard is due today.");
+    expect(cardsBubble("taglish", 6, "2026-10-21").text).toBe("May 6 cards kang due today.");
   });
 
   it("counts down to an exam without saying exam twice", () => {
-    expect(examBubble("taglish", { id: "e1", title: "Calculus", daysLeft: 3 })).toMatchObject({ id: "exam:e1:3", text: "3 days na lang before your Calculus exam.", state: "idle" });
+    expect(examBubble("taglish", { id: "e1", title: "Calculus", daysLeft: 3 })).toMatchObject({ id: "exam:e1:3", text: "3 days na lang bago Calculus exam mo.", state: "idle" });
     expect(examBubble("en", { id: "e1", title: "Biology Midterm", daysLeft: 5 }).text).toBe("5 days left before your Biology Midterm.");
-    expect(examBubble("taglish", { id: "e1", title: "Physics exam", daysLeft: 1 })).toMatchObject({ text: "Bukas na ang Physics exam mo. Review tayo?", state: "serious" });
+    expect(examBubble("taglish", { id: "e1", title: "Physics exam", daysLeft: 1 })).toMatchObject({ text: "Bukas na ang Physics exam mo. Review tayo?", state: "exam" });
     expect(examBubble("fil", { id: "e1", title: "Chemistry", daysLeft: 0 }).text).toBe("Araw na ng Chemistry exam mo! Kaya mo 'yan.");
     expect(examBubble("en", { id: "e9", title: "Calculus", daysLeft: 2 }).action).toEqual({ label: "Open the plan", href: "/planner/e9" });
   });
 
-  it("gets serious, not mean, about a streak that ends tonight", () => {
-    const bubble = streakBubble("taglish", 6, "2026-10-21");
-    expect(bubble).toMatchObject({ id: "streak:2026-10-21", state: "serious", text: "Baka maputol ang 6-day streak mo! Isang review lang." });
+  it("nudges, never scolds, about a streak that ends tonight", () => {
+    const bubble = streakBubble("taglish", 5, "2026-10-21");
+    expect(bubble).toMatchObject({ id: "streak:2026-10-21", state: "idle", text: "5-day streak. Sayang pag pinutol mo ngayon." });
     expect(bubble.action?.href).toBe("/study?method=rapid_review");
   });
 
@@ -52,8 +53,9 @@ describe("Tamari's bubbles", () => {
   });
 
   it("cheers after a quiz, or nudges toward the misses", () => {
-    expect(quizBubble("taglish", { id: "a1", correct: 8, total: 10, previousPercent: null })).toMatchObject({ id: "quiz:a1", text: "Bitaw! 8/10.", state: "celebrating" });
-    expect(quizBubble("en", { id: "a1", correct: 84, total: 100, previousPercent: 68 })).toMatchObject({ text: "Bitaw! From 68% to 84%.", state: "celebrating" });
+    expect(quizBubble("taglish", { id: "a1", correct: 8, total: 10, previousPercent: null })).toMatchObject({ id: "quiz:a1", text: "Bitaw! 8/10.", state: "confident" });
+    expect(quizBubble("en", { id: "a1", correct: 84, total: 100, previousPercent: 68 })).toMatchObject({ text: "Bitaw! From 68% to 84%.", state: "confident" });
+    expect(quizBubble("taglish", { id: "a1", correct: 10, total: 10, previousPercent: 100 })).toMatchObject({ text: "Ayun. Gets mo na 'yan.", state: "confident" });
     expect(quizBubble("taglish", { id: "a1", correct: 6, total: 10, previousPercent: 58 })).toMatchObject({ text: "6/10. Ayos! Balikan natin ang mga mali?", state: "idle" });
     const low = quizBubble("taglish", { id: "a1", correct: 2, total: 10, previousPercent: null });
     expect(low).toMatchObject({ text: "Mukhang may kailangan pa tayong balikan dito.", state: "serious" });
@@ -62,7 +64,7 @@ describe("Tamari's bubbles", () => {
   });
 
   it("asks for a review after a nap, once per session", () => {
-    expect(napBubble("taglish")).toMatchObject({ id: "nap", text: "Review tayo?" });
-    expect(napBubble("en").text).toBe("Back for a quick review?");
+    expect(napBubble("taglish")).toMatchObject({ id: "nap", text: "Uy, buhay ka pa pala. Review?" });
+    expect(napBubble("en").text).toBe("Oh hey, you're back. Review?");
   });
 });

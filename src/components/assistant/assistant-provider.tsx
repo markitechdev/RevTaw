@@ -254,21 +254,22 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
     else if (action.prompt) show({ prompt: action.prompt, send: true, ...(action.materialId !== undefined ? { materialId: action.materialId } : {}) });
   };
 
-  // What Tamari shows: the microphone and speech beat work in progress, which beats what it is saying, a nap, studying along and waiting.
+  // What Tamari shows: the microphone and speech first, then an answer being written, then RevTaw working
+  // through the student's things (a reviewer, a quiz, a plan), then what it is saying, a nap and waiting.
   const shownBubble = hintsOn ? bubble : null;
-  const working = [...activities].some((key) => !key.startsWith("voice:"));
+  const working = [...activities].some((key) => key !== "chat" && !key.startsWith("voice:"));
   const tamari: TamariState = activities.has("voice:listening")
     ? "listening"
     : activities.has("voice:speaking")
       ? "speaking"
-      : working
+      : activities.has("chat")
         ? "thinking"
-        : shownBubble
-          ? shownBubble.state
-          : napping
-            ? "sleeping"
-            : page?.ref?.kind === "session"
-              ? "studying"
+        : working
+          ? "learning"
+          : shownBubble
+            ? shownBubble.state
+            : napping
+              ? "sleepy"
               : "idle";
 
   return (
@@ -278,7 +279,7 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
         <aside aria-label="Tamari">
           {shownBubble && <TamariSpeech bubble={shownBubble} mode={launcher === "desktop" ? "desktop" : "visible"} onAction={onBubbleAction} onDismiss={() => setBubble(null)} />}
           {showLauncher && (
-            <TamariLauncher ref={launcherRef} state={tamari} mode={launcher === "desktop" ? "desktop" : "visible"} mascot={assistant.mascot} ambient={assistant.idleAnimations} onOpen={() => show()} />
+            <TamariLauncher ref={launcherRef} state={tamari} mode={launcher === "desktop" ? "desktop" : "visible"} mascot={assistant.mascot} animate={assistant.idleAnimations} onOpen={() => show()} />
           )}
           {/* Says each bubble to screen readers once; always present so the change is announced (a polite live region, not a status landmark pages look for). */}
           {withTamari && (
