@@ -1,34 +1,27 @@
+import Image from "next/image";
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
 import { cn } from "@/lib/utils";
+import logoImage from "./revtaw-logo.png";
 
-/** The RevTaw mark: an open book whose pages form a check — "delivers". */
+/**
+ * The RevTaw mark: the navy app icon (the same picture as the favicon and the
+ * home-screen icon in src/app). Decorative — the wordmark next to it names the
+ * link. The file is already small (96 px for 32 px at 3x), so it skips the
+ * image optimizer.
+ */
 export function LogoMark({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 32 32"
-      aria-hidden="true"
-      className={cn("h-8 w-8", className)}
-      fill="none"
-    >
-      <rect width="32" height="32" rx="8" className="fill-brand" />
-      <path
-        d="M8 10.5c2.6-1.2 5.3-1.2 8 0v12c-2.7-1.2-5.4-1.2-8 0v-12Z"
-        className="fill-brand-foreground"
-        opacity="0.55"
-      />
-      <path
-        d="M16 10.5c2.6-1.2 5.3-1.2 8 0v12c-2.7-1.2-5.4-1.2-8 0v-12Z"
-        className="fill-brand-foreground"
-      />
-      <path
-        d="M11.5 16.5l2.2 2.2 4.3-4.6"
-        className="stroke-brand"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <Image
+      src={logoImage}
+      alt=""
+      width={32}
+      height={32}
+      unoptimized
+      loading="eager"
+      draggable={false}
+      className={cn("h-8 w-8 shrink-0 select-none", className)}
+    />
   );
 }
 
