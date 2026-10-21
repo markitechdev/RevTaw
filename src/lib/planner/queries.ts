@@ -13,9 +13,11 @@ import { createClient } from "@/lib/supabase/server";
 export type TaskView = StudyTask & {
   material: { id: string; title: string } | null;
   exam: { id: string; title: string; exam_date: string } | null;
+  subject: { id: string; name: string } | null;
 };
 
-const TASK_COLUMNS = "*, material:materials!study_tasks_material_fk(id, title), exam:exams!study_tasks_exam_fk(id, title, exam_date)";
+const TASK_COLUMNS =
+  "*, material:materials!study_tasks_material_fk(id, title), exam:exams!study_tasks_exam_fk(id, title, exam_date), subject:subjects!study_tasks_subject_fk(id, name)";
 
 export type ExamSummary = Exam & {
   subject: { id: string; name: string; color: string | null } | null;
@@ -162,6 +164,22 @@ export async function listTasks(options: { from: string; to: string }): Promise<
   return (data ?? []) as unknown as TaskView[];
 }
 
+export type CalendarExam = { id: string; title: string; exam_date: string; subject: string | null };
+
+/** Everything the planner calendar shows between two dates: tasks and activities, and exam days. */
+export async function listCalendar(options: { from: string; to: string }): Promise<{ tasks: TaskView[]; exams: CalendarExam[] }> {
+  const supabase = await createClient();
+  const [tasks, { data: exams, error }] = await Promise.all([
+    listTasks(options),
+    supabase.from("exams").select("id, title, exam_date, subject:subjects!exams_subject_fk(name)").is("archived_at", null).gte("exam_date", options.from).lte("exam_date", options.to).order("exam_date").limit(100),
+  ]);
+  if (error) console.error("exams: calendar failed", error.message);
+  return {
+    tasks,
+    exams: (exams ?? []).map((exam) => ({ id: exam.id, title: exam.title, exam_date: exam.exam_date, subject: (exam.subject as unknown as { name: string } | null)?.name ?? null })),
+  };
+}
+
 export const getTask = cache(async (taskId: string): Promise<TaskView | null> => {
   const supabase = await createClient();
   const { data, error } = await supabase.from("study_tasks").select(TASK_COLUMNS).eq("id", taskId).maybeSingle();
@@ -171,6 +189,14 @@ export const getTask = cache(async (taskId: string): Promise<TaskView | null> =>
   }
   return (data as unknown as TaskView | null) ?? null;
 });
+
+/** The next standalone 1-3-7-14 review passes, across materials (planner sidebar). */
+export async function listReviewCycles(today: string): Promise<TaskView[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("study_tasks").select(TASK_COLUMNS).eq("kind", "review").eq("status", "pending").gte("scheduled_for", today).order("scheduled_for").limit(8);
+  if (error) console.error("study_tasks: review cycles failed", error.message);
+  return (data ?? []) as unknown as TaskView[];
+}
 
 /** Upcoming standalone review tasks (the 1-3-7-14 cycle) for a material. */
 export async function listReviewTasks(materialId: string): Promise<TaskView[]> {

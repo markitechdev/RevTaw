@@ -109,6 +109,8 @@ export type GoalKind = "focus_minutes" | "flashcards_reviewed" | "questions_answ
 export type GoalPeriod = "day" | "week" | "once";
 export type GoalStatus = "active" | "completed" | "archived";
 export type NotificationKind = "review_due" | "exam_upcoming" | "plan_reminder" | "plan_adjusted" | "daily_goal" | "streak" | "achievement" | "level_up";
+/** Calendar category of a planner activity (0014). */
+export type ActivityCategory = "study" | "review" | "assignment" | "project" | "exam" | "class" | "other";
 export type XpSource = "answers" | "session" | "reviews" | "mastered" | "goal" | "streak_day" | "achievement";
 
 type ProfilesRow = {
@@ -545,6 +547,12 @@ type StudyTasksRow = {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  /** "HH:MM:SS" local time in the student's time zone, or null for any time that day. */
+  starts_at: string | null;
+  subject_id: string | null;
+  priority: ExamPriority;
+  notes: string | null;
+  category: ActivityCategory | null;
 };
 
 type StudyGoalsRow = {

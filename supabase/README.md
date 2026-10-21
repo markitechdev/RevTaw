@@ -40,6 +40,7 @@ supabase db push
 | `0011_search.sql` | full-text (GIN) indexes for global search over materials, chunks, reviewers and sections, quiz questions, flashcards, concepts and tutor conversations; generated `search_text` columns on `reviewer_sections` and `flashcards` |
 | `0012_preferences.sql` | `profiles.preferences` (JSON object by section: appearance, dashboard, tools, ai, study, notifications, assistant; size-capped) and `set_preference_section()` — saves one section atomically, security invoker so RLS applies |
 | `0013_planner_fk_fix.sql` | fix: the exam → subject and task → material / session foreign keys clear only their own id column on delete (`set null (column)`), so a material with scheduled reviews or a subject used by an exam can be deleted |
+| `0014_planner_activities.sql` | the planner calendar: `study_tasks` gains a start time (local, in the student's time zone), a subject, a priority, notes and a category (study, review, assignment, project, exam, class, other) |
 
 Migrations are additive. Never edit an applied migration; add a new numbered
 file instead.

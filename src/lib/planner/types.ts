@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 import { isIsoDate } from "@/lib/planner/dates";
-import type { ExamPriority, GoalKind, GoalPeriod, PlanMode, TaskStatus } from "@/lib/supabase/database.types";
+import { isClockTime } from "@/lib/planner/time";
+import type { ActivityCategory, ExamPriority, GoalKind, GoalPeriod, PlanMode, StudyTask, TaskStatus } from "@/lib/supabase/database.types";
 
 /** Labels and form schemas shared by the planner's client and server code. */
 
@@ -73,16 +74,59 @@ export const goalFormSchema = z
 
 export type GoalFormInput = z.input<typeof goalFormSchema>;
 
-export const customTaskSchema = z.object({
-  title: z.string().trim().min(1, "Give the task a name.").max(160),
-  scheduledFor: isoDate,
-  minutes: z.number().int().min(5).max(480),
-  method: z.enum(["active_recall", "practice_testing", "feynman", "error_review", "spaced_repetition", "pomodoro", "review"]),
-  materialId: z.uuid().nullable(),
-  examId: z.uuid().nullable(),
-});
+/* ------------------------------------------------------------------ */
+/* Calendar activities (UI phase §26–§27)                              */
+/* ------------------------------------------------------------------ */
 
-export type CustomTaskInput = z.input<typeof customTaskSchema>;
+export const ACTIVITY_CATEGORIES: ReadonlyArray<{ id: ActivityCategory; label: string; hint: string }> = [
+  { id: "study", label: "Study", hint: "A study session with a method" },
+  { id: "review", label: "Review", hint: "Notes, flashcards or a 1-3-7-14 pass" },
+  { id: "assignment", label: "Assignment", hint: "Homework, a paper, a problem set" },
+  { id: "project", label: "Project", hint: "Group work, a report, a presentation" },
+  { id: "exam", label: "Quiz or exam", hint: "A test date (add an exam for a full plan)" },
+  { id: "class", label: "Class", hint: "A lecture, a lab or a consultation" },
+  { id: "other", label: "Other", hint: "Anything else on your schedule" },
+];
+
+export const ACTIVITY_CATEGORY_IDS = ACTIVITY_CATEGORIES.map((category) => category.id) as [ActivityCategory, ...ActivityCategory[]];
+
+export const ACTIVITY_CATEGORY_LABEL = Object.fromEntries(ACTIVITY_CATEGORIES.map((category) => [category.id, category.label])) as Record<ActivityCategory, string>;
+
+/** Generated tasks have no category of their own: plan tasks are study, 1-3-7-14 passes are reviews. */
+export function categoryOf(task: Pick<StudyTask, "category" | "kind">): ActivityCategory {
+  return task.category ?? (task.kind === "review" ? "review" : "study");
+}
+
+/** Study methods an activity can start (others are plain calendar items, method "activity"). */
+export const ACTIVITY_METHODS = ["active_recall", "practice_testing", "feynman", "error_review", "spaced_repetition", "pomodoro", "review", "activity"] as const;
+export type ActivityMethod = (typeof ACTIVITY_METHODS)[number];
+
+/** Methods that run on a material (the rest work across everything). */
+export function methodNeedsMaterial(method: ActivityMethod): boolean {
+  return method !== "error_review" && method !== "spaced_repetition" && method !== "pomodoro" && method !== "activity";
+}
+
+export const activitySchema = z
+  .object({
+    title: z.string().trim().min(1, "Give the activity a name.").max(160),
+    category: z.enum(ACTIVITY_CATEGORY_IDS),
+    scheduledFor: isoDate,
+    startsAt: z.string().refine(isClockTime, "Enter a time like 14:30.").nullable(),
+    minutes: z.number().int().min(5, "At least 5 minutes.").max(480, "At most 8 hours."),
+    method: z.enum(ACTIVITY_METHODS),
+    materialId: z.uuid().nullable(),
+    subjectId: z.uuid().nullable(),
+    examId: z.uuid().nullable(),
+    priority: z.enum(["low", "normal", "high"]),
+    notes: z.string().trim().max(2000).nullable(),
+  })
+  .superRefine((value, ctx) => {
+    if (methodNeedsMaterial(value.method) && !value.materialId) ctx.addIssue({ code: "custom", path: ["materialId"], message: "Choose a material for this method." });
+    if (value.method !== "activity" && value.category !== "study" && value.category !== "review") ctx.addIssue({ code: "custom", path: ["method"], message: "Only study and review activities start a session." });
+  });
+
+export type ActivityInput = z.input<typeof activitySchema>;
+export type ActivityValues = z.infer<typeof activitySchema>;
 
 /** Minutes presets for the daily budget. */
 export const DAILY_MINUTE_PRESETS = [15, 30, 45, 60, 90, 120] as const;

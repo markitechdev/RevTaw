@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { AssistantPage } from "@/components/assistant/assistant-provider";
-import { AddTaskButton } from "@/components/planner/custom-task-dialog";
+import { AddActivityButton } from "@/components/planner/activity-dialog";
 import { ExamDangerActions, PlanSettings } from "@/components/planner/exam-actions";
 import { ExportMenu } from "@/components/export/export-menu";
 import { ExamCard } from "@/components/planner/exam-card";
@@ -44,6 +44,7 @@ export default async function ExamPlanPage({ params }: PageProps<"/planner/[exam
   const [materials, subjects] = await Promise.all([listMaterials(), listSubjects()]);
   const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title, subject: material.subject?.name ?? null }));
   const subjectOptions = subjects.filter((subject) => !subject.archived_at).map((subject) => ({ id: subject.id, name: subject.name }));
+  const activityOptions = { materials: readyMaterials, subjects: subjectOptions, today };
 
   const visible = exam.tasks.filter((task) => task.status !== "skipped" || task.scheduled_for >= today);
   const byDay = new Map<string, typeof visible>();
@@ -128,7 +129,7 @@ export default async function ExamPlanPage({ params }: PageProps<"/planner/[exam
         <div className="flex flex-col gap-4 lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-semibold">Schedule</h2>
-            <AddTaskButton materials={readyMaterials} today={today} examId={exam.id} />
+            <AddActivityButton options={activityOptions} examId={exam.id} label="Add task" />
           </div>
           {futureDays.length === 0 && pastDays.length === 0 ? (
             <EmptyState icon={CalendarDays} title="No tasks scheduled" description={exam.daysLeft < 0 ? "The exam has passed." : "Regenerate the plan or add tasks by hand."} />

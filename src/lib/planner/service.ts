@@ -5,7 +5,7 @@ import { countDueCards } from "@/lib/flashcards/queries";
 import { parseAnalysisData } from "@/lib/materials/analysis-schema";
 import { addDays, dateIn, daysBetween, todayIn, weekdayOf } from "@/lib/planner/dates";
 import { generatePlan, type PlanMaterial, type PlannedTask } from "@/lib/planner/generate";
-import { customTaskSchema, examFormSchema, type ExamFormValues } from "@/lib/planner/types";
+import { activitySchema, examFormSchema, methodNeedsMaterial, type ExamFormValues } from "@/lib/planner/types";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import type { PlanMode, StudyPlan, StudyTask } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -385,18 +385,47 @@ export async function deleteTask(taskId: string): Promise<void> {
   if (error) throw new Error(`study_tasks: delete failed: ${error.message}`);
 }
 
-export async function addCustomTask(raw: unknown): Promise<{ taskId: string }> {
-  const parsed = customTaskSchema.safeParse(raw);
-  if (!parsed.success) throw new PlannerError(parsed.error.issues[0]?.message ?? "Check the task details.", 400);
+/**
+ * Adds or edits a calendar activity (UI phase §26): your own item on the
+ * schedule, with a time, subject, material, priority and notes.
+ * Study and review activities start a session of their method; the other
+ * categories are plain calendar items. Generated plan and review tasks are
+ * changed through their plan, not here.
+ */
+export async function saveActivity(raw: unknown, taskId: string | null = null): Promise<{ taskId: string }> {
+  const parsed = activitySchema.safeParse(raw);
+  if (!parsed.success) throw new PlannerError(parsed.error.issues[0]?.message ?? "Check the activity details.", 400);
   const input = parsed.data;
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("study_tasks")
-    .insert({ kind: "custom", method: input.method, title: input.title, scheduled_for: input.scheduledFor, minutes: input.minutes, material_id: input.materialId, exam_id: input.examId, reason: "Added by you.", position: 90 })
-    .select("id")
-    .single();
-  if (error || !data) throw new PlannerError("The task could not be added. Check the material and exam.", 400);
-  return { taskId: data.id };
+  const fields = {
+    title: input.title,
+    category: input.category,
+    method: input.method,
+    scheduled_for: input.scheduledFor,
+    starts_at: input.startsAt,
+    minutes: input.minutes,
+    material_id: methodNeedsMaterial(input.method) || input.method === "activity" ? input.materialId : null,
+    subject_id: input.subjectId,
+    priority: input.priority,
+    notes: input.notes || null,
+  };
+  let row: StudyTask | null = null;
+  if (taskId) {
+    const existing = await loadTask(supabase, taskId);
+    if (existing.kind !== "custom") throw new PlannerError("Planned tasks change with their plan. Edit the exam's plan instead.", 409);
+    const { data, error } = await supabase.from("study_tasks").update(fields).eq("id", taskId).select("*").single();
+    if (error || !data) throw new PlannerError("The activity could not be saved. Check the material and subject.", 400);
+    row = data;
+  } else {
+    const { data, error } = await supabase
+      .from("study_tasks")
+      .insert({ ...fields, kind: "custom", exam_id: input.examId, reason: "Added by you.", position: 90 })
+      .select("*")
+      .single();
+    if (error || !data) throw new PlannerError("The activity could not be added. Check the material, subject and exam.", 400);
+    row = data;
+  }
+  return { taskId: row.id };
 }
 
 /** Schedules the optional 1-3-7-14 review cycle for a material (§16 "1-3-7-14 Review"). */

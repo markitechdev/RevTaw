@@ -9,7 +9,6 @@ import { isValidTimezone } from "@/lib/planner/dates";
 import { completeGoal, createGoal, deleteGoal } from "@/lib/planner/goals";
 import { getTask } from "@/lib/planner/queries";
 import {
-  addCustomTask,
   archiveExam,
   completeTask,
   createExam,
@@ -19,12 +18,13 @@ import {
   rebalancePlan,
   regeneratePlan,
   reopenTask,
+  saveActivity,
   scheduleReviewCycle,
   skipTask,
   updateExam,
   updatePlanSettings,
 } from "@/lib/planner/service";
-import type { CustomTaskInput, ExamFormInput, GoalFormInput } from "@/lib/planner/types";
+import type { ActivityInput, ExamFormInput, GoalFormInput } from "@/lib/planner/types";
 import { routes } from "@/lib/routes";
 import { isBuilderMethod, isTestMethod, type BuilderMethodId } from "@/lib/study/catalog";
 import { ServiceError, SessionError, startSession } from "@/lib/study/service";
@@ -158,6 +158,7 @@ export async function startTaskAction(taskId: string): Promise<PlannerActionResu
         return { ok: true, data: { redirect: conversationId ? `${routes.tutor}/${conversationId}` : `${routes.study}/${session.id}` } };
       }
     }
+    if (task.method === "activity") return { ok: false, message: "This activity has no study session. Mark it done when you have finished it." };
     if (task.method === "spaced_repetition") return { ok: true, data: { redirect: `${routes.flashcards}/review?task=${task.id}` } };
     const candidate = task.method === "review" ? "active_recall" : task.method;
     if (!isBuilderMethod(candidate) || candidate === "smart_study") return { ok: false, message: "This task's method cannot be started yet. Mark it done when you have studied it." };
@@ -234,15 +235,17 @@ export async function deleteTaskAction(taskId: string): Promise<PlannerActionRes
   }
 }
 
-export async function addCustomTaskAction(input: CustomTaskInput): Promise<PlannerActionResult<{ taskId: string }>> {
+/** Adds a calendar activity, or edits one with `taskId`. */
+export async function saveActivityAction(input: ActivityInput, taskId: string | null = null): Promise<PlannerActionResult<{ taskId: string }>> {
   const user = await getCurrentUser();
   if (!user) redirect(routes.login);
+  if (taskId !== null && !uuid.safeParse(taskId).success) return { ok: false, message: "Invalid activity." };
   try {
-    const result = await addCustomTask(input);
+    const result = await saveActivity(input, taskId);
     revalidate(input.examId ?? null);
     return { ok: true, data: result };
   } catch (error) {
-    return failure(error, "The task could not be added.");
+    return failure(error, "The activity could not be saved.");
   }
 }
 
