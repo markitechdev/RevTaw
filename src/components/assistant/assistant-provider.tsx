@@ -4,7 +4,7 @@ import { MessageCircle } from "lucide-react";
 import dynamic from "next/dynamic";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { TamariLauncher } from "@/components/tamari/tamari-launcher";
+import { TamariPeek } from "@/components/tamari/tamari-peek";
 import { TamariSpeech } from "@/components/tamari/tamari-speech";
 import { useTamariMove } from "@/components/tamari/use-tamari-move";
 import type { PageContextRef } from "@/lib/assistant/context-schema";
@@ -231,7 +231,8 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
 
   const launcher = page?.launcher ?? "visible";
   const seated = seats > 0 && assistant.mascot;
-  const showLauncher = assistant.launcher && !open && launcher !== "hidden" && !seated;
+  // Tamari peeks from the screen edge unless the page seats it; it stays while the chat is open (beside the panel on wide screens).
+  const showLauncher = assistant.launcher && launcher !== "hidden" && !seated;
   // Tamari is somewhere on screen: seated on the page, or at the edge.
   const withTamari = assistant.mascot && (seated || showLauncher);
   const hintsOn = withTamari && assistant.suggestions;
@@ -296,6 +297,20 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
   }, [bubble, runMove]);
   const dismissBubble = useCallback(() => setBubble(null), []);
   const openChat = useCallback(() => show(), [show]);
+  // Clicking Tamari: a hop first, then the chat (companion doc §13).
+  const hopTimer = useRef(0);
+  const hopAndOpen = useCallback(
+    (hop: boolean) => {
+      window.clearTimeout(hopTimer.current);
+      if (!hop) {
+        show();
+        return;
+      }
+      react("correct");
+      hopTimer.current = window.setTimeout(() => show(), 180);
+    },
+    [react, show],
+  );
 
   // What Tamari shows: the microphone and speech first, then an answer being written, then RevTaw working
   // through the student's things (a reviewer, a quiz, a plan), then what it is saying, a nap and waiting.
@@ -340,9 +355,19 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
       {children}
       {(showLauncher || loaded || withTamari) && (
         <aside aria-label="Tamari">
-          {shownBubble && !seated && <TamariSpeech bubble={shownBubble} mode={launcher === "desktop" ? "desktop" : "visible"} onAction={() => void runBubbleAction()} onDismiss={dismissBubble} />}
           {showLauncher && (
-            <TamariLauncher ref={launcherRef} state={tamari} reaction={reaction} mode={launcher === "desktop" ? "desktop" : "visible"} mascot={assistant.mascot} animate={assistant.idleAnimations} onOpen={() => show()} />
+            <TamariPeek
+              ref={launcherRef}
+              state={tamari}
+              reaction={reaction}
+              language={language}
+              mode={launcher === "desktop" ? "desktop" : "visible"}
+              mascot={assistant.mascot}
+              animate={assistant.idleAnimations}
+              open={open}
+              bubble={shownBubble && !seated && !open ? <TamariSpeech bubble={shownBubble} onAction={() => void runBubbleAction()} onDismiss={dismissBubble} /> : null}
+              onOpen={hopAndOpen}
+            />
           )}
           {/* Says each bubble to screen readers once; always present so the change is announced (a polite live region, not a status landmark pages look for). */}
           {withTamari && (

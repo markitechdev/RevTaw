@@ -3,21 +3,17 @@
 import { X } from "lucide-react";
 
 import type { TamariBubble } from "@/lib/tamari/lines";
-import { cn } from "@/lib/utils";
 
 /**
- * Tamari's speech bubble (mascot doc §11): a pixel-style card above Tamari
- * with one short line, an optional next step and a way to dismiss it. It
- * never covers the corner button and is announced to screen readers by the
- * provider's status line, not by this card.
+ * Tamari's speech bubble at the edge of the screen (companion doc §11, §16): a
+ * pixel-style card just above the peeking Tamari with one short line, an
+ * optional next step and a way to dismiss it. It never covers Tamari and is
+ * announced to screen readers by the provider's live line, not by this card.
  */
-export function TamariSpeech({ bubble, mode, onAction, onDismiss }: { bubble: TamariBubble; mode: "visible" | "desktop"; onAction: () => void; onDismiss: () => void }) {
+export function TamariSpeech({ bubble, busy = false, onAction, onDismiss }: { bubble: TamariBubble; busy?: boolean; onAction: () => void; onDismiss: () => void }) {
   return (
     <div
-      className={cn(
-        "tamari-enter fixed right-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom)+4.5rem)] z-40 w-[min(17rem,calc(100vw-1.5rem))] lg:right-6 lg:bottom-[7.25rem]",
-        mode === "desktop" ? "hidden lg:block" : "block",
-      )}
+      className="tamari-enter mb-3 w-[min(17rem,calc(100vw-1.5rem))]"
       data-tamari-bubble={bubble.id}
       onKeyDown={(event) => {
         if (event.key === "Escape") onDismiss();
@@ -29,9 +25,10 @@ export function TamariSpeech({ bubble, mode, onAction, onDismiss }: { bubble: Ta
           <button
             type="button"
             onClick={onAction}
-            className="mt-2.5 inline-flex h-8 cursor-pointer items-center border-2 border-foreground bg-primary px-3 text-xs font-bold text-primary-foreground shadow-[2px_2px_0_0_var(--foreground)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+            disabled={busy}
+            className="mt-2.5 inline-flex h-8 cursor-pointer items-center border-2 border-foreground bg-primary px-3 text-xs font-bold text-primary-foreground shadow-[2px_2px_0_0_var(--foreground)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:cursor-wait disabled:opacity-70"
           >
-            {bubble.action.label}
+            {busy ? "Sandali…" : bubble.action.label}
           </button>
         )}
         <button
@@ -43,9 +40,9 @@ export function TamariSpeech({ bubble, mode, onAction, onDismiss }: { bubble: Ta
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
-        {/* A two-pixel-block trail down to Tamari. */}
-        <span aria-hidden="true" className="absolute -bottom-3 right-6 block h-2.5 w-2.5 border-2 border-foreground bg-card lg:right-8" />
-        <span aria-hidden="true" className="absolute -bottom-5 right-4 block h-1.5 w-1.5 bg-foreground lg:right-6" />
+        {/* Two pixel blocks trailing down to Tamari's head. */}
+        <span aria-hidden="true" className="absolute -bottom-3 right-8 block h-1.5 w-1.5 bg-foreground lg:right-10" />
+        <span aria-hidden="true" className="absolute -bottom-[1.125rem] right-6 block h-1 w-1 bg-foreground lg:right-8" />
       </div>
     </div>
   );

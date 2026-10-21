@@ -12,7 +12,7 @@
  */
 
 export const TAMARI_NAME = "Tamari";
-export const TAMARI_TAGLINE = "Your RevTaw Study Companion";
+export const TAMARI_TAGLINE = "Your study companion";
 
 /** The pictures Tamari has. */
 export const TAMARI_POSES = ["reading", "laptop", "serious", "sleeping"] as const;

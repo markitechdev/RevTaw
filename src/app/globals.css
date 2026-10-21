@@ -541,10 +541,6 @@
   .tamari-still i {
     animation: none;
   }
-  /* A page that seats Tamari (Home, a plan) hides the edge-of-screen Tamari from the first paint, so it never shows twice. */
-  body:has([data-tamari-seat]) [data-tamari-corner] {
-    display: none;
-  }
 }
 
 @keyframes shade-in {
@@ -722,5 +718,23 @@
   }
   66% {
     transform: translateY(0);
+  }
+}
+
+/*
+ * Where the edge-of-screen Tamari goes (unlayered, so it wins over the
+ * utility classes that place it). A page that seats Tamari itself (Home, a
+ * plan) hides it from the first paint, so Tamari never shows twice; with the
+ * chat open on a wide screen it peeks beside the panel instead of behind it.
+ */
+body:has([data-tamari-seat]) [data-tamari-corner] {
+  display: none;
+}
+@media (min-width: 64rem) {
+  aside:has(> #ask-revtaw[open]) [data-tamari-corner] {
+    right: calc(26rem + 2.5rem);
+  }
+  aside:has(> #ask-revtaw[open][data-expanded]) [data-tamari-corner] {
+    right: calc(min(46rem, 100vw - 20rem) + 2.5rem);
   }
 }

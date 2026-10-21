@@ -633,6 +633,7 @@ export default function AssistantPanel() {
     <dialog
       ref={dialogRef}
       id="ask-revtaw"
+      data-expanded={expanded || undefined}
       aria-labelledby={titleId}
       tabIndex={-1}
       onClose={() => {
