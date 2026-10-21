@@ -2,6 +2,7 @@ import { CalendarDays, Flag, Repeat } from "lucide-react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { TamariHint } from "@/components/assistant/assistant-provider";
 import { AddActivityButton } from "@/components/planner/activity-dialog";
 import { DueTodayCard } from "@/components/planner/due-today";
 import { ExamCard } from "@/components/planner/exam-card";
@@ -21,6 +22,7 @@ import { plannerClock, rebalanceAllPlans } from "@/lib/planner/service";
 import { getPreferences } from "@/lib/preferences/queries";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { routes } from "@/lib/routes";
+import { examBubble, tamariLanguage } from "@/lib/tamari/lines";
 
 export const metadata: Metadata = {
   title: "Planner",
@@ -53,9 +55,12 @@ export default async function PlannerPage({ searchParams }: PageProps<"/planner"
   const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title, subject: material.subject?.name ?? null }));
   const subjectOptions = subjects.filter((subject) => !subject.archived_at).map((subject) => ({ id: subject.id, name: subject.name }));
   const activityOptions = { materials: readyMaterials, subjects: subjectOptions, today, timezone, defaultReminder: preferences.notifications.defaultReminder };
+  // A countdown from Tamari when an exam is within a week.
+  const soonest = exams.filter((exam) => exam.daysLeft >= 0 && exam.daysLeft <= 7).sort((a, b) => a.daysLeft - b.daysLeft)[0];
 
   return (
     <div className="flex flex-col gap-6">
+      <TamariHint bubble={soonest ? examBubble(tamariLanguage(preferences.ai.language), soonest) : null} />
       <PageHeader
         title="Planner"
         description={`Your calendar, exam countdowns, a day-by-day plan that adjusts to how you do, reviews and goals. Today is ${formatDate(today, today)}${timezone ? ` (${timezone})` : ""}.`}

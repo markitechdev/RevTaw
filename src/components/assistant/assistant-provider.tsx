@@ -1,12 +1,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { TamariLauncher } from "@/components/tamari/tamari-launcher";
+import { TamariSpeech } from "@/components/tamari/tamari-speech";
 import { TamariSprite } from "@/components/tamari/tamari-sprite";
 import type { PageContextRef } from "@/lib/assistant/context-schema";
 import type { AiPreferences, AssistantPreferences } from "@/lib/preferences/schema";
+import { napBubble, tamariLanguage, type TamariBubble } from "@/lib/tamari/lines";
 import type { TamariState } from "@/lib/tamari/states";
 import type { TutorActionId } from "@/lib/tutor/types";
 
@@ -49,6 +52,8 @@ type AssistantContextValue = {
   subscribe: (listener: (request: AssistantRequest) => void) => () => void;
   /** Work Tamari is doing out of sight (an answer on its way while the chat is minimized): Tamari shows it in the corner. */
   setActivity: (key: string, active: boolean) => void;
+  /** A page offers something for Tamari to say; returns a function that takes it back (the page went away). */
+  offerBubble: (bubble: TamariBubble) => () => void;
 };
 
 const AssistantContext = createContext<AssistantContextValue | null>(null);
@@ -64,6 +69,31 @@ const AssistantPanel = dynamic(() => import("@/components/assistant/assistant-pa
   ),
 });
 
+/** Tamari's speech bubbles: each at most once per browser session, three at most (sessionStorage; blocked storage = no limit memory, still once per page view). */
+const HINTS_KEY = "revtaw-tamari-hints";
+const MAX_HINTS = 3;
+const HINT_DELAY_MS = 1200;
+const HINT_VISIBLE_MS = 12_000;
+/** Tamari dozes off after this long without the student touching the page, and wakes on the next input. */
+const NAP_AFTER_MS = 5 * 60_000;
+
+function shownHints(): string[] {
+  try {
+    const list: unknown = JSON.parse(window.sessionStorage.getItem(HINTS_KEY) ?? "[]");
+    return Array.isArray(list) ? list.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberHint(id: string): void {
+  try {
+    window.sessionStorage.setItem(HINTS_KEY, JSON.stringify([...shownHints(), id].slice(-20)));
+  } catch {
+    // Storage blocked: the bubble still shows, it just may show again after a reload.
+  }
+}
+
 function focusable(element: Element | null): element is HTMLElement {
   return element instanceof HTMLElement && element.isConnected && element !== document.body && (typeof element.checkVisibility !== "function" || element.checkVisibility());
 }
@@ -72,7 +102,8 @@ function focusable(element: Element | null): element is HTMLElement {
  * Tamari, the study companion (UI phase §16–§19, mascot doc): one assistant
  * for the whole app, with Tamari as its face. It lives in the signed-in
  * layout, so the conversation survives navigation; pages tell it what the
- * student is looking at with <AssistantPage>.
+ * student is looking at with <AssistantPage> and what it could say with
+ * <TamariHint>. Everything about how Tamari looks right now is decided here.
  */
 export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferences; assistant: AssistantPreferences; children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -84,8 +115,13 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
   const isOpen = useRef(false);
   const returnFocus = useRef<HTMLElement | null>(null);
   const [activities, setActivities] = useState<ReadonlySet<string>>(() => new Set());
+  const [offer, setOffer] = useState<TamariBubble | null>(null);
+  const [bubble, setBubble] = useState<TamariBubble | null>(null);
+  const [napping, setNapping] = useState(false);
+  const router = useRouter();
 
   const show = useCallback((request: AssistantRequest = {}) => {
+    setBubble(null);
     if (!isOpen.current) {
       const active = document.activeElement;
       returnFocus.current = focusable(active) ? active : null;
@@ -134,6 +170,14 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
     });
   }, []);
 
+  const offerBubble = useCallback((next: TamariBubble) => {
+    setOffer(next);
+    return () => {
+      setOffer((current) => (current?.id === next.id ? null : current));
+      setBubble((current) => (current?.id === next.id ? null : current));
+    };
+  }, []);
+
   useEffect(() => {
     const onRequest = (event: Event) => show((event as CustomEvent<AssistantRequest>).detail ?? {});
     window.addEventListener(ASSISTANT_EVENT, onRequest);
@@ -141,22 +185,93 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
   }, [show]);
 
   const value = useMemo<AssistantContextValue>(
-    () => ({ open, page, ai, assistant, show, hide, register, subscribe, setActivity }),
-    [open, page, ai, assistant, show, hide, register, subscribe, setActivity],
+    () => ({ open, page, ai, assistant, show, hide, register, subscribe, setActivity, offerBubble }),
+    [open, page, ai, assistant, show, hide, register, subscribe, setActivity, offerBubble],
   );
 
   const launcher = page?.launcher ?? "visible";
   const showLauncher = assistant.launcher && !open && launcher !== "hidden";
-  // What Tamari shows in the corner: busy beats studying beats waiting.
-  const tamari: TamariState = activities.size > 0 ? "thinking" : page?.ref?.kind === "session" ? "studying" : "idle";
+  const withTamari = showLauncher && assistant.mascot;
+  const hintsOn = withTamari && assistant.suggestions;
+
+  // A page's offer becomes a bubble after a short pause, unless Tamari already said it this session, has said enough, or is busy saying something else.
+  useEffect(() => {
+    if (!offer || !hintsOn || bubble) return;
+    const seen = shownHints();
+    if (seen.includes(offer.id) || seen.length >= MAX_HINTS) return;
+    const timer = window.setTimeout(() => {
+      rememberHint(offer.id);
+      setBubble(offer);
+      setOffer(null);
+    }, HINT_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [offer, hintsOn, bubble]);
+
+  // Bubbles go away on their own.
+  useEffect(() => {
+    if (!bubble) return;
+    const timer = window.setTimeout(() => setBubble(null), HINT_VISIBLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [bubble]);
+
+  // A nap after a long quiet spell; the next touch, key or scroll wakes Tamari (with a "Review tayo?" once a session).
+  const napLanguage = tamariLanguage(ai.language);
+  useEffect(() => {
+    if (!withTamari) return;
+    let timer = 0;
+    let asleep = false;
+    const doze = () => {
+      if (document.visibilityState !== "visible") {
+        timer = window.setTimeout(doze, NAP_AFTER_MS);
+        return;
+      }
+      asleep = true;
+      setNapping(true);
+    };
+    const wake = () => {
+      window.clearTimeout(timer);
+      if (asleep) {
+        asleep = false;
+        setNapping(false);
+        if (assistant.suggestions) setOffer(napBubble(napLanguage));
+      }
+      timer = window.setTimeout(doze, NAP_AFTER_MS);
+    };
+    const events = ["pointerdown", "keydown", "wheel", "touchstart", "scroll"] as const;
+    timer = window.setTimeout(doze, NAP_AFTER_MS);
+    for (const name of events) window.addEventListener(name, wake, { capture: true, passive: true });
+    return () => {
+      window.clearTimeout(timer);
+      for (const name of events) window.removeEventListener(name, wake, { capture: true });
+    };
+  }, [withTamari, assistant.suggestions, napLanguage]);
+
+  const onBubbleAction = () => {
+    const action = bubble?.action;
+    setBubble(null);
+    if (!action) return;
+    if (action.href) router.push(action.href);
+    else if (action.prompt) show({ prompt: action.prompt, send: true, ...(action.materialId !== undefined ? { materialId: action.materialId } : {}) });
+  };
+
+  // What Tamari shows in the corner: busy beats what it is saying, which beats a nap, studying along, and waiting.
+  const shownBubble = hintsOn ? bubble : null;
+  const tamari: TamariState = activities.size > 0 ? "thinking" : shownBubble ? shownBubble.state : napping ? "sleeping" : page?.ref?.kind === "session" ? "studying" : "idle";
 
   return (
     <AssistantContext.Provider value={value}>
       {children}
       {(showLauncher || loaded) && (
         <aside aria-label="Tamari">
+          {shownBubble && <TamariSpeech bubble={shownBubble} mode={launcher === "desktop" ? "desktop" : "visible"} onAction={onBubbleAction} onDismiss={() => setBubble(null)} />}
           {showLauncher && (
             <TamariLauncher ref={launcherRef} state={tamari} mode={launcher === "desktop" ? "desktop" : "visible"} mascot={assistant.mascot} ambient={assistant.idleAnimations} onOpen={() => show()} />
+          )}
+          {/* Says each bubble to screen readers once; always present so the change is announced. */}
+          {withTamari && (
+            <p role="status" className="sr-only">
+              {shownBubble ? `Tamari says: ${shownBubble.text}` : ""}
+            </p>
           )}
           {loaded && <AssistantPanel />}
         </aside>
@@ -177,6 +292,20 @@ export function useTamariActivity(key: string, active: boolean): void {
     setActivity(key, active);
     return () => setActivity(key, false);
   }, [setActivity, key, active]);
+}
+
+/**
+ * Something Tamari could say on this page (a reminder of today's reviews, a
+ * cheer after a quiz). The provider decides whether and when it shows.
+ */
+export function TamariHint({ bubble }: { bubble: TamariBubble | null }) {
+  const offerBubble = useContext(AssistantContext)?.offerBubble;
+  const key = bubble ? JSON.stringify(bubble) : null;
+  useEffect(() => {
+    if (!offerBubble || !key) return;
+    return offerBubble(JSON.parse(key) as TamariBubble);
+  }, [offerBubble, key]);
+  return null;
 }
 
 export function useAssistant(): AssistantContextValue {

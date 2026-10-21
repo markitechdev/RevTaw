@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { after } from "next/server";
 import { Suspense, type ReactNode } from "react";
 
+import { TamariHint } from "@/components/assistant/assistant-provider";
 import { DashboardBoard } from "@/components/dashboard/board";
 import { ContinueWidget, DueTodayWidget, RecommendationWidget } from "@/components/dashboard/focus-widgets";
 import { ExamWidget, MasteryWidget, StreakWidget, StudyTimeWidget } from "@/components/dashboard/glance-widgets";
@@ -14,9 +15,10 @@ import { syncNotifications } from "@/lib/notifications/service";
 import { hourIn } from "@/lib/planner/dates";
 import { plannerClock, rebalanceAllPlans } from "@/lib/planner/service";
 import { getPreferences } from "@/lib/preferences/queries";
-import type { WidgetId } from "@/lib/preferences/schema";
+import type { ResponseLanguage, WidgetId } from "@/lib/preferences/schema";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { routes } from "@/lib/routes";
+import { homeBubble } from "@/lib/tamari/hints";
 
 export const metadata: Metadata = {
   title: "Home",
@@ -36,6 +38,18 @@ function greetingFor(timezone: string | null, name: string | undefined): string 
   if (hour < 5) return name ? `Still up, ${name}?` : "Still up?";
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   return name ? `${greeting}, ${name}.` : `${greeting}.`;
+}
+
+/** What Tamari might say on Home (streams in on its own; a failure just means no bubble). */
+async function HomeHint({ language, planning }: { language: ResponseLanguage; planning: Promise<unknown> }) {
+  let bubble = null;
+  try {
+    bubble = await homeBubble(language, planning);
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("dashboard: Tamari's hint failed", error);
+  }
+  return <TamariHint bubble={bubble} />;
 }
 
 function longDate(date: string): string {
@@ -89,6 +103,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
 
   return (
     <div className="flex flex-col gap-6">
+      <Suspense fallback={null}>
+        <HomeHint language={preferences.ai.language} planning={planning} />
+      </Suspense>
       {notice && <Alert tone="success">{notice}</Alert>}
       <DashboardBoard
         layout={layout}

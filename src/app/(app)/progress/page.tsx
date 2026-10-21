@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { MasteryTable } from "@/components/adaptive/mastery-table";
-import { AssistantPage } from "@/components/assistant/assistant-provider";
+import { AssistantPage, TamariHint } from "@/components/assistant/assistant-provider";
 import { RecommendationList } from "@/components/adaptive/recommendation-list";
 import { DailyColumns, PercentBars, ScoreColumns, StatusStrip } from "@/components/analytics/charts";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -23,8 +23,10 @@ import { getGamificationView, syncGamification } from "@/lib/gamification/sync";
 import { listMaterials } from "@/lib/materials/queries";
 import { listGoalsWithProgress } from "@/lib/planner/goals";
 import { plannerClock } from "@/lib/planner/service";
+import { getPreferences } from "@/lib/preferences/queries";
 import { routes } from "@/lib/routes";
 import { getActivityStats } from "@/lib/study/queries";
+import { weakestTopicBubble } from "@/lib/tamari/hints";
 
 export const metadata: Metadata = {
   title: "Progress",
@@ -32,7 +34,7 @@ export const metadata: Metadata = {
 
 export default async function ProgressPage() {
   // Active days and badges settle alongside the page's reads; only the level card waits for them (§31).
-  const [, rows, summary, recommendations, activity, analytics, goals, materials, clock] = await Promise.all([syncGamification(), listMastery(), getMasterySummary(), getRecommendations(3), getActivityStats(), getAnalyticsOverview(), listGoalsWithProgress(), listMaterials(), plannerClock()]);
+  const [, rows, summary, recommendations, activity, analytics, goals, materials, clock, preferences] = await Promise.all([syncGamification(), listMastery(), getMasterySummary(), getRecommendations(3), getActivityStats(), getAnalyticsOverview(), listGoalsWithProgress(), listMaterials(), plannerClock(), getPreferences()]);
   const gamification = await getGamificationView();
   const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title }));
   const practiced = rows.filter((row) => row.attempts > 0);
@@ -41,6 +43,7 @@ export default async function ProgressPage() {
   return (
     <div className="flex flex-col gap-6">
       <AssistantPage context={{ kind: "progress" }} label="Your progress" />
+      <TamariHint bubble={weakestTopicBubble(preferences.ai.language, summary.weak)} />
       <PageHeader
         title="Progress"
         description={`What your studying adds up to: scores, accuracy, time, mastery per concept and where you stand. A concept counts as mastered at ${MASTERY_THRESHOLD}%; nothing is ever locked — RevTaw just recommends more practice.`}
