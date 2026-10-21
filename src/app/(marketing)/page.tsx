@@ -120,10 +120,10 @@ export default function LandingPage() {
           <svg aria-hidden="true" className="pointer-events-none absolute -right-10 -top-10 hidden h-64 w-64 opacity-15 sm:block" viewBox="0 0 40 40" fill="none">
             <path d="M20 4v8M20 28v8M4 20h8M28 20h8M8.7 8.7l5.6 5.6M25.7 25.7l5.6 5.6M8.7 31.3l5.6-5.6M25.7 14.3l5.6-5.6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
           </svg>
-          <p className="font-display text-4xl font-extrabold leading-none tracking-tight sm:text-6xl">
-            Bitaw na.
+          <p className="font-display text-4xl font-extrabold leading-[1.04] tracking-tight sm:text-6xl">
+            Ano&nbsp;G ayaw <span className="whitespace-nowrap">mag-aral?</span>
             <span className="relative mt-2 block w-fit">
-              Let&apos;s review.
+              Aray mo.
               <svg aria-hidden="true" className="absolute -bottom-3 left-0 h-3 w-full" viewBox="0 0 200 12" preserveAspectRatio="none" fill="none">
                 <path d="M3 9c40-6 90-7 194-3" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
               </svg>
