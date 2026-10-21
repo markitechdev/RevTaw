@@ -1,8 +1,9 @@
 "use client";
 
 import { CheckCircle2, CircleDashed, FileText, Sparkles, XCircle } from "lucide-react";
-import { useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
+import { ANSWER_LEVELS, AnswerOvals } from "@/components/marketing/answer-sheet";
 import { cn } from "@/lib/utils";
 
 type Step = { id: string; label: string; title: string; body: string; preview: ReactNode };
@@ -199,10 +200,6 @@ function RecallPreview() {
   );
 }
 
-/** Mastery levels 1–5, printed across the top like the choices on an answer sheet. */
-const LEVELS = [1, 2, 3, 4, 5] as const;
-/** Each shaded oval leans a little differently, the way a pencil actually fills them in. */
-const TILTS = [-6, -3, -5, -2, -4] as const;
 /** Topic | ovals (label under the topic on phones) | label on wider screens. */
 const SHEET_COLUMNS = "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 sm:grid-cols-[minmax(0,1fr)_auto_4.75rem]";
 
@@ -218,7 +215,7 @@ function MasterPreview() {
       <PreviewLabel>Mastery · Biology midterm in 6 days</PreviewLabel>
       <div aria-hidden="true" className={cn(SHEET_COLUMNS, "px-2 pb-1.5")}>
         <span className="col-start-2 flex gap-1.5">
-          {LEVELS.map((level) => (
+          {ANSWER_LEVELS.map((level) => (
             <span key={level} className="w-5 text-center text-[11px] font-semibold tabular-nums text-primary">
               {level}
             </span>
@@ -232,11 +229,7 @@ function MasterPreview() {
               {row.name}
               <span className="sr-only">: level {row.level} of 5,</span>
             </span>
-            <span aria-hidden="true" className="col-start-2 row-span-2 row-start-1 flex gap-1.5 sm:row-span-1">
-              {LEVELS.map((level, index) => (
-                <AnswerOval key={level} shaded={level <= row.level} tilt={TILTS[index]} delay={rowIndex * 110 + index * 70} />
-              ))}
-            </span>
+            <AnswerOvals level={row.level} delay={rowIndex * 110} className="col-start-2 row-span-2 row-start-1 sm:row-span-1" />
             <span className="col-start-1 row-start-2 text-xs font-medium text-muted-foreground sm:col-start-3 sm:row-start-1 sm:text-right">
               {row.level === 1 ? <span className="highlighter -mx-[0.1em] text-foreground">{row.label}</span> : row.label}
             </span>
@@ -245,14 +238,5 @@ function MasterPreview() {
       </ul>
       <p className="mt-4 text-xs text-muted-foreground">Next review: ATP synthase tomorrow, Calvin cycle on Friday.</p>
     </div>
-  );
-}
-
-/** One oval on the answer sheet. Shaded ones fill in with pencil strokes, one after another. */
-function AnswerOval({ shaded, tilt, delay }: { shaded: boolean; tilt: number; delay: number }) {
-  return (
-    <span className="relative block h-3.5 w-5 rounded-[50%] border-[1.5px] border-primary">
-      {shaded && <span className="answer-shade" style={{ "--shade-tilt": `${tilt}deg`, "--shade-delay": `${delay}ms` } as CSSProperties} />}
-    </span>
   );
 }

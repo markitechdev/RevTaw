@@ -3,13 +3,14 @@
 import { Check, Flame, RotateCcw, X } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
+import { AnswerOvals } from "@/components/marketing/answer-sheet";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { cn } from "@/lib/utils";
 
 /**
  * The hero's "study desk": three small, real interactions instead of a
  * screenshot — a flashcard that flips, a quiz question you can answer and a
- * mastery widget that fills up. The desk leans a few pixels toward the
+ * mastery card whose answer-sheet ovals shade in. The desk leans a few pixels toward the
  * pointer (transform only, mouse only, off under reduced motion).
  */
 export function StudyDesk() {
@@ -165,9 +166,9 @@ function QuizDemo() {
 }
 
 const CONCEPTS = [
-  { name: "Chlorophyll", value: 86, tone: "bg-success" },
-  { name: "Calvin cycle", value: 64, tone: "bg-info" },
-  { name: "ATP synthase", value: 38, tone: "bg-warning" },
+  { name: "Chlorophyll", level: 5, label: "Mastered" },
+  { name: "Calvin cycle", level: 4, label: "Strong" },
+  { name: "ATP synthase", level: 2, label: "Weak" },
 ] as const;
 
 function MasteryDemo() {
@@ -198,23 +199,23 @@ function MasteryDemo() {
         </span>
       </div>
       <ul className="flex flex-col gap-2.5">
-        {CONCEPTS.map((concept) => (
-          <li key={concept.name} className="flex flex-col gap-1">
-            <span className="flex items-center justify-between text-xs">
-              <span className="font-medium text-foreground">{concept.name}</span>
-              <span className="tabular-nums text-muted-foreground">{concept.value}%</span>
+        {CONCEPTS.map((concept, index) => (
+          <li key={concept.name} className="flex flex-col gap-1.5">
+            <span className="flex items-center justify-between gap-2 text-xs">
+              <span className="font-medium text-foreground">
+                {concept.name}
+                <span className="sr-only">: level {concept.level} of 5,</span>
+              </span>
+              <span className="text-muted-foreground">
+                {concept.label === "Weak" ? <span className="highlighter -mx-[0.1em] text-foreground">{concept.label}</span> : concept.label}
+              </span>
             </span>
-            <span className="h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={`${concept.name} mastery`} aria-valuenow={concept.value} aria-valuemin={0} aria-valuemax={100}>
-              <span
-                className={cn("block h-full origin-left rounded-full transition-transform duration-1000 ease-out", concept.tone)}
-                style={{ width: `${concept.value}%`, transform: filled ? "scaleX(1)" : "scaleX(0)" }}
-              />
-            </span>
+            <AnswerOvals level={concept.level} shaded={filled} delay={index * 110} />
           </li>
         ))}
       </ul>
       <p className="mt-auto rounded-lg bg-muted px-2.5 py-2 text-xs text-muted-foreground">
-        <span className="font-semibold text-foreground">12 cards</span> due today · about 9 min
+        <span className="font-semibold text-foreground">12 cards</span> due today · <span className="whitespace-nowrap">about 9 min</span>
       </p>
       <p className="text-xs text-muted-foreground">
         <span className="font-semibold text-foreground">ATP synthase</span> comes back tomorrow.
