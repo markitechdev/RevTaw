@@ -4,6 +4,7 @@ import { NotebookPen, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { useTamariActivity } from "@/components/assistant/assistant-provider";
 import { Alert } from "@/components/forms/form-alert";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -17,6 +18,7 @@ export function useCreateReviewer() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  useTamariActivity("reviewer", pending);
 
   const create = (materialId: string, kind: ReviewerKind) => {
     setError(null);

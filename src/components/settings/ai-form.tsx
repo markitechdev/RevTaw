@@ -61,7 +61,7 @@ export function AiPreferencesForm({ initial }: { initial: AiPreferences }) {
           type="single"
           name="language"
           legend="Response language"
-          description="For Ask RevTaw and the AI Tutor. Generated quizzes, flashcards and reviewers keep your material's language."
+          description="For Tamari and the AI Tutor. Generated quizzes, flashcards and reviewers keep your material's language."
           value={language}
           onChange={setLanguage}
           options={RESPONSE_LANGUAGES.map((item) => ({ value: item.id, label: item.label, hint: item.hint }))}

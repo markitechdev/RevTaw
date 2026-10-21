@@ -49,7 +49,7 @@ export type CommandSection = {
 };
 
 const ACTIONS: Command[] = [
-  { id: "ask", label: "Ask RevTaw", hint: "Questions about what you are studying", keywords: "ai tutor help explain chat question", icon: Sparkles, action: "ask" },
+  { id: "ask", label: "Ask Tamari", hint: "Your study companion: questions about what you are studying", keywords: "ai tutor help explain chat question revtaw assistant tamari", icon: Sparkles, action: "ask" },
   { id: "smart-study", label: "Start Smart Study", hint: "A session built from what needs work", keywords: "session plan recommend", icon: Play, href: `${routes.study}?method=smart_study` },
   { id: "create-quiz", label: "Create a quiz", hint: "From one of your materials", keywords: "new test practice questions exam", icon: ListChecks, href: `${routes.quiz}?create=1` },
   { id: "upload", label: "Upload material", hint: "PDF, Word, a photo or notes", keywords: "add file document pdf docx image notes import", icon: FileUp, href: `${routes.materials}?upload=1` },

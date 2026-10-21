@@ -3,13 +3,14 @@
 import dynamic from "next/dynamic";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { RevTawAvatar } from "@/components/assistant/avatar";
+import { TamariLauncher } from "@/components/tamari/tamari-launcher";
+import { TamariSprite } from "@/components/tamari/tamari-sprite";
 import type { PageContextRef } from "@/lib/assistant/context-schema";
 import type { AiPreferences, AssistantPreferences } from "@/lib/preferences/schema";
+import type { TamariState } from "@/lib/tamari/states";
 import type { TutorActionId } from "@/lib/tutor/types";
-import { cn } from "@/lib/utils";
 
-/** Opens Ask RevTaw from anywhere: the command menu, "Ask why" buttons, highlight-and-ask. */
+/** Opens Tamari's chat from anywhere: the command menu, "Ask why" buttons, highlight-and-ask. */
 export const ASSISTANT_EVENT = "revtaw:assistant";
 
 export type AssistantRequest = {
@@ -32,7 +33,7 @@ export function openAssistant(request: AssistantRequest = {}): void {
 
 /** How the floating button behaves on a page: everywhere, desktop only (pages with bottom actions on phones), or not at all (a quiz in progress, the AI Tutor itself). */
 export type LauncherMode = "visible" | "desktop" | "hidden";
-/** What the current page told Ask RevTaw. `ref` is null on pages that only change the floating button. */
+/** What the current page told Tamari. `ref` is null on pages that only change the floating button. */
 export type RegisteredPage = { ref: PageContextRef | null; label: string; materialId: string | null; launcher: LauncherMode; suggestions: string[] };
 
 type AssistantContextValue = {
@@ -45,6 +46,8 @@ type AssistantContextValue = {
   register: (entry: RegisteredPage) => () => void;
   /** The panel listens for requests here (they can arrive before it has loaded). */
   subscribe: (listener: (request: AssistantRequest) => void) => () => void;
+  /** Work Tamari is doing out of sight (an answer on its way while the chat is minimized): Tamari shows it in the corner. */
+  setActivity: (key: string, active: boolean) => void;
 };
 
 const AssistantContext = createContext<AssistantContextValue | null>(null);
@@ -54,8 +57,8 @@ const AssistantPanel = dynamic(() => import("@/components/assistant/assistant-pa
   ssr: false,
   loading: () => (
     <div role="status" className="fixed inset-x-0 bottom-0 z-50 flex h-40 items-center justify-center gap-3 rounded-t-2xl border border-border bg-card text-sm text-muted-foreground shadow-pop lg:inset-x-auto lg:right-6 lg:bottom-6 lg:w-[26rem] lg:rounded-2xl">
-      <RevTawAvatar state="thinking" size={32} />
-      Opening Ask RevTaw…
+      <TamariSprite state="thinking" size={36} frame="portrait" />
+      Opening Tamari…
     </div>
   ),
 });
@@ -65,9 +68,10 @@ function focusable(element: Element | null): element is HTMLElement {
 }
 
 /**
- * Ask RevTaw (UI phase §16–§19): one assistant for the whole app. It lives in
- * the signed-in layout, so the conversation survives navigation; pages tell it
- * what the student is looking at with <AssistantPage>.
+ * Tamari, the study companion (UI phase §16–§19, mascot doc): one assistant
+ * for the whole app, with Tamari as its face. It lives in the signed-in
+ * layout, so the conversation survives navigation; pages tell it what the
+ * student is looking at with <AssistantPage>.
  */
 export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferences; assistant: AssistantPreferences; children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -78,6 +82,7 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
   const launcherRef = useRef<HTMLButtonElement>(null);
   const isOpen = useRef(false);
   const returnFocus = useRef<HTMLElement | null>(null);
+  const [activities, setActivities] = useState<ReadonlySet<string>>(() => new Set());
 
   const show = useCallback((request: AssistantRequest = {}) => {
     if (!isOpen.current) {
@@ -118,6 +123,16 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
     return () => setPage((current) => (current === entry ? null : current));
   }, []);
 
+  const setActivity = useCallback((key: string, active: boolean) => {
+    setActivities((current) => {
+      if (current.has(key) === active) return current;
+      const next = new Set(current);
+      if (active) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     const onRequest = (event: Event) => show((event as CustomEvent<AssistantRequest>).detail ?? {});
     window.addEventListener(ASSISTANT_EVENT, onRequest);
@@ -125,38 +140,40 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
   }, [show]);
 
   const value = useMemo<AssistantContextValue>(
-    () => ({ open, page, ai, voiceReplies: assistant.voiceReplies, show, hide, register, subscribe }),
-    [open, page, ai, assistant.voiceReplies, show, hide, register, subscribe],
+    () => ({ open, page, ai, voiceReplies: assistant.voiceReplies, show, hide, register, subscribe, setActivity }),
+    [open, page, ai, assistant.voiceReplies, show, hide, register, subscribe, setActivity],
   );
 
   const launcher = page?.launcher ?? "visible";
   const showLauncher = assistant.launcher && !open && launcher !== "hidden";
+  // What Tamari shows in the corner: busy beats studying beats waiting.
+  const tamari: TamariState = activities.size > 0 ? "thinking" : page?.ref?.kind === "session" ? "studying" : "idle";
 
   return (
     <AssistantContext.Provider value={value}>
       {children}
       {(showLauncher || loaded) && (
-        <aside aria-label="Ask RevTaw">
-          {showLauncher && (
-            <button
-              ref={launcherRef}
-              type="button"
-              onClick={() => show()}
-              aria-haspopup="dialog"
-              className={cn(
-                "group fixed right-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 cursor-pointer items-center gap-2 rounded-full border border-border bg-card p-1.5 text-sm font-semibold text-foreground shadow-pop transition-transform duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 sm:pr-4 lg:right-6 lg:bottom-6",
-                launcher === "desktop" ? "hidden lg:flex" : "flex",
-              )}
-            >
-              <RevTawAvatar size={36} />
-              <span className="sr-only sm:not-sr-only">Ask RevTaw</span>
-            </button>
-          )}
+        <aside aria-label="Tamari">
+          {showLauncher && <TamariLauncher ref={launcherRef} state={tamari} mode={launcher === "desktop" ? "desktop" : "visible"} ambient onOpen={() => show()} />}
           {loaded && <AssistantPanel />}
         </aside>
       )}
     </AssistantContext.Provider>
   );
+}
+
+/**
+ * Reports work Tamari is doing for the student (a quiz, deck or reviewer
+ * being generated), so Tamari shows it in the corner. The state itself stays
+ * in the provider; components only say when they start and stop.
+ */
+export function useTamariActivity(key: string, active: boolean): void {
+  const setActivity = useContext(AssistantContext)?.setActivity;
+  useEffect(() => {
+    if (!setActivity) return;
+    setActivity(key, active);
+    return () => setActivity(key, false);
+  }, [setActivity, key, active]);
 }
 
 export function useAssistant(): AssistantContextValue {
@@ -166,8 +183,8 @@ export function useAssistant(): AssistantContextValue {
 }
 
 /**
- * Tells Ask RevTaw what this page is about (sent with questions as ids only;
- * the server reads the details itself), how its floating button behaves
+ * Tells Tamari what this page is about (sent with questions as ids only;
+ * the server reads the details itself), how its corner button behaves
  * here, and which questions to suggest.
  */
 export function AssistantPage({

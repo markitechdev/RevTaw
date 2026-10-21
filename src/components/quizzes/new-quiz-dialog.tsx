@@ -4,6 +4,7 @@ import { ListChecks, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { useTamariActivity } from "@/components/assistant/assistant-provider";
 import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
 import { Button, type ButtonProps } from "@/components/ui/button";
@@ -49,6 +50,7 @@ export function NewQuizButton({
   const [customCount, setCustomCount] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  useTamariActivity("quiz", pending);
 
   const update = (patch: Partial<QuizConfig>) => setConfig((current) => ({ ...current, ...patch }));
   const coverage = config.questionTypes.length > 0 ? typeCoverageError(config) : null;

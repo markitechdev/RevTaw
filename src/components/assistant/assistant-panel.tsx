@@ -6,15 +6,16 @@ import { useRouter } from "next/navigation";
 import { useEffect, useEffectEvent, useId, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 
 import { useAssistant, type AssistantRequest, type RegisteredPage } from "@/components/assistant/assistant-provider";
-import { RevTawAvatar, type AvatarState } from "@/components/assistant/avatar";
 import { useVoice } from "@/components/assistant/use-voice";
 import { Alert } from "@/components/forms/form-alert";
 import { useTheme } from "@/components/theme/theme-provider";
+import { TamariSprite } from "@/components/tamari/tamari-sprite";
 import { MessageBubble, type MessageExtras } from "@/components/tutor/message-bubble";
 import { Button } from "@/components/ui/button";
 import { saveAiPreferencesAction } from "@/lib/preferences/actions";
 import type { ResponseLanguage } from "@/lib/preferences/schema";
 import { routes } from "@/lib/routes";
+import { TAMARI_NAME, TAMARI_STATES, TAMARI_TAGLINE, type TamariState } from "@/lib/tamari/states";
 import { addToNotesAction, createFlashcardAction } from "@/lib/tutor/actions";
 import type { MessageView } from "@/lib/tutor/queries";
 import { TUTOR_ACTION_BY_ID, type FollowUpId, type TutorActionId } from "@/lib/tutor/types";
@@ -166,14 +167,15 @@ const chip =
   "inline-flex min-h-8 max-w-full cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 /**
- * The Ask RevTaw panel (UI phase §16–§22): header with the page it is about,
- * the conversation, quick actions and a composer that can attach a material,
- * send the page's context and listen (voice questions and commands, answers
- * read aloud). It is mounted once and only hidden when minimized, so the chat
- * carries across pages.
+ * Tamari's chat panel (UI phase §16–§22, mascot doc §10): Tamari in the
+ * header showing what it is doing (listening, thinking, talking), the page it
+ * is about, the conversation, quick actions and a composer that can attach a
+ * material, send the page's context and listen (voice questions and commands,
+ * answers read aloud). It is mounted once and only hidden when minimized, so
+ * the chat carries across pages.
  */
 export default function AssistantPanel() {
-  const { open, page, ai, voiceReplies, hide, subscribe } = useAssistant();
+  const { open, page, ai, voiceReplies, hide, subscribe, setActivity } = useAssistant();
   const router = useRouter();
   const { setTheme } = useTheme();
   const desktop = useDesktop();
@@ -237,6 +239,12 @@ export default function AssistantPanel() {
       else dialog.focus();
     }
   }, [open, desktop]);
+
+  // An answer still on its way after the chat is minimized: Tamari works on it in the corner.
+  useEffect(() => {
+    setActivity("chat", sending);
+    return () => setActivity("chat", false);
+  }, [sending, setActivity]);
 
   // Minimizing stops listening and reading aloud.
   const { cancelListening, stopSpeaking } = voice;
@@ -350,7 +358,7 @@ export default function AssistantPanel() {
         setExtras(previous.extras);
         setDraft(text);
         setSelection(quoted ?? null);
-        setError(body.error ?? "RevTaw could not answer just now. Please try again.");
+        setError(body.error ?? "Tamari could not answer just now. Please try again.");
         return;
       }
       const reply = assistantMessage(body.assistantMessageId, body.reply);
@@ -417,7 +425,7 @@ export default function AssistantPanel() {
     if (action) void send({ content: "", action });
   };
 
-  /** Says a short line aloud when the student is talking to RevTaw (and spoken replies are on). */
+  /** Says a short line aloud when the student is talking to Tamari (and spoken replies are on). */
   const say = (line: string) => {
     if (voiceReplies) void voice.speak(line, speakingLanguage(ai.language, line, navigator.language));
   };
@@ -577,9 +585,9 @@ export default function AssistantPanel() {
   };
 
   const suggestions = suggestionsFor(page, includeContext);
-  const avatarState: AvatarState = voice.status === "listening" ? "listening" : sending ? "thinking" : voice.status === "speaking" ? "speaking" : "idle";
+  const tamariState: TamariState = voice.status === "listening" ? "listening" : sending ? "thinking" : voice.status === "speaking" ? "speaking" : "idle";
   const shownMaterials = (materials ?? []).filter((material) => !filter.trim() || `${material.title} ${material.subject ?? ""}`.toLowerCase().includes(filter.trim().toLowerCase()));
-  const contextLine = includeContext && page ? page.label : (conversation?.material?.title ?? attached?.title ?? "Ask about any lesson");
+  const contextLine = includeContext && page ? page.label : (conversation?.material?.title ?? attached?.title ?? null);
 
   return (
     <dialog
@@ -614,12 +622,13 @@ export default function AssistantPanel() {
     >
       <div aria-hidden="true" className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border lg:hidden" />
       <header className="flex items-center gap-2.5 border-b border-border py-2 pr-2 pl-3">
-        <RevTawAvatar state={avatarState} size={34} />
+        {/* Remounted on every open, so Tamari hops once when called. */}
+        <TamariSprite key={open ? "open" : "closed"} state={tamariState} size={40} frame="portrait" greet={open} />
         <div className="min-w-0 flex-1">
           <h2 id={titleId} className="font-display text-base leading-tight font-semibold">
-            {view === "history" ? "Your chats" : "Ask RevTaw"}
+            {view === "history" ? "Your chats" : TAMARI_NAME}
           </h2>
-          <p className="truncate text-xs text-muted-foreground">{view === "history" ? "Pick one to keep going" : contextLine}</p>
+          <p className="text-xs leading-snug text-muted-foreground">{view === "history" ? "Pick one to keep going" : tamariState === "idle" ? TAMARI_TAGLINE : TAMARI_STATES[tamariState].status}</p>
         </div>
         {view === "chat" && (
           <HeaderButton label="Chat history" onClick={openHistory}>
@@ -640,7 +649,7 @@ export default function AssistantPanel() {
         <HeaderButton label={expanded ? "Make the panel smaller" : "Make the panel bigger"} onClick={() => setExpanded((value) => !value)} className="hidden lg:flex">
           {expanded ? <Minimize2 className="h-4 w-4" aria-hidden="true" /> : <Maximize2 className="h-4 w-4" aria-hidden="true" />}
         </HeaderButton>
-        <HeaderButton label="Minimize Ask RevTaw" onClick={hide}>
+        <HeaderButton label="Minimize Tamari" onClick={hide}>
           <Minus className="h-4 w-4" aria-hidden="true" />
         </HeaderButton>
       </header>
@@ -686,6 +695,13 @@ export default function AssistantPanel() {
         </div>
       ) : (
         <>
+          {contextLine && (
+            <p className="flex items-center gap-1.5 border-b border-border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+              <BookOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span className="shrink-0 font-medium text-foreground">Context:</span>
+              <span className="min-w-0 truncate">{contextLine}</span>
+            </p>
+          )}
           {switchSuggested && wantedMaterial && (
             <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
               <BookOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -704,14 +720,14 @@ export default function AssistantPanel() {
             </div>
           )}
 
-          <div ref={listRef} role="log" aria-label="Conversation with RevTaw" className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-3 py-4">
+          <div ref={listRef} role="log" aria-label="Conversation with Tamari" className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-3 py-4">
             {restoring ? (
               <p role="status" className="py-8 text-center text-sm text-muted-foreground">
                 Opening your chat…
               </p>
             ) : messages.length === 0 ? (
               <div className="flex flex-col items-center gap-4 py-2 text-center">
-                <RevTawAvatar size={60} />
+                <TamariSprite state={tamariState} size={96} />
                 <div className="flex flex-col gap-1">
                   <p className="font-display text-lg font-semibold text-foreground">What are we studying?</p>
                   <p className="text-sm text-muted-foreground">
@@ -720,7 +736,7 @@ export default function AssistantPanel() {
                         I can see <span className="font-medium text-foreground">{page.label}</span>. Ask about it, or anything else.
                       </>
                     ) : (
-                      "Ask me to explain, simplify, give an example or quiz you."
+                      "I'm Tamari, your study buddy. Ask me to explain, simplify, give an example or quiz you."
                     )}
                   </p>
                 </div>
@@ -741,7 +757,8 @@ export default function AssistantPanel() {
                 {!languageAsked && (
                   <div role="group" aria-labelledby={languageId} className="flex w-full flex-col gap-2 rounded-xl bg-muted/60 p-3 text-left">
                     <p id={languageId} className="text-sm font-medium text-foreground">
-                      Which language should I answer in?
+                      Anong language gusto mong gamitin natin?
+                      <span className="block text-xs font-normal text-muted-foreground">Which language should I answer in?</span>
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {LANGUAGE_CHOICES.map((choice) => (
@@ -769,8 +786,8 @@ export default function AssistantPanel() {
             )}
             {sending && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-                <RevTawAvatar state="thinking" size={28} />
-                Thinking…
+                <TamariSprite state="thinking" size={28} frame="portrait" />
+                Tamari is thinking…
               </div>
             )}
           </div>
@@ -838,8 +855,8 @@ export default function AssistantPanel() {
                 rows={1}
                 maxLength={6000}
                 value={draft}
-                aria-label="Message Ask RevTaw"
-                placeholder={selection ? "Ask about the highlighted text…" : "Ask anything…"}
+                aria-label="Message Tamari"
+                placeholder={selection ? "Ask about the highlighted text…" : "Ask Tamari anything…"}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -878,13 +895,13 @@ export default function AssistantPanel() {
             {voice.status === "listening" && (
               <p role="status" className="flex items-center gap-2 text-xs font-medium text-primary">
                 <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-                Listening… ask a question, or say “open the planner”.
+                Tamari is listening… ask a question, or say “open the planner”.
               </p>
             )}
             {voice.status === "speaking" && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Volume2 className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-                <span role="status">Reading the answer aloud</span>
+                <span role="status">Tamari is reading the answer aloud</span>
                 <button type="button" onClick={voice.stopSpeaking} className="cursor-pointer rounded-md px-1.5 py-0.5 font-semibold text-primary hover:bg-primary-soft">
                   Stop
                 </button>
@@ -902,7 +919,7 @@ export default function AssistantPanel() {
                   type="button"
                   aria-pressed={includeContext}
                   onClick={() => setContextOffFor(includeContext ? pageKey : null)}
-                  title={includeContext ? "RevTaw sees what this page is about. Select to ask without it." : "Select to let RevTaw see what this page is about."}
+                  title={includeContext ? "Tamari sees what this page is about. Select to ask without it." : "Select to let Tamari see what this page is about."}
                   className={cn(chip, includeContext ? "border-primary/40 bg-primary-soft text-primary" : "border-border bg-background text-muted-foreground hover:text-foreground")}
                 >
                   {includeContext ? <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> : <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}

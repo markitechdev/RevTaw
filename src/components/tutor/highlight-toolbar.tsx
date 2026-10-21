@@ -11,7 +11,7 @@ type Position = { top: number; left: number };
 /**
  * Highlight-and-ask (spec §20): select text inside the wrapped content and a
  * toolbar offers Explain, Simplify, Summarize, Example, Quiz me, Ask why,
- * Compare, Mnemonic and Visualize. Ask RevTaw answers right here, in the
+ * Compare, Mnemonic and Visualize. Tamari answers right here, in the
  * student's latest chat on this material (one thread per material).
  */
 export function HighlightToolbar({ materialId, children }: { materialId: string; children: ReactNode }) {
@@ -78,7 +78,7 @@ export function HighlightToolbar({ materialId, children }: { materialId: string;
         <div
           ref={toolbar}
           role="toolbar"
-          aria-label="Ask RevTaw about the selection"
+          aria-label="Ask Tamari about the selection"
           className="absolute z-20 -translate-x-1/2 -translate-y-full"
           style={{ top: position.top, left: position.left }}
         >

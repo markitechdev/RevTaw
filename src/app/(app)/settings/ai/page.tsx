@@ -24,8 +24,8 @@ export default async function AiSettingsPage() {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Ask RevTaw</CardTitle>
-          <CardDescription>The assistant that follows you around RevTaw and knows which page you are on.</CardDescription>
+          <CardTitle>Tamari</CardTitle>
+          <CardDescription>Your study companion: it follows you around RevTaw and knows which page you are on.</CardDescription>
         </CardHeader>
         <CardContent>
           <AssistantPreferencesForm initial={preferences.assistant} />

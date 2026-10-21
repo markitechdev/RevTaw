@@ -253,11 +253,6 @@
   --animate-panel-in: panel-in 260ms var(--ease-out) both;
   --animate-caret: caret-blink 1.05s steps(1) infinite;
   --animate-float: float 6s var(--ease-in-out) infinite;
-  /* The Ask RevTaw avatar: a blink now and then, a listening ripple, thinking dots, a talking mouth. */
-  --animate-blink: blink 4.6s var(--ease-in-out) infinite;
-  --animate-ripple: ripple 1.6s var(--ease-out) infinite;
-  --animate-think: think 1.2s var(--ease-in-out) infinite;
-  --animate-talk: talk 0.42s var(--ease-in-out) infinite alternate;
 
   @keyframes fade-up {
     from {
@@ -305,45 +300,6 @@
     56%,
     100% {
       opacity: 0;
-    }
-  }
-  @keyframes blink {
-    0%,
-    92%,
-    100% {
-      transform: scaleY(1);
-    }
-    95% {
-      transform: scaleY(0.12);
-    }
-  }
-  @keyframes ripple {
-    from {
-      opacity: 0.55;
-      transform: scale(1);
-    }
-    to {
-      opacity: 0;
-      transform: scale(1.55);
-    }
-  }
-  @keyframes think {
-    0%,
-    100% {
-      opacity: 0.35;
-      transform: translateY(0);
-    }
-    50% {
-      opacity: 1;
-      transform: translateY(-2px);
-    }
-  }
-  @keyframes talk {
-    from {
-      transform: scaleY(0.35);
-    }
-    to {
-      transform: scaleY(1);
     }
   }
   @keyframes float {
@@ -486,6 +442,92 @@
   [data-motion="reduce"] .answer-shade {
     animation: none;
   }
+
+  /*
+   * Tamari, the study companion (components/tamari). Pixel art: no
+   * smoothing, and every motion moves in whole pixels (stepped animations,
+   * transforms only), so the picture never blurs mid-move. All of it holds
+   * still under reduced motion; the listening ring then stays as a plain ring.
+   */
+  .tamari-sprite {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    image-rendering: pixelated;
+    user-select: none;
+    pointer-events: none;
+  }
+  /* Small spots show head and shoulders on Tamari's own navy square. */
+  .tamari-portrait {
+    overflow: hidden;
+    border-radius: 22%;
+    background-color: #012d66;
+  }
+  .tamari-portrait > .tamari-sprite {
+    position: absolute;
+    top: -6%;
+    left: -30%;
+    width: 160%;
+    height: 160%;
+  }
+  .tamari-idle {
+    animation: tamari-bob 3.6s steps(1, end) infinite;
+  }
+  .tamari-talk {
+    animation: tamari-talk 0.4s steps(1, end) infinite;
+  }
+  .tamari-hop {
+    animation: tamari-hop 0.5s steps(1, end) 2;
+  }
+  .tamari-greet {
+    animation: tamari-hop 0.5s steps(1, end) 1;
+  }
+  .tamari-shake {
+    animation: tamari-shake 0.45s steps(1, end) 2;
+  }
+  .tamari-doze {
+    animation: tamari-doze 3.2s steps(1, end) infinite;
+  }
+  .tamari-enter {
+    animation: tamari-enter 0.36s steps(1, end) both;
+  }
+  .tamari-ring {
+    position: absolute;
+    inset: -4px;
+    border: 2px solid var(--primary);
+    animation: tamari-ring 1.2s steps(1, end) infinite;
+  }
+  .tamari-dots {
+    position: absolute;
+    top: -3px;
+    right: 6%;
+    display: flex;
+    gap: 2px;
+  }
+  .tamari-dots i {
+    display: block;
+    width: 4px;
+    height: 4px;
+    background-color: var(--primary);
+    animation: tamari-dot 0.9s steps(1, end) infinite;
+  }
+  .tamari-dots i:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+  .tamari-dots i:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tamari-ring {
+      animation: none;
+      opacity: 0.7;
+    }
+  }
+  [data-motion="reduce"] .tamari-ring {
+    animation: none;
+    opacity: 0.7;
+  }
 }
 
 @keyframes shade-in {
@@ -494,5 +536,128 @@
   }
   to {
     clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Tamari's motions: whole-pixel steps (see .tamari-* above). */
+@keyframes tamari-bob {
+  0%,
+  46% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1px);
+  }
+  54% {
+    transform: translateY(-2px);
+  }
+  58% {
+    transform: translateY(-1px);
+  }
+  62%,
+  100% {
+    transform: translateY(0);
+  }
+}
+@keyframes tamari-talk {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1px);
+  }
+}
+@keyframes tamari-hop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  20%,
+  80% {
+    transform: translateY(-2px);
+  }
+  40%,
+  60% {
+    transform: translateY(-4px);
+  }
+}
+@keyframes tamari-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-1px);
+  }
+  40%,
+  80% {
+    transform: translateX(1px);
+  }
+}
+@keyframes tamari-doze {
+  0%,
+  50% {
+    transform: translateY(0);
+  }
+  51%,
+  99% {
+    transform: translateY(1px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+@keyframes tamari-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  33% {
+    opacity: 0.6;
+    transform: translateY(4px);
+  }
+  66% {
+    opacity: 0.9;
+    transform: translateY(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes tamari-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.94);
+  }
+  25% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(1.06);
+  }
+  75% {
+    opacity: 0.2;
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+@keyframes tamari-dot {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  33% {
+    transform: translateY(-2px);
+  }
+  66% {
+    transform: translateY(0);
   }
 }

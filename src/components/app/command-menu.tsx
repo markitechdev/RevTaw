@@ -182,7 +182,7 @@ export function CommandMenu() {
     if (option.action === "theme-light") setTheme("light");
     else if (option.action === "theme-dark") setTheme("dark");
     else if (option.action === "theme-system") setTheme("system");
-    // After the menu has handed focus back, so Ask RevTaw keeps it.
+    // After the menu has handed focus back, so Tamari's chat keeps it.
     else if (option.action === "ask") requestAnimationFrame(() => openAssistant());
     else if (option.href) router.push(option.href);
   };

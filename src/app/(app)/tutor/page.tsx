@@ -28,7 +28,7 @@ export default async function TutorPage({ searchParams }: PageProps<"/tutor">) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* The AI Tutor is the full-page version of Ask RevTaw. */}
+      {/* The AI Tutor is the full-page version of Tamari's chat. */}
       <AssistantLauncher mode="hidden" />
       {notice && <Alert tone="success">{notice}</Alert>}
       <PageHeader
