@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { MaterialMastery } from "@/components/adaptive/material-mastery";
+import { AssistantPage } from "@/components/assistant/assistant-provider";
 import { MaterialActions } from "@/components/materials/material-actions";
 import { MaterialContent } from "@/components/materials/material-content";
 import { HighlightToolbar } from "@/components/tutor/highlight-toolbar";
@@ -66,6 +67,7 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
   return (
     <div className="flex flex-col gap-6">
       <TrackOpen materialId={material.id} />
+      {material.status === "ready" && <AssistantPage context={{ kind: "material", id: material.id }} label={material.subject ? `${material.subject.name} → ${material.title}` : material.title} materialId={material.id} />}
 
       <div className="flex flex-col gap-3">
         <Link
@@ -129,7 +131,7 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
       ) : tab === "content" ? (
         <div className="max-w-3xl">
           <HighlightToolbar materialId={material.id}>
-            <p className="mb-4 text-xs text-muted-foreground">Select any sentence to ask the tutor about it — explain, simplify, example, quiz me, ask why.</p>
+            <p className="mb-4 text-xs text-muted-foreground">Select any sentence to ask RevTaw about it — explain, simplify, give an example, quiz me, ask why.</p>
             <MaterialContent chunks={chunks} />
           </HighlightToolbar>
         </div>

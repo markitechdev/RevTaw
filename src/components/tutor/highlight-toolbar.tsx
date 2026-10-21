@@ -1,11 +1,9 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
-import { routes } from "@/lib/routes";
-import { askFromSelectionAction } from "@/lib/tutor/actions";
+import { openAssistant } from "@/components/assistant/assistant-provider";
 import { HIGHLIGHT_ACTIONS, type TutorActionId } from "@/lib/tutor/types";
 
 type Position = { top: number; left: number };
@@ -13,21 +11,16 @@ type Position = { top: number; left: number };
 /**
  * Highlight-and-ask (spec §20): select text inside the wrapped content and a
  * toolbar offers Explain, Simplify, Summarize, Example, Quiz me, Ask why,
- * Compare and Mnemonic. The selection plus its surrounding passage go to the
- * tutor, which opens in a conversation on the material.
+ * Compare, Mnemonic and Visualize. Ask RevTaw answers right here, in the
+ * student's latest chat on this material (one thread per material).
  */
 export function HighlightToolbar({ materialId, children }: { materialId: string; children: ReactNode }) {
-  const router = useRouter();
   const container = useRef<HTMLDivElement>(null);
   const toolbar = useRef<HTMLDivElement>(null);
   const [selection, setSelection] = useState<string>("");
   const [position, setPosition] = useState<Position | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-  const [busy, setBusy] = useState<TutorActionId | null>(null);
 
   const readSelection = useCallback(() => {
-    if (pending) return;
     const current = window.getSelection();
     const text = current?.toString().replace(/\s+/g, " ").trim() ?? "";
     if (!current || current.isCollapsed || text.length < 3 || !container.current) {
@@ -45,7 +38,7 @@ export function HighlightToolbar({ materialId, children }: { materialId: string;
     const host = container.current.getBoundingClientRect();
     setSelection(text.slice(0, 4000));
     setPosition({ top: rect.top - host.top - 8, left: Math.max(0, Math.min(rect.left - host.left + rect.width / 2, host.width - 40)) });
-  }, [pending]);
+  }, []);
 
   useEffect(() => {
     const onMouseUp = () => window.setTimeout(readSelection, 0);
@@ -71,17 +64,11 @@ export function HighlightToolbar({ materialId, children }: { materialId: string;
 
   const ask = (action: TutorActionId) => {
     if (!selection) return;
-    setBusy(action);
-    setError(null);
-    startTransition(async () => {
-      const result = await askFromSelectionAction({ materialId, action, selection });
-      if (!result.ok) {
-        setError(result.message);
-        setBusy(null);
-        return;
-      }
-      router.push(`${routes.tutor}/${result.data.conversationId}`);
-    });
+    openAssistant({ action, selection, materialId, continueThread: true, send: true });
+    // The question is on its way: drop the highlight so the toolbar does not come back on mouseup.
+    window.getSelection()?.removeAllRanges();
+    setSelection("");
+    setPosition(null);
   };
 
   return (
@@ -91,7 +78,7 @@ export function HighlightToolbar({ materialId, children }: { materialId: string;
         <div
           ref={toolbar}
           role="toolbar"
-          aria-label="Ask the tutor about the selection"
+          aria-label="Ask RevTaw about the selection"
           className="absolute z-20 -translate-x-1/2 -translate-y-full"
           style={{ top: position.top, left: position.left }}
         >
@@ -104,20 +91,15 @@ export function HighlightToolbar({ materialId, children }: { materialId: string;
               <button
                 key={action.id}
                 type="button"
-                disabled={pending}
+                aria-haspopup="dialog"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => ask(action.id)}
-                className="rounded-lg px-2 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60"
+                className="cursor-pointer rounded-lg px-2 py-1 text-xs font-medium text-foreground hover:bg-muted"
               >
-                {busy === action.id ? "…" : action.label}
+                {action.label}
               </button>
             ))}
           </div>
-          {error && (
-            <p className="mt-1 rounded-lg bg-danger-soft px-2 py-1 text-xs text-danger" role="alert">
-              {error}
-            </p>
-          )}
         </div>
       )}
     </div>

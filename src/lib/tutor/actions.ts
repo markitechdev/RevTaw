@@ -8,8 +8,7 @@ import { isAiError } from "@/lib/ai";
 import { routes } from "@/lib/routes";
 import type { SessionSummary } from "@/lib/study/sessions";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import { addMessageToNotes, completeTutorSession, createConversation, createFlashcardFromMessage, sendMessage, ServiceError, SessionError } from "@/lib/tutor/service";
-import { TUTOR_ACTION_IDS } from "@/lib/tutor/types";
+import { addMessageToNotes, completeTutorSession, createFlashcardFromMessage, ServiceError, SessionError } from "@/lib/tutor/service";
 
 export type TutorActionResult<T = undefined> = ({ ok: true } & (T extends undefined ? { data?: undefined } : { data: T })) | { ok: false; message: string };
 
@@ -25,36 +24,6 @@ function failure(error: unknown, fallback: string): { ok: false; message: string
 function revalidate(conversationId?: string) {
   revalidatePath(routes.tutor);
   if (conversationId) revalidatePath(`${routes.tutor}/${conversationId}`);
-}
-
-/** Highlight-and-ask: opens a conversation on the material and sends the selected text with the chosen action. */
-export async function askFromSelectionAction(input: { materialId: string; action: string; selection: string; question?: string | null }): Promise<TutorActionResult<{ conversationId: string }>> {
-  const user = await getCurrentUser();
-  if (!user) redirect(routes.login);
-  const parsed = z
-    .object({ materialId: uuid, action: z.enum(TUTOR_ACTION_IDS), selection: z.string().trim().min(1).max(4000), question: z.string().trim().max(2000).nullable().optional() })
-    .safeParse(input);
-  if (!parsed.success) return { ok: false, message: "Select some text first." };
-  try {
-    const supabase = await createClient();
-    // Reuse the most recent free conversation on this material so highlights build one thread.
-    const { data: existing } = await supabase
-      .from("tutor_conversations")
-      .select("id")
-      .eq("material_id", parsed.data.materialId)
-      .in("mode", ["tutor", "guided"])
-      .is("session_id", null)
-      .is("archived_at", null)
-      .order("last_message_at", { ascending: false, nullsFirst: false })
-      .limit(1)
-      .maybeSingle();
-    const conversationId = existing?.id ?? (await createConversation({ materialId: parsed.data.materialId, mode: "tutor" })).id;
-    await sendMessage({ conversationId, content: parsed.data.question ?? "", action: parsed.data.action, selection: parsed.data.selection });
-    revalidate(conversationId);
-    return { ok: true, data: { conversationId } };
-  } catch (error) {
-    return failure(error, "The tutor could not be reached. Please try again.");
-  }
 }
 
 export async function addToNotesAction(messageId: string): Promise<TutorActionResult<{ reviewerId: string }>> {

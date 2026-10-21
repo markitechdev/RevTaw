@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { pageContextSchema } from "@/lib/assistant/context-schema";
+import { resolvePageContext } from "@/lib/assistant/context";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/supabase/server";
+import { getConversation } from "@/lib/tutor/queries";
 import { sendMessage, ServiceError } from "@/lib/tutor/service";
 import { TUTOR_ACTION_IDS } from "@/lib/tutor/types";
 
@@ -14,7 +17,29 @@ const bodySchema = z.object({
   message: z.string().trim().max(6000).default(""),
   action: z.enum(TUTOR_ACTION_IDS).nullable().default(null),
   selection: z.string().trim().max(4000).nullable().default(null),
+  /** Ask RevTaw: the page the student asked from (ids only; resolved with their session). */
+  context: pageContextSchema.nullable().default(null),
 });
+
+/** The conversation's messages, for reopening it in Ask RevTaw. */
+export async function GET(_request: Request, context: RouteContext<"/api/tutor/conversations/[id]/messages">) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
+  }
+  const params = paramsSchema.safeParse(await context.params);
+  if (!params.success) {
+    return NextResponse.json({ error: "Invalid conversation id." }, { status: 400 });
+  }
+  const conversation = await getConversation(params.data.id);
+  if (!conversation) {
+    return NextResponse.json({ error: "Conversation not found." }, { status: 404 });
+  }
+  return NextResponse.json(
+    { conversation: { id: conversation.id, title: conversation.title, material: conversation.material ? { id: conversation.material.id, title: conversation.material.title } : null }, messages: conversation.messages.slice(-60) },
+    { headers: { "cache-control": "private, no-store" } },
+  );
+}
 
 /** Sends a student message and returns the tutor's grounded reply. */
 export async function POST(request: Request, context: RouteContext<"/api/tutor/conversations/[id]/messages">) {
@@ -39,7 +64,8 @@ export async function POST(request: Request, context: RouteContext<"/api/tutor/c
     return NextResponse.json({ error: "You have sent a lot of messages. Please wait a little." }, { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } });
   }
   try {
-    const result = await sendMessage({ conversationId: params.data.id, content: body.data.message, action: body.data.action, selection: body.data.selection });
+    const page = await resolvePageContext(body.data.context);
+    const result = await sendMessage({ conversationId: params.data.id, content: body.data.message, action: body.data.action, selection: body.data.selection, pageNote: page.note });
     return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     if (error instanceof ServiceError) {

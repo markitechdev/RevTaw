@@ -59,6 +59,36 @@ export async function createConversation(input: { materialId: string | null; mod
   return { id: data.id };
 }
 
+/** The student's latest free conversation on a material (not a study session), so highlight-and-ask builds one thread per material. */
+export async function latestMaterialConversation(materialId: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("tutor_conversations")
+    .select("id")
+    .eq("material_id", materialId)
+    .in("mode", ["tutor", "guided"])
+    .is("session_id", null)
+    .is("archived_at", null)
+    .order("last_message_at", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+export type ConversationHeader = { id: string; title: string; material: { id: string; title: string } | null };
+
+/** What Ask RevTaw shows above a chat: its title and the material its answers come from. */
+export async function conversationHeader(conversationId: string): Promise<ConversationHeader | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("tutor_conversations")
+    .select("id, title, material:materials!tutor_conversations_material_fk(id, title)")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (!data) return null;
+  return { id: data.id, title: data.title, material: (data.material as unknown as { id: string; title: string } | null) ?? null };
+}
+
 export type SentMessage = {
   userMessageId: string | null;
   assistantMessageId: string;
@@ -81,7 +111,7 @@ async function loadConversation(supabase: Client, conversationId: string): Promi
 async function respond(
   supabase: Client,
   conversation: ConversationRow,
-  input: { content: string; action: TutorActionId | null; selection: string | null; storeUser: boolean },
+  input: { content: string; action: TutorActionId | null; selection: string | null; storeUser: boolean; pageNote?: string | null },
 ): Promise<SentMessage> {
   const [{ data: historyRows }, student, material] = await Promise.all([
     supabase
@@ -123,6 +153,7 @@ async function respond(
       action: input.action,
       selection: input.selection,
       student,
+      pageNote: input.pageNote ?? null,
     });
     reply = result.reply;
     provider = result.provider;
@@ -188,13 +219,13 @@ async function respond(
   return { userMessageId, assistantMessageId: assistantMessage.id, reply: { ...reply, sources } };
 }
 
-/** Stores the student's message and the tutor's grounded reply. */
-export async function sendMessage(input: { conversationId: string; content: string; action: TutorActionId | null; selection: string | null }): Promise<SentMessage> {
+/** Stores the student's message and the tutor's grounded reply. `pageNote` describes the page Ask RevTaw was opened on. */
+export async function sendMessage(input: { conversationId: string; content: string; action: TutorActionId | null; selection: string | null; pageNote?: string | null }): Promise<SentMessage> {
   const supabase = await createClient();
   const conversation = await loadConversation(supabase, input.conversationId);
   const content = input.content.trim() || (input.action ? TUTOR_ACTION_BY_ID[input.action].prompt : "");
   if (!content) throw new ServiceError("Type a question or pick an action.", 400);
-  return respond(supabase, conversation, { content, action: input.action, selection: input.selection, storeUser: true });
+  return respond(supabase, conversation, { content, action: input.action, selection: input.selection, storeUser: true, pageNote: input.pageNote ?? null });
 }
 
 /** "Add to notes": appends the answer as a section of the material's tutor-notes reviewer (created on demand). */

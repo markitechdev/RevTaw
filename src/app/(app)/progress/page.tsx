@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { MasteryTable } from "@/components/adaptive/mastery-table";
+import { AssistantPage } from "@/components/assistant/assistant-provider";
 import { RecommendationList } from "@/components/adaptive/recommendation-list";
 import { DailyColumns, PercentBars, ScoreColumns, StatusStrip } from "@/components/analytics/charts";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -39,6 +40,7 @@ export default async function ProgressPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <AssistantPage context={{ kind: "progress" }} label="Your progress" />
       <PageHeader
         title="Progress"
         description={`What your studying adds up to: scores, accuracy, time, mastery per concept and where you stand. A concept counts as mastered at ${MASTERY_THRESHOLD}%; nothing is ever locked — RevTaw just recommends more practice.`}

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AssistantPage } from "@/components/assistant/assistant-provider";
 import { BoxBar, CardList } from "@/components/flashcards/card-list";
 import { ExportMenu } from "@/components/export/export-menu";
 import { DeckActions } from "@/components/flashcards/deck-actions";
@@ -30,6 +31,7 @@ export default async function DeckPage({ params }: PageProps<"/flashcards/[deckI
 
   return (
     <div className="flex flex-col gap-6">
+      <AssistantPage context={{ kind: "deck", id: deck.id }} label={`Flashcards → ${deck.title}`} materialId={deck.material_id} />
       <div className="flex flex-col gap-3">
         <Link href={routes.flashcards} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />

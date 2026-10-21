@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState, useSyncExternalStore, type Keyboard
 
 import { COMMAND_MENU_EVENT, COMMAND_SECTIONS, type CommandAction } from "@/components/app/commands";
 import { PAGE_SEARCH_ID } from "@/components/app/search-box";
+import { openAssistant } from "@/components/assistant/assistant-provider";
 import { useTheme } from "@/components/theme/theme-provider";
 import { Kbd } from "@/components/ui/kbd";
 import { matchRange, matchScore } from "@/lib/commands/match";
@@ -181,7 +182,8 @@ export function CommandMenu() {
     if (option.action === "theme-light") setTheme("light");
     else if (option.action === "theme-dark") setTheme("dark");
     else if (option.action === "theme-system") setTheme("system");
-    else if (option.action === "ask") router.push(routes.tutor);
+    // After the menu has handed focus back, so Ask RevTaw keeps it.
+    else if (option.action === "ask") requestAnimationFrame(() => openAssistant());
     else if (option.href) router.push(option.href);
   };
 

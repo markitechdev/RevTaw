@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { AssistantPage } from "@/components/assistant/assistant-provider";
 import { AddTaskButton } from "@/components/planner/custom-task-dialog";
 import { ExamDangerActions, PlanSettings } from "@/components/planner/exam-actions";
 import { ExportMenu } from "@/components/export/export-menu";
@@ -78,6 +79,7 @@ export default async function ExamPlanPage({ params }: PageProps<"/planner/[exam
 
   return (
     <div className="flex flex-col gap-6">
+      <AssistantPage context={{ kind: "exam", id: exam.id }} label={`Planner → ${exam.title}`} materialId={exam.materials[0]?.id ?? null} />
       <Link href={routes.planner} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Planner

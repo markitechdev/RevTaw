@@ -21,12 +21,15 @@ export function MessageBubble({
   extras,
   disabled,
   onFollowUp,
+  saveable = true,
 }: {
   message: MessageView;
   materialId: string | null;
   extras?: MessageExtras;
   disabled?: boolean;
   onFollowUp?: (id: FollowUpId, action: TutorActionId | undefined, message: MessageView) => void;
+  /** Offer "Add to notes" and "Create flashcard" (they need a material to save into). */
+  saveable?: boolean;
 }) {
   if (message.role === "user") {
     return (
@@ -38,7 +41,7 @@ export function MessageBubble({
               <span className="line-clamp-4">{message.selection}</span>
             </blockquote>
           )}
-          {message.action && <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide opacity-80">{TUTOR_ACTION_BY_ID[message.action as TutorActionId]?.label ?? message.action}</span>}
+          {message.action && <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide">{TUTOR_ACTION_BY_ID[message.action as TutorActionId]?.label ?? message.action}</span>}
           <p className="whitespace-pre-wrap">{message.content}</p>
         </div>
       </div>
@@ -46,7 +49,7 @@ export function MessageBubble({
   }
 
   const grounding = message.grounding ?? "general";
-  const followUps = FOLLOW_UPS.filter((item) => message.follow_ups.includes(item.id) || item.id === "add_to_notes" || item.id === "create_flashcard");
+  const followUps = FOLLOW_UPS.filter((item) => (item.id === "add_to_notes" || item.id === "create_flashcard" ? saveable : message.follow_ups.includes(item.id)));
 
   return (
     <div className="flex justify-start">

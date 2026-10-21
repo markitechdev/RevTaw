@@ -2,6 +2,7 @@ import { MessageCircle } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { AssistantLauncher } from "@/components/assistant/assistant-provider";
 import { Alert } from "@/components/forms/form-alert";
 import { formatRelativeDate } from "@/components/materials/material-card";
 import { NewConversationButton } from "@/components/tutor/new-conversation-dialog";
@@ -27,6 +28,8 @@ export default async function TutorPage({ searchParams }: PageProps<"/tutor">) {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* The AI Tutor is the full-page version of Ask RevTaw. */}
+      <AssistantLauncher mode="hidden" />
       {notice && <Alert tone="success">{notice}</Alert>}
       <PageHeader
         title="AI Tutor"

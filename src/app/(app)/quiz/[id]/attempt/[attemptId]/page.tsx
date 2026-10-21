@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AssistantLauncher, AssistantPage } from "@/components/assistant/assistant-provider";
 import { ExportMenu } from "@/components/export/export-menu";
 import { AttemptResults } from "@/components/quizzes/attempt-results";
 import { QuizRunner } from "@/components/quizzes/quiz-runner";
@@ -33,6 +34,8 @@ export default async function AttemptPage({ params }: PageProps<"/quiz/[id]/atte
   if (!showResults) {
     return (
       <div className="flex flex-col gap-4">
+        {/* No floating button while answering: the quiz keeps the student's focus (and its answers stay theirs). */}
+        <AssistantLauncher mode="hidden" />
         <Link href={`${routes.quiz}/${quiz.id}`} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {quiz.title}
@@ -44,9 +47,16 @@ export default async function AttemptPage({ params }: PageProps<"/quiz/[id]/atte
 
   const [results, session] = await Promise.all([getAttemptResults(attemptId), getSessionForAttempt(attemptId)]);
   if (!results) notFound();
+  const firstWrong = results.questions.findIndex((question) => question.isCorrect === false);
 
   return (
     <div className="flex flex-col gap-4">
+      <AssistantPage
+        context={{ kind: "attempt", id: attemptId }}
+        label={`${quiz.title} → Results`}
+        materialId={quiz.material_id}
+        suggestions={firstWrong >= 0 ? [`Why did I get number ${firstWrong + 1} wrong?`, "Explain my mistakes simply", "Quiz me again on what I missed"] : ["What should I study next?", "Explain the trickiest question", "Quiz me on something harder"]}
+      />
       <div className="flex flex-col gap-1">
         <Link href={`${routes.quiz}/${quiz.id}`} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />

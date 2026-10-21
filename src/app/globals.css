@@ -262,6 +262,11 @@
   --animate-panel-in: panel-in 260ms var(--ease-out) both;
   --animate-caret: caret-blink 1.05s steps(1) infinite;
   --animate-float: float 6s var(--ease-in-out) infinite;
+  /* The Ask RevTaw avatar: a blink now and then, a listening ripple, thinking dots, a talking mouth. */
+  --animate-blink: blink 4.6s var(--ease-in-out) infinite;
+  --animate-ripple: ripple 1.6s var(--ease-out) infinite;
+  --animate-think: think 1.2s var(--ease-in-out) infinite;
+  --animate-talk: talk 0.42s var(--ease-in-out) infinite alternate;
 
   @keyframes fade-up {
     from {
@@ -309,6 +314,45 @@
     56%,
     100% {
       opacity: 0;
+    }
+  }
+  @keyframes blink {
+    0%,
+    92%,
+    100% {
+      transform: scaleY(1);
+    }
+    95% {
+      transform: scaleY(0.12);
+    }
+  }
+  @keyframes ripple {
+    from {
+      opacity: 0.55;
+      transform: scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1.55);
+    }
+  }
+  @keyframes think {
+    0%,
+    100% {
+      opacity: 0.35;
+      transform: translateY(0);
+    }
+    50% {
+      opacity: 1;
+      transform: translateY(-2px);
+    }
+  }
+  @keyframes talk {
+    from {
+      transform: scaleY(0.35);
+    }
+    to {
+      transform: scaleY(1);
     }
   }
   @keyframes float {

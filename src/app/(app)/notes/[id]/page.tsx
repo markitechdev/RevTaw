@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AssistantPage } from "@/components/assistant/assistant-provider";
 import { formatRelativeDate } from "@/components/materials/material-card";
 import { ExportMenu } from "@/components/export/export-menu";
 import { ReviewerActions } from "@/components/reviewers/reviewer-actions";
@@ -31,6 +32,7 @@ export default async function ReviewerPage({ params }: PageProps<"/notes/[id]">)
 
   return (
     <div className="flex flex-col gap-6">
+      <AssistantPage context={{ kind: "reviewer", id: reviewer.id }} label={reviewer.material ? `${reviewer.material.title} → ${reviewer.title}` : reviewer.title} materialId={reviewer.material?.id ?? null} />
       <TrackReviewerOpen reviewerId={reviewer.id} />
 
       <div className="flex flex-col gap-3">
@@ -109,7 +111,7 @@ export default async function ReviewerPage({ params }: PageProps<"/notes/[id]">)
             )}
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <FileText className="h-3.5 w-3.5" aria-hidden="true" />
-              Generated only from your material. Facts outside it are not added.{reviewer.material ? " Select any text to ask the tutor about it." : ""}
+              Generated only from your material. Facts outside it are not added.{reviewer.material ? " Select any text to ask RevTaw about it." : ""}
             </p>
           </div>
         </div>

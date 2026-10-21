@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { AssistantLauncher } from "@/components/assistant/assistant-provider";
 import { ConversationActions } from "@/components/tutor/conversation-actions";
 import { TutorChat } from "@/components/tutor/tutor-chat";
 import { getConversation } from "@/lib/tutor/queries";
@@ -18,6 +19,7 @@ export default async function ConversationPage({ params }: PageProps<"/tutor/[id
 
   return (
     <div className="flex flex-col gap-3">
+      <AssistantLauncher mode="hidden" />
       <TutorChat key={conversation.id} conversation={conversation} />
       {!conversation.session_id && <ConversationActions conversationId={conversation.id} title={conversation.title} />}
     </div>
