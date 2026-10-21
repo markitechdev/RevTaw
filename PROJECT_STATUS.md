@@ -648,11 +648,16 @@ RevTaw's one assistant (the same chat, AI, voice, page context, study data,
 Smart Study engine, planner, materials, quizzes, mastery and mistake
 notebook; not a second AI). It lives in the layout instead of a circle.
 
-- **On Home** — the whole character sits on the top edge of the first card,
-  beside "Good afternoon, Mia.", its feet over the border
-  (`TamariStage`, `src/components/tamari/tamari-stage.tsx`). Beside it a
-  pixel speech bubble says one line from the student's data, most urgent
-  first (`homeLine()` in `src/lib/tamari/hints.ts`, lines in
+- **On Home** — the whole character leads the "Continue studying" card:
+  Tamari, then what to continue, then the buttons (`TamariHome`,
+  `src/components/tamari/tamari-home.tsx`; already there while the card
+  loads, and at the start of the greeting when that card is hidden). Tamari
+  says nothing until it is clicked; a small pixel "!" by its head means a
+  line is waiting (gone once read, and read to screen readers as the
+  button's description). The click opens a compact pixel speech bubble
+  beside Tamari, in place of the card's words, with one line from the
+  student's data, most urgent first (`homeLine()` in
+  `src/lib/tamari/hints.ts`, lines in
   `src/lib/tamari/coach.ts`): an exam today or tomorrow, a streak that ends
   tonight ("5-day streak. Sayang pag pinutol mo ngayon."), a concept missed
   three times or more ("Tatlong beses na nating namiss ang Binary Trees.
@@ -664,7 +669,9 @@ notebook; not a second AI). It lives in the layout instead of a circle.
   starts the work (the planner task, a Feynman or recall session on that
   concept, a plan); "Later" puts the line off for the day (a small
   cookie). With nothing pressing Tamari offers: "May 20 minutes ka? Ako na
-  bahala." with 10 / 20 / 30 minutes. Customize moved to the corner.
+  bahala." with 10 / 20 / 30 minutes. The bubble also opens the chat;
+  Escape, a click outside or Tamari again closes it. With study suggestions
+  off, a click on Tamari opens the chat. Customize sits in the corner.
 - **Elsewhere** — Tamari peeks up from the bottom edge of the screen (from
   behind the tab bar on phones), head and book showing; pointing lifts it a
   little, clicking hops and opens the chat (`TamariPeek`). While the chat is
@@ -849,7 +856,7 @@ linked).
   (`states.ts` registry, `lines.ts` bubbles and replies in three languages,
   `coach.ts` Home lines, `hints.ts` picks them, `plan.ts` the time-boxed
   plan, `commands.ts` natural commands) and `src/components/tamari/`
-  (`sprites.ts` with blink frames, `TamariSprite`, `TamariStage` on Home,
+  (`sprites.ts` with blink frames, `TamariSprite`, `TamariHome` on Home,
   `TamariPerch`/`TamariSays` seated on a card, `TamariPeek` at the screen
   edge, `TamariSpeech`, `useTamariMove()` to start what a line offers,
   `useTamariReaction()` for checked answers); the motions are the
@@ -1255,9 +1262,11 @@ Flows verified end to end against a local Supabase-compatible stack
   highlight-and-ask in the material's thread, command menu, quiz results
   suggestion and "Ask Tamari why", hidden during a quiz and on the tutor,
   Show Tamari / chat button / pixel animations in settings, axe light/dark/phone);
-  Tamari (`tamari-e2e.mjs`: seated on Home's first card beside the greeting
-  and shown once, a line from the data in exam mode, "Later" for the day
-  and the 10/20/30-minute offer, a blink frame, a 10-minute plan with
+  Tamari (`tamari-e2e.mjs`: at the start of Home's Continue card and shown
+  once, silent until clicked with a "!" for a waiting line, the line from
+  the data in exam mode in a compact bubble, Escape / outside click / the
+  chat button, "Later" for the day and the 10/20/30-minute offer, a blink
+  frame, a 10-minute plan with
   Tamari on it, peeking from the screen edge with the bubble above, beside
   the open chat and thinking while it answers, a nap and "Uy, buhay ka pa
   pala. Review?", each setting, phone, axe); commands (`commands-e2e.mjs`:
