@@ -4,6 +4,15 @@ import { spriteFor, spriteSrcSet, TAMARI_BLINK_SPRITES, TAMARI_SPRITES } from "@
 import { TAMARI_STATES, type TamariReaction, type TamariState } from "@/lib/tamari/states";
 import { cn } from "@/lib/utils";
 
+/**
+ * The closed-eye frame sits on top of the open-eye one and stays hidden between
+ * blinks. Said inline as well as in `.tamari-blink`, so it can never show up as
+ * a second Tamari under the first one — not before the stylesheet arrives, and
+ * not with a stale stylesheet from a development server. The blink animation
+ * still drives its opacity: animations win over inline styles.
+ */
+const BLINK_STACKED: CSSProperties = { position: "absolute", inset: 0, opacity: 0 };
+
 type Props = {
   state?: TamariState;
   /** Width and height in CSS pixels; `lgSize` from the lg breakpoint up. */
@@ -41,7 +50,7 @@ export function TamariSprite({ state = "idle", size, lgSize, animate = true, rea
           <img src={spriteFor(frames, largest).src} srcSet={spriteSrcSet(frames)} sizes={sizes} width={largest} height={largest} alt="" draggable={false} decoding="async" className="tamari-sprite" />
           {blink && (
             // eslint-disable-next-line @next/next/no-img-element -- the closed-eye frame of the same picture
-            <img src={spriteFor(blink, largest).src} srcSet={spriteSrcSet(blink)} sizes={sizes} width={largest} height={largest} alt="" draggable={false} decoding="async" className="tamari-sprite tamari-blink" />
+            <img src={spriteFor(blink, largest).src} srcSet={spriteSrcSet(blink)} sizes={sizes} width={largest} height={largest} alt="" draggable={false} decoding="async" className="tamari-sprite tamari-blink" style={BLINK_STACKED} />
           )}
         </span>
       </span>
