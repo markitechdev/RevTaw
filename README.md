@@ -36,6 +36,13 @@ generation, grading of open answers) need one provider key in `.env.local`
 key, development uses a built-in mock provider so the rest of the app keeps
 working.
 
+Planner reminders reach the in-app bell (and the browser, while RevTaw is
+open) without any setup. Email reminders are optional: set an email provider
+(`EMAIL_PROVIDER` with Resend or SMTP) and the reminder scheduler
+(`CRON_SECRET`, `SUPABASE_SECRET_KEY`, and a cron calling
+`/api/cron/reminders` every few minutes) — see `.env.example`. Credentials
+stay in server environment variables only.
+
 ## What works today
 
 - Accounts, onboarding and settings (Phase 1)
@@ -85,6 +92,15 @@ working.
   topics, questions, flashcards and tutor conversations; accessibility
   (axe-clean, keyboard and screen-reader friendly), security and
   performance reviews (Phase 10)
+- A youthful, less crowded design you can make your own (UI/UX phase): a
+  typed hero on the landing page, theme colors (RevTaw Purple, Blue, Green,
+  Orange, Pink, Red, Teal or your own, contrast-safe in light and dark),
+  reduced motion, a dashboard you arrange, grouped navigation with pinned
+  tools and a Ctrl/Cmd+K command menu, AI preferences (answers in English,
+  Filipino, Taglish or another language), chips and simple-first forms,
+  **Ask RevTaw** — an assistant on every page that knows what you are
+  looking at, with **voice** questions and commands — and a **planner
+  calendar** with activities and reminders by bell, browser and email
 
 ## Scripts
 
@@ -107,14 +123,18 @@ src/app/(app)         signed-in app: dashboard, materials, study (sessions,
                       progress, planner, settings…
 src/app/auth          email-link route handlers (callback, confirm)
 src/app/api           route handlers (material processing, analysis, files,
-                      reviewer, quiz and flashcard generation, tutor, export)
-src/components        ui primitives, forms, app shell, feature components
+                      reviewer, quiz and flashcard generation, tutor, export,
+                      quick search, reminders and the reminder scheduler)
+src/components        ui primitives, forms, app shell, Ask RevTaw, feature
+                      components
 src/lib               supabase clients, ai providers, materials pipeline,
                       reviewers, quizzes, flashcards, study sessions, tutor,
                       adaptive engine (mastery, recommendations, smart study),
-                      planner (exams, plans, tasks, goals), notifications,
-                      analytics, gamification, export, search, concepts,
-                      validation, routes, env
+                      planner (exams, plans, tasks, goals, calendar),
+                      reminders, notifications and email, preferences and
+                      theme, assistant context, voice, analytics,
+                      gamification, export, search, concepts, validation,
+                      routes, env
 supabase/migrations   SQL migrations (apply in order)
 ```
 

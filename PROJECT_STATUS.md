@@ -4,7 +4,7 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-20 (Phase 10 complete — all planned phases done)_
+_Last updated: 2026-10-21 (UI/UX Improvement and Personalization Phase complete, after Phases 1–10)_
 
 ## Completed
 
@@ -553,26 +553,109 @@ no longer has a "coming later" section.
   (React, Next runtime, app shell); the PDF.js viewer (~420 KB) loads only
   on the material page.
 
+### UI/UX Improvement and Personalization Phase
+
+Made RevTaw feel modern, youthful and student-made without rebuilding it:
+less crowded screens, personal settings that follow the student across
+devices, one assistant everywhere, voice, and a planner calendar with
+reminders. Everything earlier still works; the suites below were updated
+only where a control changed (chips and segments instead of buttons, the
+assistant instead of a page change).
+
+- **Design system** (priority 1) — Bricolage Grotesque for titles, Inter
+  for text; ink-violet neutrals; the theme color as `--primary` tokens;
+  fixed status colors (success, warning, danger, info) that never change
+  with the theme; motion tokens. Theme presets RevTaw Purple, Blue, Green,
+  Orange, Pink, Red and Teal plus a custom color, generated in OKLCH
+  (`src/lib/theme/color.ts`) so each passes 4.5:1 as a fill and as text in
+  light and dark mode. New primitives: `ChipGroup` (single/multi select
+  with visible checks, `size="sm"`), `Segmented`, `Switch`, `Disclosure`,
+  `Sheet`, `Kbd`.
+- **Landing page** (priority 2) — typed hero line ("Reviewer na may
+  Bitaw." ⇄ "A reviewer that delivers.") without layout shift, an
+  interactive study desk, "How it works" as accessible tabs, a method
+  picker; CSS motion only, reduced-motion aware.
+- **Preferences** — `profiles.preferences` (sections appearance, dashboard,
+  tools, ai, study, notifications, assistant; migration 0012) saved one
+  section at a time by `set_preference_section()`; strict zod schemas for
+  saving, lenient readers for reading. The theme color is mirrored in a
+  validated cookie so the first response is already in the student's color.
+- **Dashboard** (priority 3) — Continue studying, one RevTaw
+  recommendation (Review now / Practice questions) and Due today first; a
+  compact strip for exam countdown, streak and level, focus time and
+  mastery; optional lists. Show, hide, reorder and reset from Customize or
+  Settings → Dashboard (saved to the account).
+- **Navigation** (priority 4) — Home plus Main (Study, Materials, Planner),
+  Create (Quiz, Flashcards, Reviewer, Notes) and Learn (Study Methods,
+  Progress), More Tools for the rest; tools can be pinned in Settings →
+  RevTaw tools. Ctrl/Cmd+K (or `/`) command menu: any tool, quick actions,
+  theme, and type-ahead search over materials, topics, notes, planner
+  items, quizzes, decks and conversations (`/api/search/quick`).
+- **Settings** (priority 5) — grouped into Account and Preferences:
+  Appearance (mode per device, theme color, custom color, reduce motion),
+  Dashboard, RevTaw tools, AI preferences (response language Auto /
+  English / Filipino / Taglish / other, style, depth; the Ask RevTaw button
+  and spoken answers), Study (preferred methods), Notifications (in-app,
+  email, browser; default reminder; mutable kinds). Onboarding asks for the
+  response language.
+- **Selection controls** (priority 6) — the quiz generator shows material,
+  count, types and difficulty first and folds timer, randomization,
+  confidence, feedback and focus into Advanced options; question types are
+  multi-select and a mixed quiz keeps every selected type
+  (`typeCoverageError`); the session builder, exam and deck dialogs use
+  chips and segments.
+- **Ask RevTaw** (priority 7) — a floating assistant on every signed-in page
+  (`AssistantProvider` in the app layout, panel loaded on first open):
+  desktop panel / phone bottom sheet, page context ("Subject → Material")
+  sent as ids and resolved on the server with the student's session,
+  quick actions, history, new chat, expand, minimize, attach material,
+  context-aware suggestions ("Why did I get number 7 wrong?"); highlight-
+  and-ask and "Ask RevTaw why" answer in place. Hidden during a quiz and on
+  the AI Tutor pages; desktop-only where phones have bottom actions.
+- **Voice** (priority 8) — mic in the composer where the browser supports
+  speech recognition; avatar states idle / listening / thinking / speaking;
+  commands and questions in English, Filipino and Taglish
+  (`src/lib/voice/intents.ts`); confirmations before saving anything;
+  answers read aloud (can be turned off); speech-to-text and text-to-speech
+  are interfaces with Web Speech as the default (`src/lib/voice/`).
+- **Planner calendar and reminders** (priority 9) — a month calendar
+  (`role=grid`, keyboard navigation) where clicking an empty day adds an
+  activity (title, category, date, time, duration, method, material,
+  subject, priority, notes, reminder); category filters; edit/delete in
+  place. Reminders at the time, 10 m, 30 m, 1 h, 1 d before or custom,
+  delivered to the bell and as browser notifications while RevTaw is open,
+  on the next visit otherwise, and by email through the scheduler
+  (`/api/cron/reminders`, `CRON_SECRET`) with Resend or SMTP. Migrations
+  0014 (activities) and 0015 (reminders).
+- **Fixes found on the way** — composite foreign keys from 0007 nulled
+  `user_id` on delete, so a material with scheduled reviews or a subject
+  used by an exam could not be deleted (migration 0013); a selected chip's
+  hint fell below 4.5:1 with some custom colors; the user bubble's action
+  label in the tutor was below 4.5:1.
+
 ## In Progress
 
-- Nothing at the moment. All ten phases of the specification are
-  implemented.
+- Nothing at the moment. All ten phases of the specification and the
+  UI/UX Improvement and Personalization Phase are implemented.
 
 ## Next (priority order)
 
 1. Background jobs for long generations (reviewers, quizzes, analysis of very
-   long materials) and a scheduler for daily plan adjustment and reminders
-   (today both run on page load).
-2. Email/push delivery of the reminder feed.
-3. Pagination of the Content tab for very large materials; map-reduce
+   long materials); the daily plan adjustment could move to the reminder
+   scheduler (it still runs on page load).
+2. Web Push for reminders when no RevTaw tab is open (email and in-app
+   already work).
+3. A hosted speech-to-text provider for browsers without Web Speech
+   (Firefox); the voice layer is already an interface.
+4. Pagination of the Content tab for very large materials; map-reduce
    analysis for books.
-4. A Redis-backed rate limiter when running several instances.
+5. A Redis-backed rate limiter when running several instances.
 
 ## Database
 
 | Table | Purpose | Ownership |
 | --- | --- | --- |
-| `public.profiles` | One row per `auth.users` row: display name, education level, main goal, preferred session minutes, onboarding timestamp, time zone, `xp` (kept in step with the ledger by trigger) | RLS: owner may select/insert/update; no delete policy (cascade from `auth.users`) |
+| `public.profiles` | One row per `auth.users` row: display name, education level, main goal, preferred session minutes, onboarding timestamp, time zone, `xp` (kept in step with the ledger by trigger), `preferences` (JSON by section, ≤16 KB, saved with `set_preference_section()`) | RLS: owner may select/insert/update; no delete policy (cascade from `auth.users`) |
 | `public.subjects` | Top-level organisation (name, colour, archived_at) | owner full access; `(id, user_id)` unique for composite FKs |
 | `public.folders` | Grouping inside a subject (chapter, topic…) | owner full access; FK `(subject_id, user_id)` |
 | `public.materials` | One upload or note: title, source, file metadata, `storage_path`, `content_hash`, status + detail, counts, `last_opened_at`, `archived_at` | owner full access; composite FKs to subject and folder (folder must belong to the subject) |
@@ -601,9 +684,10 @@ no longer has a "coming later" section.
 | `public.exams` | An exam: title, date, subject, priority, confidence, topics, notes, `archived_at` | owner full access; subject FK set null |
 | `public.exam_materials` | Materials an exam covers, with position | owner full access; cascade from exam and material |
 | `public.study_plans` | One plan per exam: mode (exam/cram), status, start/end, `available_days`, `minutes_per_day`, `settings` (warnings), `generated_at`, `adjusted_at`, `adjustment_note` | owner full access; unique `exam_id`; cascade from exam |
-| `public.study_tasks` | A scheduled activity: kind (plan/review/custom), method, title, reason, `scheduled_for`, position, minutes, concepts, status (pending/done/skipped/missed), `session_id`, `completed_at` | owner full access; cascade from plan/exam; material and session FKs set null |
+| `public.study_tasks` | A scheduled activity: kind (plan/review/custom), method (`activity` for plain calendar items), title, reason, `scheduled_for`, `starts_at` (local time), position, minutes, concepts, status (pending/done/skipped/missed), `session_id`, `completed_at`, `subject_id`, `priority`, `notes`, `category`, `reminder` + `reminder_minutes` | owner full access; cascade from plan/exam; material, session and subject FKs clear their own column |
+| `public.reminders` | One per activity with a reminder: `remind_at`, status (pending/sent/cancelled), `in_app_sent_at`, `email_sent_at`, `email_attempts`, `email_error`, `claimed_until` | owner full access; cascade from the task; `claim_due_reminders()` for the service role only |
 | `public.study_goals` | A goal: kind, period (day/week/once), target, optional material/subject, title, `due_date`, status | owner full access; cascade from material/subject |
-| `public.notifications` | Reminder feed: kind (incl. `achievement`, `level_up`), title, body, href, `dedupe_key`, `read_at` | owner full access; unique `(user_id, dedupe_key)` |
+| `public.notifications` | Reminder feed: kind (incl. `achievement`, `level_up`, `reminder`), title, body, href, `dedupe_key`, `read_at` | owner full access; unique `(user_id, dedupe_key)` |
 | `public.xp_events` | XP ledger: source (answers, session, reviews, mastered, goal, streak_day, achievement), `source_key` (idempotent award), points, label | owner full access; unique `(user_id, source_key)`; trigger `apply_xp_event` adds to `profiles.xp` |
 | `public.achievements` | Unlocked badges: key, `unlocked_at`, `seen_at` (definitions live in `src/lib/gamification/achievements.ts`) | owner full access; unique `(user_id, key)` |
 | `storage.objects` (bucket `materials`) | Private files under `<user_id>/<material_id>/<file>` | policies on first path segment = `auth.uid()` |
@@ -615,7 +699,9 @@ Enums: `education_level`, `study_goal`, `material_source`, `material_status`,
 `tutor_mode` (incl. `teach_back`), `tutor_role`, `mastery_status`, `next_difficulty`,
 `exam_priority`, `plan_mode`, `plan_status`, `task_kind`, `task_status`,
 `goal_kind`, `goal_period`, `goal_status`, `notification_kind`. Helper functions: `public.set_updated_at()`,
-`public.handle_new_user()` and `public.apply_xp_event()` (security definer, pinned `search_path`).
+`public.handle_new_user()` and `public.apply_xp_event()` (security definer, pinned `search_path`),
+`public.set_preference_section()` (security invoker) and `public.claim_due_reminders()`
+(service role only, `for update skip locked`).
 
 Full-text search (migration 0011): GIN indexes on
 `to_tsvector('english', …)` over `materials.title`, `material_chunks.content`,
@@ -646,7 +732,34 @@ linked).
   (`src/lib/rate-limit.ts`), in addition to Supabase's own limits. Swap the
   store for Redis when running several instances.
 - **Routes** — all paths come from `src/lib/routes.ts`; navigation items from
-  `src/components/app/nav-items.ts`.
+  `src/components/app/nav-items.ts` (groups, pinned tools, phone tabs);
+  command menu entries from `src/components/app/commands.ts`.
+- **Preferences and theming** — `src/lib/preferences/` (schema with strict
+  input and lenient reader per section, cached `getPreferences()`, one
+  Server Action per section, rate-limited); `src/lib/theme/` (OKLCH palette
+  builder, appearance cookie). The root layout sets `data-accent`,
+  `data-motion` and custom-color variables on `<html>` from the cookie;
+  `AppearanceRoot` keeps the cookie in step with the account.
+- **Ask RevTaw** — `src/components/assistant/`: `AssistantProvider` (in the
+  signed-in layout: launcher, page registry, request queue, lazy panel),
+  `AssistantPage`/`AssistantLauncher` (pages register context and launcher
+  mode), `assistant-panel.tsx` (native `<dialog>`: `show()` on desktop,
+  `showModal()` on phones), `openAssistant()` for any button. Page context
+  is a discriminated union of ids (`src/lib/assistant/context-schema.ts`)
+  resolved by `resolvePageContext()` with the student's session and added
+  to the tutor prompt inside `<page_context>` as data.
+- **Voice** — `src/lib/voice/`: `types.ts` (SpeechToText / TextToSpeech
+  interfaces), `web-speech.ts` (default provider, loaded on first use),
+  `intents.ts` (commands, confirmations), `speech-text.ts` (what to read,
+  which language); `use-voice.ts` in the assistant.
+- **Planner calendar and reminders** — `src/lib/planner/calendar.ts`
+  (month grid), `src/lib/planner/time.ts` (clock times, zoned instants),
+  `saveActivity()` in the planner service; `src/lib/reminders/` (`time.ts`
+  reminder instants and wording, `message.ts` bell/email content with
+  escaping, `service.ts` sync, delivery and the scheduler run),
+  `src/lib/notifications/email.ts` (Resend over HTTPS or SMTP through
+  nodemailer), `ReminderWatcher` in the app layout, `/api/reminders` and
+  `/api/cron/reminders` (Bearer `CRON_SECRET`, timing-safe compare).
 - **Email links** — `/auth/callback` (PKCE `code`) and `/auth/confirm`
   (`token_hash`). The latter works across browsers/devices; see
   `supabase/README.md` for email templates. Redirects use
@@ -808,9 +921,9 @@ linked).
   (`maxDuration = 120` for routes; Server Actions for sessions). Very long
   materials rely on the transcript budget.
 - The daily plan adjustment runs when the dashboard, planner or exam page
-  loads (no background scheduler yet); reminders are generated the same
-  way, so a student who does not open the app gets them on the next visit.
-  Email/push delivery reads the same `notifications` rows later.
+  loads; the daily feed (reviews due, exam countdown, planned tasks, goals,
+  streak) is generated the same way. Planner activity reminders have their
+  own queue and scheduler (see the UI/UX phase).
 - Plan generation is rule-based and deterministic (no model call); it uses
   each material's analysis, mastery, open mistakes and decks.
 - Smart Study plans are rule-based (budget split by what the data shows);
@@ -820,8 +933,9 @@ linked).
 - Question generation evaluates one question per model call; interleaving
   mixes up to four materials; rapid review is 5, 10 or 15 minutes by
   design.
-- Custom planner tasks offer the Phase 4 methods only; plan-generated tasks
-  already use exam simulation and rapid review.
+- Calendar activities start the Phase 4 methods (or are plain items with no
+  session); plan-generated tasks already use exam simulation and rapid
+  review.
 - Tutor replies arrive as one message (no token streaming); the context is
   chosen by keyword overlap rather than embeddings, which is accurate for
   materials up to a few hundred pages and cheap to run.
@@ -857,6 +971,23 @@ linked).
   query is capped at 120 characters.
 - Dates and numbers are formatted in `en-US` throughout (the UI is
   English); a per-user locale is a later refinement.
+- Voice needs a browser with the Web Speech API (Chrome, Edge, Safari);
+  elsewhere the microphone is hidden and typing works as usual. Chrome and
+  Edge send speech to their vendor's service for recognition; RevTaw's
+  server never receives audio. Spoken answers use the voices installed on
+  the device (a Filipino voice may be missing; the default voice is used).
+- Email reminders need an email provider and the scheduler
+  (`CRON_SECRET` + `SUPABASE_SECRET_KEY` + something calling
+  `/api/cron/reminders` every few minutes). Vercel Hobby only runs daily
+  cron jobs; use Vercel Pro, GitHub Actions, cron-job.org or Supabase
+  pg_cron + pg_net for a 5-minute schedule. Without it, reminders still
+  reach the bell and the browser while RevTaw is open, and the bell on the
+  next visit.
+- Browser notifications show only while a RevTaw tab is open (no Web Push
+  yet).
+- Ask RevTaw keeps one conversation per material for highlight threads;
+  general chats have no material, so "Add to notes" and "Create flashcard"
+  appear only in chats about a material.
 
 ## Environment Requirements
 
@@ -866,11 +997,15 @@ Copy `.env.example` to `.env.local`. Never commit real values.
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Supabase project URL (public) |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | yes | Publishable/anon key (public; RLS protects data) |
-| `SUPABASE_SECRET_KEY` | optional | Server-only privileged client (account deletion) |
+| `SUPABASE_SECRET_KEY` | optional | Server-only privileged client (account deletion, the reminder scheduler) |
 | `NEXT_PUBLIC_SITE_URL` | recommended | Absolute origin for email links and auth redirects |
 | `AI_PROVIDER` | optional | `anthropic`, `openai`, `google` or `mock`; auto-detected from keys when empty |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GOOGLE_AI_API_KEY` | one needed for AI features | Server-only provider keys |
 | `AI_MODEL_FAST` / `AI_MODEL_STRONG` | optional | Override the default model per tier |
+| `CRON_SECRET` | optional | 16+ random characters; the reminder scheduler's bearer token for `/api/cron/reminders` |
+| `EMAIL_PROVIDER` / `EMAIL_FROM` | optional | `resend` or `smtp`, and the sender shown to students; email reminders stay off until set |
+| `RESEND_API_KEY` | with `resend` | Server-only Resend key |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASSWORD` | with `smtp` | Server-only SMTP settings (e.g. a RevTaw Gmail account with an app password) |
 
 Supabase dashboard settings needed: email confirmations on, Site URL and
 `/auth/callback` redirect URL (see `supabase/README.md`).
@@ -999,8 +1134,32 @@ Flows verified end to end against a local Supabase-compatible stack
   shortcut, grouped results with snippets and links, an exact phrase
   finding quiz questions, the empty result and the empty query, the mobile
   search icon
-- Accessibility: `~/preview/a11y-audit.mjs` (axe-core, 35 states, light)
-  and `a11y-dark.mjs` (dark) report no violations; keyboard paths are
+- UI/UX phase: preferences smoke (theme color on the first response, a
+  forged cookie ignored, account sync), dashboard customization (show,
+  hide, reorder, reset, empty board, persisted), navigation groups and
+  pinning, command menu (19 checks incl. keyboard and axe), settings (20
+  checks), contrast of every theme color in light and dark; Ask RevTaw
+  (`assistant-e2e.mjs`: launcher, non-modal desktop panel, phone sheet,
+  language question, context across pages, new chat about the page, quick
+  actions, add to notes, restore after reload, history, expand, Escape,
+  highlight-and-ask in the material's thread, command menu, quiz results
+  suggestion and "Ask RevTaw why", hidden during a quiz and on the tutor,
+  button off in settings, axe light/dark/phone); voice (`voice-e2e.mjs`
+  with a stand-in speech engine: commands, Taglish, live words, spoken
+  answers without markdown, save with spoken "oo", theme, blocked
+  microphone, Escape, no mic without recognition, Permissions-Policy);
+  calendar and reminders (`calendar-e2e.mjs`: empty-day form, every field
+  saved, reminder at 2:00 PM Manila time, edit to a custom reminder,
+  filters, keyboard grid and month paging, study activities start, a due
+  reminder as a browser notification and a bell row, the scheduler's
+  secret, one email through a test SMTP sink, nothing sent twice, delivery
+  while away and on the next visit, done/reopen/delete, deleting a
+  material with reviews, phone layout, axe light/dark); migrations 0012,
+  0013, 0014 and 0015 tested in SQL (RLS, cross-student references,
+  claiming)
+- Accessibility: `~/preview/a11y-audit.mjs` (axe-core, 43 states incl. the
+  new settings pages, the activity form and Ask RevTaw, light) and
+  `a11y-dark.mjs` (dark) report no violations; keyboard paths are
   exercised by the suites above (flashcard flip with Space, rating keys,
   Escape on dialogs and menus)
 - Unit tests (`npm test`): JSON extraction, chunking, content helpers,
@@ -1014,7 +1173,11 @@ Flows verified end to end against a local Supabase-compatible stack
   and layout, list-recall grading, mnemonic accuracy checks, palace and
   story helpers, summary stats, the pre-test plan layout, XP rules and
   levels, badge rules and the longest-streak helper, the export document
-  model (markdown → blocks, file slugs) and search snippets
+  model (markdown → blocks, file slugs) and search snippets; theme palettes
+  and contrast, preferences schemas, dashboard layout moves, command
+  matching, response-style rules, mixed-quiz type coverage, voice intents
+  and speech text, month grids, zoned times, reminder instants and
+  messages, and the email sender (mocked provider)
 
 Commands: `npm run lint`, `npx tsc --noEmit`, `npm test` (vitest unit tests),
 `npm run build`.
