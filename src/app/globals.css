@@ -494,6 +494,10 @@
   .tamari-enter {
     animation: tamari-enter 0.36s steps(1, end) both;
   }
+  /* The "!" by Tamari's head when a line is waiting: a two-pixel hop now and then. */
+  .tamari-note {
+    animation: tamari-note 2.8s steps(1, end) infinite;
+  }
   /* Listening: three pixel bars by Tamari's ear, rising and falling like a voice meter. */
   .tamari-waves {
     position: absolute;
@@ -676,6 +680,15 @@
     transform: translateY(0);
   }
 }
+@keyframes tamari-note {
+  0%,
+  16% {
+    transform: translateY(0);
+  }
+  8% {
+    transform: translateY(-2px);
+  }
+}
 /* Pops in by whole pixels; no fade, so text is never caught at low contrast mid-entrance. */
 @keyframes tamari-enter {
   0% {
@@ -729,6 +742,10 @@
  */
 body:has([data-tamari-seat]) [data-tamari-corner] {
   display: none;
+}
+/* While Home's Tamari talks, its bubble takes the place of the words beside it (the card's, or the greeting's). */
+[data-tamari-row]:has([data-tamari-line]) > [data-tamari-lead] {
+  visibility: hidden;
 }
 @media (min-width: 64rem) {
   aside:has(> #ask-revtaw[open]) [data-tamari-corner] {

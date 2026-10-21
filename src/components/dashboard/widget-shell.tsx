@@ -82,3 +82,29 @@ export function WidgetSkeleton({ variant }: { variant: "hero" | "panel" | "tile"
     </div>
   );
 }
+
+/**
+ * The "Continue studying" card while it loads, shaped like the card itself,
+ * with Home's Tamari already at its start (`tamari`) — so Tamari is there from
+ * the first paint and never shows up at the screen's edge in the meantime.
+ */
+export function HeroSkeleton({ tamari }: { tamari?: ReactNode }) {
+  return (
+    <div className="@container relative h-full min-h-[11rem] rounded-2xl border border-border bg-card">
+      <div className="flex h-full flex-col gap-5 p-5 pr-14 sm:p-6 sm:pr-16 @2xl:flex-row @2xl:items-end @2xl:justify-between">
+        <div className="flex min-w-0 flex-1 items-center gap-4 sm:gap-5">
+          {tamari}
+          <div className="flex min-w-0 flex-1 flex-col gap-3" aria-hidden="true">
+            <Skeleton className="h-3 w-32" />
+            <Skeleton className="h-8 w-2/3" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+        </div>
+        <div className="flex gap-2" aria-hidden="true">
+          <Skeleton className="h-11 w-32 rounded-xl" />
+          <Skeleton className="h-11 w-28 rounded-xl" />
+        </div>
+      </div>
+    </div>
+  );
+}

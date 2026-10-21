@@ -51,26 +51,20 @@ export function DashboardBoard({ layout, header, stage, widgets }: { layout: Das
   return (
     <div className="flex flex-col gap-6">
       {/*
-        The greeting, with Tamari beside it (sitting on the first card's edge) and the Customize
-        button in the corner: greeting | Customize, then Tamari on its own row on narrower screens;
-        greeting | Tamari | Customize in one row on wide ones.
+        The greeting and the Customize button in the corner. Tamari lives in the "Continue studying"
+        card; with that card hidden, the page passes Tamari here (`stage`) to lead the greeting.
       */}
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-3 xl:grid-cols-[minmax(0,1fr)_auto_auto] xl:gap-x-8">
-        <div className="min-w-0 xl:self-end">{header}</div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => setOpen(true)}
-          aria-haspopup="dialog"
-          aria-label="Customize dashboard"
-          title="Customize dashboard"
-          className="col-start-2 row-start-1 -mr-2 xl:col-start-3"
-        >
+      <div className="relative z-10 flex items-start justify-between gap-3">
+        <div data-tamari-row="" className="flex min-w-0 items-center gap-4">
+          {stage}
+          <div data-tamari-lead="" className="min-w-0">
+            {header}
+          </div>
+        </div>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label="Customize dashboard" title="Customize dashboard" className="-mr-2 shrink-0">
           <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
           <span className="hidden sm:inline">Customize</span>
         </Button>
-        {stage && <div className="col-span-2 min-w-0 xl:col-span-1 xl:col-start-2 xl:row-start-1 xl:self-end">{stage}</div>}
       </div>
 
       {visible.length === 0 ? (

@@ -8,9 +8,9 @@ import { DashboardBoard } from "@/components/dashboard/board";
 import { ContinueWidget, DueTodayWidget, RecommendationWidget } from "@/components/dashboard/focus-widgets";
 import { ExamWidget, MasteryWidget, StreakWidget, StudyTimeWidget } from "@/components/dashboard/glance-widgets";
 import { FlashcardsWidget, GoalsWidget, PlannerWidget, RecentMaterialsWidget, WeakTopicsWidget } from "@/components/dashboard/list-widgets";
-import { WidgetSkeleton } from "@/components/dashboard/widget-shell";
+import { HeroSkeleton, WidgetSkeleton } from "@/components/dashboard/widget-shell";
 import { Alert } from "@/components/forms/form-alert";
-import { TamariStage } from "@/components/tamari/tamari-stage";
+import { TamariHome } from "@/components/tamari/tamari-home";
 import { syncGamification } from "@/lib/gamification/sync";
 import { syncNotifications } from "@/lib/notifications/service";
 import { hourIn } from "@/lib/planner/dates";
@@ -42,8 +42,8 @@ function greetingFor(timezone: string | null, name: string | undefined): string 
   return name ? `${greeting}, ${name}.` : `${greeting}.`;
 }
 
-/** Tamari beside the greeting, with its line (streams in on its own; a failure just means Tamari offers to plan instead). */
-async function HomeStage({ language, planning, today }: { language: ResponseLanguage; planning: Promise<unknown>; today: string }) {
+/** Home's Tamari with its line (streams in on its own; a failure just means Tamari offers to plan instead). */
+async function HomeTamari({ language, planning, today, size, lgSize }: { language: ResponseLanguage; planning: Promise<unknown>; today: string; size: number; lgSize: number }) {
   let line = null;
   try {
     const later = parseLater((await cookies()).get(LATER_COOKIE)?.value, today);
@@ -52,7 +52,7 @@ async function HomeStage({ language, planning, today }: { language: ResponseLang
     unstable_rethrow(error);
     console.error("dashboard: Tamari's line failed", error);
   }
-  return <TamariStage line={line} today={today} />;
+  return <TamariHome line={line} today={today} size={size} lgSize={lgSize} />;
 }
 
 function longDate(date: string): string {
@@ -84,9 +84,20 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const shown = new Set(layout.order.filter((id) => !layout.hidden.includes(id)));
   const stream = (id: WidgetId, variant: "hero" | "panel" | "tile" | "list", element: ReactNode) =>
     shown.has(id) ? <Suspense fallback={<WidgetSkeleton variant={variant} />}>{element}</Suspense> : undefined;
+  // Tamari leads the "Continue studying" card (already there while the card loads); with that card hidden, the greeting.
+  const waiting = (size: number, lgSize: number) => <TamariHome line={null} today={clock.today} pending size={size} lgSize={lgSize} />;
+  const tamari = (size: number, lgSize: number) => (
+    <Suspense fallback={waiting(size, lgSize)}>
+      <HomeTamari language={preferences.ai.language} planning={planning} today={clock.today} size={size} lgSize={lgSize} />
+    </Suspense>
+  );
 
   const widgets: Partial<Record<WidgetId, ReactNode>> = {
-    continue: stream("continue", "hero", <ContinueWidget />),
+    continue: shown.has("continue") ? (
+      <Suspense fallback={<HeroSkeleton tamari={waiting(72, 96)} />}>
+        <ContinueWidget tamari={tamari(72, 96)} />
+      </Suspense>
+    ) : undefined,
     recommendation: stream("recommendation", "panel", <RecommendationWidget />),
     due: stream("due", "panel", <DueTodayWidget planning={planning} />),
     exam: stream("exam", "tile", <ExamWidget planning={planning} />),
@@ -110,11 +121,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       <DashboardBoard
         layout={layout}
         widgets={widgets}
-        stage={
-          <Suspense fallback={<TamariStage line={null} today={clock.today} pending />}>
-            <HomeStage language={preferences.ai.language} planning={planning} today={clock.today} />
-          </Suspense>
-        }
+        stage={shown.has("continue") ? undefined : tamari(64, 80)}
         header={
           <div className="min-w-0">
             <p className="text-sm font-medium text-muted-foreground">{longDate(clock.today)}</p>

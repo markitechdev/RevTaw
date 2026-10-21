@@ -1,5 +1,6 @@
 import { ArrowRight, BookOpen, CalendarClock, CheckCircle2, Clock, Hourglass, Layers, ListChecks, NotebookPen, Play, Sparkles, Upload } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { StartTaskButton } from "@/components/dashboard/start-task-button";
 import { formatRelativeDate } from "@/components/materials/material-card";
@@ -18,8 +19,12 @@ import { cn } from "@/lib/utils";
 /* Continue studying                                                   */
 /* ------------------------------------------------------------------ */
 
-/** The hero (UI phase §5): one clear "Continue" — a bookmark where the student left off. */
-export async function ContinueWidget() {
+/**
+ * The hero (UI phase §5): one clear "Continue" — a bookmark where the student
+ * left off. `tamari` (Home's Tamari) leads the row: Tamari, then what to
+ * continue, then the buttons.
+ */
+export async function ContinueWidget({ tamari }: { tamari?: ReactNode }) {
   const item = await getContinueItem();
 
   let title: string;
@@ -30,7 +35,7 @@ export async function ContinueWidget() {
 
   if (!item) {
     return (
-      <HeroFrame>
+      <HeroFrame tamari={tamari}>
         <div className="min-w-0 flex-1">
           <HeroEyebrow>Start here</HeroEyebrow>
           <p className="mt-2 font-display text-2xl font-semibold leading-tight text-foreground @2xl:text-[1.75rem]">Bring your first material.</p>
@@ -71,7 +76,7 @@ export async function ContinueWidget() {
   }
 
   return (
-    <HeroFrame>
+    <HeroFrame tamari={tamari}>
       <div className="min-w-0 flex-1">
         <HeroEyebrow>Continue studying</HeroEyebrow>
         <p className="mt-2 line-clamp-2 font-display text-2xl font-semibold leading-tight text-foreground @2xl:text-[1.75rem]">{title}</p>
@@ -100,13 +105,29 @@ export async function ContinueWidget() {
   );
 }
 
-function HeroFrame({ children }: { children: React.ReactNode }) {
+/**
+ * The hero card. Its first child (what to continue) shares a row with Tamari
+ * (while Tamari talks, its bubble takes that child's place); the second (the
+ * buttons) goes under it on narrow cards and to the right on wide ones.
+ * Nothing is clipped, so the bubble can reach past the card's edge, and the
+ * card sits above the cards after it.
+ */
+function HeroFrame({ tamari, children }: { tamari?: ReactNode; children: [ReactNode, ReactNode] }) {
+  const [lead, actions] = children;
   return (
-    <section aria-labelledby="w-continue" className="@container relative h-full overflow-hidden rounded-2xl border border-border bg-card">
+    <section aria-labelledby="w-continue" className="@container relative z-10 h-full rounded-2xl border border-border bg-card">
       {/* Decoration: lined paper fading in from the right, and a bookmark ribbon. */}
-      <span aria-hidden="true" className="paper-lines pointer-events-none absolute inset-y-0 right-0 hidden w-1/2 [mask-image:linear-gradient(to_left,black,transparent)] @2xl:block" />
+      <span aria-hidden="true" className="paper-lines pointer-events-none absolute inset-y-0 right-0 hidden w-1/2 rounded-r-2xl [mask-image:linear-gradient(to_left,black,transparent)] @2xl:block" />
       <span aria-hidden="true" className="absolute top-0 right-6 h-10 w-5 bg-primary [clip-path:polygon(0_0,100%_0,100%_100%,50%_76%,0_100%)]" />
-      <div className="relative flex h-full flex-col gap-5 p-5 pr-14 sm:p-6 sm:pr-16 @2xl:flex-row @2xl:items-end @2xl:justify-between">{children}</div>
+      <div className="relative flex h-full flex-col gap-5 p-5 pr-14 sm:p-6 sm:pr-16 @2xl:flex-row @2xl:items-end @2xl:justify-between">
+        <div data-tamari-row="" className="flex min-w-0 flex-1 items-center gap-4 sm:gap-5">
+          {tamari}
+          <div data-tamari-lead="" className="flex min-w-0 flex-1">
+            {lead}
+          </div>
+        </div>
+        {actions}
+      </div>
     </section>
   );
 }
