@@ -20,7 +20,7 @@ const GROUPS = [
       { href: routes.settingsAppearance, label: "Appearance" },
       { href: routes.settingsDashboard, label: "Dashboard" },
       { href: routes.settingsTools, label: "RevTaw tools" },
-      { href: routes.settingsAi, label: "AI" },
+      { href: routes.settingsAi, label: "Tamari & AI" },
       { href: routes.settingsPreferences, label: "Study" },
       { href: routes.settingsNotifications, label: "Notifications" },
     ],

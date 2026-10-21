@@ -14,6 +14,7 @@ import {
   toolsInput,
   type PreferenceSection,
 } from "@/lib/preferences/schema";
+import { getPreferences } from "@/lib/preferences/queries";
 import { describeRetry, rateLimit } from "@/lib/rate-limit";
 import { routes } from "@/lib/routes";
 import type { Json } from "@/lib/supabase/database.types";
@@ -100,6 +101,30 @@ export async function saveToolsAction(input: unknown): Promise<SavePreferencesRe
 /** Response language, style and explanation depth for every AI answer. */
 export async function saveAiPreferencesAction(input: unknown): Promise<SavePreferencesResult> {
   const parsed = aiInput.safeParse(input);
+  if (!parsed.success) return invalid(parsed.error);
+  const result = await writeSection("ai", parsed.data);
+  if (result.ok) revalidatePath("/", "layout");
+  return result;
+}
+
+/**
+ * Just the response language (Settings → Tamari, and the chat's first
+ * question "Anong language gusto mong gamitin natin?"): the style and depth
+ * already saved stay as they are.
+ */
+export async function saveResponseLanguageAction(input: { language: unknown; otherLanguage: unknown }): Promise<SavePreferencesResult> {
+  const current = (await getPreferences()).ai;
+  const parsed = aiInput.safeParse({ ...current, language: input.language, otherLanguage: input.language === "other" ? input.otherLanguage : "", languageChosen: true });
+  if (!parsed.success) return invalid(parsed.error);
+  const result = await writeSection("ai", parsed.data);
+  if (result.ok) revalidatePath("/", "layout");
+  return result;
+}
+
+/** Just how Tamari explains (Settings → How Tamari explains): the response language already saved stays as it is. */
+export async function saveAnswerStyleAction(input: { style: unknown; depth: unknown }): Promise<SavePreferencesResult> {
+  const current = (await getPreferences()).ai;
+  const parsed = aiInput.safeParse({ ...current, style: input.style, depth: input.depth });
   if (!parsed.success) return invalid(parsed.error);
   const result = await writeSection("ai", parsed.data);
   if (result.ok) revalidatePath("/", "layout");

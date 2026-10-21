@@ -324,25 +324,27 @@ const notificationsReader = z
   .catch(() => ({ ...DEFAULT_NOTIFICATIONS, muted: [] }));
 
 /* ------------------------------------------------------------------ */
-/* Tamari (the assistant and its corner button)                        */
+/* Tamari (companion doc §19: never mandatory)                         */
 /* ------------------------------------------------------------------ */
 
 export const assistantInput = z.strictObject({
-  /** Show the corner button on every page. */
+  /** With Tamari hidden: a plain "Ask Tamari" button in the corner (off: the chat opens from Ctrl/Cmd+K and "Ask Tamari why"). */
   launcher: z.boolean(),
-  /** Tamari in the corner button and the chat; off shows a plain chat button. */
+  /** Show Tamari: on Home beside the greeting and peeking from the edge of other pages. */
   mascot: z.boolean(),
-  /** Tamari's small idle movements (a 1–2 px bob, breathing while napping). */
+  /** Pixel animations: Tamari's small stepped movements (breathing, blinking, typing, a bounce). */
   idleAnimations: z.boolean(),
-  /** Short contextual hints in a speech bubble now and then. */
+  /** Study suggestions: short lines from the student's data, and the offer to plan their time. */
   suggestions: z.boolean(),
-  /** The microphone in the chat: voice questions and commands. */
+  /** Voice commands: the microphone in the chat. */
   voice: z.boolean(),
-  /** Read answers aloud in voice mode. */
+  /** Contextual reactions: Tamari's face follows what happens (a right answer, a repeated mistake, an exam, a nap). */
+  reactions: z.boolean(),
+  /** Sound responses: read answers aloud when the student asks by voice. */
   voiceReplies: z.boolean(),
 });
 export type AssistantPreferences = z.output<typeof assistantInput>;
-export const DEFAULT_ASSISTANT: AssistantPreferences = { launcher: true, mascot: true, idleAnimations: true, suggestions: true, voice: true, voiceReplies: true };
+export const DEFAULT_ASSISTANT: AssistantPreferences = { launcher: true, mascot: true, idleAnimations: true, suggestions: true, voice: true, reactions: true, voiceReplies: true };
 
 // Saved before Tamari had settings? Every switch it did not have yet starts on.
 const assistantReader = z
@@ -352,6 +354,7 @@ const assistantReader = z
     idleAnimations: z.boolean().catch(true),
     suggestions: z.boolean().catch(true),
     voice: z.boolean().catch(true),
+    reactions: z.boolean().catch(true),
     voiceReplies: z.boolean().catch(true),
   })
   .catch(DEFAULT_ASSISTANT);

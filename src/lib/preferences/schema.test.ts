@@ -51,6 +51,7 @@ describe("parsePreferences", () => {
       idleAnimations: true,
       suggestions: true,
       voice: true,
+      reactions: true,
       voiceReplies: false,
     });
     expect(parsePreferences({ assistant: { mascot: "no", suggestions: false } }).assistant).toMatchObject({ mascot: true, suggestions: false });
@@ -115,7 +116,7 @@ describe("section inputs", () => {
   });
 
   it("saves Tamari's settings only as a complete set of switches", () => {
-    const all = { launcher: true, mascot: false, idleAnimations: false, suggestions: true, voice: true, voiceReplies: false };
+    const all = { launcher: true, mascot: false, idleAnimations: false, suggestions: true, voice: true, reactions: false, voiceReplies: false };
     expect(assistantInput.safeParse(all).success).toBe(true);
     expect(assistantInput.safeParse({ launcher: true, voiceReplies: true }).success).toBe(false);
     expect(assistantInput.safeParse({ ...all, extra: true }).success).toBe(false);

@@ -13,7 +13,7 @@ import { useTamariMove } from "@/components/tamari/use-tamari-move";
 import { MessageBubble, type MessageExtras } from "@/components/tutor/message-bubble";
 import { Button } from "@/components/ui/button";
 import { moveTaskAction } from "@/lib/planner/actions";
-import { saveAiPreferencesAction } from "@/lib/preferences/actions";
+import { saveResponseLanguageAction } from "@/lib/preferences/actions";
 import type { ResponseLanguage } from "@/lib/preferences/schema";
 import { routes } from "@/lib/routes";
 import { parseTamariCommand, spokenDay, type TamariCommand } from "@/lib/tamari/commands";
@@ -483,7 +483,7 @@ export default function AssistantPanel() {
         return;
       }
       const reply = assistantMessage(body.assistantMessageId, body.reply);
-      // A spoken question gets a spoken answer (Settings → AI preferences can turn this off).
+      // A spoken question gets a spoken answer (Settings → Tamari & AI → Sound responses can turn this off).
       if (fromVoice && voiceReplies) void voice.speak(speakableText(reply.content), speakingLanguage(ai.language, reply.content, navigator.language));
       if (current) {
         setMessages([...base.filter((message) => message.id !== optimistic.id), { ...optimistic, id: body.userMessageId ?? optimistic.id }, reply]);
@@ -737,7 +737,7 @@ export default function AssistantPanel() {
   const chooseLanguage = (language: ResponseLanguage) => {
     setLanguageAsked(true);
     startSaving(async () => {
-      const result = await saveAiPreferencesAction({ language, otherLanguage: "", style: ai.style, depth: ai.depth, languageChosen: true });
+      const result = await saveResponseLanguageAction({ language, otherLanguage: "" });
       if (!result.ok) setError(result.error);
     });
   };
@@ -928,7 +928,7 @@ export default function AssistantPanel() {
                         </button>
                       ))}
                     </div>
-                    <p className="text-xs text-muted-foreground">You can change it any time in Settings → AI preferences.</p>
+                    <p className="text-xs text-muted-foreground">You can change it any time in Settings → Tamari &amp; AI.</p>
                   </div>
                 )}
               </div>

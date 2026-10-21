@@ -71,6 +71,8 @@ export type TamariContextValue = {
   visible: boolean;
   animate: boolean;
   suggestions: boolean;
+  /** Contextual reactions (Settings → Tamari): off keeps Tamari calm — no poses from lines, answer reactions or naps. */
+  reactions: boolean;
   /** Seats Tamari on this page (Home, a plan). While a seat is mounted the edge-of-screen Tamari steps aside and Tamari's lines show there. */
   seat: () => () => void;
   react: (kind: TamariReaction) => void;
@@ -217,11 +219,13 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
     return () => setSeats((count) => Math.max(0, count - 1));
   }, []);
 
+  const reactionsOn = assistant.reactions;
   const react = useCallback((kind: TamariReaction) => {
+    if (!reactionsOn) return;
     window.clearTimeout(reactionTimer.current);
     setReaction({ kind, key: Date.now() });
     reactionTimer.current = window.setTimeout(() => setReaction(null), 900);
-  }, []);
+  }, [reactionsOn]);
 
   const ask = useCallback((prompt: string, materialId?: string | null) => show({ prompt, send: true, ...(materialId !== undefined ? { materialId } : {}) }), [show]);
   const move = useTamariMove({ ask, setActivity });
@@ -263,7 +267,7 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
   // A nap after a long quiet spell; the next touch, key or scroll wakes Tamari (with a "Review tayo?" once a session).
   const napLanguage = tamariLanguage(ai.language);
   useEffect(() => {
-    if (!withTamari) return;
+    if (!withTamari || !assistant.reactions) return;
     let timer = 0;
     let asleep = false;
     const doze = () => {
@@ -290,7 +294,7 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
       window.clearTimeout(timer);
       for (const name of events) window.removeEventListener(name, wake, { capture: true });
     };
-  }, [withTamari, assistant.suggestions, napLanguage]);
+  }, [withTamari, assistant.reactions, assistant.suggestions, napLanguage]);
 
   const { run: runMove } = move;
   const runBubbleAction = useCallback(async () => {
@@ -328,7 +332,9 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
         : working
           ? "learning"
           : shownBubble
-            ? shownBubble.state
+            ? assistant.reactions
+              ? shownBubble.state
+              : "idle"
             : napping
               ? "sleepy"
               : "idle";
@@ -343,13 +349,14 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
       visible: assistant.mascot,
       animate: assistant.idleAnimations,
       suggestions: assistant.suggestions,
+      reactions: assistant.reactions,
       seat,
       react,
       dismissBubble,
       runBubbleAction,
       openChat,
     }),
-    [tamari, reaction, seated, shownBubble, language, assistant.mascot, assistant.idleAnimations, assistant.suggestions, seat, react, dismissBubble, runBubbleAction, openChat],
+    [tamari, reaction, seated, shownBubble, language, assistant.mascot, assistant.idleAnimations, assistant.suggestions, assistant.reactions, seat, react, dismissBubble, runBubbleAction, openChat],
   );
 
   return (

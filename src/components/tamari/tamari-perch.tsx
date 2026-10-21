@@ -32,7 +32,8 @@ export function TamariPerch({ state = "idle", size, lgSize, className }: { state
   useEffect(() => () => window.clearTimeout(opening.current), []);
 
   if (!tamari || !visible) return null;
-  const shown: TamariState = LIVE.has(tamari.state) ? tamari.state : state;
+  // With contextual reactions off, the page's own pose (serious, exam mode, confident) gives way to calm.
+  const shown: TamariState = LIVE.has(tamari.state) ? tamari.state : tamari.reactions ? state : "idle";
   const status = tamariStatus(shown, tamari.language);
 
   return (

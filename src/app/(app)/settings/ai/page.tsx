@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { getPreferences } from "@/lib/preferences/queries";
 
 export const metadata: Metadata = {
-  title: "AI preferences",
+  title: "Tamari & AI",
 };
 
 export default async function AiSettingsPage() {
@@ -15,20 +15,20 @@ export default async function AiSettingsPage() {
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>AI preferences</CardTitle>
-          <CardDescription>How RevTaw talks to you: the language, the tone and how deep it goes. Asking for something else in a message always wins for that answer.</CardDescription>
+          <CardTitle>Tamari</CardTitle>
+          <CardDescription>Your study companion: it lives on Home, knows which page you are on and stays quiet until it has something useful to say. Everything here is optional.</CardDescription>
         </CardHeader>
         <CardContent>
-          <AiPreferencesForm initial={preferences.ai} />
+          <TamariPreferencesForm initial={preferences.assistant} ai={preferences.ai} />
         </CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Tamari Assistant</CardTitle>
-          <CardDescription>Your study companion: it follows you around RevTaw, knows which page you are on and stays quiet until you need it.</CardDescription>
+          <CardTitle>How Tamari explains</CardTitle>
+          <CardDescription>The tone and how deep explanations go, for Tamari and the AI Tutor. Asking for something else in a message always wins for that answer.</CardDescription>
         </CardHeader>
         <CardContent>
-          <TamariPreferencesForm initial={preferences.assistant} />
+          <AiPreferencesForm initial={preferences.ai} />
         </CardContent>
       </Card>
     </div>
