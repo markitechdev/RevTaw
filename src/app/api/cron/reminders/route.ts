@@ -1,19 +1,12 @@
-import { timingSafeEqual } from "node:crypto";
-
 import { NextResponse } from "next/server";
 
 import { processDueReminders, schedulerConfigured } from "@/lib/reminders/service";
+import { cronSecret, hasCronSecret } from "@/lib/server/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-function sameSecret(given: string, expected: string): boolean {
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
 
 /**
  * The reminder scheduler (UI phase §28): call every few minutes with
@@ -23,13 +16,10 @@ function sameSecret(given: string, expected: string): boolean {
  * reminders in-app and by email.
  */
 async function run(request: Request) {
-  const secret = process.env.CRON_SECRET?.trim();
-  if (!secret || !schedulerConfigured()) {
+  if (!cronSecret() || !schedulerConfigured()) {
     return NextResponse.json({ error: "The reminder scheduler is not set up on this server (CRON_SECRET of 16+ characters and SUPABASE_SECRET_KEY)." }, { status: 503 });
   }
-  const header = request.headers.get("authorization") ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-  if (!token || !sameSecret(token, secret)) {
+  if (!hasCronSecret(request)) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
   const admin = createAdminClient();
