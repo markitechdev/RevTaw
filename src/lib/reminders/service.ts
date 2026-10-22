@@ -2,8 +2,9 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getServerEnv } from "@/lib/env";
+import { getServerEnv, getSiteUrl } from "@/lib/env";
 import { sendEmail } from "@/lib/notifications/email";
+import { unsubscribeHeaders, unsubscribeUrl } from "@/lib/notifications/unsubscribe";
 import { isEmailConfigured } from "@/lib/notifications/email-config";
 import { getPreferences } from "@/lib/preferences/queries";
 import { parsePreferences, type NotificationPreferences } from "@/lib/preferences/schema";
@@ -26,7 +27,7 @@ import { createClient } from "@/lib/supabase/server";
  *   browser notification when allowed)            with the secret key, delivers
  *                                                 in-app and sends email
  *        └──────────────▶ notification service ◀──┘
- *                         (bell row, deduplicated)  ──▶ email (Resend)
+ *                         (bell row, deduplicated)  ──▶ email (Resend, idempotent, one-click unsubscribe)
  *
  * Each channel is delivered at most once: the bell row has a dedupe key and
  * email_sent_at is set when the provider accepts the message. Without a
@@ -104,6 +105,7 @@ async function deliverOne(client: Client, reminder: Reminder, task: ReminderTask
     return { ...outcome, cancelled: true };
   }
   const now = Date.now();
+  const unsubscribe = unsubscribeUrl(channels.siteUrl, task.user_id, "reminders");
   const message = reminderMessage(
     {
       title: task.title,
@@ -116,6 +118,7 @@ async function deliverOne(client: Client, reminder: Reminder, task: ReminderTask
       timeZone: channels.timeZone,
     },
     channels.siteUrl,
+    unsubscribe,
   );
   const update: Partial<Reminder> = { claimed_until: null };
 
@@ -141,7 +144,17 @@ async function deliverOne(client: Client, reminder: Reminder, task: ReminderTask
   const emailOwed = emailWanted(channels.prefs, reminder, now);
   let attempts = reminder.email_attempts;
   if (emailOwed && channels.sendEmail) {
-    const result = channels.email ? await sendEmail({ to: channels.email, subject: message.subject, text: message.text, html: message.html }) : { ok: false as const, error: "The account has no email address." };
+    const result = channels.email
+      ? await sendEmail({
+          to: channels.email,
+          subject: message.subject,
+          text: message.text,
+          html: message.html,
+          headers: unsubscribeHeaders(unsubscribe),
+          // A retried run after a timeout must not send the same reminder twice.
+          idempotencyKey: `reminder-${reminder.id}-${reminder.remind_at}`,
+        })
+      : { ok: false as const, error: "The account has no email address." };
     if (result.ok) {
       update.email_sent_at = new Date().toISOString();
       outcome.emailed = true;
@@ -253,7 +266,7 @@ export async function processDueReminders(admin: Client, options: { batchSize?: 
       emails.set(id, user.user?.email ?? null);
     }
   }
-  const siteUrl = getServerEnv().NEXT_PUBLIC_SITE_URL ?? null;
+  const siteUrl = getSiteUrl();
   for (const reminder of reminders) {
     const profile = profileById.get(reminder.user_id);
     const outcome = await deliverOne(admin, reminder, taskById.get(reminder.task_id), {

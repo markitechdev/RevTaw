@@ -38,7 +38,7 @@ export function whenLine(content: Pick<ReminderContent, "date" | "time" | "remin
   return phrase.startsWith("in ") ? `Starts ${phrase}` : capitalize(phrase);
 }
 
-export function reminderMessage(content: ReminderContent, siteUrl: string | null): ReminderMessage {
+export function reminderMessage(content: ReminderContent, siteUrl: string | null, unsubscribeLink: string | null = null): ReminderMessage {
   const name = clip(content.title.replace(/\s+/g, " ").trim(), 140);
   const when = whenLine(content);
   const details = [when, `${content.minutes} min`, content.materialTitle ? clip(content.materialTitle, 80) : null].filter(Boolean).join(" · ");
@@ -46,7 +46,17 @@ export function reminderMessage(content: ReminderContent, siteUrl: string | null
   const href = `${routes.planner}?date=${content.date}`;
   const link = siteUrl ? `${siteUrl.replace(/\/+$/, "")}${href}` : null;
   const subject = clip(`Reminder: ${name} — ${when.charAt(0).toLowerCase()}${when.slice(1)}`, 160);
-  const text = [`${name}`, details, notes ? `Notes: ${notes}` : null, link ? `Open your planner: ${link}` : null, "", "You get this email because email reminders are on in RevTaw → Settings → Notifications."].filter((line) => line !== null).join("\n");
+  const text = [
+    `${name}`,
+    details,
+    notes ? `Notes: ${notes}` : null,
+    link ? `Open your planner: ${link}` : null,
+    "",
+    "You get this email because email reminders are on in RevTaw → Settings → Notifications.",
+    unsubscribeLink ? `Stop reminder emails: ${unsubscribeLink}` : null,
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
   const html = `<!doctype html><html><body style="margin:0;background:#f7f6fb;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#1b1530">
 <div style="max-width:480px;margin:0 auto;padding:24px">
 <p style="margin:0 0 8px;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#6d3fdc">RevTaw reminder</p>
@@ -54,7 +64,7 @@ export function reminderMessage(content: ReminderContent, siteUrl: string | null
 <p style="margin:0 0 16px;font-size:15px;color:#4b4563">${escapeHtml(details)}</p>
 ${notes ? `<p style="margin:0 0 16px;font-size:14px;color:#4b4563">${escapeHtml(notes)}</p>` : ""}
 ${link ? `<p style="margin:0 0 24px"><a href="${escapeHtml(link)}" style="display:inline-block;background:#6d3fdc;color:#ffffff;text-decoration:none;font-weight:600;padding:10px 16px;border-radius:10px">Open my planner</a></p>` : ""}
-<p style="margin:0;font-size:12px;color:#77708f">You get this email because email reminders are on in RevTaw → Settings → Notifications.</p>
+<p style="margin:0;font-size:12px;color:#77708f">You get this email because email reminders are on in RevTaw → Settings → Notifications.${unsubscribeLink ? ` <a href="${escapeHtml(unsubscribeLink)}" style="color:#6d3fdc">Stop reminder emails</a>` : ""}</p>
 </div></body></html>`;
   return { title: clip(`Reminder: ${name}`, 160), body: clip(notes ? `${details}. ${notes}` : details, 600), href, subject, text, html };
 }
