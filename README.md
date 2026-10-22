@@ -37,7 +37,8 @@ if you add a paid key, then a local Ollama. Put `GROQ_API_KEY`,
 `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in `.env.local`; each
 student gets a daily AI allowance (`AI_DAILY_LIMITS`, migration 0016).
 Without any key, development uses a built-in mock provider so the rest of
-the app keeps working.
+the app keeps working. While signed in to `npm run dev`, open
+`/api/system/services?live=1` to check each configured service.
 
 Planner reminders reach the in-app bell (and the browser, while RevTaw is
 open) without any setup. Email reminders are optional: set an email provider
