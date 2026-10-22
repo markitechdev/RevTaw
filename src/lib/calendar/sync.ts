@@ -1,5 +1,7 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { after } from "next/server";
 
@@ -29,17 +31,30 @@ const DAYS_AHEAD = 120;
 /** Only events RevTaw made; anything the student adds to this calendar stays. */
 const REVTAW_EVENT_ID = /^(ta|ea)[0-9a-f]{32}$/;
 
-const tokens = new Map<string, { token: string; expiresAt: number }>();
+/** Access tokens by student, tagged with the grant they came from. */
+const tokens = new Map<string, { grant: string; token: string; expiresAt: number }>();
 const running = new Map<string, Promise<unknown>>();
 
 export type SyncOutcome = { written: number; removed: number; unchanged: number };
 
+/** Identifies a stored grant without keeping the token: a reconnect (even to another Google account) never reuses an old access token. */
+export function grantFingerprint(sealedRefreshToken: string): string {
+  return createHash("sha256").update(sealedRefreshToken).digest("base64url").slice(0, 16);
+}
+
 async function accessToken(userId: string, sealedRefreshToken: string): Promise<string> {
+  const grant = grantFingerprint(sealedRefreshToken);
   const cached = tokens.get(userId);
-  if (cached && cached.expiresAt > Date.now() + 60_000) return cached.token;
-  const refreshToken = decryptToken(sealedRefreshToken, userId, getServerEnv().CALENDAR_TOKEN_KEY!);
+  if (cached && cached.grant === grant && cached.expiresAt > Date.now() + 60_000) return cached.token;
+  let refreshToken: string;
+  try {
+    refreshToken = decryptToken(sealedRefreshToken, userId, getServerEnv().CALENDAR_TOKEN_KEY!);
+  } catch {
+    // CALENDAR_TOKEN_KEY changed, or the stored value is damaged: only a new consent helps.
+    throw new CalendarAuthError("RevTaw can no longer read its saved Google Calendar access. Reconnect Google Calendar.");
+  }
   const { accessToken: token, expiresIn } = await refreshAccessToken(refreshToken);
-  tokens.set(userId, { token, expiresAt: Date.now() + expiresIn * 1000 });
+  tokens.set(userId, { grant, token, expiresAt: Date.now() + expiresIn * 1000 });
   return token;
 }
 
@@ -133,10 +148,14 @@ export function syncCalendarAfterChange(): void {
 
 export type CalendarRun = { students: number; synced: number; failed: number };
 
-/** The hourly job: every connected student, within a time budget. */
+/**
+ * The hourly job: every connected student, within a time budget. Rows whose
+ * last sync failed are retried too (Google outages and quota pass); rows
+ * that need reconnecting wait for the student.
+ */
 export async function reconcileAllCalendars(client: Client, budgetMs = 50_000): Promise<CalendarRun> {
   const deadline = Date.now() + budgetMs;
-  const { data: connections, error } = await client.from("calendar_connections").select("user_id").eq("status", "connected").order("last_synced_at", { ascending: true, nullsFirst: true }).limit(500);
+  const { data: connections, error } = await client.from("calendar_connections").select("user_id").in("status", ["connected", "error"]).order("last_synced_at", { ascending: true, nullsFirst: true }).limit(500);
   if (error) throw new Error(`calendar_connections: query failed: ${error.message}`);
   const run: CalendarRun = { students: connections?.length ?? 0, synced: 0, failed: 0 };
   for (const connection of connections ?? []) {
