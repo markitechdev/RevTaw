@@ -6,6 +6,11 @@ import { isAiError } from "@/lib/ai/errors";
 import { getDailyLimits } from "@/lib/ai/quota";
 import { cooldownSnapshot, recentRoutes } from "@/lib/ai/router";
 import type { AiTier } from "@/lib/ai/types";
+import { analyticsConfigured } from "@/lib/analytics/server";
+import { calendarConfigured } from "@/lib/calendar/google";
+import { getServerEnv } from "@/lib/env";
+import { emailConfig } from "@/lib/notifications/email-config";
+import { cronSecret } from "@/lib/server/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { azureVoiceListed, synthesizeSpeech, transcribeAudio, voiceCapabilities } from "@/lib/voice/server";
 
@@ -175,4 +180,16 @@ export async function checkVoice(): Promise<LiveCheck[]> {
 
 export function voiceSummary() {
   return voiceCapabilities();
+}
+
+/** Email, Google Calendar, analytics and the scheduler: configured or not (names only). */
+export function otherServicesSummary() {
+  const email = emailConfig();
+  const sender = email?.from.match(/@([^>\s]+)/)?.[1] ?? null;
+  return {
+    email: { configured: email !== null, provider: email ? "resend" : null, senderDomain: sender },
+    calendar: { configured: calendarConfigured() },
+    analytics: { configured: analyticsConfigured(), optIn: true },
+    scheduler: { cronSecret: cronSecret() !== null, secretKey: Boolean(getServerEnv().SUPABASE_SECRET_KEY) },
+  };
 }
