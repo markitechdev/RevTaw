@@ -42,6 +42,12 @@ supabase db push
 | `0013_planner_fk_fix.sql` | fix: the exam → subject and task → material / session foreign keys clear only their own id column on delete (`set null (column)`), so a material with scheduled reviews or a subject used by an exam can be deleted |
 | `0014_planner_activities.sql` | the planner calendar: `study_tasks` gains a start time (local, in the student's time zone), a subject, a priority, notes and a category (study, review, assignment, project, exam, class, other) |
 | `0015_reminders.sql` | reminders: `study_tasks.reminder` (+ `reminder_minutes` for a custom one), the `reminders` queue (one row per activity, per-channel delivery state, owner-only RLS), `claim_due_reminders()` for the scheduler (service role only) and the `reminder` notification kind |
+| `0016_ai_usage.sql` | each student's daily AI allowance: `ai_usage` (requests and tokens per Philippine day and kind; students read their own rows), `consume_ai_request()` (takes one request from the caller's own allowance, atomically) and `refund_ai_request()` (service role only) |
+| `0017_hybrid_search.sql` | turns on `vector` (pgvector) and `pg_trgm`; `material_chunks` gains a BGE-M3 `embedding` (halfvec 1024) and a `simple` full-text vector; `match_material_chunks()` (full-text + trigram + vector search fused by reciprocal rank, security invoker) and `save_chunk_embeddings()` |
+| `0018_email_digests.sql` | `email_digests`: one row per student and day, claimed before the daily digest is sent so it never goes out twice; written by the scheduler only |
+| `0019_calendar.sql` | `calendar_connections`: the student's Google Calendar link with the refresh token encrypted by the server; students can read the status but never the token (column grant) |
+| `0020_privacy_preferences.sql` | a `privacy` preferences section (usage analytics, off by default) accepted by `set_preference_section()` |
+| `0021_ai_usage_server_tokens.sql` | token, voice-second and character counts are added only by the server: `add_ai_tokens(user, kind, input, output)` for the service role only |
 
 Migrations are additive. Never edit an applied migration; add a new numbered
 file instead.
@@ -76,3 +82,15 @@ that started the flow, point the templates at the token-hash route instead:
 
 Supabase applies its own limits to sign-up, sign-in and email sending. RevTaw
 adds a small per-IP limiter in front of the auth actions as an extra layer.
+
+## 5. Scheduler (optional)
+
+Reminder emails, the daily digest, search embeddings for older materials and
+Google Calendar's hourly sync run when something calls RevTaw's
+`/api/cron/*` routes with `Authorization: Bearer <CRON_SECRET>`.
+`schedules.sql` sets this up inside Supabase with pg_cron and pg_net, keeping
+the site address and `CRON_SECRET` in Supabase Vault: turn on both
+extensions, put your two values into step 2 of the file, run it once in the
+SQL editor and clear the values from the editor tab. It is not a migration;
+`supabase db push` does not run it. The app needs `CRON_SECRET` and
+`SUPABASE_SECRET_KEY` in its environment as well.

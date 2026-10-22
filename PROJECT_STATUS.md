@@ -640,8 +640,9 @@ assistant instead of a page change).
   place. Reminders at the time, 10 m, 30 m, 1 h, 1 d before or custom,
   delivered to the bell and as browser notifications while RevTaw is open,
   on the next visit otherwise, and by email through the scheduler
-  (`/api/cron/reminders`, `CRON_SECRET`) with Resend or SMTP. Migrations
-  0014 (activities) and 0015 (reminders).
+  (`/api/cron/reminders`, `CRON_SECRET`), now through Resend only (SMTP
+  was removed in the API integrations round). Migrations 0014
+  (activities) and 0015 (reminders).
 - **Fixes found on the way** — composite foreign keys from 0007 nulled
   `user_id` on delete, so a material with scheduled reviews or a subject
   used by an exam could not be deleted (migration 0013); a selected chip's
@@ -737,24 +738,134 @@ instead of a circle; every other page has a round chat button.
   "How Tamari explains" (style, depth) is its own card. Each saves only its
   own fields; none is mandatory.
 
+### API integrations round (AI providers, search, voice, email, calendar, analytics)
+
+Every service is an official API on its free tier (or a paid key the owner
+adds), called only from the server; keys live in environment variables and
+never reach the browser. The choices come from the research doc "RevTaw
+Learning Intelligence Stack"; the learning engine it also proposes (FSRS,
+BKT, Elo, Smart Study ranking) is the next round.
+
+- **AI router** (`src/lib/ai/router.ts`, `providers/openai-compatible.ts`,
+  `index.ts`) — every AI call tries the configured providers in order: Groq
+  (`openai/gpt-oss-20b` fast, `openai/gpt-oss-120b` strong), Cloudflare
+  Workers AI (`@cf/openai/gpt-oss-20b` / `120b` through its Responses API;
+  images with `@cf/mistralai/mistral-small-3.1-24b-instruct`), Anthropic and
+  OpenAI when a paid key is set, then Ollama (`qwen3.5:4b` / `9b`). Gemini
+  is never picked automatically (its terms bar apps likely used by people
+  under 18). A provider is skipped when a request is too big for it (Groq
+  7,500 tokens by default, inside the free plan's 8,000 a minute;
+  Cloudflare 110,000; Ollama its context size), when it cannot read images,
+  and for a while after a failure: Groq's `retry-after` on a 429 (15 s to
+  1 h, 5 min without one), 5 minutes after an outage, 30 minutes after a
+  bad key. One request has 110 s across providers. The last 40 routes and
+  the cooldowns show in the service check.
+- **Daily AI allowance** (`src/lib/ai/quota.ts`, migrations 0016 and 0021)
+  — each AI call by a signed-in student takes one request from today's
+  allowance (Philippine day) for its kind: chat 60, generate 10, study 60,
+  upload 30, voice 60 by default (`AI_DAILY_LIMITS`). Repairing a malformed
+  answer is free, a request every provider failed is given back (one the
+  student cancelled is not), and the server adds each call's tokens
+  afterwards with its secret key. Voice also stops at 30 minutes of voice
+  typing and 20,000 characters read aloud a day. The message says when the
+  allowance refills.
+- **Tamari within Groq's free budget** — a reply carries at most 9,000
+  characters of material passages, the last four turns (1,500 characters
+  each), a 4,000-character page note and a 1,500-token answer, so a normal
+  turn stays on Groq.
+- **Hybrid search for Tamari** (`src/lib/search/hybrid.ts`,
+  `src/lib/ai/embeddings.ts`, migration 0017) — chunks get BGE-M3
+  embeddings (`@cf/baai/bge-m3`, 1,024 dimensions stored as `halfvec`)
+  when a material is processed (copied on a duplicate upload;
+  `/api/cron/embeddings` fills in older materials, 20 chunks a request).
+  `match_material_chunks()` fuses a `simple` full-text match (Filipino and
+  Taglish words as written), trigram similarity for short questions (typos,
+  affixes) and vector similarity with reciprocal rank fusion; it runs as
+  the student, so RLS applies. Chunks without embeddings still match by
+  words, and without the function the Phase 5 keyword selector takes over.
+- **Voice fallbacks** (`src/lib/voice/server.ts`, `recorder.ts`,
+  `server-tts.ts`, `/api/voice/transcribe`, `/api/voice/speak`) — browsers
+  without speech recognition (Firefox, iPhone home-screen apps) record a
+  clip (48 kbps, at most 30 s, stopped after a pause) that the server sends
+  to Groq's Whisper (`whisper-large-v3-turbo`), then Cloudflare's; devices
+  without a Filipino voice hear Azure AI Speech's `fil-PH-BlessicaNeural`.
+  Audio is never stored, the clip's type is checked by its bytes, and the
+  iPhone's audio is unlocked on the first tap.
+- **Email** (`src/lib/notifications/`) — Resend only (SMTP removed: it
+  invited personal Gmail app passwords). Every email carries an idempotency
+  key, so a retry never sends twice, and one-click unsubscribe headers (RFC
+  8058) with a signed link (`/api/email/unsubscribe`). The **daily study
+  digest** (Settings → Notifications, off by default) goes out once between
+  6 and 11 a.m. the student's time — cards due, today's plan, exams coming
+  up — and not on an empty day (migration 0018 claims each day).
+- **Google Calendar** (`src/lib/calendar/`, `/api/calendar/google/*`,
+  migration 0019) — Settings → Notifications → Connect Google Calendar
+  opens Google's own consent page (OAuth with PKCE, scope
+  `calendar.app.created`, so RevTaw sees only the "RevTaw Study" calendar it
+  creates). The refresh token is stored encrypted (AES-256-GCM,
+  `CALENDAR_TOKEN_KEY`, bound to the student). Planner activities (their
+  reminder becomes a phone notification) and exams are written with fixed
+  event ids; a sync reconciles two weeks back to four months ahead,
+  rewrites only what changed and removes what was deleted. Changes sync
+  right after the response and `/api/cron/calendar` catches up hourly. Sync
+  now and Disconnect (which revokes the token at Google) are in settings.
+- **Usage analytics** (`src/lib/analytics/server.ts`, migration 0020) —
+  Settings → Account → Usage analytics, off by default. Events go from the
+  server to PostHog Cloud EU: a fixed list of feature events with counts
+  and labels only (never content), a keyed pseudonym instead of the account
+  id, no person profiles, no GeoIP, nothing in the browser.
+- **Scheduler** — `/api/cron/reminders`, `/digest`, `/embeddings` and
+  `/calendar` take `Authorization: Bearer <CRON_SECRET>` (timing-safe);
+  `supabase/schedules.sql` runs them with pg_cron + pg_net, with the address
+  and secret in Supabase Vault.
+- **Service check** (`/api/system/services`,
+  `src/lib/server/service-check.ts`) — for the owner (signed in during
+  development, or with the cron secret anywhere): which AI providers,
+  embeddings, voice, email, calendar, analytics and scheduler pieces are
+  set up, the daily limits, recent routes and cooldowns; `?live=1` makes a
+  tiny real call to each AI model, embeddings, Whisper and Azure. Never
+  shows keys.
+- **Security review** (an independent pass over the round), fixed: token
+  counts are written only by the server (students could inflate their own
+  rows); voice is bounded by seconds and characters, clips by 1 MB, and a
+  cancelled request is no longer refunded; API base URLs must use https
+  (the Google test override only localhost); emails and calendar events
+  carry no localhost links in production (`getPublicSiteUrl()`); the
+  hourly calendar job retries failed syncs, an unreadable token asks for a
+  reconnect and cached access tokens follow their grant; analytics
+  pseudonyms are keyed with a server-only secret instead of PostHog's
+  public project key.
+- **Decisions** — provider cooldowns live in memory per server instance
+  (the per-student limits are in Postgres); `consume_ai_request()` is
+  callable by students because it only counts up their own row; Google
+  refresh tokens are encrypted by the app (AES-GCM) rather than Supabase
+  Vault, so requests need no Vault access; the migrations are 0016–0021
+  (the research doc numbered them differently); the adapter supports a
+  strict JSON-schema mode that is not used yet; Cloudflare's gpt-oss and
+  vision formats, Azure TTS and Google Calendar were verified against
+  faithful stand-ins, not real keys (check with the service check).
+
 ## In Progress
 
 - Nothing at the moment. All ten phases of the specification, the UI/UX
-  Improvement and Personalization Phase and the Tamari visual AI companion
-  integration are implemented.
+  Improvement and Personalization Phase, the Tamari visual AI companion
+  integration and the API integrations round are implemented. The round's
+  services still need the owner's real keys (see Environment Requirements).
 
 ## Next (priority order)
 
-1. Background jobs for long generations (reviewers, quizzes, analysis of very
+1. The learning engine from the research doc: FSRS scheduling for
+   flashcards and reviews, Bayesian Knowledge Tracing and Elo-style
+   difficulty for mastery, and Smart Study ranking on top.
+2. Background jobs for long generations (reviewers, quizzes, analysis of very
    long materials); the daily plan adjustment could move to the reminder
    scheduler (it still runs on page load).
-2. Web Push for reminders when no RevTaw tab is open (email and in-app
+3. Web Push for reminders when no RevTaw tab is open (email and in-app
    already work).
-3. A hosted speech-to-text provider for browsers without Web Speech
-   (Firefox); the voice layer is already an interface.
 4. Pagination of the Content tab for very large materials; map-reduce
    analysis for books.
-5. A Redis-backed rate limiter when running several instances.
+5. A Redis-backed rate limiter (and shared AI cooldowns) when running
+   several instances.
 6. More Tamari poses (happy, confused, Pomodoro, a wrong-answer face) and
    blink frames for the other poses: one picture set in
    `src/components/tamari/sprites.ts` and a line in `src/lib/tamari/states.ts`
@@ -768,7 +879,7 @@ instead of a circle; every other page has a round chat button.
 | `public.subjects` | Top-level organisation (name, colour, archived_at) | owner full access; `(id, user_id)` unique for composite FKs |
 | `public.folders` | Grouping inside a subject (chapter, topic…) | owner full access; FK `(subject_id, user_id)` |
 | `public.materials` | One upload or note: title, source, file metadata, `storage_path`, `content_hash`, status + detail, counts, `last_opened_at`, `archived_at` | owner full access; composite FKs to subject and folder (folder must belong to the subject) |
-| `public.material_chunks` | Ordered extracted text with heading and page range | owner full access; cascade from material |
+| `public.material_chunks` | Ordered extracted text with heading and page range; `embedding` (BGE-M3, `halfvec(1024)`), `embedding_model`, `embedded_at` and a generated `simple` full-text `search_tsv` (migration 0017) | owner full access; cascade from material |
 | `public.material_analyses` | One AI analysis per material: summary, difficulty, minutes, coverage, validated `data` JSON, provider/model | owner full access; cascade from material |
 | `public.concepts` | Master concept list per student (`name`, `normalized_name`, origin material/subject) | owner full access; unique `(user_id, normalized_name)` |
 | `public.reviewers` | Generated reviewer: kind, title, status + detail, provider/model, `last_opened_at`, `archived_at` | owner full access; cascade from material |
@@ -799,6 +910,9 @@ instead of a circle; every other page has a round chat button.
 | `public.notifications` | Reminder feed: kind (incl. `achievement`, `level_up`, `reminder`), title, body, href, `dedupe_key`, `read_at` | owner full access; unique `(user_id, dedupe_key)` |
 | `public.xp_events` | XP ledger: source (answers, session, reviews, mastered, goal, streak_day, achievement), `source_key` (idempotent award), points, label | owner full access; unique `(user_id, source_key)`; trigger `apply_xp_event` adds to `profiles.xp` |
 | `public.achievements` | Unlocked badges: key, `unlocked_at`, `seen_at` (definitions live in `src/lib/gamification/achievements.ts`) | owner full access; unique `(user_id, key)` |
+| `public.ai_usage` | Daily AI use per student, Philippine day and kind (chat, generate, study, upload, voice): requests, input and output tokens (for voice: seconds heard, characters read aloud) | owner may select; written only through `consume_ai_request()` (the caller's own row, counting up), `add_ai_tokens()` and `refund_ai_request()` (service role only) |
+| `public.email_digests` | One row per student and local day: status (claimed, sent, skipped, failed), sent time, error — so a digest goes out once | owner may select; the scheduler writes |
+| `public.calendar_connections` | Google Calendar link: provider, "RevTaw Study" calendar id, encrypted refresh token (`v1:` AES-256-GCM), scope, status (connected, needs_reconnect, error), last sync, last error | owner may select the non-secret columns (column grant without `refresh_token` and `scope`); the server writes |
 | `storage.objects` (bucket `materials`) | Private files under `<user_id>/<material_id>/<file>` | policies on first path segment = `auth.uid()` |
 
 Enums: `education_level`, `study_goal`, `material_source`, `material_status`,
@@ -809,14 +923,22 @@ Enums: `education_level`, `study_goal`, `material_source`, `material_status`,
 `exam_priority`, `plan_mode`, `plan_status`, `task_kind`, `task_status`,
 `goal_kind`, `goal_period`, `goal_status`, `notification_kind`. Helper functions: `public.set_updated_at()`,
 `public.handle_new_user()` and `public.apply_xp_event()` (security definer, pinned `search_path`),
-`public.set_preference_section()` (security invoker) and `public.claim_due_reminders()`
-(service role only, `for update skip locked`).
+`public.set_preference_section()` (security invoker), `public.claim_due_reminders()`
+(service role only, `for update skip locked`), `public.consume_ai_request()` (security
+definer, the caller's own row only), `public.add_ai_tokens()` and
+`public.refund_ai_request()` (service role only), `public.match_material_chunks()` and
+`public.save_chunk_embeddings()` (security invoker). Extensions: `vector` (pgvector) and
+`pg_trgm` in the `extensions` schema.
 
 Full-text search (migration 0011): GIN indexes on
 `to_tsvector('english', …)` over `materials.title`, `material_chunks.content`,
 `reviewers.title`, `reviewer_sections.search_text`, `quiz_questions.prompt`,
 `flashcards.search_text`, `concepts.name`, `tutor_conversations.title` and
 `tutor_messages.content`; queries use PostgREST's `wfts` (websearch) operator.
+Tamari's passage search (migration 0017) adds a `simple` full-text vector,
+trigram matching and vector similarity over `material_chunks`, fused in
+`match_material_chunks()`; there is no vector index yet (exact search over one
+student's chunks is fast; add HNSW past about 2,000 chunks a student).
 
 Types for queries live in `src/lib/supabase/database.types.ts` (hand-written
 in `supabase gen types` format; regenerate with the CLI when the project is
@@ -874,20 +996,27 @@ linked).
   motions are the `.tamari-*` classes in `globals.css`.
 - **Voice** — `src/lib/voice/`: `types.ts` (SpeechToText / TextToSpeech
   interfaces), `web-speech.ts` (default provider, loaded on first use),
-  `intents.ts` (commands, confirmations), `speech-text.ts` (what to read,
-  which language); `use-voice.ts` in the assistant.
+  `recorder.ts` + `/api/voice/transcribe` (server speech-to-text where the
+  browser has none), `server-tts.ts` + `/api/voice/speak` (Azure's Filipino
+  voice where the device has none), `audio-unlock.ts` (iPhone playback),
+  `server.ts` (Whisper and Azure calls, server-only), `intents.ts`
+  (commands, confirmations), `speech-text.ts` (what to read, which
+  language); `use-voice.ts` in the assistant picks the providers.
 - **Planner calendar and reminders** — `src/lib/planner/calendar.ts`
   (month grid), `src/lib/planner/time.ts` (clock times, zoned instants),
   `saveActivity()` in the planner service; `src/lib/reminders/` (`time.ts`
   reminder instants and wording, `message.ts` bell/email content with
   escaping, `service.ts` sync, delivery and the scheduler run),
-  `src/lib/notifications/email.ts` (Resend over HTTPS or SMTP through
-  nodemailer), `ReminderWatcher` in the app layout, `/api/reminders` and
-  `/api/cron/reminders` (Bearer `CRON_SECRET`, timing-safe compare).
+  `src/lib/notifications/email.ts` (Resend over HTTPS with an idempotency
+  key; `email-config.ts`, `unsubscribe.ts`, `digest.ts`), `ReminderWatcher`
+  in the app layout, `/api/reminders` and `/api/cron/reminders` (Bearer
+  `CRON_SECRET`, timing-safe compare in `src/lib/server/cron-auth.ts`).
 - **Email links** — `/auth/callback` (PKCE `code`) and `/auth/confirm`
   (`token_hash`). The latter works across browsers/devices; see
   `supabase/README.md` for email templates. Redirects use
-  `NEXT_PUBLIC_SITE_URL`, never the internal request origin.
+  `NEXT_PUBLIC_SITE_URL`, never the internal request origin; links in
+  reminder and digest emails and calendar events use `getPublicSiteUrl()`,
+  which never falls back to localhost in production.
 - **Materials pipeline** — `src/lib/materials/`: `detect.ts` (magic numbers),
   `extract.ts` (per-type extraction), `chunk.ts` (heading/page aware
   chunking), `analyze.ts` (prompt + transcript budget), `pipeline.ts`
@@ -895,11 +1024,28 @@ linked).
   signed uploads, removal). Processing runs inside route handlers with
   `maxDuration = 120`; move it to a queue/edge function if materials
   regularly exceed that.
-- **AI** — `src/lib/ai/`: provider chosen by `AI_PROVIDER` or the first key
-  present; `mock` is automatic in development without keys and must be set
-  explicitly in production. `generateJson()` validates with zod and asks the
-  model to repair once. Student context (education level, goal) is passed
-  to prompts.
+- **AI** — `src/lib/ai/`: `getAiProvider(tier)` returns every configured
+  provider behind `AiRouter` (or the one `AI_PROVIDER` names), wrapped in
+  `MeteredProvider` (`quota.ts`, the daily allowance). Groq, Cloudflare and
+  Ollama share `OpenAiCompatibleProvider`; `budget.ts` estimates request
+  sizes; `http.ts` maps HTTP errors to `AiError` codes. `embeddings.ts`
+  makes BGE-M3 vectors. `mock` is automatic in development without keys and
+  must be set explicitly in production. `generateJson()` validates with zod
+  and asks the model to repair once (free of the allowance). Student
+  context (education level, goal) is passed to prompts.
+- **Google Calendar** — `src/lib/calendar/`: `google.ts` (OAuth URLs, PKCE,
+  token exchange and refresh, Calendar API calls), `crypto.ts` (AES-256-GCM
+  for refresh tokens), `oauth-cookie.ts` (state and verifier, ten
+  minutes), `events.ts` (activity and exam → event, content hash),
+  `sync.ts` (one-way reconcile, one run at a time per student, the hourly
+  job), `actions.ts` and `queries.ts`; routes `/api/calendar/google/connect`
+  and `/callback`, `/api/cron/calendar`. Planner actions call
+  `syncCalendarAfterChange()`.
+- **Usage analytics** — `src/lib/analytics/server.ts`: `track()` after the
+  response, only with the student's opt-in, allowlisted events and
+  properties, HMAC pseudonym from a server-only secret.
+- **Service check** — `src/lib/server/service-check.ts` behind
+  `/api/system/services` (owner only; `?live=1` for real calls).
 - **Files to the browser** — never public or signed download URLs; the
   same-origin route `/api/materials/[id]/file` checks ownership and streams
   the object with `no-store`, `nosniff` and a sandboxed CSP.
@@ -962,8 +1108,10 @@ linked).
   context + model + source validation + storage, add to notes, create
   flashcard, tutor-based sessions), `queries.ts`, `actions.ts`. The chat UI
   is `src/components/tutor/`; `HighlightToolbar` wraps any material text.
-  The default mode uses the fast model tier; guided/Socratic modes use the
-  strong tier. Replies are not streamed (one validated JSON object per turn).
+  Replies use the strong tier within Groq's free budget (see the API
+  integrations round) and are not streamed (one validated JSON object per
+  turn). Passages come from `rankMaterialChunks()` (hybrid search) when it
+  is available, else from keyword scoring.
 - **Adaptive engine** — `src/lib/adaptive/`: `mastery.ts` (pure model,
   thresholds, labels), `engine.ts` (evidence collection, recompute/refresh,
   mastery views and summary, weak concepts, difficulty targets),
@@ -999,7 +1147,8 @@ linked).
 - **Search** — `src/lib/search/queries.ts` (`globalSearch()`: six grouped
   full-text queries in parallel, snippets, links), `src/components/app/
   search-box.tsx` (sidebar and page boxes, `/` shortcut) and
-  `src/app/(app)/search/page.tsx`.
+  `src/app/(app)/search/page.tsx`; `src/lib/search/hybrid.ts` ranks a
+  material's passages for Tamari and fills in embeddings.
 - **Client clock** — `src/lib/hooks/use-now.ts` is the only way client
   components read the current time during render (see the hydration review
   in Phase 10).
@@ -1026,8 +1175,9 @@ linked).
 - Analysis sends at most ~140k characters of a material to the model; longer
   materials are analyzed partially and the coverage is shown. Map-reduce
   analysis for very long books is a later improvement.
-- Image materials need a vision-capable provider (all three real providers
-  qualify); without AI they fail with a clear message.
+- Image materials need a vision-capable provider (Cloudflare's Mistral
+  Small 3.1, Anthropic, OpenAI or a named Gemini); Groq and Ollama are
+  skipped for them. Without one they fail with a clear message.
 - The Content tab renders every chunk at once; very large materials would
   benefit from pagination.
 - Scanned PDFs without a text layer are rejected with guidance to upload
@@ -1060,9 +1210,9 @@ linked).
 - Calendar activities start the Phase 4 methods (or are plain items with no
   session); plan-generated tasks already use exam simulation and rapid
   review.
-- Tutor replies arrive as one message (no token streaming); the context is
-  chosen by keyword overlap rather than embeddings, which is accurate for
-  materials up to a few hundred pages and cheap to run.
+- Tutor replies arrive as one message (no token streaming). Passages are
+  found by hybrid search once a material has embeddings (Cloudflare
+  needed); until then, and without Cloudflare, by keyword overlap.
 - Problems, scenarios, cases, stories and mnemonics are generated once per
   session from the material's transcript; AI-graded answers (working,
   justifications, case fields, retellings) use the fast tier. A device that
@@ -1095,12 +1245,16 @@ linked).
   query is capped at 120 characters.
 - Dates and numbers are formatted in `en-US` throughout (the UI is
   English); a per-user locale is a later refinement.
-- Voice needs a browser with the Web Speech API (Chrome, Edge, Safari);
-  elsewhere the microphone is hidden and typing works as usual. Chrome and
-  Edge send speech to their vendor's service for recognition; RevTaw's
-  server never receives audio. Spoken answers use the voices installed on
-  the device (a Filipino voice may be missing; the default voice is used).
-- Email reminders need an email provider and the scheduler
+- Voice uses the browser's Web Speech API where it exists (Chrome and Edge
+  send speech to their vendor for recognition). Elsewhere a short clip goes
+  to RevTaw's server and on to Groq or Cloudflare's Whisper (not stored);
+  without those keys the microphone is hidden there. Spoken answers use
+  the device's voices; a missing Filipino voice is replaced by Azure's when
+  it is configured, else the default voice reads Filipino. Voice limits
+  are checked before each call, so two at once can pass a limit by one
+  clip.
+- Email reminders and the digest need Resend (a verified domain; the free
+  plan sends 100 emails a day) and the scheduler
   (`CRON_SECRET` + `SUPABASE_SECRET_KEY` + something calling
   `/api/cron/reminders` every few minutes). Vercel Hobby only runs daily
   cron jobs; use Vercel Pro, GitHub Actions, cron-job.org or Supabase
@@ -1116,6 +1270,17 @@ linked).
 - Tamari keeps one conversation per material for highlight threads;
   general chats have no material, so "Add to notes" and "Create flashcard"
   appear only in chats about a material.
+- AI cooldowns and the route log are kept in memory per server instance,
+  so instances learn about a busy provider separately; the per-student
+  limits are shared (Postgres). Cloudflare's free daily allowance is shared
+  by fallback chat, image reading, Whisper and embeddings.
+- Until Google verifies the app, at most 100 test users can connect Google
+  Calendar and their access expires after 7 days (they reconnect). The
+  sync is one-way: edits made in Google Calendar are overwritten.
+- The round's real-provider formats (Cloudflare's Responses API and vision,
+  Azure TTS, Google OAuth and Calendar, Resend, PostHog) were tested
+  against stand-ins built from their documentation; run the service check
+  with real keys before relying on them.
 
 ## Environment Requirements
 
@@ -1125,18 +1290,23 @@ Copy `.env.example` to `.env.local`. Never commit real values.
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Supabase project URL (public) |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | yes | Publishable/anon key (public; RLS protects data) |
-| `SUPABASE_SECRET_KEY` | optional | Server-only privileged client (account deletion, the reminder scheduler) |
-| `NEXT_PUBLIC_SITE_URL` | recommended | Absolute origin for email links and auth redirects |
-| `AI_PROVIDER` | optional | `anthropic`, `openai`, `google` or `mock`; auto-detected from keys when empty |
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GOOGLE_AI_API_KEY` | one needed for AI features | Server-only provider keys |
-| `AI_MODEL_FAST` / `AI_MODEL_STRONG` | optional | Override the default model per tier |
-| `CRON_SECRET` | optional | 16+ random characters; the reminder scheduler's bearer token for `/api/cron/reminders` |
-| `EMAIL_PROVIDER` / `EMAIL_FROM` | optional | `resend` or `smtp`, and the sender shown to students; email reminders stay off until set |
-| `RESEND_API_KEY` | with `resend` | Server-only Resend key |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASSWORD` | with `smtp` | Server-only SMTP settings (e.g. a RevTaw Gmail account with an app password) |
+| `SUPABASE_SECRET_KEY` | recommended | Server-only privileged client: account deletion, the scheduler, AI token and voice counts, refunds, Google Calendar, the analytics pseudonym key |
+| `NEXT_PUBLIC_SITE_URL` | in production | Absolute origin for auth redirects, email links and calendar events (Vercel's production domain is used when empty) |
+| `GROQ_API_KEY` | recommended | First AI provider (free tier); also speech-to-text |
+| `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` | recommended | Workers AI: fallback chat, image reading, embeddings for Tamari's search, fallback speech-to-text |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OLLAMA_BASE_URL` | optional | Paid providers and a local Ollama, tried after the free ones; `GOOGLE_AI_API_KEY` only when named |
+| `AI_PROVIDER` / `AI_PROVIDER_ORDER` / `AI_MODEL_FAST` / `AI_MODEL_STRONG` | optional | Pin one provider or change the order and models (see `.env.example` for the per-provider model variables) |
+| `AI_DAILY_LIMITS` | optional | Requests per student and day by kind, plus `voice_seconds` and `voice_chars`; `off` to disable |
+| `GROQ_BASE_URL` / `CLOUDFLARE_AI_BASE_URL` | optional | A gateway in front of the providers (https only) |
+| `AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION` / `AZURE_TTS_VOICE` | optional | Filipino read-aloud where the device has no Filipino voice |
+| `RESEND_API_KEY` / `EMAIL_FROM` | optional | Email reminders and the digest, from a verified domain; email stays off until set (SMTP is no longer supported) |
+| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / `CALENDAR_TOKEN_KEY` | optional | Google Calendar sync; redirect URI `<site>/api/calendar/google/callback`; the key is 32 random bytes in base64 |
+| `POSTHOG_KEY` / `POSTHOG_HOST` | optional | Opt-in usage analytics on PostHog EU (needs `SUPABASE_SECRET_KEY` or `CRON_SECRET` for pseudonyms) |
+| `CRON_SECRET` | optional | 16+ random characters; the bearer token for `/api/cron/*` and the service check |
 
 Supabase dashboard settings needed: email confirmations on, Site URL and
-`/auth/callback` redirect URL (see `supabase/README.md`).
+`/auth/callback` redirect URL (see `supabase/README.md`). For the scheduler,
+run `supabase/schedules.sql` once (pg_cron + pg_net + Vault).
 
 ## Testing
 
@@ -1294,11 +1464,40 @@ Flows verified end to end against a local Supabase-compatible stack
   saved, reminder at 2:00 PM Manila time, edit to a custom reminder,
   filters, keyboard grid and month paging, study activities start, a due
   reminder as a browser notification and a bell row, the scheduler's
-  secret, one email through a test SMTP sink, nothing sent twice, delivery
+  secret, one email through a test Resend sink, nothing sent twice, delivery
   while away and on the next visit, done/reopen/delete, deleting a
   material with reviews, phone layout, axe light/dark); migrations 0012,
   0013, 0014 and 0015 tested in SQL (RLS, cross-student references,
   claiming)
+- API integrations round, against stand-ins for every provider:
+  `airouter-e2e.mjs` (Groq's 429 → Cloudflare's Responses API, the
+  cooldown and its end, an over-budget turn skipping Groq, the daily chat
+  limit with no provider called, token counts, the service check hidden
+  from students and never showing keys, live checks of both tiers and
+  vision); `search-e2e.mjs` (every chunk embedded on upload with its
+  heading, stored as a 1,024-dimension halfvec, the question embedded and
+  Tamari answering from the passage it means, a duplicate upload reusing
+  the embeddings, the backfill job behind the secret, the service check);
+  `voiceserver-e2e.mjs` (a real recording from a fake microphone → Groq
+  Whisper as multipart with verbose_json → "open the planner"; Groq busy →
+  Cloudflare; a Taglish answer read by the Azure voice from plain-text
+  SSML; requests and seconds counted; the seconds limit explained with
+  nothing sent); `digest-e2e.mjs` (nothing before the opt-in, an empty day
+  skipped, one digest with escaped content, unsubscribe headers and the
+  day's idempotency key, never twice, a tampered link refused, a link
+  scanner changing nothing, one-click unsubscribe keeping the other
+  settings); `gcal-e2e.mjs` (declining at Google, one narrow scope with
+  offline access and PKCE, the code exchanged with the verifier, the
+  calendar created in the student's zone, the token encrypted and hidden
+  from students, activities and the exam written, a done activity
+  rewriting one event, Sync now removing a deleted one, nothing written
+  when nothing changed, the hourly job, disconnect revoking at Google);
+  `analytics-e2e.mjs` (nothing before the opt-in, the choice saved, an
+  anonymous event with allowlisted properties and no profile or GeoIP, no
+  account id, email, name or message text, opting out stopping events);
+  migrations 0016–0021 in SQL (a student cannot add tokens, refunds and
+  token counts by the service role only, hybrid search and saved
+  embeddings limited to the student's own chunks, typos matched)
 - Accessibility: `~/preview/a11y-audit.mjs` (axe-core, 43 states incl. the
   new settings pages, the activity form and Tamari's chat, light) and
   `a11y-dark.mjs` (dark) report no violations; keyboard paths are
@@ -1319,7 +1518,12 @@ Flows verified end to end against a local Supabase-compatible stack
   and contrast, preferences schemas, dashboard layout moves, command
   matching, response-style rules, mixed-quiz type coverage, voice intents
   and speech text, month grids, zoned times, reminder instants and
-  messages, and the email sender (mocked provider)
+  messages, and the email sender (mocked provider); the AI router,
+  budgets, cooldowns, the OpenAI-compatible adapter and the daily
+  allowance (voice seconds and characters included), embeddings and hybrid
+  ranking, Whisper and Azure requests, the digest and unsubscribe tokens,
+  calendar encryption, events and sync, analytics payloads, endpoint and
+  site-address checks
 
 Commands: `npm run lint`, `npx tsc --noEmit`, `npm test` (vitest unit tests),
 `npm run build`.

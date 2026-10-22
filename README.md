@@ -45,7 +45,13 @@ open) without any setup. Email reminders and the daily study digest are
 optional: set Resend (`RESEND_API_KEY`, `EMAIL_FROM` on a domain you own) and
 the scheduler (`CRON_SECRET`, `SUPABASE_SECRET_KEY`, and `supabase/schedules.sql`
 or another cron calling the `/api/cron/*` routes) — see `.env.example`.
-Credentials stay in server environment variables only.
+Also optional: Filipino read-aloud through Azure AI Speech
+(`AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`), Google Calendar sync through
+Google's own OAuth (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`,
+`CALENDAR_TOKEN_KEY`) and opt-in usage analytics on PostHog EU
+(`POSTHOG_KEY`). In production set `NEXT_PUBLIC_SITE_URL` so emails and
+calendar events link back to RevTaw. Credentials stay in server environment
+variables only.
 
 ## What works today
 
@@ -111,6 +117,14 @@ Credentials stay in server environment variables only.
   English, Filipino or Taglish ("Quiz me about Chapter 4", "Move this to
   Friday") — and a **planner calendar** with activities and reminders by
   bell, browser and email
+- Services behind it all (API integrations round): AI routed across Groq,
+  Cloudflare Workers AI, paid keys and a local Ollama with a daily
+  allowance per student; Tamari finding passages by meaning as well as
+  words (BGE-M3 embeddings + pgvector hybrid search, Filipino and Taglish
+  included); voice typing and Filipino read-aloud on browsers that lack
+  them; a daily study digest and one-click unsubscribe by email (Resend);
+  a "RevTaw Study" calendar in Google Calendar; opt-in, content-free usage
+  analytics; and a service check at `/api/system/services`
 
 ## Scripts
 
@@ -134,7 +148,9 @@ src/app/(app)         signed-in app: dashboard, materials, study (sessions,
 src/app/auth          email-link route handlers (callback, confirm)
 src/app/api           route handlers (material processing, analysis, files,
                       reviewer, quiz and flashcard generation, tutor, export,
-                      quick search, reminders and the reminder scheduler)
+                      quick search, reminders, voice, Google Calendar,
+                      email unsubscribe, the scheduler's /api/cron/* jobs
+                      and the /api/system/services check)
 src/components        ui primitives, forms, app shell, Tamari, feature
                       components
 src/lib               supabase clients, ai providers, materials pipeline,
@@ -146,6 +162,7 @@ src/lib               supabase clients, ai providers, materials pipeline,
                       gamification, export, search, concepts, validation,
                       routes, env
 supabase/migrations   SQL migrations (apply in order)
+supabase/schedules.sql  pg_cron jobs for the scheduler (run once, optional)
 ```
 
 ## Project status
