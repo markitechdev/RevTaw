@@ -7,6 +7,7 @@ import { getDailyLimits } from "@/lib/ai/quota";
 import { cooldownSnapshot, recentRoutes } from "@/lib/ai/router";
 import type { AiTier } from "@/lib/ai/types";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { azureVoiceListed, synthesizeSpeech, transcribeAudio, voiceCapabilities } from "@/lib/voice/server";
 
 /**
  * The service check behind /api/system/services: which providers this
@@ -121,4 +122,57 @@ export async function embeddingsSummary() {
     waiting = error ? null : (count ?? 0);
   }
   return { configured: embeddingsConfigured(), model: EMBEDDING_MODEL, chunksWithoutEmbedding: waiting };
+}
+
+/** One second of a quiet 440 Hz tone (16 kHz mono WAV): enough for Whisper to answer, with or without words. */
+function testTone(): Uint8Array {
+  const rate = 16_000;
+  const samples = rate;
+  const buffer = Buffer.alloc(44 + samples * 2);
+  buffer.write("RIFF", 0);
+  buffer.writeUInt32LE(36 + samples * 2, 4);
+  buffer.write("WAVEfmt ", 8);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt16LE(1, 22);
+  buffer.writeUInt32LE(rate, 24);
+  buffer.writeUInt32LE(rate * 2, 28);
+  buffer.writeUInt16LE(2, 32);
+  buffer.writeUInt16LE(16, 34);
+  buffer.write("data", 36);
+  buffer.writeUInt32LE(samples * 2, 40);
+  for (let index = 0; index < samples; index += 1) buffer.writeInt16LE(Math.round(Math.sin((2 * Math.PI * 440 * index) / rate) * 3000), 44 + index * 2);
+  return new Uint8Array(buffer);
+}
+
+/** Speech-to-text with a test tone, and the Filipino voice (listed and speaking). */
+export async function checkVoice(): Promise<LiveCheck[]> {
+  const capabilities = voiceCapabilities();
+  const checks: Array<Promise<LiveCheck>> = [];
+  if (capabilities.transcribe) {
+    checks.push(
+      timed("speech-to-text", "groq → cloudflare", "whisper-large-v3-turbo", async () => {
+        const transcript = await transcribeAudio(testTone(), "audio/wav", "fil-PH");
+        return `answered by ${transcript.provider} (${transcript.text ? `"${transcript.text}"` : "no words, as expected"})`;
+      }),
+    );
+  }
+  if (capabilities.speak) {
+    checks.push(
+      timed("text-to-speech voice", "azure", "voice list", async () => {
+        const { voice, listed } = await azureVoiceListed();
+        if (!listed) throw new Error(`${voice} is not offered in this region; set AZURE_TTS_VOICE to one that is`);
+        return `${voice} is available`;
+      }),
+      timed("text-to-speech", "azure", "fil-PH neural", async () => {
+        const { audio, voice } = await synthesizeSpeech("Bitaw! Kaya mo 'yan.");
+        return `${voice}: ${audio.byteLength} bytes of MP3`;
+      }),
+    );
+  }
+  return Promise.all(checks);
+}
+
+export function voiceSummary() {
+  return voiceCapabilities();
 }
