@@ -8,7 +8,7 @@ import { ServiceError } from "@/lib/reviewers/service";
 import { completeSession, createSession, loadSession, SessionError, type SessionSummary } from "@/lib/study/sessions";
 import type { Json, StudySession, TutorMode } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
-import { evaluateTutorSession, tutorReply, type TutorReply } from "@/lib/tutor/ai";
+import { evaluateTutorSession, TUTOR_HISTORY_TURNS, tutorReply, type TutorReply } from "@/lib/tutor/ai";
 import { selectContext, type ContextChunk } from "@/lib/tutor/context";
 import { flashcardDraftSchema, TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
 
@@ -16,7 +16,10 @@ type Client = Awaited<ReturnType<typeof createClient>>;
 
 export { ServiceError, SessionError };
 
-const HISTORY_LIMIT = 12;
+/** Turns of conversation sent with each message (Tamari's request budget). */
+const HISTORY_LIMIT = TUTOR_HISTORY_TURNS;
+/** About three of RevTaw's ~3,200-character chunks of the material per message. */
+const TUTOR_CONTEXT_CHARS = 9_000;
 
 async function studentContext(supabase: Client): Promise<StudentContext> {
   const { data: profile } = await supabase.from("profiles").select("education_level, main_goal, preferences").maybeSingle();
@@ -138,7 +141,7 @@ async function respond(
     userMessageId = userMessage.id;
   }
 
-  const context = material ? selectContext(material.chunks, input.content, input.selection) : { chunks: [], totalChunks: 0, truncated: false };
+  const context = material ? selectContext(material.chunks, input.content, input.selection, TUTOR_CONTEXT_CHARS) : { chunks: [], totalChunks: 0, truncated: false };
   let reply: TutorReply;
   let provider: string | null = null;
   let model: string | null = null;
