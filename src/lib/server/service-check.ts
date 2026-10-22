@@ -8,7 +8,7 @@ import { cooldownSnapshot, recentRoutes } from "@/lib/ai/router";
 import type { AiTier } from "@/lib/ai/types";
 import { analyticsConfigured } from "@/lib/analytics/server";
 import { calendarConfigured } from "@/lib/calendar/google";
-import { getServerEnv } from "@/lib/env";
+import { getPublicSiteUrl, getServerEnv } from "@/lib/env";
 import { emailConfig } from "@/lib/notifications/email-config";
 import { cronSecret } from "@/lib/server/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -187,6 +187,8 @@ export function otherServicesSummary() {
   const email = emailConfig();
   const sender = email?.from.match(/@([^>\s]+)/)?.[1] ?? null;
   return {
+    // Emails and calendar events link back to RevTaw only when this is set.
+    publicSiteUrl: { configured: getPublicSiteUrl() !== null },
     email: { configured: email !== null, provider: email ? "resend" : null, senderDomain: sender },
     calendar: { configured: calendarConfigured() },
     analytics: { configured: analyticsConfigured(), optIn: true },

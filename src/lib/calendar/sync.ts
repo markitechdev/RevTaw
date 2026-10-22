@@ -6,7 +6,7 @@ import { after } from "next/server";
 import { decryptToken } from "@/lib/calendar/crypto";
 import { examEvent, examEventId, taskEvent, taskEventId } from "@/lib/calendar/events";
 import { CalendarApiError, CalendarAuthError, calendarConfigured, deleteEvent, listEvents, putEvent, refreshAccessToken, type GoogleEvent } from "@/lib/calendar/google";
-import { getServerEnv, getSiteUrl } from "@/lib/env";
+import { getPublicSiteUrl, getServerEnv } from "@/lib/env";
 import { addDays, dateIn, isValidTimezone } from "@/lib/planner/dates";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
@@ -72,7 +72,7 @@ async function reconcileOnce(client: Client, userId: string): Promise<SyncOutcom
     ]);
     if (tasks.error || exams.error) throw new Error(`calendar: planner query failed: ${tasks.error?.message ?? exams.error?.message}`);
 
-    const siteUrl = getSiteUrl();
+    const siteUrl = getPublicSiteUrl();
     const wanted = new Map<string, GoogleEvent>();
     for (const task of tasks.data ?? []) wanted.set(taskEventId(task.id), taskEvent(task, { timeZone, siteUrl }));
     for (const exam of exams.data ?? []) wanted.set(examEventId(exam.id), examEvent(exam, { siteUrl }));

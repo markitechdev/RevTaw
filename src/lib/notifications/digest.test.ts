@@ -38,4 +38,12 @@ describe("daily digest", () => {
     expect(message.text).toContain("- Exam: tomorrow");
     expect(message.text).not.toContain("Stop the daily digest");
   });
+
+  it("goes out without links when the site has no public address", () => {
+    const message = digestMessage("Ana", content, null, null);
+    expect(message.html).not.toMatch(/href=|localhost/);
+    expect(message.text).not.toMatch(/https?:|localhost|Open RevTaw/);
+    expect(message.text).toContain("Flashcards: 12 cards are due today.");
+    expect(message.text).toContain("- Read chapter 3 (20 min)");
+  });
 });

@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getServerEnv, getSiteUrl } from "@/lib/env";
+import { getPublicSiteUrl, getServerEnv } from "@/lib/env";
 import { sendEmail } from "@/lib/notifications/email";
 import { unsubscribeHeaders, unsubscribeUrl } from "@/lib/notifications/unsubscribe";
 import { isEmailConfigured } from "@/lib/notifications/email-config";
@@ -206,7 +206,7 @@ export async function deliverDueReminders(options: { ids?: string[]; minAgeMs?: 
     getCurrentUserWithProfile(),
   ]);
   const byId = new Map(((tasks ?? []) as unknown as ReminderTask[]).map((task) => [task.id, task]));
-  const channels: Channels = { prefs: preferences.notifications, timeZone: profile?.timezone ?? null, email: null, sendEmail: false, siteUrl: getServerEnv().NEXT_PUBLIC_SITE_URL ?? null };
+  const channels: Channels = { prefs: preferences.notifications, timeZone: profile?.timezone ?? null, email: null, sendEmail: false, siteUrl: getPublicSiteUrl() };
   const delivered: DeliveredReminder[] = [];
   for (const reminder of reminders as Reminder[]) {
     const outcome = await deliverOne(supabase, reminder, byId.get(reminder.task_id), channels);
@@ -266,7 +266,7 @@ export async function processDueReminders(admin: Client, options: { batchSize?: 
       emails.set(id, user.user?.email ?? null);
     }
   }
-  const siteUrl = getSiteUrl();
+  const siteUrl = getPublicSiteUrl();
   for (const reminder of reminders) {
     const profile = profileById.get(reminder.user_id);
     const outcome = await deliverOne(admin, reminder, taskById.get(reminder.task_id), {

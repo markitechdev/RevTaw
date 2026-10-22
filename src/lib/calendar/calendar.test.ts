@@ -68,8 +68,15 @@ describe("calendar events", () => {
     expect(event.end).toEqual({ dateTime: "2026-10-23T00:15:00", timeZone: "Asia/Manila" });
     expect(event.reminders).toEqual({ useDefault: false, overrides: [{ method: "popup", minutes: 30 }] });
     expect(event.description).toContain("Chapter 3");
-    expect(event.source.url).toBe("https://revtaw.example/planner?date=2026-10-22");
+    expect(event.source?.url).toBe("https://revtaw.example/planner?date=2026-10-22");
     expect(event.extendedProperties.private).toMatchObject({ revtaw: "task" });
+  });
+
+  it("leaves the link out when the site has no public address", () => {
+    const event = taskEvent(task, { timeZone: "Asia/Manila", siteUrl: null });
+    expect(event.source).toBeUndefined();
+    expect(event.description).not.toMatch(/http|localhost/);
+    expect(examEvent({ id: task.id, title: "Bio midterm", exam_date: "2026-11-03", notes: null }, { siteUrl: null }).description).toBe("Your study plan is in RevTaw.");
   });
 
   it("writes an any-time activity as an all-day event, and marks finished ones", () => {

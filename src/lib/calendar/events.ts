@@ -55,8 +55,13 @@ function sealed(event: Omit<GoogleEvent, "extendedProperties">, kind: "task" | "
   return { ...event, extendedProperties: { private: { revtaw: kind, hash } } };
 }
 
-export function taskEvent(task: CalendarTask, options: { timeZone: string; siteUrl: string }): GoogleEvent {
-  const link = `${options.siteUrl.replace(/\/+$/, "")}${routes.planner}?date=${task.scheduled_for}`;
+/** A link into RevTaw, or null when the site has no public address (NEXT_PUBLIC_SITE_URL). */
+function revtawLink(siteUrl: string | null, path: string): string | null {
+  return siteUrl ? `${siteUrl.replace(/\/+$/, "")}${path}` : null;
+}
+
+export function taskEvent(task: CalendarTask, options: { timeZone: string; siteUrl: string | null }): GoogleEvent {
+  const link = revtawLink(options.siteUrl, `${routes.planner}?date=${task.scheduled_for}`);
   const done = task.status === "done";
   const notes = task.notes?.replace(/\s+/g, " ").trim();
   const timed = task.starts_at !== null;
@@ -66,31 +71,31 @@ export function taskEvent(task: CalendarTask, options: { timeZone: string; siteU
     {
       id: taskEventId(task.id),
       summary: clip(`${done ? "✓ " : ""}${task.title}`, 200),
-      description: [`${task.minutes} min, planned in RevTaw.`, notes ? clip(notes, 600) : null, `Open in RevTaw: ${link}`].filter(Boolean).join("\n\n"),
+      description: [`${task.minutes} min, planned in RevTaw.`, notes ? clip(notes, 600) : null, link ? `Open in RevTaw: ${link}` : null].filter(Boolean).join("\n\n"),
       start: timed ? { dateTime: `${task.scheduled_for}T${shortTime(task.starts_at!)}:00`, timeZone: options.timeZone } : { date: task.scheduled_for },
       end: timed ? { dateTime: `${end!.date}T${end!.time}:00`, timeZone: options.timeZone } : { date: addDays(task.scheduled_for, 1) },
       // The activity's own reminder becomes a phone notification from Google (timed activities; finished ones stay quiet).
       reminders: { useDefault: false, overrides: offset !== null && !done ? [{ method: "popup", minutes: Math.min(offset, 40_320) }] : [] },
-      source: { title: "RevTaw", url: link },
+      ...(link ? { source: { title: "RevTaw", url: link } } : {}),
       status: "confirmed",
     },
     "task",
   );
 }
 
-export function examEvent(exam: CalendarExam, options: { siteUrl: string }): GoogleEvent {
-  const link = `${options.siteUrl.replace(/\/+$/, "")}${routes.planner}/${exam.id}`;
+export function examEvent(exam: CalendarExam, options: { siteUrl: string | null }): GoogleEvent {
+  const link = revtawLink(options.siteUrl, `${routes.planner}/${exam.id}`);
   const notes = exam.notes?.replace(/\s+/g, " ").trim();
   return sealed(
     {
       id: examEventId(exam.id),
       summary: clip(`Exam: ${exam.title}`, 200),
-      description: [notes ? clip(notes, 600) : null, `Your study plan in RevTaw: ${link}`].filter(Boolean).join("\n\n"),
+      description: [notes ? clip(notes, 600) : null, link ? `Your study plan in RevTaw: ${link}` : "Your study plan is in RevTaw."].filter(Boolean).join("\n\n"),
       start: { date: exam.exam_date },
       end: { date: addDays(exam.exam_date, 1) },
       // 9 a.m. the day before (all-day events count back from midnight).
       reminders: { useDefault: false, overrides: [{ method: "popup", minutes: 15 * 60 }] },
-      source: { title: "RevTaw", url: link },
+      ...(link ? { source: { title: "RevTaw", url: link } } : {}),
       status: "confirmed",
     },
     "exam",

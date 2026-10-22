@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { getSiteUrl } from "@/lib/env";
+import { getPublicSiteUrl } from "@/lib/env";
 import { sendEmail } from "@/lib/notifications/email";
 import { isEmailConfigured } from "@/lib/notifications/email-config";
 import { unsubscribeHeaders, unsubscribeUrl } from "@/lib/notifications/unsubscribe";
@@ -50,8 +50,9 @@ export function digestIsEmpty(content: DigestContent): boolean {
 }
 
 /** What the digest says (pure; everything from the student is escaped in the HTML). */
-export function digestMessage(name: string | null, content: DigestContent, siteUrl: string, unsubscribeLink: string | null): DigestMessage {
-  const base = siteUrl.replace(/\/+$/, "");
+export function digestMessage(name: string | null, content: DigestContent, siteUrl: string | null, unsubscribeLink: string | null): DigestMessage {
+  // Without a public address (NEXT_PUBLIC_SITE_URL) the digest goes out without links.
+  const base = siteUrl ? siteUrl.replace(/\/+$/, "") : null;
   const greeting = name?.trim() ? `Good morning, ${clip(name.trim().split(/\s+/)[0], 40)}!` : "Good morning!";
   const parts = [
     content.dueReviews > 0 ? plural(content.dueReviews, "card to review", "cards to review") : null,
@@ -62,16 +63,15 @@ export function digestMessage(name: string | null, content: DigestContent, siteU
 
   const taskLines = content.tasks.map((task) => `${task.time ? `${formatClock(task.time)} · ` : ""}${clip(task.title, 120)} (${task.minutes} min)`);
   const examLines = content.exams.map((exam) => `${clip(exam.title, 120)}: ${countdown(exam.daysLeft)} (${formatDate(exam.date, content.day)})`);
-  const links = { dashboard: `${base}${routes.dashboard}`, planner: `${base}${routes.planner}?date=${content.day}`, flashcards: `${base}${routes.flashcards}` };
+  const links = base ? { dashboard: `${base}${routes.dashboard}`, planner: `${base}${routes.planner}?date=${content.day}`, flashcards: `${base}${routes.flashcards}` } : null;
 
   const text = [
     greeting,
     "",
-    content.dueReviews > 0 ? `Flashcards: ${plural(content.dueReviews, "card is", "cards are")} due today. ${links.flashcards}` : null,
-    taskLines.length ? ["Today's plan:", ...taskLines.map((line) => `- ${line}`), links.planner].join("\n") : null,
+    content.dueReviews > 0 ? `Flashcards: ${plural(content.dueReviews, "card is", "cards are")} due today.${links ? ` ${links.flashcards}` : ""}` : null,
+    taskLines.length ? ["Today's plan:", ...taskLines.map((line) => `- ${line}`), ...(links ? [links.planner] : [])].join("\n") : null,
     examLines.length ? ["Exams coming up:", ...examLines.map((line) => `- ${line}`)].join("\n") : null,
-    "",
-    `Open RevTaw: ${links.dashboard}`,
+    ...(links ? ["", `Open RevTaw: ${links.dashboard}`] : []),
     "",
     "You get this email because the daily study digest is on in RevTaw → Settings → Notifications.",
     unsubscribeLink ? `Stop the daily digest: ${unsubscribeLink}` : null,
@@ -86,10 +86,10 @@ export function digestMessage(name: string | null, content: DigestContent, siteU
 <div style="max-width:520px;margin:0 auto;padding:24px">
 <p style="margin:0 0 8px;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#6d3fdc">RevTaw · ${escapeHtml(formatDate(content.day))}</p>
 <h1 style="margin:0 0 8px;font-size:20px;line-height:1.3">${escapeHtml(greeting)}</h1>
-${content.dueReviews > 0 ? section("Flashcards", [`${plural(content.dueReviews, "card is", "cards are")} due today`], links.flashcards) : ""}
-${taskLines.length ? section("Today's plan", taskLines, links.planner) : ""}
+${content.dueReviews > 0 ? section("Flashcards", [`${plural(content.dueReviews, "card is", "cards are")} due today`], links?.flashcards ?? null) : ""}
+${taskLines.length ? section("Today's plan", taskLines, links?.planner ?? null) : ""}
 ${examLines.length ? section("Exams coming up", examLines, null) : ""}
-<p style="margin:24px 0"><a href="${escapeHtml(links.dashboard)}" style="display:inline-block;background:#6d3fdc;color:#ffffff;text-decoration:none;font-weight:600;padding:10px 16px;border-radius:10px">Open RevTaw</a></p>
+${links ? `<p style="margin:24px 0"><a href="${escapeHtml(links.dashboard)}" style="display:inline-block;background:#6d3fdc;color:#ffffff;text-decoration:none;font-weight:600;padding:10px 16px;border-radius:10px">Open RevTaw</a></p>` : `<div style="height:16px"></div>`}
 <p style="margin:0;font-size:12px;color:#77708f">You get this email because the daily study digest is on in RevTaw → Settings → Notifications.${unsubscribeLink ? ` <a href="${escapeHtml(unsubscribeLink)}" style="color:#6d3fdc">Stop the daily digest</a>` : ""}</p>
 </div></body></html>`;
   return { subject, text, html };
@@ -144,7 +144,7 @@ export async function runDailyDigest(client: Client, options: { now?: Date; budg
 
   const { data: profiles, error } = await client.from("profiles").select("id, display_name, timezone, preferences").eq("preferences->notifications->>digest", "true").limit(500);
   if (error) throw new Error(`profiles: digest query failed: ${error.message}`);
-  const siteUrl = getSiteUrl();
+  const siteUrl = getPublicSiteUrl();
 
   for (const profile of profiles ?? []) {
     if (Date.now() > deadline) break;

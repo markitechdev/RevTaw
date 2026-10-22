@@ -169,7 +169,8 @@ export type GoogleEvent = {
   start: { date: string } | { dateTime: string; timeZone: string };
   end: { date: string } | { dateTime: string; timeZone: string };
   reminders: { useDefault: false; overrides: Array<{ method: "popup"; minutes: number }> };
-  source: { title: string; url: string };
+  /** A link back to RevTaw; left out when the site has no public address. */
+  source?: { title: string; url: string };
   extendedProperties: { private: { revtaw: string; hash: string } };
   status: "confirmed";
 };

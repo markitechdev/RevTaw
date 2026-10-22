@@ -197,3 +197,18 @@ export function getSiteUrl(): string {
 
   return `http://localhost:${process.env.PORT ?? "3000"}`;
 }
+
+/**
+ * The public address for links that leave the app (emails, calendar
+ * events): NEXT_PUBLIC_SITE_URL, else Vercel's production domain, else
+ * localhost while developing. Null in production without either, so an
+ * email never links to localhost; those links are left out instead.
+ */
+export function getPublicSiteUrl(): string | null {
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (explicit) return explicit.replace(/\/+$/, "");
+  const production = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (production) return `https://${production}`;
+  if (process.env.NODE_ENV !== "production") return getSiteUrl();
+  return null;
+}

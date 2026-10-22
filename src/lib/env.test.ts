@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getServerEnv, isLoopbackUrl, isSecureEndpoint } from "@/lib/env";
+import { getPublicSiteUrl, getServerEnv, isLoopbackUrl, isSecureEndpoint } from "@/lib/env";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -32,5 +32,28 @@ describe("endpoint checks", () => {
     expect(() => getServerEnv()).toThrow(/GOOGLE_API_BASE_URL is for local tests only/);
     vi.stubEnv("GOOGLE_API_BASE_URL", "http://127.0.0.1:4010/google");
     expect(getServerEnv().GOOGLE_API_BASE_URL).toBe("http://127.0.0.1:4010/google");
+  });
+});
+
+describe("getPublicSiteUrl", () => {
+  it("prefers the configured address, then Vercel's production domain", () => {
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://revtaw.example/");
+    expect(getPublicSiteUrl()).toBe("https://revtaw.example");
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "");
+    vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "revtaw.vercel.app");
+    expect(getPublicSiteUrl()).toBe("https://revtaw.vercel.app");
+  });
+
+  it("never gives localhost in production", () => {
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "");
+    vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "");
+    vi.stubEnv("VERCEL_URL", "revtaw-git-branch.vercel.app");
+    vi.stubEnv("NODE_ENV", "production");
+    expect(getPublicSiteUrl()).toBeNull();
+    vi.stubEnv("NODE_ENV", "development");
+    expect(getPublicSiteUrl()).toBe("https://revtaw-git-branch.vercel.app");
+    vi.stubEnv("VERCEL_URL", "");
+    vi.stubEnv("PORT", "3100");
+    expect(getPublicSiteUrl()).toBe("http://localhost:3100");
   });
 });
