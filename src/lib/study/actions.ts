@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { completeSmartSession, getSmartSessionView, markSmartBlock, parseSmartPlan } from "@/lib/adaptive/smart";
+import { track } from "@/lib/analytics/server";
 import { routes } from "@/lib/routes";
 import { actionFailure, revalidateStudy, uuid, type StudyActionResult } from "@/lib/study/action-helpers";
 import { compareBlurtItem, evaluateQuestionItem, type BlurtResult, type EvaluatedQuestion } from "@/lib/study/advanced";
@@ -173,6 +174,7 @@ export async function completeSessionAction(input: { sessionId: string; focusSec
   try {
     const summary = await completeItemSession(parsed.data.sessionId, parsed.data.focusSeconds, parsed.data.abandoned);
     revalidate(parsed.data.sessionId);
+    if (!parsed.data.abandoned) track(user.id, "study_session_completed", { minutes: Math.round(summary.durationSeconds / 60), questions: summary.questionsAnswered });
     return { ok: true, data: summary };
   } catch (error) {
     return failure(error, "The session could not be saved.");

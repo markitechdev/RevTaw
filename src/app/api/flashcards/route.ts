@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { track } from "@/lib/analytics/server";
 import { FLASHCARD_MAX, FLASHCARD_MIN } from "@/lib/flashcards/constants";
 import { createDeck, ServiceError } from "@/lib/flashcards/service";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
   }
   try {
     const result = await createDeck(body.data.materialId, { count: body.data.count, focus: body.data.focus });
+    track(user.id, "flashcards_created", { cards: body.data.count });
     return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     if (error instanceof ServiceError) {

@@ -10,6 +10,7 @@ import {
   assistantInput,
   dashboardInput,
   notificationsInput,
+  privacyInput,
   studyInput,
   toolsInput,
   type PreferenceSection,
@@ -149,6 +150,15 @@ export async function saveNotificationPreferencesAction(input: unknown): Promise
   if (!parsed.success) return invalid(parsed.error);
   const result = await writeSection("notifications", parsed.data);
   if (result.ok) revalidatePath("/", "layout");
+  return result;
+}
+
+/** Privacy: whether anonymous usage events may be shared (off by default). */
+export async function savePrivacyPreferencesAction(input: unknown): Promise<SavePreferencesResult> {
+  const parsed = privacyInput.safeParse(input);
+  if (!parsed.success) return invalid(parsed.error);
+  const result = await writeSection("privacy", parsed.data);
+  if (result.ok) revalidatePath(routes.settingsAccount);
   return result;
 }
 

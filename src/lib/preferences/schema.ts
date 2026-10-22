@@ -363,6 +363,19 @@ const assistantReader = z
   .catch(DEFAULT_ASSISTANT);
 
 /* ------------------------------------------------------------------ */
+/* Privacy                                                             */
+/* ------------------------------------------------------------------ */
+
+export const privacyInput = z.strictObject({
+  /** Share anonymous usage events (what features are used, never content). Off unless the student turns it on. */
+  analytics: z.boolean(),
+});
+export type PrivacyPreferences = z.output<typeof privacyInput>;
+export const DEFAULT_PRIVACY: PrivacyPreferences = { analytics: false };
+
+const privacyReader = z.object({ analytics: z.boolean().catch(false) }).catch(DEFAULT_PRIVACY);
+
+/* ------------------------------------------------------------------ */
 /* All sections                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -374,6 +387,7 @@ export type Preferences = {
   study: StudyPreferences;
   notifications: NotificationPreferences;
   assistant: AssistantPreferences;
+  privacy: PrivacyPreferences;
 };
 export type PreferenceSection = keyof Preferences;
 
@@ -385,6 +399,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   study: DEFAULT_STUDY,
   notifications: DEFAULT_NOTIFICATIONS,
   assistant: DEFAULT_ASSISTANT,
+  privacy: DEFAULT_PRIVACY,
 };
 
 function section(raw: unknown, key: PreferenceSection): unknown {
@@ -404,5 +419,6 @@ export function parsePreferences(raw: unknown): Preferences {
     study: studyReader.parse(section(raw, "study") ?? {}),
     notifications: notificationsReader.parse(section(raw, "notifications") ?? {}),
     assistant: assistantReader.parse(section(raw, "assistant") ?? {}),
+    privacy: privacyReader.parse(section(raw, "privacy") ?? {}),
   };
 }

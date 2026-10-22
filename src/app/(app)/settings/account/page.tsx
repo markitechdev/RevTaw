@@ -4,8 +4,11 @@ import { redirect } from "next/navigation";
 import { Alert } from "@/components/forms/form-alert";
 import { ChangePasswordForm } from "@/components/settings/change-password-form";
 import { DeleteAccountForm } from "@/components/settings/delete-account-form";
+import { PrivacyForm } from "@/components/settings/privacy-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { analyticsConfigured } from "@/lib/analytics/server";
 import { getServerEnv } from "@/lib/env";
+import { getPreferences } from "@/lib/preferences/queries";
 import { routes } from "@/lib/routes";
 import { getCurrentUser } from "@/lib/supabase/server";
 
@@ -23,6 +26,7 @@ export default async function AccountSettingsPage({ searchParams }: PageProps<"/
   if (!user) redirect(routes.login);
 
   const notice = typeof params.notice === "string" ? NOTICES[params.notice] : undefined;
+  const preferences = await getPreferences();
   const deletionEnabled = Boolean(getServerEnv().SUPABASE_SECRET_KEY);
 
   return (
@@ -39,6 +43,16 @@ export default async function AccountSettingsPage({ searchParams }: PageProps<"/
         </CardHeader>
         <CardContent>
           <ChangePasswordForm />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Privacy</CardTitle>
+          <CardDescription>Choose what RevTaw may learn about how you use it.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PrivacyForm initial={preferences.privacy} available={analyticsConfigured()} />
         </CardContent>
       </Card>
 

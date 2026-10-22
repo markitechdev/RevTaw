@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { track } from "@/lib/analytics/server";
 import { createQuiz, ServiceError } from "@/lib/quizzes/service";
 import { quizConfigSchema, typeCoverageError } from "@/lib/quizzes/types";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";
@@ -40,6 +41,7 @@ export async function POST(request: Request) {
   const { materialId, ...config } = body.data;
   try {
     const result = await createQuiz(materialId, config);
+    track(user.id, "quiz_created", { questions: config.questionCount, mode: config.mode, difficulty: config.difficulty });
     return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     if (error instanceof ServiceError) {

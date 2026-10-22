@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import { isAiError } from "@/lib/ai";
+import { track } from "@/lib/analytics/server";
 import { analyzeMaterial, type AnalysisChunkInput } from "@/lib/materials/analyze";
 import { chunkSections, countWords } from "@/lib/materials/chunk";
 import { MAX_FILE_BYTES } from "@/lib/materials/constants";
@@ -109,10 +110,12 @@ export async function processMaterial(
     // Embedding runs beside the analysis; if it fails, search uses words until the backfill job catches up.
     const [analysisDetail] = await Promise.all([runAnalysis(supabase, material, chunks), embedMaterialQuietly(supabase, material.id)]);
     await setStatus(supabase, material.id, "ready", analysisDetail);
+    track(material.user_id, "material_processed", { source: material.source, status: "ready", method: extraction.method, chunks: chunks.length });
     return { status: "ready", detail: analysisDetail };
   } catch (error) {
     const detail = friendlyFailure(error);
     console.error(`materials: processing ${material.id} failed`, error);
+    track(material.user_id, "material_processed", { source: material.source, status: "failed" });
     return fail(supabase, material.id, detail);
   }
 }

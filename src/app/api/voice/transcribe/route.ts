@@ -2,6 +2,7 @@ import { fileTypeFromBuffer } from "file-type";
 import { NextResponse } from "next/server";
 
 import { isAiError } from "@/lib/ai/errors";
+import { track } from "@/lib/analytics/server";
 import { consumeAiRequest, recordAiTokens, refundAiRequest } from "@/lib/ai/quota";
 import { rateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/supabase/server";
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
     const transcript = await transcribeAudio(bytes, mime, language, request.signal);
     // For voice, the allowance's input column counts seconds heard.
     recordAiTokens("voice", { inputTokens: Math.round(transcript.seconds ?? 0), outputTokens: 0 });
+    track(user.id, "voice_transcribed", { provider: transcript.provider });
     return NextResponse.json({ text: transcript.text }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     if (isAiError(error)) {

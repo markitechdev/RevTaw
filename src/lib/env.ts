@@ -75,6 +75,9 @@ const serverSchema = z.object({
     .optional(),
   /** Tests only: one origin standing in for accounts.google.com, oauth2.googleapis.com and the Calendar API. */
   GOOGLE_API_BASE_URL: z.url().optional(),
+  // Product analytics (PostHog Cloud EU), only for students who opt in.
+  POSTHOG_KEY: z.string().min(1).optional(),
+  POSTHOG_HOST: z.url().optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicSchema>;
@@ -142,6 +145,8 @@ export function getServerEnv(): ServerEnv {
     GOOGLE_OAUTH_CLIENT_SECRET: process.env.GOOGLE_OAUTH_CLIENT_SECRET || undefined,
     CALENDAR_TOKEN_KEY: process.env.CALENDAR_TOKEN_KEY || undefined,
     GOOGLE_API_BASE_URL: process.env.GOOGLE_API_BASE_URL || undefined,
+    POSTHOG_KEY: process.env.POSTHOG_KEY || undefined,
+    POSTHOG_HOST: process.env.POSTHOG_HOST || undefined,
   });
 
   if (!parsed.success) {

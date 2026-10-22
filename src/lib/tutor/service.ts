@@ -1,6 +1,7 @@
 import "server-only";
 
 import { isAiError } from "@/lib/ai";
+import { track } from "@/lib/analytics/server";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import type { StudentContext } from "@/lib/materials/analyze";
 import { parsePreferences } from "@/lib/preferences/schema";
@@ -211,6 +212,7 @@ async function respond(
     .select("id")
     .single();
   if (assistantError || !assistantMessage) throw new Error(`tutor_messages: insert failed: ${assistantError?.message}`);
+  track(conversation.user_id, "tamari_message", { mode: conversation.mode, grounding: material ? reply.grounding : "general", provider: provider ?? "none" });
 
   const now = new Date().toISOString();
   await supabase

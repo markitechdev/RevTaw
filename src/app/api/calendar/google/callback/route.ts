@@ -1,5 +1,6 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 
+import { track } from "@/lib/analytics/server";
 import { encryptToken } from "@/lib/calendar/crypto";
 import { calendarExists, createStudyCalendar, exchangeCode, GOOGLE_CALENDAR_SCOPE, revokeToken } from "@/lib/calendar/google";
 import { OAUTH_COOKIE, OAUTH_COOKIE_PATH, readOAuthCookie } from "@/lib/calendar/oauth-cookie";
@@ -70,6 +71,7 @@ export async function GET(request: NextRequest) {
     });
     if (error) throw new Error(`calendar_connections: save failed: ${error.message}`);
     forgetCalendarToken(user.id);
+    track(user.id, "calendar_connected");
     after(() => reconcileCalendar(admin, user.id).then(() => undefined, (syncError) => console.warn("calendar: first sync failed", syncError instanceof Error ? syncError.message : syncError)));
     return finish("connected");
   } catch (error) {

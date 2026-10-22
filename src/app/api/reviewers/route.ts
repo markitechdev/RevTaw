@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { track } from "@/lib/analytics/server";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { REVIEWER_KIND_IDS } from "@/lib/reviewers/kinds";
 import { createReviewer, ServiceError } from "@/lib/reviewers/service";
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
 
   try {
     const result = await createReviewer(body.data.materialId, body.data.kind);
+    track(user.id, "reviewer_created", { format: body.data.kind });
     return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     if (error instanceof ServiceError) {
