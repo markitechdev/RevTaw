@@ -593,6 +593,20 @@ type AiUsageRow = {
   updated_at: string;
 };
 
+type CalendarConnectionsRow = {
+  user_id: string;
+  provider: "google";
+  calendar_id: string | null;
+  /** Encrypted; students cannot select it (column grant). */
+  refresh_token: string | null;
+  scope: string | null;
+  status: "connected" | "needs_reconnect" | "error";
+  last_synced_at: string | null;
+  last_error: string | null;
+  connected_at: string;
+  updated_at: string;
+};
+
 type EmailDigestsRow = {
   user_id: string;
   day: string;
@@ -1261,6 +1275,12 @@ export type Database = {
         Row: XpEventsRow;
         Insert: Writable<XpEventsRow, "source" | "source_key" | "points">;
         Update: Partial<XpEventsRow>;
+        Relationships: [];
+      };
+      calendar_connections: {
+        Row: CalendarConnectionsRow;
+        Insert: Writable<CalendarConnectionsRow, "user_id">;
+        Update: Partial<CalendarConnectionsRow>;
         Relationships: [];
       };
       email_digests: {

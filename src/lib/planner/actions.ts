@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { isAiError } from "@/lib/ai";
+import { syncCalendarAfterChange } from "@/lib/calendar/sync";
 import { isValidTimezone } from "@/lib/planner/dates";
 import { completeGoal, createGoal, deleteGoal } from "@/lib/planner/goals";
 import { getTask } from "@/lib/planner/queries";
@@ -40,6 +41,8 @@ function revalidate(examId?: string | null) {
   revalidatePath(routes.dashboard);
   revalidatePath(routes.materials);
   if (examId) revalidatePath(`${routes.planner}/${examId}`);
+  // Students who connected Google Calendar see the change there too (after the response is sent).
+  syncCalendarAfterChange();
 }
 
 function failure(error: unknown, fallback: string): { ok: false; message: string } {

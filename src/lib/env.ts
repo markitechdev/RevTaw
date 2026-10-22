@@ -65,6 +65,16 @@ const serverSchema = z.object({
     .regex(/^[a-z]{2,3}-[A-Z]{2}-[A-Za-z0-9]+Neural$/, "AZURE_TTS_VOICE must be a neural voice name such as fil-PH-BlessicaNeural")
     .optional(),
   AZURE_TTS_BASE_URL: z.url().optional(),
+  // Google Calendar (opt-in sync to a "RevTaw Study" calendar), official OAuth only.
+  GOOGLE_OAUTH_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
+  /** 32 random bytes, base64 (`openssl rand -base64 32`): encrypts Google refresh tokens at rest. */
+  CALENDAR_TOKEN_KEY: z
+    .string()
+    .refine((value) => Buffer.from(value, "base64").length === 32, "CALENDAR_TOKEN_KEY must be 32 random bytes in base64 (openssl rand -base64 32)")
+    .optional(),
+  /** Tests only: one origin standing in for accounts.google.com, oauth2.googleapis.com and the Calendar API. */
+  GOOGLE_API_BASE_URL: z.url().optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicSchema>;
@@ -128,6 +138,10 @@ export function getServerEnv(): ServerEnv {
     AZURE_SPEECH_REGION: process.env.AZURE_SPEECH_REGION || undefined,
     AZURE_TTS_VOICE: process.env.AZURE_TTS_VOICE || undefined,
     AZURE_TTS_BASE_URL: process.env.AZURE_TTS_BASE_URL || undefined,
+    GOOGLE_OAUTH_CLIENT_ID: process.env.GOOGLE_OAUTH_CLIENT_ID || undefined,
+    GOOGLE_OAUTH_CLIENT_SECRET: process.env.GOOGLE_OAUTH_CLIENT_SECRET || undefined,
+    CALENDAR_TOKEN_KEY: process.env.CALENDAR_TOKEN_KEY || undefined,
+    GOOGLE_API_BASE_URL: process.env.GOOGLE_API_BASE_URL || undefined,
   });
 
   if (!parsed.success) {
