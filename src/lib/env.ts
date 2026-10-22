@@ -54,6 +54,17 @@ const serverSchema = z.object({
   OLLAMA_MODEL_FAST: z.string().min(1).optional(),
   OLLAMA_MODEL_STRONG: z.string().min(1).optional(),
   OLLAMA_CONTEXT_TOKENS: z.coerce.number().int().min(1000).max(10_000_000).optional(),
+  // Azure AI Speech: Filipino text-to-speech when the browser has no Filipino voice.
+  AZURE_SPEECH_KEY: z.string().min(1).optional(),
+  AZURE_SPEECH_REGION: z
+    .string()
+    .regex(/^[a-z0-9]{2,30}$/, "AZURE_SPEECH_REGION must be a region name such as southeastasia")
+    .optional(),
+  AZURE_TTS_VOICE: z
+    .string()
+    .regex(/^[a-z]{2,3}-[A-Z]{2}-[A-Za-z0-9]+Neural$/, "AZURE_TTS_VOICE must be a neural voice name such as fil-PH-BlessicaNeural")
+    .optional(),
+  AZURE_TTS_BASE_URL: z.url().optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicSchema>;
@@ -113,6 +124,10 @@ export function getServerEnv(): ServerEnv {
     OLLAMA_MODEL_FAST: process.env.OLLAMA_MODEL_FAST || undefined,
     OLLAMA_MODEL_STRONG: process.env.OLLAMA_MODEL_STRONG || undefined,
     OLLAMA_CONTEXT_TOKENS: process.env.OLLAMA_CONTEXT_TOKENS || undefined,
+    AZURE_SPEECH_KEY: process.env.AZURE_SPEECH_KEY || undefined,
+    AZURE_SPEECH_REGION: process.env.AZURE_SPEECH_REGION || undefined,
+    AZURE_TTS_VOICE: process.env.AZURE_TTS_VOICE || undefined,
+    AZURE_TTS_BASE_URL: process.env.AZURE_TTS_BASE_URL || undefined,
   });
 
   if (!parsed.success) {

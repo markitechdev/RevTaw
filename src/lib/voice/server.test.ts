@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resetCooldowns } from "@/lib/ai/router";
 import { getServerEnv } from "@/lib/env";
-import { cloudflareRunUrl, transcribeAudio, voiceCapabilities, whisperLanguage } from "@/lib/voice/server";
+import { buildSsml, cloudflareRunUrl, escapeSsml, synthesizeSpeech, transcribeAudio, voiceCapabilities, whisperLanguage } from "@/lib/voice/server";
 
 type Seen = { url: string; init: RequestInit };
 
@@ -20,7 +20,7 @@ function stubFetch(replies: Array<() => Response>) {
   return seen;
 }
 
-const KEYS = ["GROQ_API_KEY", "GROQ_BASE_URL", "CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_AI_BASE_URL"];
+const KEYS = ["GROQ_API_KEY", "GROQ_BASE_URL", "CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_AI_BASE_URL", "AZURE_SPEECH_KEY", "AZURE_SPEECH_REGION", "AZURE_TTS_VOICE", "AZURE_TTS_BASE_URL"];
 
 beforeEach(() => {
   for (const key of KEYS) vi.stubEnv(key, "");
@@ -45,6 +45,13 @@ describe("voice helpers", () => {
     expect(whisperLanguage(null)).toBeUndefined();
   });
 
+  it("escapes SSML so text can never add markup", () => {
+    expect(escapeSsml(`<voice name="x">Tom & Jerry's</voice>`)).toBe("&lt;voice name=&quot;x&quot;&gt;Tom &amp; Jerry&apos;s&lt;/voice&gt;");
+    expect(buildSsml("Kaya mo <yan>", "fil-PH-BlessicaNeural")).toBe(
+      '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="fil-PH"><voice name="fil-PH-BlessicaNeural">Kaya mo &lt;yan&gt;</voice></speak>',
+    );
+  });
+
   it("builds Workers AI's run URL from the account or a base override", () => {
     vi.stubEnv("CLOUDFLARE_ACCOUNT_ID", "0123456789abcdef0123456789abcdef");
     expect(cloudflareRunUrl(getServerEnv(), "@cf/openai/whisper-large-v3-turbo")).toBe(
@@ -55,9 +62,11 @@ describe("voice helpers", () => {
   });
 
   it("reports what the server can do", () => {
-    expect(voiceCapabilities()).toEqual({ transcribe: false });
+    expect(voiceCapabilities()).toEqual({ transcribe: false, speak: false });
     vi.stubEnv("GROQ_API_KEY", "gsk");
-    expect(voiceCapabilities()).toEqual({ transcribe: true });
+    vi.stubEnv("AZURE_SPEECH_KEY", "az");
+    vi.stubEnv("AZURE_SPEECH_REGION", "southeastasia");
+    expect(voiceCapabilities()).toEqual({ transcribe: true, speak: true });
   });
 });
 
@@ -95,5 +104,27 @@ describe("transcribeAudio", () => {
 
   it("says so when nothing is configured", async () => {
     await expect(transcribeAudio(clip, "audio/webm", "en")).rejects.toMatchObject({ code: "not_configured" });
+  });
+});
+
+describe("synthesizeSpeech", () => {
+  it("posts escaped SSML to Azure with the Filipino voice and MP3 output", async () => {
+    vi.stubEnv("AZURE_SPEECH_KEY", "az-key");
+    vi.stubEnv("AZURE_SPEECH_REGION", "southeastasia");
+    const seen = stubFetch([() => new Response(new Uint8Array([0xff, 0xfb, 0x90]), { status: 200, headers: { "content-type": "audio/mpeg" } })]);
+    const result = await synthesizeSpeech("Bitaw! 3 < 4 & 5 > 2");
+    expect(result.voice).toBe("fil-PH-BlessicaNeural");
+    expect(result.audio.byteLength).toBe(3);
+    expect(seen[0].url).toBe("https://southeastasia.tts.speech.microsoft.com/cognitiveservices/v1");
+    const headers = seen[0].init.headers as Record<string, string>;
+    expect(headers["Ocp-Apim-Subscription-Key"]).toBe("az-key");
+    expect(headers["content-type"]).toBe("application/ssml+xml");
+    expect(headers["X-Microsoft-OutputFormat"]).toBe("audio-24khz-48kbitrate-mono-mp3");
+    expect(String(seen[0].init.body)).toContain(">Bitaw! 3 &lt; 4 &amp; 5 &gt; 2</voice>");
+  });
+
+  it("rejects a voice name that is not a neural voice", () => {
+    vi.stubEnv("AZURE_TTS_VOICE", "fil-PH-Blessica'/><evil");
+    expect(() => getServerEnv()).toThrow(/neural voice name/);
   });
 });

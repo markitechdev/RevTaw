@@ -52,7 +52,7 @@ type AssistantContextValue = {
   subscribe: (listener: (request: AssistantRequest) => void) => () => void;
   /** Work Tamari is doing (an answer on its way, a quiz being written) or the microphone and speech ("voice:listening", "voice:speaking"): Tamari shows it on Home. */
   setActivity: (key: string, active: boolean) => void;
-  /** Voice help this server offers: speech-to-text for browsers that cannot listen. */
+  /** Voice help this server offers: speech-to-text for browsers that cannot listen, Filipino read-aloud. */
   voiceServer: ServerVoice;
 };
 

@@ -18,6 +18,8 @@ export function buildContentSecurityPolicy(nonce: string): string {
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' blob: data:${supabaseOrigins.http ? ` ${supabaseOrigins.http}` : ""}`,
+    // Filipino answers read by the server play from blob: URLs; a data: clip unlocks audio on iPhone.
+    "media-src 'self' blob: data:",
     "font-src 'self'",
     `connect-src 'self'${supabaseOrigins.http ? ` ${supabaseOrigins.http} ${supabaseOrigins.ws}` : ""}${isDev ? " ws: wss:" : ""}`,
     "worker-src 'self' blob:",

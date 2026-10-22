@@ -151,4 +151,24 @@ export const webTextToSpeech: TextToSpeech = {
   },
 };
 
+/**
+ * Whether this device has a voice for the language. Chrome fills its voice
+ * list a moment after the page loads, so an empty list waits briefly.
+ */
+export async function hasBrowserVoice(language: string): Promise<boolean> {
+  if (!webTextToSpeech.isSupported()) return false;
+  const synth = window.speechSynthesis;
+  if (synth.getVoices().length === 0) {
+    await new Promise<void>((resolve) => {
+      const done = () => {
+        synth.removeEventListener("voiceschanged", done);
+        resolve();
+      };
+      synth.addEventListener("voiceschanged", done);
+      window.setTimeout(done, 600);
+    });
+  }
+  return pickVoice(language) !== null;
+}
+
 export const webSpeechProviders: VoiceProviders = { stt: webSpeechToText, tts: webTextToSpeech };

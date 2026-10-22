@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { primeAudio } from "@/lib/voice/audio-unlock";
 import type { Listening, Speaking, SpeechToText, TextToSpeech } from "@/lib/voice/types";
 
 export type VoiceStatus = "idle" | "listening" | "transcribing" | "speaking";
 
 /** What this RevTaw server can do for voice (set in the app layout from its configuration). */
-export type ServerVoice = { transcribe: boolean };
+export type ServerVoice = { transcribe: boolean; speak: boolean };
 
 type Handlers = { onPartial: (text: string) => void; onFinal: (text: string) => void };
 
@@ -21,19 +22,26 @@ function recorderAvailable(): boolean {
   return typeof window !== "undefined" && typeof window.MediaRecorder === "function" && Boolean(navigator.mediaDevices?.getUserMedia);
 }
 
-type Loaded = { stt: SpeechToText; tts: TextToSpeech };
+function isFilipino(language: string): boolean {
+  const base = language.toLowerCase().split(/[-_]/)[0];
+  return base === "fil" || base === "tl";
+}
+
+type Loaded = { stt: SpeechToText; tts: TextToSpeech; hasBrowserVoice: (language: string) => Promise<boolean>; serverTts: TextToSpeech | null };
 
 let loading: Promise<Loaded> | null = null;
 /**
  * The voice layer is a separate chunk, fetched on the first tap of the
- * microphone: the browser's Web Speech, plus recording for the server's
- * speech-to-text in browsers that cannot listen, when this server offers it.
+ * microphone: the browser's Web Speech, plus the server fallbacks when this
+ * server offers them (recording for browsers that cannot listen, Filipino
+ * read-aloud for devices without a Filipino voice).
  */
 function loadProviders(server: ServerVoice): Promise<Loaded> {
   loading ??= (async () => {
     const web = await import("@/lib/voice/web-speech");
     const stt = !recognitionAvailable() && server.transcribe && recorderAvailable() ? (await import("@/lib/voice/recorder")).recordedSpeechToText : web.webSpeechToText;
-    return { stt, tts: web.webTextToSpeech };
+    const serverTts = server.speak ? (await import("@/lib/voice/server-tts")).serverTextToSpeech : null;
+    return { stt, tts: web.webTextToSpeech, hasBrowserVoice: web.hasBrowserVoice, serverTts };
   })();
   loading.catch(() => {
     loading = null;
@@ -45,7 +53,7 @@ function loadProviders(server: ServerVoice): Promise<Loaded> {
  * Listening and reading aloud for Ask RevTaw. One thing at a time: starting
  * to listen stops any reading, and the student can always stop either.
  */
-export function useVoice(handlers: Handlers, server: ServerVoice = { transcribe: false }) {
+export function useVoice(handlers: Handlers, server: ServerVoice = { transcribe: false, speak: false }) {
   const [supported] = useState(() => recognitionAvailable() || (server.transcribe && recorderAvailable()));
   const [status, setStatus] = useState<VoiceStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +86,8 @@ export function useVoice(handlers: Handlers, server: ServerVoice = { transcribe:
       stopSpeaking();
       setError(null);
       if (listening.current) return;
+      // Inside the tap: lets a Filipino answer read by the server play later on iPhone.
+      if (serverRef.current.speak) primeAudio();
       setStatus("listening");
       let stt: SpeechToText;
       try {
@@ -108,12 +118,15 @@ export function useVoice(handlers: Handlers, server: ServerVoice = { transcribe:
 
   const speak = useCallback(async (text: string, language: string) => {
     if (!text.trim()) return;
-    let tts: TextToSpeech;
+    let loaded: Loaded;
     try {
-      ({ tts } = await loadProviders(serverRef.current));
+      loaded = await loadProviders(serverRef.current);
     } catch {
       return;
     }
+    // Filipino answers on a device without a Filipino voice are read by the server's neural voice.
+    const useServer = loaded.serverTts !== null && isFilipino(language) && !(await loaded.hasBrowserVoice(language));
+    const tts = useServer ? loaded.serverTts! : loaded.tts;
     if (!tts.isSupported()) return;
     speaking.current?.cancel();
     setStatus("speaking");

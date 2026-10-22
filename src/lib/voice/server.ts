@@ -6,20 +6,24 @@ import { coolingDownUntil, startCooldown } from "@/lib/ai/router";
 import { getServerEnv, type ServerEnv } from "@/lib/env";
 
 /**
- * Server fallback for voice (research doc §15). The browser's Web Speech
- * stays the first choice; this runs only where it is missing:
+ * Server fallbacks for voice (research doc §15). The browser's Web Speech
+ * stays the first choice; these run only where it is missing:
  *
  *   speech-to-text  Groq Whisper large-v3-turbo, then Cloudflare's Whisper
  *                   (Groq first: its Whisper quota is separate from its text
  *                   models, while Cloudflare's daily Neurons are shared)
+ *   text-to-speech  Azure AI Speech neural voices for Filipino
  *
  * Audio is never stored. Keys stay in server environment variables.
  */
 
-export type VoiceCapabilities = { transcribe: boolean };
+export type VoiceCapabilities = { transcribe: boolean; speak: boolean };
 
 export const GROQ_WHISPER_MODEL = "whisper-large-v3-turbo";
 export const CLOUDFLARE_WHISPER_MODEL = "@cf/openai/whisper-large-v3-turbo";
+/** Female Filipino neural voice; fil-PH-AngeloNeural is the male one. Confirm with the voice list (service check). */
+export const DEFAULT_AZURE_VOICE = "fil-PH-BlessicaNeural";
+const AZURE_OUTPUT_FORMAT = "audio-24khz-48kbitrate-mono-mp3";
 
 /** Names and words Whisper should spell RevTaw's way. */
 const WHISPER_PROMPT = "Tamari, RevTaw, Bitaw, reviewer, quiz, flashcards, planner, Pomodoro.";
@@ -28,8 +32,12 @@ function cloudflareConfigured(env: ServerEnv): boolean {
   return Boolean(env.CLOUDFLARE_API_TOKEN && (env.CLOUDFLARE_ACCOUNT_ID || env.CLOUDFLARE_AI_BASE_URL));
 }
 
+function azureConfigured(env: ServerEnv): boolean {
+  return Boolean(env.AZURE_SPEECH_KEY && (env.AZURE_SPEECH_REGION || env.AZURE_TTS_BASE_URL));
+}
+
 export function voiceCapabilities(env: ServerEnv = getServerEnv()): VoiceCapabilities {
-  return { transcribe: Boolean(env.GROQ_API_KEY) || cloudflareConfigured(env) };
+  return { transcribe: Boolean(env.GROQ_API_KEY) || cloudflareConfigured(env), speak: azureConfigured(env) };
 }
 
 /** Whisper's language code from a BCP 47 tag: Filipino and Tagalog are "tl"; unknown means auto-detect. */
@@ -126,4 +134,53 @@ export async function transcribeAudio(audio: Uint8Array, mime: string, languageT
     }
   }
   throw lastError ?? new AiError("rate_limited", "every speech-to-text provider is cooling down");
+}
+
+/** Escapes text for an SSML element. */
+export function escapeSsml(text: string): string {
+  return text.replace(/[<>&"']/g, (char) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;" })[char] ?? char);
+}
+
+export function buildSsml(text: string, voice: string): string {
+  const lang = voice.split("-").slice(0, 2).join("-");
+  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${lang}"><voice name="${voice}">${escapeSsml(text)}</voice></speak>`;
+}
+
+function azureBase(env: ServerEnv): string {
+  return (env.AZURE_TTS_BASE_URL ?? `https://${env.AZURE_SPEECH_REGION}.tts.speech.microsoft.com`).replace(/\/+$/, "");
+}
+
+/** Reads text aloud with an Azure neural voice; returns MP3 bytes. */
+export async function synthesizeSpeech(text: string, signal?: AbortSignal): Promise<{ audio: ArrayBuffer; voice: string }> {
+  const env = getServerEnv();
+  if (!azureConfigured(env)) throw new AiError("not_configured", "text-to-speech needs AZURE_SPEECH_KEY and AZURE_SPEECH_REGION", false);
+  const voice = env.AZURE_TTS_VOICE ?? DEFAULT_AZURE_VOICE;
+  const response = await fetchWithTimeout(
+    `${azureBase(env)}/cognitiveservices/v1`,
+    {
+      method: "POST",
+      headers: {
+        "Ocp-Apim-Subscription-Key": env.AZURE_SPEECH_KEY!,
+        "content-type": "application/ssml+xml",
+        "X-Microsoft-OutputFormat": AZURE_OUTPUT_FORMAT,
+        "user-agent": "RevTaw",
+      },
+      body: buildSsml(text, voice),
+    },
+    signal,
+    30_000,
+  );
+  if (!response.ok) throw await statusToAiError("azure speech", response);
+  return { audio: await response.arrayBuffer(), voice };
+}
+
+/** Whether the configured voice exists in the region (for the service check). */
+export async function azureVoiceListed(): Promise<{ voice: string; listed: boolean }> {
+  const env = getServerEnv();
+  if (!azureConfigured(env)) throw new AiError("not_configured", "Azure Speech is not configured", false);
+  const voice = env.AZURE_TTS_VOICE ?? DEFAULT_AZURE_VOICE;
+  const response = await fetchWithTimeout(`${azureBase(env)}/cognitiveservices/voices/list`, { headers: { "Ocp-Apim-Subscription-Key": env.AZURE_SPEECH_KEY! } }, undefined, 15_000);
+  if (!response.ok) throw await statusToAiError("azure speech", response);
+  const voices = (await response.json().catch(() => [])) as Array<{ ShortName?: string }>;
+  return { voice, listed: voices.some((entry) => entry.ShortName === voice) };
 }
