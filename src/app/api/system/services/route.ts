@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { hasCronSecret } from "@/lib/server/cron-auth";
-import { aiSummary, checkAiProviders } from "@/lib/server/service-check";
+import { aiSummary, checkAiProviders, checkEmbeddings, embeddingsSummary } from "@/lib/server/service-check";
 import { getCurrentUser } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -22,9 +22,15 @@ export async function GET(request: Request) {
   }
 
   const live = new URL(request.url).searchParams.get("live") === "1";
+  const [aiLive, embeddingLive, embeddings] = await Promise.all([
+    live ? checkAiProviders() : null,
+    live ? checkEmbeddings() : null,
+    embeddingsSummary(),
+  ]);
   const body = {
     checkedAt: new Date().toISOString(),
-    ai: { ...aiSummary(), ...(live ? { live: await checkAiProviders() } : {}) },
+    ai: { ...aiSummary(), ...(aiLive ? { live: aiLive } : {}) },
+    search: { ...embeddings, ...(embeddingLive ? { live: embeddingLive } : {}) },
     hint: live ? undefined : "Add ?live=1 to send one tiny request to each configured service.",
   };
   return NextResponse.json(body, { headers: { "cache-control": "no-store" } });

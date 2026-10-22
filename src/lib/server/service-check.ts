@@ -1,10 +1,12 @@
 import "server-only";
 
 import { buildProvider, describeAiSetup } from "@/lib/ai";
+import { EMBEDDING_DIMENSIONS, EMBEDDING_MODEL, embeddingsConfigured, embedTexts } from "@/lib/ai/embeddings";
 import { isAiError } from "@/lib/ai/errors";
 import { getDailyLimits } from "@/lib/ai/quota";
 import { cooldownSnapshot, recentRoutes } from "@/lib/ai/router";
 import type { AiTier } from "@/lib/ai/types";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * The service check behind /api/system/services: which providers this
@@ -99,4 +101,24 @@ export function aiSummary() {
     cooldowns: cooldownSnapshot(),
     recentRoutes: recentRoutes().slice(0, 15),
   };
+}
+
+/** Embeds one short text and checks the vector's size. */
+export async function checkEmbeddings(): Promise<LiveCheck | null> {
+  if (!embeddingsConfigured()) return null;
+  return timed("embeddings", "cloudflare", EMBEDDING_MODEL, async () => {
+    const [vector] = await embedTexts(["Tamari, saan nangyayari ang Calvin cycle?"], { timeoutMs: 15_000 });
+    return `${vector.length} dimensions (expected ${EMBEDDING_DIMENSIONS})`;
+  });
+}
+
+/** Whether search can use embeddings, and how many chunks still wait for one (needs the secret key). */
+export async function embeddingsSummary() {
+  const admin = createAdminClient();
+  let waiting: number | null = null;
+  if (admin) {
+    const { count, error } = await admin.from("material_chunks").select("id", { count: "exact", head: true }).is("embedding", null);
+    waiting = error ? null : (count ?? 0);
+  }
+  return { configured: embeddingsConfigured(), model: EMBEDDING_MODEL, chunksWithoutEmbedding: waiting };
 }
