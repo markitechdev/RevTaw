@@ -57,6 +57,7 @@ export class OpenAiProvider implements AiProvider {
         }),
       },
       options.signal,
+      options.timeoutMs,
     );
 
     if (!response.ok) {

@@ -20,9 +20,18 @@ export type AiGenerateOptions = {
   temperature?: number;
   /** Ask the provider for a JSON object (best effort; output is still validated). */
   json?: boolean;
-  /** Free-form label used for logging and by the mock provider. */
+  /**
+   * Optional strict JSON schema. Providers that support strict structured
+   * output (Groq's gpt-oss models) enforce it; the others fall back to `json`.
+   * In strict mode every property must be required and every object must set
+   * additionalProperties: false.
+   */
+  jsonSchema?: { name: string; schema: Record<string, unknown> };
+  /** Free-form label used for logging, routing and by the mock provider. */
   task?: string;
   signal?: AbortSignal;
+  /** Per-call timeout set by the router so a fallback still fits the route's time limit. */
+  timeoutMs?: number;
 };
 
 export type AiUsage = {
@@ -43,6 +52,12 @@ export interface AiProvider {
   readonly model: string;
   readonly supportsVision: boolean;
   generate(options: AiGenerateOptions): Promise<AiGenerateResult>;
+  /**
+   * Whether a request fits this provider's per-request budget (for example
+   * Groq's free 8K tokens a minute). The router skips providers that say no.
+   * Providers without a budget leave this out.
+   */
+  fits?(options: AiGenerateOptions): boolean;
 }
 
 /** Model tiers (spec §46): cheaper models for simple tasks, stronger for reasoning. */

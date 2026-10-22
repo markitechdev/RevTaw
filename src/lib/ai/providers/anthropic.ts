@@ -67,6 +67,7 @@ export class AnthropicProvider implements AiProvider {
         }),
       },
       options.signal,
+      options.timeoutMs,
     );
 
     if (!response.ok) {

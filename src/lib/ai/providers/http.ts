@@ -26,6 +26,18 @@ export async function fetchWithTimeout(
   }
 }
 
+/** Reads a Retry-After header given in seconds or as an HTTP date. */
+export function parseRetryAfter(value: string | null, now: number = Date.now()): number | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (/^\d+(\.\d+)?$/.test(trimmed)) {
+    return Math.max(0, Math.ceil(Number(trimmed)));
+  }
+  const date = Date.parse(trimmed);
+  if (Number.isNaN(date)) return undefined;
+  return Math.max(0, Math.ceil((date - now) / 1000));
+}
+
 /** Maps an HTTP error response to an AiError without leaking the body to users. */
 export async function statusToAiError(provider: string, response: Response): Promise<AiError> {
   let detail = `${provider} responded with HTTP ${response.status}`;
@@ -35,18 +47,20 @@ export async function statusToAiError(provider: string, response: Response): Pro
   } catch {
     // ignore body read failures
   }
+  const retryAfterSeconds = parseRetryAfter(response.headers.get("retry-after"));
 
-  if (response.status === 401 || response.status === 403) {
+  // 404 means a wrong model name or base URL: a configuration problem, not a transient one.
+  if (response.status === 401 || response.status === 403 || response.status === 404) {
     return new AiError("not_configured", detail, false);
   }
   if (response.status === 429) {
-    return new AiError("rate_limited", detail);
+    return new AiError("rate_limited", detail, true, { retryAfterSeconds });
   }
   if (response.status === 413) {
     return new AiError("content_too_large", detail, false);
   }
   if (response.status >= 500 || response.status === 408 || response.status === 529) {
-    return new AiError("provider_error", detail, true);
+    return new AiError("provider_error", detail, true, { retryAfterSeconds });
   }
   return new AiError("provider_error", detail, false);
 }

@@ -15,18 +15,32 @@ const FRIENDLY: Record<AiErrorCode, string> = {
   unsupported: "This operation is not supported by the configured AI provider.",
 };
 
+export type AiErrorOptions = {
+  /** Student-safe message that replaces the default one for this code. */
+  message?: string;
+  /** Seconds the provider asks us to wait, when known. */
+  retryAfterSeconds?: number;
+};
+
 /** Error with a student-safe message; `detail` is for server logs only. */
 export class AiError extends Error {
   readonly code: AiErrorCode;
   readonly detail?: string;
   readonly retryable: boolean;
+  readonly retryAfterSeconds?: number;
 
-  constructor(code: AiErrorCode, detail?: string, retryable = code === "rate_limited" || code === "provider_error") {
-    super(FRIENDLY[code]);
+  constructor(
+    code: AiErrorCode,
+    detail?: string,
+    retryable = code === "rate_limited" || code === "provider_error",
+    options: AiErrorOptions = {},
+  ) {
+    super(options.message ?? FRIENDLY[code]);
     this.name = "AiError";
     this.code = code;
     this.detail = detail;
     this.retryable = retryable;
+    this.retryAfterSeconds = options.retryAfterSeconds;
   }
 }
 

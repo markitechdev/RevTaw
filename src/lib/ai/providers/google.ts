@@ -59,6 +59,7 @@ export class GoogleProvider implements AiProvider {
         }),
       },
       options.signal,
+      options.timeoutMs,
     );
 
     if (!response.ok) {

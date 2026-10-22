@@ -31,10 +31,12 @@ runs `npm install`, starts the dev server and opens the app in your browser
 (`.vscode/launch.json`; "skip install" restarts faster).
 
 AI features (material analysis, image transcription, reviewer and quiz
-generation, grading of open answers) need one provider key in `.env.local`
-(`ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `GOOGLE_AI_API_KEY`). Without a
-key, development uses a built-in mock provider so the rest of the app keeps
-working.
+generation, grading, Tamari) run on the server through a router: Groq first,
+then Cloudflare Workers AI (both have free tiers), then Anthropic or OpenAI
+if you add a paid key, then a local Ollama. Put `GROQ_API_KEY`,
+`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in `.env.local`.
+Without any key, development uses a built-in mock provider so the rest of
+the app keeps working.
 
 Planner reminders reach the in-app bell (and the browser, while RevTaw is
 open) without any setup. Email reminders are optional: set an email provider

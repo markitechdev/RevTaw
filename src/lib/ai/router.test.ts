@@ -1,0 +1,128 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { AiError } from "@/lib/ai/errors";
+import { AiRouter, cooldownFor, coolingDownUntil, recentRoutes, resetCooldowns } from "@/lib/ai/router";
+import type { AiGenerateOptions, AiProvider } from "@/lib/ai/types";
+
+type Behaviour = "ok" | AiError | (() => never);
+
+function fake(name: string, behaviours: Behaviour[], extra: Partial<AiProvider> = {}) {
+  const calls: AiGenerateOptions[] = [];
+  const provider: AiProvider = {
+    name,
+    model: `${name}-model`,
+    supportsVision: false,
+    async generate(options) {
+      calls.push(options);
+      const next = behaviours.shift() ?? "ok";
+      if (next === "ok") return { text: `from ${name}`, usage: { inputTokens: 1, outputTokens: 1 }, provider: name, model: `${name}-model` };
+      if (typeof next === "function") return next();
+      throw next;
+    },
+    ...extra,
+  };
+  return { provider, calls };
+}
+
+const ask: AiGenerateOptions = { task: "tutor_reply", messages: [{ role: "user", content: "Hi" }] };
+
+beforeEach(() => {
+  resetCooldowns();
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe("AiRouter", () => {
+  it("uses the first provider when it answers", async () => {
+    const groq = fake("groq", ["ok"]);
+    const cloudflare = fake("cloudflare", ["ok"]);
+    const result = await new AiRouter([groq.provider, cloudflare.provider]).generate(ask);
+    expect(result.provider).toBe("groq");
+    expect(cloudflare.calls).toHaveLength(0);
+  });
+
+  it("falls back on a 429 and skips the cooling provider on the next call", async () => {
+    const groq = fake("groq", [new AiError("rate_limited", "429", true, { retryAfterSeconds: 30 })]);
+    const cloudflare = fake("cloudflare", ["ok", "ok"]);
+    const router = new AiRouter([groq.provider, cloudflare.provider]);
+
+    expect((await router.generate(ask)).provider).toBe("cloudflare");
+    expect(coolingDownUntil(groq.provider)).not.toBeNull();
+    expect((await router.generate(ask)).provider).toBe("cloudflare");
+    expect(groq.calls).toHaveLength(1);
+    expect(recentRoutes()[0].attempts.map((attempt) => `${attempt.provider}:${attempt.outcome}`)).toEqual(["groq:skipped", "cloudflare:ok"]);
+  });
+
+  it("does not cool a provider down for a request-specific failure", async () => {
+    const groq = fake("groq", [new AiError("content_too_large", "413", false), "ok"]);
+    const cloudflare = fake("cloudflare", ["ok"]);
+    const router = new AiRouter([groq.provider, cloudflare.provider]);
+    expect((await router.generate(ask)).provider).toBe("cloudflare");
+    expect(coolingDownUntil(groq.provider)).toBeNull();
+    expect((await router.generate(ask)).provider).toBe("groq");
+  });
+
+  it("skips providers whose budget the request exceeds", async () => {
+    const groq = fake("groq", ["ok"], { fits: () => false });
+    const cloudflare = fake("cloudflare", ["ok"]);
+    expect((await new AiRouter([groq.provider, cloudflare.provider]).generate(ask)).provider).toBe("cloudflare");
+    expect(groq.calls).toHaveLength(0);
+  });
+
+  it("sends images only to providers that can read them", async () => {
+    const groq = fake("groq", ["ok"]);
+    const cloudflare = fake("cloudflare", ["ok"], { supportsVision: true });
+    const router = new AiRouter([groq.provider, cloudflare.provider]);
+    expect(router.supportsVision).toBe(true);
+    const result = await router.generate({ messages: [{ role: "user", content: [{ type: "image", mimeType: "image/png", data: "AA" }] }] });
+    expect(result.provider).toBe("cloudflare");
+    expect(groq.calls).toHaveLength(0);
+  });
+
+  it("throws the last provider error when every provider fails", async () => {
+    const groq = fake("groq", [new AiError("provider_error", "500")]);
+    const cloudflare = fake("cloudflare", [new AiError("rate_limited", "429")]);
+    await expect(new AiRouter([groq.provider, cloudflare.provider]).generate(ask)).rejects.toMatchObject({ code: "rate_limited" });
+  });
+
+  it("explains when nothing could be tried", async () => {
+    const groq = fake("groq", [], { fits: () => false });
+    await expect(new AiRouter([groq.provider]).generate(ask)).rejects.toMatchObject({ code: "content_too_large" });
+    const vision = fake("groq", []);
+    await expect(
+      new AiRouter([vision.provider]).generate({ messages: [{ role: "user", content: [{ type: "image", mimeType: "image/png", data: "AA" }] }] }),
+    ).rejects.toMatchObject({ code: "unsupported" });
+  });
+
+  it("passes the remaining time to each provider", async () => {
+    const groq = fake("groq", ["ok"]);
+    await new AiRouter([groq.provider], { deadlineMs: 30_000 }).generate(ask);
+    expect(groq.calls[0].timeoutMs).toBeGreaterThan(25_000);
+    expect(groq.calls[0].timeoutMs).toBeLessThanOrEqual(30_000);
+  });
+
+  it("lets programming errors through instead of trying the next provider", async () => {
+    const groq = fake("groq", [() => {
+      throw new TypeError("bug");
+    }]);
+    const cloudflare = fake("cloudflare", ["ok"]);
+    await expect(new AiRouter([groq.provider, cloudflare.provider]).generate(ask)).rejects.toThrow(TypeError);
+    expect(cloudflare.calls).toHaveLength(0);
+  });
+});
+
+describe("cooldownFor", () => {
+  it("honours Retry-After within bounds and backs off longer for bad keys", () => {
+    expect(cooldownFor(new AiError("rate_limited", "", true, { retryAfterSeconds: 2 }))).toBe(15_000);
+    expect(cooldownFor(new AiError("rate_limited", "", true, { retryAfterSeconds: 90 }))).toBe(90_000);
+    expect(cooldownFor(new AiError("rate_limited", "", true, { retryAfterSeconds: 86_400 }))).toBe(3_600_000);
+    expect(cooldownFor(new AiError("rate_limited"))).toBe(300_000);
+    expect(cooldownFor(new AiError("not_configured"))).toBe(1_800_000);
+    expect(cooldownFor(new AiError("provider_error", "", true))).toBe(300_000);
+    expect(cooldownFor(new AiError("provider_error", "", false))).toBeNull();
+    expect(cooldownFor(new AiError("invalid_output"))).toBeNull();
+  });
+});
