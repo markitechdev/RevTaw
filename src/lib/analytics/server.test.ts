@@ -10,7 +10,7 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-import { analyticsId, capturePayload, cleanProperties, track } from "@/lib/analytics/server";
+import { analyticsConfigured, analyticsId, capturePayload, cleanProperties, track } from "@/lib/analytics/server";
 
 const USER = "0e6e7e4a-5b1c-4d2e-8f3a-9b8c7d6e5f40";
 
@@ -19,6 +19,8 @@ beforeEach(() => {
   storedPreferences = {};
   vi.stubEnv("POSTHOG_KEY", "phc_test");
   vi.stubEnv("POSTHOG_HOST", "");
+  vi.stubEnv("SUPABASE_SECRET_KEY", "sb_secret_test");
+  vi.stubEnv("CRON_SECRET", "");
 });
 
 afterEach(() => {
@@ -45,11 +47,12 @@ describe("analytics", () => {
   });
 
   it("sends anonymous events without person profiles or location", () => {
-    const payload = capturePayload("phc_test", USER, "calendar_connected", {}, new Date("2026-10-22T01:00:00Z"));
+    const pseudonym = analyticsId(USER, "server-only-key");
+    const payload = capturePayload("phc_test", pseudonym, "calendar_connected", {}, new Date("2026-10-22T01:00:00Z"));
     expect(payload).toEqual({
       api_key: "phc_test",
       event: "calendar_connected",
-      distinct_id: analyticsId(USER, "phc_test"),
+      distinct_id: pseudonym,
       timestamp: "2026-10-22T01:00:00.000Z",
       properties: { $process_person_profile: false, $geoip_disable: true, $lib: "revtaw-server" },
     });
@@ -68,7 +71,26 @@ describe("analytics", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://eu.i.posthog.com/i/v0/e/");
-    expect(JSON.parse(String(init.body))).toMatchObject({ event: "quiz_created", properties: { questions: 5, mode: "exam" } });
+    const body = JSON.parse(String(init.body));
+    expect(body).toMatchObject({ event: "quiz_created", properties: { questions: 5, mode: "exam" } });
+    // The public project key alone can't turn an account id into the pseudonym.
+    expect(body.distinct_id).toMatch(/^[\w-]{32}$/);
+    expect(body.distinct_id).not.toBe(analyticsId(USER, "phc_test"));
+  });
+
+  it("stays off without a server secret to make pseudonyms from", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubEnv("SUPABASE_SECRET_KEY", "");
+    storedPreferences = { privacy: { analytics: true } };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    expect(analyticsConfigured()).toBe(false);
+    track(USER, "quiz_created");
+    await flush();
+    expect(deferred).toHaveLength(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.stubEnv("CRON_SECRET", "a-long-scheduler-secret");
+    expect(analyticsConfigured()).toBe(true);
   });
 
   it("does nothing when analytics is not set up", async () => {
