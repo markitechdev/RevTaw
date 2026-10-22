@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     ticket = await consumeAiRequest("voice");
     const { audio } = await synthesizeSpeech(body.data.text, request.signal);
     // For voice, the allowance's output column counts characters read aloud (Azure's free tier is 0.5M a month).
-    recordAiTokens("voice", { inputTokens: 0, outputTokens: body.data.text.length });
+    recordAiTokens("voice", { inputTokens: 0, outputTokens: body.data.text.length }, user.id);
     return new Response(audio, { headers: { "content-type": "audio/mpeg", "content-length": String(audio.byteLength), "cache-control": "no-store" } });
   } catch (error) {
     if (isAiError(error)) {

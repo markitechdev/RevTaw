@@ -1317,7 +1317,7 @@ export type Database = {
         Returns: Array<{ allowed: boolean; used: number; daily_limit: number; resets_at: string; student_id: string }>;
       };
       add_ai_tokens: {
-        Args: { p_kind: AiUsageKind; p_input_tokens: number; p_output_tokens: number };
+        Args: { p_user_id: string; p_kind: AiUsageKind; p_input_tokens: number; p_output_tokens: number };
         Returns: undefined;
       };
       refund_ai_request: {

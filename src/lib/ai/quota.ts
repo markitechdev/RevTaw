@@ -15,8 +15,9 @@ import { createClient } from "@/lib/supabase/server";
  * Every AI call made while a student is signed in takes one request from
  * today's allowance for its kind, in Postgres (migration 0016), so the limit
  * holds across server instances. Repairs of a malformed answer are free, a
- * request every provider failed is given back, and token counts are added
- * after each call so real request sizes can be measured.
+ * request every provider failed is given back, and token counts are added by
+ * the server after each call (migration 0021) so real request sizes can be
+ * measured.
  *
  * Limits come from AI_DAILY_LIMITS, e.g. "chat=60,generate=10"; "off" turns
  * the allowance off. Calls without a signed-in student (scripts, tests) are
@@ -156,19 +157,20 @@ export async function consumeAiRequest(kind: AiUsageKind): Promise<AiQuotaTicket
   return { kind, studentId: row.student_id };
 }
 
-/** Adds a finished call's tokens to the student's row (after the response is sent). */
-export function recordAiTokens(kind: AiUsageKind, usage: AiUsage): void {
-  if (!getDailyLimits()) return;
+/**
+ * Adds a finished call's tokens to the student's row after the response is
+ * sent. Only the server writes these (needs SUPABASE_SECRET_KEY).
+ */
+export function recordAiTokens(kind: AiUsageKind, usage: AiUsage, studentId: string | null): void {
+  if (!studentId || !getDailyLimits()) return;
   const input = Math.min(2_000_000, Math.max(0, Math.round(usage.inputTokens || 0)));
   const output = Math.min(2_000_000, Math.max(0, Math.round(usage.outputTokens || 0)));
   if (input === 0 && output === 0) return;
-  // Read the session cookies now, while the request is still in scope.
-  const client = createClient().catch(() => null);
+  const admin = createAdminClient();
+  if (!admin) return;
   later(async () => {
-    const supabase = await client;
-    if (!supabase) return;
-    const { error } = await supabase.rpc("add_ai_tokens", { p_kind: kind, p_input_tokens: input, p_output_tokens: output });
-    if (error && error.code !== "42501") warnUnavailable(`${error.code ?? "error"}: ${error.message}`);
+    const { error } = await admin.rpc("add_ai_tokens", { p_user_id: studentId, p_kind: kind, p_input_tokens: input, p_output_tokens: output });
+    if (error) warnUnavailable(`${error.code ?? "error"}: ${error.message}`);
   });
 }
 
@@ -184,6 +186,9 @@ export function refundAiRequest(ticket: AiQuotaTicket): void {
 
 /** Wraps a provider (or the router) so every call is metered against the student's allowance. */
 export class MeteredProvider implements AiProvider {
+  /** The student of the last counted call, so a repair's tokens land on the same row. */
+  private studentId: string | null = null;
+
   constructor(readonly inner: AiProvider) {}
 
   get name(): string {
@@ -205,9 +210,10 @@ export class MeteredProvider implements AiProvider {
   async generate(options: AiGenerateOptions): Promise<AiGenerateResult> {
     const kind = usageKindForTask(options.task);
     const ticket = (options.attempt ?? 1) > 1 ? null : await consumeAiRequest(kind);
+    if (ticket) this.studentId = ticket.studentId;
     try {
       const result = await this.inner.generate(options);
-      recordAiTokens(kind, result.usage);
+      recordAiTokens(kind, result.usage, this.studentId);
       return result;
     } catch (error) {
       if (ticket && isAiError(error)) refundAiRequest(ticket);

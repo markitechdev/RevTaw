@@ -9,7 +9,7 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ rpc }) })
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc: adminRpc }) }));
 
 import { AiError } from "@/lib/ai/errors";
-import { limitMessage, MeteredProvider, parseDailyLimits, usageKindForTask } from "@/lib/ai/quota";
+import { limitMessage, MeteredProvider, parseDailyLimits, recordAiTokens, usageKindForTask } from "@/lib/ai/quota";
 import type { AiProvider } from "@/lib/ai/types";
 
 async function flush() {
@@ -64,13 +64,35 @@ describe("daily limit settings", () => {
 });
 
 describe("MeteredProvider", () => {
-  it("takes one request, then records tokens after the response", async () => {
-    rpc.mockResolvedValueOnce(allowed).mockResolvedValueOnce({ data: null, error: null });
+  it("takes one request, then the server records tokens after the response", async () => {
+    rpc.mockResolvedValueOnce(allowed);
+    adminRpc.mockResolvedValue({ data: null, error: null });
     const result = await new MeteredProvider(provider()).generate({ task: "tutor_reply", messages: [{ role: "user", content: "x" }] });
     expect(result.text).toBe("{}");
     expect(rpc).toHaveBeenCalledWith("consume_ai_request", { p_kind: "chat", p_daily_limit: 60 });
     await flush();
-    expect(rpc).toHaveBeenLastCalledWith("add_ai_tokens", { p_kind: "chat", p_input_tokens: 300, p_output_tokens: 40 });
+    // Only the server's secret key may add tokens (migration 0021), never the student's session.
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(adminRpc).toHaveBeenCalledWith("add_ai_tokens", { p_user_id: "u1", p_kind: "chat", p_input_tokens: 300, p_output_tokens: 40 });
+  });
+
+  it("keeps a repair's tokens on the same student's row", async () => {
+    rpc.mockResolvedValueOnce(allowed);
+    adminRpc.mockResolvedValue({ data: null, error: null });
+    const metered = new MeteredProvider(provider());
+    await metered.generate({ task: "generate_quiz", messages: [{ role: "user", content: "x" }] });
+    await metered.generate({ task: "generate_quiz", attempt: 2, messages: [{ role: "user", content: "x" }] });
+    await flush();
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(adminRpc).toHaveBeenCalledTimes(2);
+    expect(adminRpc).toHaveBeenLastCalledWith("add_ai_tokens", { p_user_id: "u1", p_kind: "generate", p_input_tokens: 300, p_output_tokens: 40 });
+  });
+
+  it("records nothing without a student or tokens", async () => {
+    recordAiTokens("chat", { inputTokens: 10, outputTokens: 1 }, null);
+    recordAiTokens("chat", { inputTokens: 0, outputTokens: 0 }, "u1");
+    await flush();
+    expect(adminRpc).not.toHaveBeenCalled();
   });
 
   it("stops with a friendly message when the allowance is used up", async () => {

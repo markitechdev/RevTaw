@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     ticket = await consumeAiRequest("voice");
     const transcript = await transcribeAudio(bytes, mime, language, request.signal);
     // For voice, the allowance's input column counts seconds heard.
-    recordAiTokens("voice", { inputTokens: Math.round(transcript.seconds ?? 0), outputTokens: 0 });
+    recordAiTokens("voice", { inputTokens: Math.round(transcript.seconds ?? 0), outputTokens: 0 }, user.id);
     track(user.id, "voice_transcribed", { provider: transcript.provider });
     return NextResponse.json({ text: transcript.text }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
