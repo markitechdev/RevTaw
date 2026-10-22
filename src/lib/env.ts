@@ -15,6 +15,29 @@ import { z } from "zod";
 const MISSING_HINT =
   "Copy .env.example to .env.local and fill in the values from your Supabase project (Project Settings → API).";
 
+/** True for URLs that point at this machine (localhost, 127.0.0.1, [::1], *.localhost). */
+export function isLoopbackUrl(value: string): boolean {
+  try {
+    const { hostname } = new URL(value);
+    return hostname === "localhost" || hostname.endsWith(".localhost") || hostname === "127.0.0.1" || hostname === "[::1]";
+  } catch {
+    return false;
+  }
+}
+
+/** https anywhere, or http only to this machine, so API keys never travel in clear text. */
+export function isSecureEndpoint(value: string): boolean {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === "https:" || (protocol === "http:" && isLoopbackUrl(value));
+  } catch {
+    return false;
+  }
+}
+
+/** An API base URL override that will carry a secret key. */
+const keyedEndpoint = (name: string) => z.url().refine(isSecureEndpoint, `${name} must start with https:// (http:// is allowed only for localhost)`);
+
 const publicSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.url({ message: "NEXT_PUBLIC_SUPABASE_URL must be a URL" }),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z
@@ -40,7 +63,7 @@ const serverSchema = z.object({
   GROQ_MODEL_FAST: z.string().min(1).optional(),
   GROQ_MODEL_STRONG: z.string().min(1).optional(),
   GROQ_MAX_REQUEST_TOKENS: z.coerce.number().int().min(1000).max(10_000_000).optional(),
-  GROQ_BASE_URL: z.url().optional(),
+  GROQ_BASE_URL: keyedEndpoint("GROQ_BASE_URL").optional(),
   CLOUDFLARE_ACCOUNT_ID: z
     .string()
     .regex(/^[a-f0-9]{32}$/i, "CLOUDFLARE_ACCOUNT_ID must be the 32-character account ID from the Cloudflare dashboard")
@@ -49,7 +72,7 @@ const serverSchema = z.object({
   CLOUDFLARE_MODEL_FAST: z.string().min(1).optional(),
   CLOUDFLARE_MODEL_STRONG: z.string().min(1).optional(),
   CLOUDFLARE_VISION_MODEL: z.string().min(1).optional(),
-  CLOUDFLARE_AI_BASE_URL: z.url().optional(),
+  CLOUDFLARE_AI_BASE_URL: keyedEndpoint("CLOUDFLARE_AI_BASE_URL").optional(),
   OLLAMA_BASE_URL: z.url().optional(),
   OLLAMA_MODEL_FAST: z.string().min(1).optional(),
   OLLAMA_MODEL_STRONG: z.string().min(1).optional(),
@@ -64,7 +87,7 @@ const serverSchema = z.object({
     .string()
     .regex(/^[a-z]{2,3}-[A-Z]{2}-[A-Za-z0-9]+Neural$/, "AZURE_TTS_VOICE must be a neural voice name such as fil-PH-BlessicaNeural")
     .optional(),
-  AZURE_TTS_BASE_URL: z.url().optional(),
+  AZURE_TTS_BASE_URL: keyedEndpoint("AZURE_TTS_BASE_URL").optional(),
   // Google Calendar (opt-in sync to a "RevTaw Study" calendar), official OAuth only.
   GOOGLE_OAUTH_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
@@ -74,10 +97,13 @@ const serverSchema = z.object({
     .refine((value) => Buffer.from(value, "base64").length === 32, "CALENDAR_TOKEN_KEY must be 32 random bytes in base64 (openssl rand -base64 32)")
     .optional(),
   /** Tests only: one origin standing in for accounts.google.com, oauth2.googleapis.com and the Calendar API. */
-  GOOGLE_API_BASE_URL: z.url().optional(),
+  GOOGLE_API_BASE_URL: z
+    .url()
+    .refine(isLoopbackUrl, "GOOGLE_API_BASE_URL is for local tests only and must point at localhost; leave it unset in production")
+    .optional(),
   // Product analytics (PostHog Cloud EU), only for students who opt in.
   POSTHOG_KEY: z.string().min(1).optional(),
-  POSTHOG_HOST: z.url().optional(),
+  POSTHOG_HOST: keyedEndpoint("POSTHOG_HOST").optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicSchema>;

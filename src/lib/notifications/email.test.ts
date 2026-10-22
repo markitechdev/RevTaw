@@ -59,6 +59,19 @@ describe("emailConfig", () => {
     vi.stubEnv("EMAIL_PROVIDER", "smtp");
     expect(emailConfig()).toBeNull();
   });
+
+  it("sends the key only over https, or to localhost in tests", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubEnv("EMAIL_PROVIDER", "");
+    vi.stubEnv("RESEND_API_KEY", "re_x");
+    vi.stubEnv("EMAIL_FROM", "RevTaw <r@mail.example.com>");
+    vi.stubEnv("RESEND_API_URL", "http://mail-proxy.example.com");
+    expect(emailConfig()).toBeNull();
+    vi.stubEnv("RESEND_API_URL", "http://127.0.0.1:2526/");
+    expect(emailConfig()?.apiUrl).toBe("http://127.0.0.1:2526");
+    vi.stubEnv("RESEND_API_URL", "https://mail-proxy.example.com");
+    expect(emailConfig()?.apiUrl).toBe("https://mail-proxy.example.com");
+  });
 });
 
 describe("unsubscribe links", () => {
