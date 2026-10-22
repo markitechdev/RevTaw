@@ -593,6 +593,17 @@ type AiUsageRow = {
   updated_at: string;
 };
 
+type EmailDigestsRow = {
+  user_id: string;
+  day: string;
+  status: "sending" | "sent" | "failed" | "skipped";
+  attempts: number;
+  error: string | null;
+  sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type StudyGoalsRow = {
   id: string;
   user_id: string;
@@ -1250,6 +1261,12 @@ export type Database = {
         Row: XpEventsRow;
         Insert: Writable<XpEventsRow, "source" | "source_key" | "points">;
         Update: Partial<XpEventsRow>;
+        Relationships: [];
+      };
+      email_digests: {
+        Row: EmailDigestsRow;
+        Insert: Writable<EmailDigestsRow, "user_id" | "day" | "status">;
+        Update: Partial<EmailDigestsRow>;
         Relationships: [];
       };
       ai_usage: {

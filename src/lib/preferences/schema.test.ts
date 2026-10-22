@@ -123,7 +123,7 @@ describe("section inputs", () => {
   });
 
   it("accepts only known reminder offsets and mutable kinds", () => {
-    const base = { inApp: true, email: false, browser: false, defaultReminder: "10m", muted: ["streak"] };
+    const base = { inApp: true, email: false, digest: false, browser: false, defaultReminder: "10m", muted: ["streak"] };
     expect(notificationsInput.safeParse(base).success).toBe(true);
     expect(notificationsInput.safeParse({ ...base, defaultReminder: "5m" }).success).toBe(false);
     expect(notificationsInput.safeParse({ ...base, muted: ["everything"] }).success).toBe(false);

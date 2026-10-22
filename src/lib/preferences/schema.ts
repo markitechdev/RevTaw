@@ -300,6 +300,8 @@ const MUTABLE_KIND_IDS = MUTABLE_NOTIFICATION_KINDS.map((item) => item.id) as [N
 export const notificationsInput = z.strictObject({
   inApp: z.boolean(),
   email: z.boolean(),
+  /** One email each morning: today's reviews, plan and exam countdown (needs email). */
+  digest: z.boolean(),
   browser: z.boolean(),
   defaultReminder: z.enum(REMINDER_OFFSET_IDS),
   muted: z
@@ -308,12 +310,13 @@ export const notificationsInput = z.strictObject({
     .transform((ids) => [...new Set(ids)]),
 });
 export type NotificationPreferences = z.output<typeof notificationsInput>;
-export const DEFAULT_NOTIFICATIONS: NotificationPreferences = { inApp: true, email: false, browser: false, defaultReminder: "30m", muted: [] };
+export const DEFAULT_NOTIFICATIONS: NotificationPreferences = { inApp: true, email: false, digest: false, browser: false, defaultReminder: "30m", muted: [] };
 
 const notificationsReader = z
   .object({
     inApp: z.boolean().catch(true),
     email: z.boolean().catch(false),
+    digest: z.boolean().catch(false),
     browser: z.boolean().catch(false),
     defaultReminder: z.enum(REMINDER_OFFSET_IDS).catch(DEFAULT_NOTIFICATIONS.defaultReminder),
     muted: z

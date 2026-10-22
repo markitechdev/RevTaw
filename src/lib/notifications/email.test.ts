@@ -64,18 +64,18 @@ describe("emailConfig", () => {
 describe("unsubscribe links", () => {
   it("sign the student and the kind, and fail for anyone else", () => {
     vi.stubEnv("CRON_SECRET", "a-long-test-cron-secret-123");
-    const url = unsubscribeUrl("https://revtaw.example", "11111111-1111-1111-1111-111111111111", "reminders");
-    expect(url).toMatch(/^https:\/\/revtaw\.example\/api\/email\/unsubscribe\?u=11111111-1111-1111-1111-111111111111&k=reminders&t=[\w-]{43}$/);
+    const url = unsubscribeUrl("https://revtaw.example", "11111111-1111-1111-1111-111111111111", "digest");
+    expect(url).toMatch(/^https:\/\/revtaw\.example\/api\/email\/unsubscribe\?u=11111111-1111-1111-1111-111111111111&k=digest&t=[\w-]{43}$/);
     const token = new URL(url!).searchParams.get("t")!;
-    expect(verifyUnsubscribe("11111111-1111-1111-1111-111111111111", "reminders", token)).toBe(true);
-    expect(verifyUnsubscribe("22222222-2222-2222-2222-222222222222", "reminders", token)).toBe(false);
-    expect(verifyUnsubscribe("11111111-1111-1111-1111-111111111111", "reminders", token.slice(1) + "A")).toBe(false);
+    expect(verifyUnsubscribe("11111111-1111-1111-1111-111111111111", "digest", token)).toBe(true);
+    expect(verifyUnsubscribe("22222222-2222-2222-2222-222222222222", "digest", token)).toBe(false);
+    expect(verifyUnsubscribe("11111111-1111-1111-1111-111111111111", "reminders", token)).toBe(false);
     expect(unsubscribeHeaders(url)).toEqual({ "List-Unsubscribe": `<${url}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" });
   });
 
   it("are off without a scheduler secret", () => {
     vi.stubEnv("CRON_SECRET", "");
-    expect(unsubscribeUrl("https://revtaw.example", "u", "reminders")).toBeNull();
+    expect(unsubscribeUrl("https://revtaw.example", "u", "digest")).toBeNull();
     expect(unsubscribeHeaders(null)).toBeUndefined();
   });
 });

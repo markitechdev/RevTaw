@@ -14,8 +14,9 @@ const paramsSchema = z.object({
   t: z.string().min(20).max(100),
 });
 
-const WHAT: Record<UnsubscribeKind, { name: string; setting: "email" }> = {
+const WHAT: Record<UnsubscribeKind, { name: string; setting: "email" | "digest" }> = {
   reminders: { name: "reminder emails", setting: "email" },
+  digest: { name: "the daily study digest", setting: "digest" },
 };
 
 function page(title: string, body: string, status = 200): Response {

@@ -27,6 +27,7 @@ function currentPermission(): BrowserPermission {
 export function NotificationsForm({ initial, emailAvailable }: { initial: NotificationPreferences; emailAvailable: boolean }) {
   const [inApp, setInApp] = useState(initial.inApp);
   const [email, setEmail] = useState(initial.email && emailAvailable);
+  const [digest, setDigest] = useState(initial.digest && emailAvailable);
   const [browser, setBrowser] = useState(initial.browser);
   const [defaultReminder, setDefaultReminder] = useState<ReminderOffset>(initial.defaultReminder);
   const [enabledKinds, setEnabledKinds] = useState<NotificationKind[]>(MUTABLE_NOTIFICATION_KINDS.map((kind) => kind.id).filter((id) => !initial.muted.includes(id)));
@@ -54,7 +55,7 @@ export function NotificationsForm({ initial, emailAvailable }: { initial: Notifi
     setResult(null);
     startTransition(async () => {
       const muted = MUTABLE_NOTIFICATION_KINDS.map((kind) => kind.id).filter((id) => !enabledKinds.includes(id));
-      setResult(await saveNotificationPreferencesAction({ inApp, email: email && emailAvailable, browser, defaultReminder, muted }));
+      setResult(await saveNotificationPreferencesAction({ inApp, email: email && emailAvailable, digest: digest && emailAvailable, browser, defaultReminder, muted }));
     });
   };
 
@@ -80,6 +81,13 @@ export function NotificationsForm({ initial, emailAvailable }: { initial: Notifi
           disabled={!emailAvailable}
           label="Email"
           description={emailAvailable ? "Planner reminders by email at the time you choose for each activity, to the address you sign in with." : "Email reminders are not set up on this RevTaw server yet (an email provider and the reminder scheduler). In-app reminders still work."}
+        />
+        <Switch
+          checked={digest}
+          onChange={setDigest}
+          disabled={!emailAvailable}
+          label="Daily study digest"
+          description={emailAvailable ? "One email each morning with today's reviews, your plan and exam countdowns. Nothing is sent on days with nothing to study." : "The daily digest needs email on this RevTaw server, like email reminders."}
         />
         <Switch checked={browser} onChange={(next) => void toggleBrowser(next)} label="Browser notifications" description="A pop-up from your browser when a planner reminder is due while RevTaw is open in a tab." />
         {browserNote && (

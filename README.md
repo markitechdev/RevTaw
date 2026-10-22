@@ -41,10 +41,10 @@ the app keeps working. While signed in to `npm run dev`, open
 `/api/system/services?live=1` to check each configured service.
 
 Planner reminders reach the in-app bell (and the browser, while RevTaw is
-open) without any setup. Email reminders are optional: set Resend
-(`RESEND_API_KEY`, `EMAIL_FROM` on a domain you own) and the reminder
-scheduler (`CRON_SECRET`, `SUPABASE_SECRET_KEY`, and a cron calling
-`/api/cron/reminders` every few minutes) — see `.env.example`.
+open) without any setup. Email reminders and the daily study digest are
+optional: set Resend (`RESEND_API_KEY`, `EMAIL_FROM` on a domain you own) and
+the scheduler (`CRON_SECRET`, `SUPABASE_SECRET_KEY`, and `supabase/schedules.sql`
+or another cron calling the `/api/cron/*` routes) — see `.env.example`.
 Credentials stay in server environment variables only.
 
 ## What works today

@@ -12,8 +12,8 @@ import { cronSecret } from "@/lib/server/cron-auth";
  * retires old links.
  */
 
-export type UnsubscribeKind = "reminders";
-export const UNSUBSCRIBE_KINDS: readonly UnsubscribeKind[] = ["reminders"];
+export type UnsubscribeKind = "reminders" | "digest";
+export const UNSUBSCRIBE_KINDS: readonly UnsubscribeKind[] = ["reminders", "digest"];
 
 function key(): Buffer | null {
   const secret = cronSecret();
