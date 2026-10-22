@@ -30,6 +30,19 @@ describe("tutor context", () => {
     expect(picked.truncated).toBe(false);
   });
 
+  it("follows the hybrid search ranking when there is one", () => {
+    // "Saan nangyayari?" shares no English words with chunk c, but search ranked it first.
+    const picked = selectContext(chunks, "Saan nangyayari ang Calvin?", null, 160, ["c", "a"]);
+    expect(picked.chunks.map((chunk) => chunk.id)).toEqual(["c"]);
+    const unknownIds = selectContext(chunks, "Where does the Calvin cycle take place?", null, 160, ["zzz"]);
+    expect(unknownIds.chunks.map((chunk) => chunk.id)).toEqual(["c"]);
+  });
+
+  it("falls back to keyword scoring when search found nothing", () => {
+    const picked = selectContext(chunks, "Where does the Calvin cycle take place?", null, 160, []);
+    expect(picked.chunks.map((chunk) => chunk.id)).toEqual(["c"]);
+  });
+
   it("labels sections with headings and page ranges", () => {
     expect(labelChunk(chunks[2])).toBe("[Section 2: Calvin Cycle, pages 3-4]");
     expect(labelChunk({ ...chunks[0], heading: null, pageStart: null, pageEnd: null })).toBe("[Section 0]");

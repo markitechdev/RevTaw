@@ -9,6 +9,7 @@ import { completeSession, createSession, loadSession, SessionError, type Session
 import type { Json, StudySession, TutorMode } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { evaluateTutorSession, TUTOR_HISTORY_TURNS, tutorReply, type TutorReply } from "@/lib/tutor/ai";
+import { rankMaterialChunks } from "@/lib/search/hybrid";
 import { selectContext, type ContextChunk } from "@/lib/tutor/context";
 import { flashcardDraftSchema, TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
 
@@ -116,7 +117,7 @@ async function respond(
   conversation: ConversationRow,
   input: { content: string; action: TutorActionId | null; selection: string | null; storeUser: boolean; pageNote?: string | null },
 ): Promise<SentMessage> {
-  const [{ data: historyRows }, student, material] = await Promise.all([
+  const [{ data: historyRows }, student, material, ranked] = await Promise.all([
     supabase
       .from("tutor_messages")
       .select("role, content, selection")
@@ -125,6 +126,8 @@ async function respond(
       .limit(HISTORY_LIMIT),
     studentContext(supabase),
     conversation.material_id ? materialChunks(supabase, conversation.material_id) : Promise.resolve(null),
+    // Tamari's search: the passages that best match the question (null → keyword scoring).
+    conversation.material_id ? rankMaterialChunks(supabase, { materialId: conversation.material_id, query: input.content, selection: input.selection }) : Promise.resolve(null),
   ]);
   const history = (historyRows ?? [])
     .reverse()
@@ -141,7 +144,7 @@ async function respond(
     userMessageId = userMessage.id;
   }
 
-  const context = material ? selectContext(material.chunks, input.content, input.selection, TUTOR_CONTEXT_CHARS) : { chunks: [], totalChunks: 0, truncated: false };
+  const context = material ? selectContext(material.chunks, input.content, input.selection, TUTOR_CONTEXT_CHARS, ranked?.ids ?? null) : { chunks: [], totalChunks: 0, truncated: false };
   let reply: TutorReply;
   let provider: string | null = null;
   let model: string | null = null;

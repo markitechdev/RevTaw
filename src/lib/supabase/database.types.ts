@@ -186,6 +186,12 @@ type MaterialChunksRow = {
   page_end: number | null;
   content: string;
   char_count: number;
+  /** BGE-M3 embedding as pgvector text ("[0.1,0.2,…]"); null until embedded (migration 0017). */
+  embedding: string | null;
+  embedding_model: string | null;
+  embedded_at: string | null;
+  /** Generated 'simple' full-text vector; never written. */
+  search_tsv: string;
 };
 
 type MaterialAnalysesRow = {
@@ -1280,6 +1286,14 @@ export type Database = {
       refund_ai_request: {
         Args: { p_user_id: string; p_kind: AiUsageKind };
         Returns: undefined;
+      };
+      match_material_chunks: {
+        Args: { query_text: string; keywords?: string | null; query_embedding?: string | null; only_material?: string | null; match_count?: number };
+        Returns: Array<{ chunk_id: string; material_id: string; chunk_position: number; score: number }>;
+      };
+      save_chunk_embeddings: {
+        Args: { items: Json; model: string };
+        Returns: number;
       };
     };
     Enums: {

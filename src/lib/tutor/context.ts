@@ -1,7 +1,9 @@
 /**
  * Picks the material passages most relevant to a question so the tutor
- * prompt stays within budget while staying grounded (spec §13, §46). Pure
- * keyword scoring — no embeddings — so it runs anywhere and is testable.
+ * prompt stays within budget while staying grounded (spec §13, §46). The
+ * ranking comes from hybrid search in Postgres when it is available
+ * (src/lib/search/hybrid.ts); otherwise from the keyword scoring below,
+ * which runs anywhere and is testable.
  */
 
 export type ContextChunk = {
@@ -57,12 +59,13 @@ export type SelectedContext = {
 
 /**
  * Returns the chunks to send: the chunk containing the selection first,
- * then the best-scoring chunks for the query, filled up to `budgetChars`,
+ * then the best-ranked chunks for the query (`ranked`, chunk ids from hybrid
+ * search, or keyword scores without it), filled up to `budgetChars`,
  * finally re-ordered by position so the transcript reads naturally.
  * With no query terms (e.g. "summarize the material"), it takes chunks in
  * order from the top.
  */
-export function selectContext(chunks: ContextChunk[], query: string, selection: string | null, budgetChars = 14_000): SelectedContext {
+export function selectContext(chunks: ContextChunk[], query: string, selection: string | null, budgetChars = 14_000, ranked: string[] | null = null): SelectedContext {
   const terms = [...new Set(tokenize(`${query} ${selection ?? ""}`).map(stem))];
   const picked = new Map<string, ContextChunk>();
   let used = 0;
@@ -81,15 +84,19 @@ export function selectContext(chunks: ContextChunk[], query: string, selection: 
     if (holder) take(holder);
   }
 
-  const ranked = terms.length
-    ? chunks
-        .map((chunk) => ({ chunk, score: scoreChunk(chunk, terms) }))
-        .filter((entry) => entry.score > 0)
-        .sort((a, b) => b.score - a.score || a.chunk.position - b.chunk.position)
-        .map((entry) => entry.chunk)
-    : [];
+  const byId = new Map(chunks.map((chunk) => [chunk.id, chunk]));
+  const fromSearch = (ranked ?? []).map((id) => byId.get(id)).filter((chunk): chunk is ContextChunk => chunk !== undefined);
+  const best = fromSearch.length
+    ? fromSearch
+    : terms.length
+      ? chunks
+          .map((chunk) => ({ chunk, score: scoreChunk(chunk, terms) }))
+          .filter((entry) => entry.score > 0)
+          .sort((a, b) => b.score - a.score || a.chunk.position - b.chunk.position)
+          .map((entry) => entry.chunk)
+      : [];
 
-  for (const chunk of ranked) if (!take(chunk)) break;
+  for (const chunk of best) if (!take(chunk)) break;
   // Fill remaining budget in reading order so short materials are sent whole.
   for (const chunk of chunks) {
     if (used >= budgetChars) break;

@@ -9,6 +9,7 @@ import { MAX_FILE_BYTES } from "@/lib/materials/constants";
 import { detectMaterialType } from "@/lib/materials/detect";
 import { ExtractionError, extractText } from "@/lib/materials/extract";
 import { downloadMaterialBytes } from "@/lib/materials/storage";
+import { embedMaterialQuietly } from "@/lib/search/hybrid";
 import type { Material, MaterialStatus } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -29,6 +30,7 @@ type Client = Awaited<ReturnType<typeof createClient>>;
  * Runs the processing pipeline for one material owned by the signed-in user:
  *
  *   verify bytes → extract text → chunk → analyze with AI → ready
+ *                                       ↘ embed chunks for Tamari's search
  *
  * The function is idempotent: it can be called again after a failure ("Retry")
  * and refuses to double-process a material that is already in flight.
@@ -104,7 +106,8 @@ export async function processMaterial(
       word_count: wordCount,
     });
 
-    const analysisDetail = await runAnalysis(supabase, material, chunks);
+    // Embedding runs beside the analysis; if it fails, search uses words until the backfill job catches up.
+    const [analysisDetail] = await Promise.all([runAnalysis(supabase, material, chunks), embedMaterialQuietly(supabase, material.id)]);
     await setStatus(supabase, material.id, "ready", analysisDetail);
     return { status: "ready", detail: analysisDetail };
   } catch (error) {
@@ -144,17 +147,21 @@ export async function reanalyzeMaterial(materialId: string): Promise<ProcessOutc
   await setStatus(supabase, material.id, "analyzing", null, {
     last_processed_at: new Date().toISOString(),
   });
-  const detail = await runAnalysis(
-    supabase,
-    material,
-    chunkRows.map((row) => ({
-      position: row.position,
-      heading: row.heading,
-      pageStart: row.page_start,
-      pageEnd: row.page_end,
-      content: row.content,
-    })),
-  );
+  const [detail] = await Promise.all([
+    runAnalysis(
+      supabase,
+      material,
+      chunkRows.map((row) => ({
+        position: row.position,
+        heading: row.heading,
+        pageStart: row.page_start,
+        pageEnd: row.page_end,
+        content: row.content,
+      })),
+    ),
+    // Materials processed before Tamari's search get their embeddings here too.
+    embedMaterialQuietly(supabase, material.id),
+  ]);
   await setStatus(supabase, material.id, "ready", detail);
   return { status: "ready", detail };
 }
@@ -251,11 +258,13 @@ async function fail(supabase: Client, materialId: string, detail: string): Promi
   return { status: "failed", detail };
 }
 
+type ChunkToStore = ReturnType<typeof chunkSections>[number] & { embedding?: string | null; embeddingModel?: string | null };
+
 async function replaceChunks(
   supabase: Client,
   materialId: string,
   userId: string,
-  chunks: ReturnType<typeof chunkSections>,
+  chunks: ChunkToStore[],
 ): Promise<void> {
   const { error: deleteError } = await supabase
     .from("material_chunks")
@@ -263,6 +272,7 @@ async function replaceChunks(
     .eq("material_id", materialId);
   if (deleteError) throw new Error(`material_chunks: delete failed: ${deleteError.message}`);
 
+  const embeddedAt = new Date().toISOString();
   const rows = chunks.map((chunk) => ({
     material_id: materialId,
     user_id: userId,
@@ -272,6 +282,9 @@ async function replaceChunks(
     page_end: chunk.pageEnd,
     content: chunk.content,
     char_count: chunk.content.length,
+    embedding: chunk.embedding ?? null,
+    embedding_model: chunk.embedding ? (chunk.embeddingModel ?? null) : null,
+    embedded_at: chunk.embedding ? embeddedAt : null,
   }));
 
   // Insert in batches to stay well under request size limits.
@@ -304,7 +317,7 @@ async function reuseIdenticalMaterial(
 
   const { data: chunks } = await supabase
     .from("material_chunks")
-    .select("position, heading, page_start, page_end, content, char_count")
+    .select("position, heading, page_start, page_end, content, char_count, embedding, embedding_model")
     .eq("material_id", twin.id)
     .order("position");
   if (!chunks || chunks.length === 0) return null;
@@ -319,8 +332,12 @@ async function reuseIdenticalMaterial(
       pageStart: chunk.page_start,
       pageEnd: chunk.page_end,
       content: chunk.content,
+      // The twin's embeddings are for the same text, so they are copied too.
+      embedding: chunk.embedding,
+      embeddingModel: chunk.embedding_model,
     })),
   );
+  await embedMaterialQuietly(supabase, material.id, 15_000);
 
   const { data: analysis } = await supabase
     .from("material_analyses")
