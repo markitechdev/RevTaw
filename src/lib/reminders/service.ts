@@ -26,7 +26,7 @@ import { createClient } from "@/lib/supabase/server";
  *   browser notification when allowed)            with the secret key, delivers
  *                                                 in-app and sends email
  *        └──────────────▶ notification service ◀──┘
- *                         (bell row, deduplicated)  ──▶ email provider (Resend / SMTP)
+ *                         (bell row, deduplicated)  ──▶ email (Resend)
  *
  * Each channel is delivered at most once: the bell row has a dedupe key and
  * email_sent_at is set when the provider accepts the message. Without a

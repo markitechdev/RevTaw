@@ -3,16 +3,24 @@ import "server-only";
 import { emailConfig, type EmailConfig } from "@/lib/notifications/email-config";
 
 /**
- * Sends one email through the configured provider (UI phase §28): Resend's
- * HTTP API or SMTP (for example a RevTaw Gmail account with an app
- * password). Credentials come only from server environment variables and
- * never appear in errors or logs.
+ * Sends one email through Resend's HTTP API (UI phase §28, research doc
+ * §16). Credentials come only from server environment variables and never
+ * appear in errors or logs. An idempotency key makes a retried send a no-op
+ * at Resend (for 24 hours), so a reminder or digest is never sent twice.
  */
 
-export type EmailMessage = { to: string; subject: string; text: string; html: string };
-export type EmailResult = { ok: true } | { ok: false; error: string };
+export type EmailMessage = {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  /** Extra headers, e.g. List-Unsubscribe for one-click unsubscribe. */
+  headers?: Record<string, string>;
+  /** Same key → same email, at most once (Resend keeps keys for 24 hours). */
+  idempotencyKey?: string;
+};
+export type EmailResult = { ok: true; id: string | null } | { ok: false; error: string };
 
-const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const TIMEOUT_MS = 10_000;
 
 function safeError(value: unknown): string {
@@ -23,29 +31,26 @@ function safeError(value: unknown): string {
 export async function sendEmail(message: EmailMessage, config: EmailConfig | null = emailConfig()): Promise<EmailResult> {
   if (!config) return { ok: false, error: "Email is not configured." };
   try {
-    if (config.provider === "resend") {
-      const response = await fetch(RESEND_ENDPOINT, {
-        method: "POST",
-        headers: { authorization: `Bearer ${config.apiKey}`, "content-type": "application/json" },
-        body: JSON.stringify({ from: config.from, to: [message.to], subject: message.subject, text: message.text, html: message.html }),
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
-      if (response.ok) return { ok: true };
-      const body = (await response.json().catch(() => null)) as { message?: string; name?: string } | null;
-      return { ok: false, error: `Resend ${response.status}: ${safeError(body?.message ?? body?.name ?? response.statusText)}` };
-    }
-    const nodemailer = await import("nodemailer");
-    const transport = nodemailer.createTransport({
-      host: config.host,
-      port: config.port,
-      secure: config.secure,
-      auth: { user: config.user, pass: config.password },
-      connectionTimeout: TIMEOUT_MS,
-      greetingTimeout: TIMEOUT_MS,
-      socketTimeout: TIMEOUT_MS,
+    const response = await fetch(`${config.apiUrl}/emails`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${config.apiKey}`,
+        "content-type": "application/json",
+        ...(message.idempotencyKey ? { "Idempotency-Key": message.idempotencyKey.slice(0, 256) } : {}),
+      },
+      body: JSON.stringify({
+        from: config.from,
+        to: [message.to],
+        subject: message.subject,
+        text: message.text,
+        html: message.html,
+        ...(message.headers ? { headers: message.headers } : {}),
+      }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    await transport.sendMail({ from: config.from, to: message.to, subject: message.subject, text: message.text, html: message.html });
-    return { ok: true };
+    const body = (await response.json().catch(() => null)) as { id?: string; message?: string; name?: string } | null;
+    if (response.ok) return { ok: true, id: typeof body?.id === "string" ? body.id : null };
+    return { ok: false, error: `Resend ${response.status}: ${safeError(body?.message ?? body?.name ?? response.statusText)}` };
   } catch (error) {
     return { ok: false, error: safeError(error) };
   }
