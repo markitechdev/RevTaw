@@ -14,7 +14,8 @@ export async function fetchWithTimeout(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new Error("AI request timed out")), timeoutMs);
   const onAbort = () => controller.abort(signal?.reason);
-  signal?.addEventListener("abort", onAbort, { once: true });
+  if (signal?.aborted) onAbort();
+  else signal?.addEventListener("abort", onAbort, { once: true });
 
   try {
     return await fetch(url, { ...init, signal: controller.signal });

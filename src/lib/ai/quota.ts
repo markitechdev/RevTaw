@@ -17,7 +17,8 @@ import { createClient } from "@/lib/supabase/server";
  * holds across server instances. Repairs of a malformed answer are free, a
  * request every provider failed is given back, and token counts are added by
  * the server after each call (migration 0021) so real request sizes can be
- * measured.
+ * measured. For voice, the input column counts seconds heard and the output
+ * column characters read aloud.
  *
  * Limits come from AI_DAILY_LIMITS, e.g. "chat=60,generate=10"; "off" turns
  * the allowance off. Calls without a signed-in student (scripts, tests) are
@@ -174,6 +175,92 @@ export function recordAiTokens(kind: AiUsageKind, usage: AiUsage, studentId: str
   });
 }
 
+/**
+ * Voice also has a daily budget of seconds heard (voice typing) and
+ * characters read aloud (Filipino read-aloud), because one request can be
+ * short or long. Set with AI_DAILY_LIMITS too, e.g.
+ * "voice_seconds=1800,voice_chars=20000"; "off" turns these off with the rest.
+ */
+export type VoiceAllowance = { seconds: number; characters: number };
+
+export const DEFAULT_VOICE_ALLOWANCE: VoiceAllowance = { seconds: 1_800, characters: 20_000 };
+
+export function parseVoiceAllowance(raw: string | undefined): VoiceAllowance | null {
+  if (parseDailyLimits(raw) === null) return null;
+  const allowance = { ...DEFAULT_VOICE_ALLOWANCE };
+  for (const pair of (raw ?? "").split(",")) {
+    const [name, amount] = pair.split("=").map((part) => part?.trim().toLowerCase());
+    const parsed = Number(amount);
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 10_000_000) continue;
+    if (name === "voice_seconds") allowance.seconds = parsed;
+    if (name === "voice_chars") allowance.characters = parsed;
+  }
+  return allowance;
+}
+
+const MANILA_OFFSET_MS = 8 * 3_600_000; // Asia/Manila has no daylight saving time
+
+function manilaToday(now: number): string {
+  return new Date(now + MANILA_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+function secondsUntilManilaMidnight(now: number): number {
+  const day = 86_400_000;
+  const nextMidnight = Math.floor((now + MANILA_OFFSET_MS) / day) * day + day - MANILA_OFFSET_MS;
+  return Math.max(60, Math.ceil((nextMidnight - now) / 1000));
+}
+
+function durationWords(seconds: number): string {
+  if (seconds >= 60 && seconds % 60 === 0) return seconds === 60 ? "1 minute" : `${seconds / 60} minutes`;
+  return `${seconds} seconds`;
+}
+
+export function voiceLimitMessage(use: "seconds" | "characters", allowance: VoiceAllowance): string {
+  if (use === "seconds") {
+    if (allowance.seconds === 0) return "Voice typing is turned off on this RevTaw server.";
+    return `You've used today's ${durationWords(allowance.seconds)} of voice typing. Typing still works, and voice refills at midnight, Philippine time.`;
+  }
+  if (allowance.characters === 0) return "Reading aloud in Filipino is turned off on this RevTaw server.";
+  return "You've reached today's limit for reading aloud in Filipino. The answer is still on screen, and reading aloud refills at midnight, Philippine time.";
+}
+
+/**
+ * Before a voice call: throws AiError("quota_exceeded") when the student
+ * has used today's seconds of voice typing, or when reading `characters`
+ * more aloud would pass today's limit. Reads the student's own usage row
+ * (RLS); lets the call through when the row can't be read.
+ */
+export async function checkVoiceBudget(studentId: string, use: { seconds: true } | { characters: number }, now = Date.now()): Promise<void> {
+  const allowance = parseVoiceAllowance(getServerEnv().AI_DAILY_LIMITS);
+  if (!allowance) return;
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+  try {
+    supabase = await createClient();
+  } catch {
+    return;
+  }
+  const { data, error } = await supabase
+    .from("ai_usage")
+    .select("input_tokens, output_tokens")
+    .eq("user_id", studentId)
+    .eq("day", manilaToday(now))
+    .eq("kind", "voice")
+    .maybeSingle();
+  if (error) {
+    warnUnavailable(`${error.code ?? "error"}: ${error.message}`);
+    return;
+  }
+  const heard = Number(data?.input_tokens ?? 0);
+  const read = Number(data?.output_tokens ?? 0);
+  const over = "seconds" in use ? heard >= allowance.seconds : read + use.characters > allowance.characters;
+  if (!over) return;
+  const kind = "seconds" in use ? "seconds" : "characters";
+  throw new AiError("quota_exceeded", `daily voice ${kind} limit reached`, false, {
+    message: voiceLimitMessage(kind, allowance),
+    retryAfterSeconds: secondsUntilManilaMidnight(now),
+  });
+}
+
 /** Gives a request back when every provider failed. Needs SUPABASE_SECRET_KEY. */
 export function refundAiRequest(ticket: AiQuotaTicket): void {
   const admin = createAdminClient();
@@ -216,7 +303,9 @@ export class MeteredProvider implements AiProvider {
       recordAiTokens(kind, result.usage, this.studentId);
       return result;
     } catch (error) {
-      if (ticket && isAiError(error)) refundAiRequest(ticket);
+      // A request the student cancelled is not given back: the provider may
+      // already have done the work.
+      if (ticket && isAiError(error) && !options.signal?.aborted) refundAiRequest(ticket);
       throw error;
     }
   }

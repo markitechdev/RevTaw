@@ -2,17 +2,20 @@ import { fileTypeFromBuffer } from "file-type";
 import { NextResponse } from "next/server";
 
 import { isAiError } from "@/lib/ai/errors";
+import { checkVoiceBudget, consumeAiRequest, recordAiTokens, refundAiRequest } from "@/lib/ai/quota";
 import { track } from "@/lib/analytics/server";
-import { consumeAiRequest, recordAiTokens, refundAiRequest } from "@/lib/ai/quota";
 import { rateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { transcribeAudio, voiceCapabilities } from "@/lib/voice/server";
+import { countedVoiceSeconds, transcribeAudio, voiceCapabilities } from "@/lib/voice/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-/** A 30-second Opus clip is about 120 KB; this leaves room for AAC on iPhone. */
-const MAX_BYTES = 4 * 1024 * 1024;
+/**
+ * RevTaw's recorder stops at 30 seconds and records about 48 kbps (near
+ * 180 KB); 1 MB leaves room for browsers that ignore the bitrate.
+ */
+const MAX_BYTES = 1024 * 1024;
 
 /** Audio Whisper accepts, by detected type (file-type reports WebM as video/webm). */
 const ACCEPTED: Record<string, string> = {
@@ -31,9 +34,12 @@ const ACCEPTED: Record<string, string> = {
   "audio/x-flac": "audio/flac",
 };
 
+const FAILED = "I couldn't turn that recording into text. Try again, or type your question.";
+
 /**
  * Speech-to-text for browsers without Web Speech: a short recording in,
- * text out (Groq Whisper, then Cloudflare). The audio is not stored.
+ * text out (Groq Whisper, then Cloudflare). The audio is not stored. Each
+ * clip takes one voice request and its seconds from the student's day.
  */
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -44,6 +50,10 @@ export async function POST(request: Request) {
   const limit = rateLimit(`voice:${user.id}`, 40, 10 * 60_000);
   if (!limit.ok) {
     return NextResponse.json({ error: "That's a lot of voice messages. Please wait a little." }, { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } });
+  }
+  const declared = Number(request.headers.get("content-length") ?? 0);
+  if (declared > MAX_BYTES + 64 * 1024) {
+    return NextResponse.json({ error: "That recording is too long. Keep voice questions under 30 seconds." }, { status: 413 });
   }
 
   const form = await request.formData().catch(() => null);
@@ -64,20 +74,28 @@ export async function POST(request: Request) {
 
   let ticket: Awaited<ReturnType<typeof consumeAiRequest>> = null;
   try {
+    await checkVoiceBudget(user.id, { seconds: true });
     ticket = await consumeAiRequest("voice");
     const transcript = await transcribeAudio(bytes, mime, language, request.signal);
     // For voice, the allowance's input column counts seconds heard.
-    recordAiTokens("voice", { inputTokens: Math.round(transcript.seconds ?? 0), outputTokens: 0 }, user.id);
+    recordAiTokens("voice", { inputTokens: countedVoiceSeconds(transcript.seconds, bytes.byteLength), outputTokens: 0 }, user.id);
     track(user.id, "voice_transcribed", { provider: transcript.provider });
     return NextResponse.json({ text: transcript.text }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     if (isAiError(error)) {
-      if (error.code === "quota_exceeded") return NextResponse.json({ error: error.message }, { status: 429 });
-      if (ticket) refundAiRequest(ticket);
-      const status = error.code === "not_configured" ? 503 : 502;
-      return NextResponse.json({ error: "I couldn't turn that recording into text. Try again, or type your question." }, { status });
+      if (error.code === "quota_exceeded") {
+        return NextResponse.json({ error: error.message }, { status: 429, headers: error.retryAfterSeconds ? { "retry-after": String(error.retryAfterSeconds) } : undefined });
+      }
+      if (request.signal.aborted) {
+        // Cancelled mid-way: the provider may have heard the clip already,
+        // so it still counts and the request is not given back.
+        if (ticket) recordAiTokens("voice", { inputTokens: countedVoiceSeconds(null, bytes.byteLength), outputTokens: 0 }, user.id);
+      } else if (ticket) {
+        refundAiRequest(ticket);
+      }
+      return NextResponse.json({ error: FAILED }, { status: error.code === "not_configured" ? 503 : 502 });
     }
     console.error("voice: transcription failed", error);
-    return NextResponse.json({ error: "I couldn't turn that recording into text. Try again, or type your question." }, { status: 500 });
+    return NextResponse.json({ error: FAILED }, { status: 500 });
   }
 }

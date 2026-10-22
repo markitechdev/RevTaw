@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resetCooldowns } from "@/lib/ai/router";
 import { getServerEnv } from "@/lib/env";
-import { buildSsml, cloudflareRunUrl, escapeSsml, synthesizeSpeech, transcribeAudio, voiceCapabilities, whisperLanguage } from "@/lib/voice/server";
+import { buildSsml, cloudflareRunUrl, countedVoiceSeconds, escapeSsml, synthesizeSpeech, transcribeAudio, voiceCapabilities, whisperLanguage } from "@/lib/voice/server";
 
 type Seen = { url: string; init: RequestInit };
 
@@ -12,6 +12,8 @@ function stubFetch(replies: Array<() => Response>) {
     "fetch",
     vi.fn(async (url: string, init: RequestInit) => {
       seen.push({ url, init });
+      // Like real fetch, an already-aborted signal rejects without a response.
+      if (init.signal?.aborted) throw new DOMException("This operation was aborted", "AbortError");
       const next = replies.shift();
       if (!next) throw new Error("unexpected fetch " + url);
       return next();
@@ -73,14 +75,16 @@ describe("voice helpers", () => {
 describe("transcribeAudio", () => {
   it("sends the clip to Groq Whisper as multipart with the language and prompt", async () => {
     vi.stubEnv("GROQ_API_KEY", "gsk-test");
-    const seen = stubFetch([() => new Response(JSON.stringify({ text: " Buksan mo ang planner. " }), { status: 200 })]);
+    const seen = stubFetch([() => new Response(JSON.stringify({ text: " Buksan mo ang planner. ", duration: 2.6, segments: [] }), { status: 200 })]);
     const transcript = await transcribeAudio(clip, "audio/webm", "fil-PH");
-    expect(transcript).toMatchObject({ text: "Buksan mo ang planner.", provider: "groq", model: "whisper-large-v3-turbo" });
+    expect(transcript).toMatchObject({ text: "Buksan mo ang planner.", provider: "groq", model: "whisper-large-v3-turbo", seconds: 2.6 });
     expect(seen[0].url).toBe("https://api.groq.com/openai/v1/audio/transcriptions");
     expect((seen[0].init.headers as Record<string, string>).authorization).toBe("Bearer gsk-test");
     const form = seen[0].init.body as FormData;
     expect(form.get("model")).toBe("whisper-large-v3-turbo");
     expect(form.get("language")).toBe("tl");
+    // verbose_json is the format that reports the clip's duration.
+    expect(form.get("response_format")).toBe("verbose_json");
     expect(String(form.get("prompt"))).toMatch(/Tamari/);
     expect((form.get("file") as File).name).toBe("speech.webm");
   });
@@ -104,6 +108,29 @@ describe("transcribeAudio", () => {
 
   it("says so when nothing is configured", async () => {
     await expect(transcribeAudio(clip, "audio/webm", "en")).rejects.toMatchObject({ code: "not_configured" });
+  });
+
+  it("stops at once when the student already cancelled", async () => {
+    vi.stubEnv("GROQ_API_KEY", "gsk-test");
+    const seen = stubFetch([() => new Response(JSON.stringify({ text: "late" }), { status: 200 })]);
+    const controller = new AbortController();
+    controller.abort();
+    await expect(transcribeAudio(clip, "audio/webm", "en", controller.signal)).rejects.toMatchObject({ code: "provider_error" });
+    expect(seen).toHaveLength(1);
+    expect((seen[0].init.signal as AbortSignal).aborted).toBe(true);
+  });
+});
+
+describe("countedVoiceSeconds", () => {
+  it("counts the reported duration, at least the 10 seconds Groq bills", () => {
+    expect(countedVoiceSeconds(2.6, 20_000)).toBe(10);
+    expect(countedVoiceSeconds(27.2, 160_000)).toBe(28);
+  });
+
+  it("estimates from the size at 32 kbps when no duration came back", () => {
+    expect(countedVoiceSeconds(null, 180_000)).toBe(45);
+    expect(countedVoiceSeconds(undefined, 1024 * 1024)).toBe(263);
+    expect(countedVoiceSeconds(Number.NaN, 8_000)).toBe(10);
   });
 });
 

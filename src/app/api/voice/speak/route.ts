@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { isAiError } from "@/lib/ai/errors";
-import { consumeAiRequest, recordAiTokens, refundAiRequest } from "@/lib/ai/quota";
+import { checkVoiceBudget, consumeAiRequest, recordAiTokens, refundAiRequest } from "@/lib/ai/quota";
 import { rateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { synthesizeSpeech, voiceCapabilities } from "@/lib/voice/server";
@@ -16,9 +16,13 @@ const bodySchema = z.object({
   language: z.string().regex(/^(fil|tl)([-_][A-Za-z]{2})?$/i),
 });
 
+const FAILED = "RevTaw couldn't read that aloud right now.";
+
 /**
  * Filipino text-to-speech for devices without a Filipino voice: text in,
- * MP3 out, read by Azure's fil-PH neural voice. Nothing is stored.
+ * MP3 out, read by Azure's fil-PH neural voice. Nothing is stored. Each
+ * piece takes one voice request and its characters from the student's day
+ * (Azure's free tier is 0.5 million characters a month).
  */
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -34,21 +38,30 @@ export async function POST(request: Request) {
   if (!body.success) {
     return NextResponse.json({ error: "Nothing to read aloud." }, { status: 400 });
   }
+  const characters = body.data.text.length;
 
   let ticket: Awaited<ReturnType<typeof consumeAiRequest>> = null;
   try {
+    await checkVoiceBudget(user.id, { characters });
     ticket = await consumeAiRequest("voice");
     const { audio } = await synthesizeSpeech(body.data.text, request.signal);
-    // For voice, the allowance's output column counts characters read aloud (Azure's free tier is 0.5M a month).
-    recordAiTokens("voice", { inputTokens: 0, outputTokens: body.data.text.length }, user.id);
+    // For voice, the allowance's output column counts characters read aloud.
+    recordAiTokens("voice", { inputTokens: 0, outputTokens: characters }, user.id);
     return new Response(audio, { headers: { "content-type": "audio/mpeg", "content-length": String(audio.byteLength), "cache-control": "no-store" } });
   } catch (error) {
     if (isAiError(error)) {
-      if (error.code === "quota_exceeded") return NextResponse.json({ error: error.message }, { status: 429 });
-      if (ticket) refundAiRequest(ticket);
-      return NextResponse.json({ error: "RevTaw couldn't read that aloud right now." }, { status: error.code === "not_configured" ? 503 : 502 });
+      if (error.code === "quota_exceeded") {
+        return NextResponse.json({ error: error.message }, { status: 429, headers: error.retryAfterSeconds ? { "retry-after": String(error.retryAfterSeconds) } : undefined });
+      }
+      if (request.signal.aborted) {
+        // Cancelled mid-way: Azure may have read it already, so it still counts.
+        if (ticket) recordAiTokens("voice", { inputTokens: 0, outputTokens: characters }, user.id);
+      } else if (ticket) {
+        refundAiRequest(ticket);
+      }
+      return NextResponse.json({ error: FAILED }, { status: error.code === "not_configured" ? 503 : 502 });
     }
     console.error("voice: speech synthesis failed", error);
-    return NextResponse.json({ error: "RevTaw couldn't read that aloud right now." }, { status: 500 });
+    return NextResponse.json({ error: FAILED }, { status: 500 });
   }
 }

@@ -90,7 +90,8 @@ export const recordedSpeechToText: SpeechToText = {
       }
 
       const mimeType = pickMimeType();
-      recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      // 48 kbps is plenty for speech and keeps a 30-second clip near 180 KB.
+      recorder = new MediaRecorder(stream, { ...(mimeType ? { mimeType } : {}), audioBitsPerSecond: 48_000 });
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) parts.push(event.data);
       };

@@ -3,7 +3,7 @@ import "server-only";
 import { buildProvider, describeAiSetup } from "@/lib/ai";
 import { EMBEDDING_DIMENSIONS, EMBEDDING_MODEL, embeddingsConfigured, embedTexts } from "@/lib/ai/embeddings";
 import { isAiError } from "@/lib/ai/errors";
-import { getDailyLimits } from "@/lib/ai/quota";
+import { getDailyLimits, parseVoiceAllowance } from "@/lib/ai/quota";
 import { cooldownSnapshot, recentRoutes } from "@/lib/ai/router";
 import type { AiTier } from "@/lib/ai/types";
 import { analyticsConfigured } from "@/lib/analytics/server";
@@ -179,7 +179,7 @@ export async function checkVoice(): Promise<LiveCheck[]> {
 }
 
 export function voiceSummary() {
-  return voiceCapabilities();
+  return { ...voiceCapabilities(), dailyBudget: parseVoiceAllowance(getServerEnv().AI_DAILY_LIMITS) ?? "off" };
 }
 
 /** Email, Google Calendar, analytics and the scheduler: configured or not (names only). */

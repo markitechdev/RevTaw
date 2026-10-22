@@ -62,6 +62,17 @@ const EXTENSION: Record<string, string> = {
 
 export type Transcript = { text: string; provider: string; model: string; seconds: number | null };
 
+/**
+ * Seconds a clip counts against the student's daily voice budget: the
+ * duration the provider reported, or an estimate from its size at 32 kbps
+ * (more than RevTaw's recorder uses, so estimates run high), and at least
+ * 10 seconds, the least Groq bills per request.
+ */
+export function countedVoiceSeconds(seconds: number | null | undefined, bytes: number): number {
+  const heard = typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0 ? seconds : bytes / 4_000;
+  return Math.max(10, Math.ceil(heard));
+}
+
 type GroqTranscription = { text?: string; duration?: number; x_groq?: unknown };
 type CloudflareTranscription = { result?: { text?: string; transcription_info?: { duration?: number } }; text?: string };
 
@@ -69,7 +80,8 @@ async function transcribeWithGroq(env: ServerEnv, audio: Uint8Array, mime: strin
   const form = new FormData();
   form.set("file", new Blob([audio as BlobPart], { type: mime }), `speech.${EXTENSION[mime] ?? "webm"}`);
   form.set("model", GROQ_WHISPER_MODEL);
-  form.set("response_format", "json");
+  // verbose_json carries the clip's duration, which the daily voice budget counts.
+  form.set("response_format", "verbose_json");
   form.set("temperature", "0");
   form.set("prompt", WHISPER_PROMPT);
   if (language) form.set("language", language);
