@@ -62,6 +62,11 @@ export function tamariStatus(state: TamariState, lang: TamariLanguage): string {
   return STATUS[state][lang];
 }
 
+/** While a recording is turned into text on the server (browsers without Web Speech). */
+export function transcribingLine(lang: TamariLanguage): string {
+  return say(lang, { taglish: "Sinusulat ko ang sinabi mo…", en: "Writing down what you said…", fil: "Isinusulat ko ang sinabi mo…" });
+}
+
 /** When the student only says "Tamari". */
 export function hereLine(lang: TamariLanguage): string {
   return say(lang, { taglish: "Nandito ako! Ask me anything.", en: "I'm here! Ask me anything.", fil: "Nandito ako! Magtanong ka lang." });

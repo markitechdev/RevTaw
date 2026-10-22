@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { ChatLauncher } from "@/components/assistant/chat-launcher";
+import type { ServerVoice } from "@/components/assistant/use-voice";
 import { useTamariMove } from "@/components/tamari/use-tamari-move";
 import type { PageContextRef } from "@/lib/assistant/context-schema";
 import type { AiPreferences, AssistantPreferences } from "@/lib/preferences/schema";
@@ -51,6 +52,8 @@ type AssistantContextValue = {
   subscribe: (listener: (request: AssistantRequest) => void) => () => void;
   /** Work Tamari is doing (an answer on its way, a quiz being written) or the microphone and speech ("voice:listening", "voice:speaking"): Tamari shows it on Home. */
   setActivity: (key: string, active: boolean) => void;
+  /** Voice help this server offers: speech-to-text for browsers that cannot listen. */
+  voiceServer: ServerVoice;
 };
 
 const AssistantContext = createContext<AssistantContextValue | null>(null);
@@ -128,7 +131,7 @@ function focusable(element: Element | null): element is HTMLElement {
  * studying card); every other page has a round chat button in the corner.
  * Everything about how Tamari looks right now is decided here.
  */
-export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferences; assistant: AssistantPreferences; children: ReactNode }) {
+export function AssistantProvider({ ai, assistant, voiceServer, children }: { ai: AiPreferences; assistant: AssistantPreferences; voiceServer: ServerVoice; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   // Pages register what they are about; a part of a page (a picked planner task) can stack on top and step back off.
@@ -220,8 +223,8 @@ export function AssistantProvider({ ai, assistant, children }: { ai: AiPreferenc
   const move = useTamariMove({ ask, setActivity });
 
   const value = useMemo<AssistantContextValue>(
-    () => ({ open, page, ai, assistant, show, hide, register, subscribe, setActivity }),
-    [open, page, ai, assistant, show, hide, register, subscribe, setActivity],
+    () => ({ open, page, ai, assistant, show, hide, register, subscribe, setActivity, voiceServer }),
+    [open, page, ai, assistant, show, hide, register, subscribe, setActivity, voiceServer],
   );
 
   // The strictest wish wins: any registered part saying "hidden" (a quiz in progress) hides the chat button.

@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { Listening, Speaking, VoiceProviders } from "@/lib/voice/types";
+import type { Listening, Speaking, SpeechToText, TextToSpeech } from "@/lib/voice/types";
 
-export type VoiceStatus = "idle" | "listening" | "speaking";
+export type VoiceStatus = "idle" | "listening" | "transcribing" | "speaking";
+
+/** What this RevTaw server can do for voice (set in the app layout from its configuration). */
+export type ServerVoice = { transcribe: boolean };
 
 type Handlers = { onPartial: (text: string) => void; onFinal: (text: string) => void };
 
@@ -14,10 +17,27 @@ function recognitionAvailable(): boolean {
   return Boolean(scope.SpeechRecognition ?? scope.webkitSpeechRecognition);
 }
 
-let loading: Promise<VoiceProviders> | null = null;
-/** The voice layer is a separate chunk, fetched on the first tap of the microphone. */
-function loadProviders(): Promise<VoiceProviders> {
-  loading ??= import("@/lib/voice/web-speech").then((module) => module.webSpeechProviders);
+function recorderAvailable(): boolean {
+  return typeof window !== "undefined" && typeof window.MediaRecorder === "function" && Boolean(navigator.mediaDevices?.getUserMedia);
+}
+
+type Loaded = { stt: SpeechToText; tts: TextToSpeech };
+
+let loading: Promise<Loaded> | null = null;
+/**
+ * The voice layer is a separate chunk, fetched on the first tap of the
+ * microphone: the browser's Web Speech, plus recording for the server's
+ * speech-to-text in browsers that cannot listen, when this server offers it.
+ */
+function loadProviders(server: ServerVoice): Promise<Loaded> {
+  loading ??= (async () => {
+    const web = await import("@/lib/voice/web-speech");
+    const stt = !recognitionAvailable() && server.transcribe && recorderAvailable() ? (await import("@/lib/voice/recorder")).recordedSpeechToText : web.webSpeechToText;
+    return { stt, tts: web.webTextToSpeech };
+  })();
+  loading.catch(() => {
+    loading = null;
+  });
   return loading;
 }
 
@@ -25,16 +45,18 @@ function loadProviders(): Promise<VoiceProviders> {
  * Listening and reading aloud for Ask RevTaw. One thing at a time: starting
  * to listen stops any reading, and the student can always stop either.
  */
-export function useVoice(handlers: Handlers) {
-  const [supported] = useState(recognitionAvailable);
+export function useVoice(handlers: Handlers, server: ServerVoice = { transcribe: false }) {
+  const [supported] = useState(() => recognitionAvailable() || (server.transcribe && recorderAvailable()));
   const [status, setStatus] = useState<VoiceStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const latest = useRef(handlers);
+  const serverRef = useRef(server);
   const listening = useRef<Listening | null>(null);
   const speaking = useRef<Speaking | null>(null);
 
   useEffect(() => {
     latest.current = handlers;
+    serverRef.current = server;
   });
 
   useEffect(
@@ -57,9 +79,9 @@ export function useVoice(handlers: Handlers) {
       setError(null);
       if (listening.current) return;
       setStatus("listening");
-      let stt: VoiceProviders["stt"];
+      let stt: SpeechToText;
       try {
-        ({ stt } = await loadProviders());
+        ({ stt } = await loadProviders(serverRef.current));
       } catch {
         setStatus("idle");
         setError("Voice could not start. Check your connection and try again.");
@@ -71,9 +93,10 @@ export function useVoice(handlers: Handlers) {
         onError: (problem) => {
           if (problem.code !== "aborted") setError(problem.message);
         },
+        onProcessing: () => setStatus((current) => (current === "listening" ? "transcribing" : current)),
         onEnd: () => {
           listening.current = null;
-          setStatus((current) => (current === "listening" ? "idle" : current));
+          setStatus((current) => (current === "listening" || current === "transcribing" ? "idle" : current));
         },
       });
     },
@@ -85,9 +108,9 @@ export function useVoice(handlers: Handlers) {
 
   const speak = useCallback(async (text: string, language: string) => {
     if (!text.trim()) return;
-    let tts: VoiceProviders["tts"];
+    let tts: TextToSpeech;
     try {
-      ({ tts } = await loadProviders());
+      ({ tts } = await loadProviders(serverRef.current));
     } catch {
       return;
     }

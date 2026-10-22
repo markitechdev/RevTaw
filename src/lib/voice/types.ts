@@ -17,6 +17,8 @@ export type ListenHandlers = {
   /** The finished sentence. */
   onFinal: (text: string) => void;
   onError: (error: VoiceError) => void;
+  /** Recording stopped and the clip is being turned into text (server speech-to-text only). */
+  onProcessing?: () => void;
   /** Listening stopped, for any reason. */
   onEnd: () => void;
 };

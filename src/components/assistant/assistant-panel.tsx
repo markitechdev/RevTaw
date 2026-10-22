@@ -17,7 +17,7 @@ import { saveResponseLanguageAction } from "@/lib/preferences/actions";
 import type { ResponseLanguage } from "@/lib/preferences/schema";
 import { routes } from "@/lib/routes";
 import { parseTamariCommand, spokenDay, type TamariCommand } from "@/lib/tamari/commands";
-import { commandLines, hereLine, tamariLanguage, tamariStatus } from "@/lib/tamari/lines";
+import { commandLines, hereLine, tamariLanguage, tamariStatus, transcribingLine } from "@/lib/tamari/lines";
 import { TAMARI_TAGLINE, type TamariState } from "@/lib/tamari/states";
 import { addToNotesAction, createFlashcardAction } from "@/lib/tutor/actions";
 import type { MessageView } from "@/lib/tutor/queries";
@@ -187,7 +187,7 @@ const chip =
  * carries across pages.
  */
 export default function AssistantPanel() {
-  const { open, page, ai, assistant, hide, subscribe, setActivity } = useAssistant();
+  const { open, page, ai, assistant, hide, subscribe, setActivity, voiceServer } = useAssistant();
   const { voiceReplies } = assistant;
   const router = useRouter();
   const { setTheme } = useTheme();
@@ -227,10 +227,13 @@ export default function AssistantPanel() {
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
   const [moving, setMoving] = useState(false);
   const [, startSaving] = useTransition();
-  const voice = useVoice({
-    onPartial: (text) => setDraft(text),
-    onFinal: (text) => onVoice(text),
-  });
+  const voice = useVoice(
+    {
+      onPartial: (text) => setDraft(text),
+      onFinal: (text) => onVoice(text),
+    },
+    voiceServer,
+  );
   /** The microphone shows when the browser can listen and the student keeps voice on. */
   const canListen = voice.supported && assistant.voice;
   const lang = tamariLanguage(ai.language);
@@ -264,7 +267,7 @@ export default function AssistantPanel() {
     return () => setActivity("chat", false);
   }, [sending, setActivity]);
   useEffect(() => {
-    setActivity("voice:listening", voice.status === "listening");
+    setActivity("voice:listening", voice.status === "listening" || voice.status === "transcribing");
     setActivity("voice:speaking", voice.status === "speaking");
     return () => {
       setActivity("voice:listening", false);
@@ -743,7 +746,7 @@ export default function AssistantPanel() {
   };
 
   const suggestions = suggestionsFor(page, includeContext);
-  const tamariState: TamariState = voice.status === "listening" ? "listening" : sending ? "thinking" : voice.status === "speaking" ? "speaking" : "idle";
+  const tamariState: TamariState = voice.status === "listening" ? "listening" : sending || voice.status === "transcribing" ? "thinking" : voice.status === "speaking" ? "speaking" : "idle";
   const shownMaterials = (materials ?? []).filter((material) => !filter.trim() || `${material.title} ${material.subject ?? ""}`.toLowerCase().includes(filter.trim().toLowerCase()));
   const contextLine = includeContext && page ? page.label : (conversation?.material?.title ?? attached?.title ?? null);
 
@@ -1049,7 +1052,7 @@ export default function AssistantPanel() {
                 <button
                   type="button"
                   onClick={toggleListening}
-                  disabled={sending}
+                  disabled={sending || voice.status === "transcribing"}
                   aria-pressed={voice.status === "listening"}
                   aria-label="Ask by voice"
                   title={voice.status === "listening" ? "Stop listening" : "Ask by voice: a question, or a command like “open the planner”"}
@@ -1075,6 +1078,12 @@ export default function AssistantPanel() {
               <p role="status" className="flex items-center gap-2 text-xs font-medium text-primary">
                 <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-primary" />
                 {tamariStatus("listening", lang)} Ask a question, or say “open the planner”.
+              </p>
+            )}
+            {voice.status === "transcribing" && (
+              <p role="status" className="flex items-center gap-2 text-xs font-medium text-primary">
+                <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+                {transcribingLine(lang)}
               </p>
             )}
             {voice.status === "speaking" && (

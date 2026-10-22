@@ -28,11 +28,13 @@ export const DEFAULT_DEADLINE_MS = 110_000;
 /** Below this, starting another provider is pointless. */
 const MIN_ATTEMPT_MS = 5_000;
 
-function key(provider: AiProvider): string {
+type Keyed = Pick<AiProvider, "name" | "model">;
+
+function key(provider: Keyed): string {
   return `${provider.name}:${provider.model}`;
 }
 
-export function coolingDownUntil(provider: AiProvider, now: number = Date.now()): number | null {
+export function coolingDownUntil(provider: Keyed, now: number = Date.now()): number | null {
   const entry = cooldowns.get(key(provider));
   if (!entry) return null;
   if (entry.until <= now) {
@@ -59,7 +61,7 @@ export function cooldownFor(error: AiError): number | null {
   }
 }
 
-export function startCooldown(provider: AiProvider, error: AiError, now: number = Date.now()): void {
+export function startCooldown(provider: Keyed, error: AiError, now: number = Date.now()): void {
   const duration = cooldownFor(error);
   if (duration === null) return;
   cooldowns.set(key(provider), { until: now + duration, reason: error.code });

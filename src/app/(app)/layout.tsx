@@ -10,6 +10,7 @@ import { countUnreadNotifications, listNotifications } from "@/lib/notifications
 import { getPreferences } from "@/lib/preferences/queries";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { routes } from "@/lib/routes";
+import { voiceCapabilities } from "@/lib/voice/server";
 
 /**
  * Layout for every signed-in screen. The proxy already redirects anonymous
@@ -29,7 +30,7 @@ export default async function AppLayout({ children }: LayoutProps<"/"> ) {
 
   return (
     <AppearanceRoot appearance={preferences.appearance}>
-      <AssistantProvider ai={preferences.ai} assistant={preferences.assistant}>
+      <AssistantProvider ai={preferences.ai} assistant={preferences.assistant} voiceServer={voiceCapabilities()}>
         <AppShell displayName={profile?.display_name ?? ""} email={user.email} pinned={preferences.tools.pinned} notifications={<NotificationsMenu notifications={notifications} unread={unread} />}>
           <TimezoneSync current={profile?.timezone ?? null} />
           <ReminderWatcher />
