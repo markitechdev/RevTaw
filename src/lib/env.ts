@@ -30,6 +30,7 @@ const serverSchema = z.object({
   // in order; naming one provider pins every request to it.
   AI_PROVIDER: z.enum(["auto", "groq", "cloudflare", "ollama", "anthropic", "openai", "google", "mock"]).optional(),
   AI_PROVIDER_ORDER: z.string().min(1).optional(),
+  AI_DAILY_LIMITS: z.string().min(1).optional(),
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),
   GOOGLE_AI_API_KEY: z.string().min(1).optional(),
@@ -91,6 +92,7 @@ export function getServerEnv(): ServerEnv {
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || undefined,
     AI_PROVIDER: process.env.AI_PROVIDER || undefined,
     AI_PROVIDER_ORDER: process.env.AI_PROVIDER_ORDER || undefined,
+    AI_DAILY_LIMITS: process.env.AI_DAILY_LIMITS || undefined,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || undefined,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY || undefined,
     GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY || undefined,

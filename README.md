@@ -34,7 +34,8 @@ AI features (material analysis, image transcription, reviewer and quiz
 generation, grading, Tamari) run on the server through a router: Groq first,
 then Cloudflare Workers AI (both have free tiers), then Anthropic or OpenAI
 if you add a paid key, then a local Ollama. Put `GROQ_API_KEY`,
-`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in `.env.local`.
+`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in `.env.local`; each
+student gets a daily AI allowance (`AI_DAILY_LIMITS`, migration 0016).
 Without any key, development uses a built-in mock provider so the rest of
 the app keeps working.
 

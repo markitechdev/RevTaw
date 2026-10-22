@@ -161,7 +161,8 @@ async function respond(
   } catch (error) {
     if (!isAiError(error)) throw error;
     reply = {
-      answer: `${error.message} Your question is saved — try again in a moment.`,
+      // A reached daily limit says when it refills; "try again in a moment" would mislead.
+      answer: error.code === "quota_exceeded" ? `${error.message} Your question is saved.` : `${error.message} Your question is saved — try again in a moment.`,
       grounding: "general",
       sources: [],
       additional_explanation: null,

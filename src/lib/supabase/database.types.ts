@@ -575,6 +575,18 @@ type RemindersRow = {
   updated_at: string;
 };
 
+export type AiUsageKind = "chat" | "generate" | "study" | "upload" | "voice";
+
+type AiUsageRow = {
+  user_id: string;
+  day: string;
+  kind: AiUsageKind;
+  requests: number;
+  input_tokens: number;
+  output_tokens: number;
+  updated_at: string;
+};
+
 type StudyGoalsRow = {
   id: string;
   user_id: string;
@@ -1234,6 +1246,12 @@ export type Database = {
         Update: Partial<XpEventsRow>;
         Relationships: [];
       };
+      ai_usage: {
+        Row: AiUsageRow;
+        Insert: Writable<AiUsageRow, "user_id" | "day" | "kind">;
+        Update: Partial<AiUsageRow>;
+        Relationships: [];
+      };
       achievements: {
         Row: AchievementsRow;
         Insert: Writable<AchievementsRow, "key">;
@@ -1250,6 +1268,18 @@ export type Database = {
       claim_due_reminders: {
         Args: { batch_size?: number };
         Returns: RemindersRow[];
+      };
+      consume_ai_request: {
+        Args: { p_kind: AiUsageKind; p_daily_limit: number };
+        Returns: Array<{ allowed: boolean; used: number; daily_limit: number; resets_at: string; student_id: string }>;
+      };
+      add_ai_tokens: {
+        Args: { p_kind: AiUsageKind; p_input_tokens: number; p_output_tokens: number };
+        Returns: undefined;
+      };
+      refund_ai_request: {
+        Args: { p_user_id: string; p_kind: AiUsageKind };
+        Returns: undefined;
       };
     };
     Enums: {

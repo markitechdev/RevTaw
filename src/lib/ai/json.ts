@@ -61,6 +61,8 @@ export async function generateJson<T>(
     ...options,
     json: true,
     temperature: 0,
+    // A repair is part of the same request: it does not count toward the student's daily limit.
+    attempt: 2,
     messages: [
       ...options.messages,
       { role: "assistant", content: first.text.slice(0, 20_000) },

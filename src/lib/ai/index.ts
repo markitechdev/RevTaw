@@ -6,6 +6,7 @@ import { GoogleProvider } from "@/lib/ai/providers/google";
 import { MockProvider } from "@/lib/ai/providers/mock";
 import { OpenAiProvider } from "@/lib/ai/providers/openai";
 import { OpenAiCompatibleProvider } from "@/lib/ai/providers/openai-compatible";
+import { MeteredProvider } from "@/lib/ai/quota";
 import { AiRouter } from "@/lib/ai/router";
 import type { AiProvider, AiTier } from "@/lib/ai/types";
 import { getServerEnv, type ServerEnv } from "@/lib/env";
@@ -163,8 +164,8 @@ export function isAiConfigured(): boolean {
 }
 
 /**
- * The AI provider for a tier: every configured provider behind one router.
- * AI_PROVIDER pins
+ * The AI provider for a tier: every configured provider behind one router,
+ * metered against the signed-in student's daily allowance. AI_PROVIDER pins
  * all requests to one provider (AI_MODEL_FAST / AI_MODEL_STRONG then pick its
  * models). Throws a student-safe AiError when nothing is configured.
  */
@@ -176,7 +177,7 @@ export function getAiProvider(tier: AiTier = "strong"): AiProvider {
     const override = tier === "fast" ? env.AI_MODEL_FAST : env.AI_MODEL_STRONG;
     const provider = buildProvider(pinned, tier, env, pinned === "mock" ? undefined : override);
     if (!provider) throw new AiError("not_configured", `AI_PROVIDER=${pinned}, but its key or URL is missing`);
-    return provider;
+    return new MeteredProvider(provider);
   }
 
   const candidates = providerOrder(env)
@@ -184,8 +185,8 @@ export function getAiProvider(tier: AiTier = "strong"): AiProvider {
     .filter((provider): provider is AiProvider => provider !== null);
 
   if (candidates.length === 0) {
-    if (process.env.NODE_ENV !== "production") return new MockProvider();
+    if (process.env.NODE_ENV !== "production") return new MeteredProvider(new MockProvider());
     throw new AiError("not_configured", "No AI provider configured");
   }
-  return candidates.length === 1 ? candidates[0] : new AiRouter(candidates);
+  return new MeteredProvider(candidates.length === 1 ? candidates[0] : new AiRouter(candidates));
 }

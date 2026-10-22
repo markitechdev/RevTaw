@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { describeAiSetup, getAiProvider, providerOrder } from "@/lib/ai";
 import { estimateInputTokens } from "@/lib/ai/budget";
+import { MeteredProvider } from "@/lib/ai/quota";
 import { AiRouter } from "@/lib/ai/router";
-import type { AiProvider } from "@/lib/ai/types";
 import { getServerEnv } from "@/lib/env";
 
 const KEYS = [
@@ -28,8 +28,9 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-function names(provider: AiProvider): string[] {
-  return provider instanceof AiRouter ? provider.candidates.map((candidate) => `${candidate.name}:${candidate.model}`) : [`${provider.name}:${provider.model}`];
+function names(provider: unknown): string[] {
+  const inner = (provider as MeteredProvider).inner;
+  return inner instanceof AiRouter ? inner.candidates.map((candidate) => `${candidate.name}:${candidate.model}`) : [`${inner.name}:${inner.model}`];
 }
 
 describe("getAiProvider", () => {

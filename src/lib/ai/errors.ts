@@ -4,7 +4,8 @@ export type AiErrorCode =
   | "provider_error"
   | "invalid_output"
   | "content_too_large"
-  | "unsupported";
+  | "unsupported"
+  | "quota_exceeded";
 
 const FRIENDLY: Record<AiErrorCode, string> = {
   not_configured: "AI features are not configured on this server yet.",
@@ -13,12 +14,13 @@ const FRIENDLY: Record<AiErrorCode, string> = {
   invalid_output: "RevTaw could not understand the AI response. Please try again.",
   content_too_large: "This material is too large to analyze in one go.",
   unsupported: "This operation is not supported by the configured AI provider.",
+  quota_exceeded: "You have used today's AI allowance. It refills at midnight, Philippine time.",
 };
 
 export type AiErrorOptions = {
   /** Student-safe message that replaces the default one for this code. */
   message?: string;
-  /** Seconds the provider asks us to wait, when known. */
+  /** Seconds the provider (or the daily limit) asks us to wait, when known. */
   retryAfterSeconds?: number;
 };
 

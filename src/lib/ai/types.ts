@@ -27,8 +27,10 @@ export type AiGenerateOptions = {
    * additionalProperties: false.
    */
   jsonSchema?: { name: string; schema: Record<string, unknown> };
-  /** Free-form label used for logging, routing and by the mock provider. */
+  /** Free-form label used for logging, routing, daily limits and by the mock provider. */
   task?: string;
+  /** 1 for a first call, 2 for generateJson's repair call (which does not count toward daily limits). */
+  attempt?: number;
   signal?: AbortSignal;
   /** Per-call timeout set by the router so a fallback still fits the route's time limit. */
   timeoutMs?: number;
