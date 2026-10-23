@@ -4,7 +4,7 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-23 (learning engine round complete, after the API integrations round, the UI/UX phase and Phases 1–10)_
+_Last updated: 2026-10-23 (the Archive, Tamari's language any time and the level card, after the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
 
 ## Completed
 
@@ -930,14 +930,67 @@ tables.
   students; evidence is read a page at a time (Supabase returns 1,000 rows
   a request), the latest 10,000 answers per kind.
 
+### The Archive, Tamari's language any time and the level card
+
+- **Delete moves a material to the Archive** — the material page's Delete
+  opens a dialog that says what happens ("moves to the Archive… restore it
+  there for 30 days") and what always stays; the Materials page then shows
+  "Moved to the Archive" with **Undo**. The separate Archive button is gone
+  (Delete is the archive). The Archive (Materials → Archive) lists what can
+  still come back, the next to go first, each card counting down ("Deletes
+  permanently in 12 days (Nov 22, 2026)", in the student's time zone) with
+  **Restore** and **Delete permanently**; an archived material's page has a
+  banner with the same countdown and both buttons.
+- **Delete permanently keeps what was made** — the file in storage, the
+  extracted text (chunks and embeddings) and the analysis are deleted for
+  good; the material row stays with status `deleted` (`purged_at`, file
+  fields cleared), so reviewers, quizzes, flashcard decks, memory aids,
+  mistakes, sessions, concepts and mastery keep their material's title,
+  subject and folder (Notes, Flashcards, Memory aids, Progress and exams
+  still show it). Its page says when the file went and lists what was kept
+  ("What you made from it"), with Rename and Move to keep things organized;
+  no content tabs and no creation tools. Generation, sessions, Smart Study,
+  the tutor's sources, processing, plans and never-practised
+  recommendations skip a deleted file (410 "The file behind … was deleted,
+  so nothing new can be made from it"); starting a planner task for it opens
+  its page instead of a session. Only archived materials can be
+  deleted permanently (`purgeMaterialAction`); a deleted one can't be
+  restored (and a check constraint keeps it archived).
+- **30 days, then gone** (`src/lib/materials/purge.ts`,
+  `src/lib/materials/retention.ts`) — materials archived 30+ days ago are
+  deleted permanently on the student's own visits (Home and Materials after
+  the response with `after()`, the Archive and the material page before
+  showing them) and by `/api/cron/archive` once a day (schedules.sql, 3:13
+  a.m. Manila time; batches of 50 for about 45 seconds). The row is claimed
+  first (status `deleted`), then the file and text go, then `storage_path`
+  is cleared, so a restore can't race the purge and a half-finished purge is
+  completed on the next run.
+- **Migration 0023** — `material_status` gains `deleted`; `materials`
+  gains `purged_at` and the check that a deleted file stays archived;
+  materials archived before get the full 30 days from the update; an index
+  finds what is due.
+- **Tamari's language any time** — a "Tamari answers in" picker sits under
+  the message box (sized to the chosen language), and saying or typing
+  "English please", "Tagalog na lang", "mag-Taglish tayo", "speak Filipino"
+  or "answer in my language" switches at once (`languageIn()` in
+  `src/lib/tamari/commands.ts`; a bare "English" or "explain photosynthesis
+  in Filipino" is not a switch). Tamari confirms in the new language, and
+  the choice is saved to the same preference as Settings → Tamari & AI
+  (shown at once with `useOptimistic`).
+- **Level and badges under the name** — the sidebar and the phone menu show
+  the level, XP and the three newest badges (with the count) instead of the
+  email, linking to Badges; a ring around the initials fills through the
+  current level (`getStanding()` in `src/lib/gamification/standing.ts`:
+  two small reads per page, refreshed whenever an action revalidates).
+
 ## In Progress
 
 - Nothing at the moment. All ten phases of the specification, the UI/UX
   Improvement and Personalization Phase, the Tamari visual AI companion
-  integration, the API integrations round and the learning engine round are
-  implemented. The services still need the owner's real keys (see
-  Environment Requirements) and the hosted database needs migrations
-  0016–0022.
+  integration, the API integrations round, the learning engine round and
+  the Archive round are implemented. The services still need the owner's
+  real keys (see Environment Requirements); the hosted database has
+  0001–0022 and needs 0023 (the Archive).
 
 ## Next (priority order)
 
@@ -967,7 +1020,7 @@ tables.
 | `public.profiles` | One row per `auth.users` row: display name, education level, main goal, preferred session minutes, onboarding timestamp, time zone, `xp` (kept in step with the ledger by trigger), `preferences` (JSON by section, ≤16 KB, saved with `set_preference_section()`) | RLS: owner may select/insert/update; no delete policy (cascade from `auth.users`) |
 | `public.subjects` | Top-level organisation (name, colour, archived_at) | owner full access; `(id, user_id)` unique for composite FKs |
 | `public.folders` | Grouping inside a subject (chapter, topic…) | owner full access; FK `(subject_id, user_id)` |
-| `public.materials` | One upload or note: title, source, file metadata, `storage_path`, `content_hash`, status + detail, counts, `last_opened_at`, `archived_at` | owner full access; composite FKs to subject and folder (folder must belong to the subject) |
+| `public.materials` | One upload or note: title, source, file metadata, `storage_path`, `content_hash`, status + detail (`deleted` once the file is gone), counts, `last_opened_at`, `archived_at` (in the Archive: deleted permanently 30 days later), `purged_at` (when the file, text and analysis were deleted; the row stays for what was made from it, migration 0023) | owner full access; composite FKs to subject and folder (folder must belong to the subject); a deleted file stays archived (check) |
 | `public.material_chunks` | Ordered extracted text with heading and page range; `embedding` (BGE-M3, `halfvec(1024)`), `embedding_model`, `embedded_at` and a generated `simple` full-text `search_tsv` (migration 0017) | owner full access; cascade from material |
 | `public.material_analyses` | One AI analysis per material: summary, difficulty, minutes, coverage, validated `data` JSON, provider/model | owner full access; cascade from material |
 | `public.concepts` | Master concept list per student (`name`, `normalized_name`, origin material/subject) | owner full access; unique `(user_id, normalized_name)` |
@@ -1005,7 +1058,7 @@ tables.
 | `public.calendar_connections` | Google Calendar link: provider, "RevTaw Study" calendar id, encrypted refresh token (`v1:` AES-256-GCM), scope, status (connected, needs_reconnect, error), last sync, last error | owner may select the non-secret columns (column grant without `refresh_token` and `scope`); the server writes |
 | `storage.objects` (bucket `materials`) | Private files under `<user_id>/<material_id>/<file>` | policies on first path segment = `auth.uid()` |
 
-Enums: `education_level`, `study_goal`, `material_source`, `material_status`,
+Enums: `education_level`, `study_goal`, `material_source`, `material_status` (incl. `deleted`, migration 0023),
 `difficulty_level`, `reviewer_kind`, `generation_status`, `question_type`,
 `question_difficulty`, `quiz_mode`, `attempt_status`, `confidence_level`,
 `mistake_type`, `session_status`, `session_goal`, `flashcard_rating`,
@@ -1430,7 +1483,15 @@ Flows verified end to end against a local Supabase-compatible stack
   cross-user subject/folder links; anon has no access
 - Materials: PDF (real multi-page), DOCX, pasted notes, image (vision), fake
   PDF rejected by byte check, retry, deduplication, subject filter, viewer
-  tabs, re-analyze, rename/move/archive/delete, subjects/folders manager
+  tabs, re-analyze, rename/move, subjects/folders manager; Delete → the
+  Archive (dialog wording, notice with Undo, hidden from the lists, file
+  kept, countdown on the card and page, Restore from the card), Delete
+  permanently (file, chunks and analysis gone; row kept as `deleted` with
+  title, subject and folder; reviewer, deck and memory aid kept and listed
+  on the page; Rename and Move only; generation refused with 410; Notes
+  still name the material; its planner reviews stay and Start opens the
+  page), 30 days later on a visit and by `/api/cron/archive` (401 without
+  the secret)
 - Reviewers: generate (complete, Cornell with fixed sections, Q&A,
   definitions), edit a section, regenerate a section with instructions,
   rename, delete, unknown material rejected, mobile layout
@@ -1547,7 +1608,9 @@ Flows verified end to end against a local Supabase-compatible stack
   pinning, command menu (19 checks incl. keyboard and axe), settings (20
   checks), contrast of every theme color in light and dark; the assistant
   (`assistant-e2e.mjs`: Tamari on Home and the chat button elsewhere, non-modal desktop panel, phone sheet,
-  language question, context across pages, new chat about the page, quick
+  language question, the language picker and "Tagalog na lang" / "answer in
+  my language" / "mag-Taglish tayo" switching it any time without a chat
+  message, context across pages, new chat about the page, quick
   actions, add to notes, restore after reload, history, expand, Escape,
   highlight-and-ask in the material's thread, command menu, quiz results
   suggestion and "Ask Tamari why", hidden during a quiz and on the tutor,

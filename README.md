@@ -46,8 +46,9 @@ optional: set Resend (`RESEND_API_KEY`, `EMAIL_FROM` on a domain you own) and
 the scheduler (`CRON_SECRET`, `SUPABASE_SECRET_KEY`, and `supabase/schedules.sql`
 or another cron calling the `/api/cron/*` routes) — see `.env.example`. The
 same scheduler runs the learning engine at night (`/api/cron/engine`: question
-difficulty and exam boosters); without it, mastery still refreshes whenever a
-student opens RevTaw.
+difficulty and exam boosters) and empties the Archive (`/api/cron/archive`:
+materials deleted 30 days ago); without it, mastery still refreshes and
+expired Archive items are still deleted whenever a student opens RevTaw.
 Also optional: Filipino read-aloud through Azure AI Speech
 (`AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`), Google Calendar sync through
 Google's own OAuth (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`,
@@ -60,7 +61,9 @@ variables only.
 
 - Accounts, onboarding and settings (Phase 1)
 - Materials: upload PDF/DOCX/images/notes, extraction, AI analysis with
-  study-method recommendations, organisation by subject and folder (Phase 2)
+  study-method recommendations, organisation by subject and folder (Phase 2);
+  Delete moves a material to the Archive for 30 days, and deleting it
+  permanently removes the file but keeps everything made from it
 - Reviewers in ten formats with editable, individually regenerable sections
   (Phase 3)
 - Quizzes with nine question types, practice and exam modes, timers,

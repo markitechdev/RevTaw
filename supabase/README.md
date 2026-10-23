@@ -48,6 +48,8 @@ supabase db push
 | `0019_calendar.sql` | `calendar_connections`: the student's Google Calendar link with the refresh token encrypted by the server; students can read the status but never the token (column grant) |
 | `0020_privacy_preferences.sql` | a `privacy` preferences section (usage analytics, off by default) accepted by `set_preference_section()` |
 | `0021_ai_usage_server_tokens.sql` | token, voice-second and character counts are added only by the server: `add_ai_tokens(user, kind, input, output)` for the service role only |
+| `0022_learning_engine.sql` | the learning engine: `mastery_status` gains `developing`; `concept_mastery` keeps P(learned), recall, Elo rating (and where it started), weakness, gates, next step, best status and the concept's FSRS state; FSRS columns on `flashcards` and `flashcard_reviews`; `item_buckets` (shared question difficulty, written by the server only) |
+| `0023_material_archive.sql` | the Archive: `material_status` gains `deleted`; `materials.purged_at` (the file, text and analysis deleted permanently 30 days after Delete; the row stays for what was made from it) with a check that a deleted file stays archived; materials archived before get the full 30 days |
 
 Migrations are additive. Never edit an applied migration; add a new numbered
 file instead.
@@ -85,8 +87,9 @@ adds a small per-IP limiter in front of the auth actions as an extra layer.
 
 ## 5. Scheduler (optional)
 
-Reminder emails, the daily digest, search embeddings for older materials and
-Google Calendar's hourly sync run when something calls RevTaw's
+Reminder emails, the daily digest, search embeddings for older materials,
+Google Calendar's hourly sync, the learning engine's night run and the
+Archive's 30 days run when something calls RevTaw's
 `/api/cron/*` routes with `Authorization: Bearer <CRON_SECRET>`.
 `schedules.sql` sets this up inside Supabase with pg_cron and pg_net, keeping
 the site address and `CRON_SECRET` in Supabase Vault: turn on both
