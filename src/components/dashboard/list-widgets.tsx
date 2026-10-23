@@ -66,12 +66,12 @@ export async function RecentMaterialsWidget() {
 
 export async function WeakTopicsWidget() {
   const summary = await getMasterySummary();
-  const rows = [...summary.weak, ...summary.learning].sort((a, b) => Number(a.mastery) - Number(b.mastery)).slice(0, 5);
+  const rows = summary.needsWork.slice(0, 5);
   return (
     <WidgetPanel labelledBy="w-weak">
       <WidgetHeading id="w-weak" icon={TrendingDown} title="Weak topics" action={{ href: routes.progress, label: "Progress" }} />
       {rows.length === 0 ? (
-        <EmptyLine>{summary.total === 0 ? "No data yet — one quiz or recall session is enough to see patterns." : "No weak topics right now. Everything you practised is strong."}</EmptyLine>
+        <EmptyLine>{summary.total === 0 ? "No data yet — one quiz or recall session is enough to see patterns." : "No weak topics right now: nothing you practised keeps going wrong."}</EmptyLine>
       ) : (
         <ul className="-my-1 flex flex-col divide-y divide-border">
           {rows.map((row) => (

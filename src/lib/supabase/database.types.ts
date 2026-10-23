@@ -507,6 +507,7 @@ type ConceptMasteryRow = {
   recall: number | null;
   elo_rating: number;
   elo_answers: number;
+  elo_start: number | null;
   weakness: number;
   first_attempts: number;
   gates: Json;

@@ -1,0 +1,270 @@
+import "server-only";
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import { normalizeConceptName } from "@/lib/concepts/service";
+import { median } from "@/lib/engine/answers";
+import { ENGINE } from "@/lib/engine/config";
+import type { EngineEvent, EngineEventKind } from "@/lib/engine/mastery-model";
+import { parseAnalysisData, type ConceptCategory } from "@/lib/materials/analysis-schema";
+import { DEFAULT_TIMEZONE, isValidTimezone } from "@/lib/planner/dates";
+import type { ConfidenceLevel, Database, FlashcardRating, MasteryStatus, QuestionDifficulty, QuestionType, SessionItemKind } from "@/lib/supabase/database.types";
+
+/**
+ * What the learning engine reads for one student: every graded answer per
+ * concept, and the context the concept model needs (time zone, response-time
+ * medians, shared item buckets, concept categories, the starting point of
+ * each concept's rating). Every query filters by the student's id, so it is
+ * safe with the server's secret-key client in nightly jobs as well as with
+ * the signed-in student's client.
+ */
+
+type Client = SupabaseClient<Database>;
+
+export type ConceptEvidence = { events: EngineEvent[]; openMistakes: number };
+
+export type ModelContext = {
+  timeZone: string;
+  /** The student's median response time per question type (null until there are enough timed answers). */
+  medians: Record<string, number | null>;
+  /** Learned bucket difficulties (logits) by bucket key. */
+  buckets: Map<string, number>;
+  categories: Map<string, ConceptCategory>;
+  previous: Map<string, { bestStatus: MasteryStatus | null; eloStart: number | null }>;
+  /** Overall ability: where a concept's rating starts the first time it is answered. */
+  ability: number;
+};
+
+/** Self-rated flashcards carry no confidence of their own; the rating stands in for it. */
+const RATING_CONFIDENCE: Record<FlashcardRating, ConfidenceLevel> = { again: "guessing", hard: "unsure", good: "somewhat_confident", easy: "very_confident" };
+
+const QUESTION_TYPES: ReadonlySet<string> = new Set<QuestionType>([
+  "identification",
+  "multiple_choice",
+  "true_false",
+  "fill_blank",
+  "short_answer",
+  "essay",
+  "scenario",
+  "case_based",
+  "problem_solving",
+]);
+
+const DEFAULT_CATEGORY: ConceptCategory = "understanding";
+/** Above this many ids, read all of the student's rows instead of a long `in (…)` list. */
+const IN_LIST_LIMIT = 150;
+
+function eventKind(kind: SessionItemKind): EngineEventKind {
+  return kind === "feynman" ? "feynman" : kind === "mistake" ? "mistake" : kind === "recall" ? "recall" : "item";
+}
+
+/** A session item's question type: its format when that is a quiz question type, otherwise its kind. */
+function itemType(kind: SessionItemKind, format: string | null): string {
+  return format && QUESTION_TYPES.has(format) ? format : kind;
+}
+
+function optionCount(options: unknown): number | null {
+  return Array.isArray(options) && options.length >= 2 ? options.length : null;
+}
+
+/**
+ * Every graded answer per concept, oldest first: quiz answers, study-session
+ * items and flashcard reviews, plus open notebook mistakes. With
+ * `conceptIds` the queries are narrowed to those concepts.
+ */
+export async function collectEvidence(supabase: Client, userId: string, conceptIds: string[] | null): Promise<Map<string, ConceptEvidence>> {
+  const byConcept = new Map<string, ConceptEvidence>();
+  const entry = (id: string) => {
+    const value = byConcept.get(id) ?? { events: [], openMistakes: 0 };
+    byConcept.set(id, value);
+    return value;
+  };
+  // Filters on an embedded table only narrow the parent rows with `!inner` joins (used below).
+  const narrow = <T extends { in: (column: string, values: string[]) => T; not: (column: string, operator: string, value: null) => T }>(query: T, column: string) =>
+    conceptIds ? query.in(column, conceptIds) : query.not(column, "is", null);
+
+  const [answers, items, reviews, mistakes] = await Promise.all([
+    narrow(
+      supabase
+        .from("quiz_answers")
+        .select("question_id, is_correct, confidence, response_ms, answered_at, question:quiz_questions!quiz_answers_question_fk!inner(concept_id, difficulty, type, options)")
+        .eq("user_id", userId)
+        .not("is_correct", "is", null)
+        .order("answered_at", { ascending: false })
+        .limit(3000),
+      "question.concept_id",
+    ),
+    narrow(
+      supabase
+        .from("study_session_items")
+        .select("id, kind, format, concept_id, is_correct, confidence, response_ms, answered_at")
+        .eq("user_id", userId)
+        .not("answered_at", "is", null)
+        .not("is_correct", "is", null)
+        .order("answered_at", { ascending: false })
+        .limit(2000),
+      "concept_id",
+    ),
+    narrow(
+      supabase
+        .from("flashcard_reviews")
+        .select("card_id, rating, response_ms, reviewed_at, card:flashcards!flashcard_reviews_card_fk!inner(concept_id)")
+        .eq("user_id", userId)
+        .order("reviewed_at", { ascending: false })
+        .limit(3000),
+      "card.concept_id",
+    ),
+    narrow(supabase.from("mistakes").select("concept_id").eq("user_id", userId).is("resolved_at", null).limit(2000), "concept_id"),
+  ]);
+  for (const result of [answers, items, reviews, mistakes]) {
+    if (result.error) throw new Error(`mastery evidence: ${result.error.message}`);
+  }
+
+  // Quiz answers, oldest first, so the first answer to each question is its first attempt.
+  const seenQuestions = new Set<string>();
+  for (const row of [...(answers.data ?? [])].reverse()) {
+    const question = row.question as unknown as { concept_id: string | null; difficulty: QuestionDifficulty; type: QuestionType; options: unknown } | null;
+    if (!question?.concept_id) continue;
+    const firstAttempt = !seenQuestions.has(row.question_id);
+    seenQuestions.add(row.question_id);
+    entry(question.concept_id).events.push({
+      at: row.answered_at,
+      kind: "quiz",
+      itemKey: `q:${row.question_id}`,
+      correct: Boolean(row.is_correct),
+      difficulty: question.difficulty,
+      questionType: question.type,
+      optionCount: optionCount(question.options),
+      firstAttempt,
+      confidence: row.confidence,
+      responseMs: row.response_ms,
+    });
+  }
+  for (const row of items.data ?? []) {
+    if (!row.concept_id || !row.answered_at) continue;
+    entry(row.concept_id).events.push({
+      at: row.answered_at,
+      kind: eventKind(row.kind),
+      itemKey: `s:${row.id}`,
+      correct: Boolean(row.is_correct),
+      difficulty: row.kind === "feynman" ? "hard" : "medium",
+      questionType: itemType(row.kind, row.format),
+      optionCount: null,
+      firstAttempt: true,
+      confidence: row.confidence,
+      responseMs: row.response_ms,
+    });
+  }
+  for (const row of reviews.data ?? []) {
+    const card = row.card as unknown as { concept_id: string | null } | null;
+    if (!card?.concept_id) continue;
+    entry(card.concept_id).events.push({
+      at: row.reviewed_at,
+      kind: "flashcard",
+      itemKey: `c:${row.card_id}`,
+      correct: row.rating !== "again",
+      difficulty: "easy",
+      questionType: "flashcard",
+      optionCount: null,
+      firstAttempt: false,
+      confidence: RATING_CONFIDENCE[row.rating],
+      responseMs: row.response_ms,
+      rating: row.rating,
+    });
+  }
+  for (const row of mistakes.data ?? []) {
+    if (row.concept_id) entry(row.concept_id).openMistakes += 1;
+  }
+  for (const value of byConcept.values()) value.events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+  return byConcept;
+}
+
+/** The student's median response time per question type, from their latest timed answers. */
+async function responseMedians(supabase: Client, userId: string): Promise<Record<string, number | null>> {
+  const [answers, items] = await Promise.all([
+    supabase
+      .from("quiz_answers")
+      .select("response_ms, question:quiz_questions!quiz_answers_question_fk!inner(type)")
+      .eq("user_id", userId)
+      .gt("response_ms", 0)
+      .order("answered_at", { ascending: false })
+      .limit(500),
+    supabase.from("study_session_items").select("kind, format, response_ms").eq("user_id", userId).gt("response_ms", 0).order("answered_at", { ascending: false }).limit(300),
+  ]);
+  const byType = new Map<string, number[]>();
+  const add = (type: string, ms: number | null) => {
+    if (!ms || ms <= 0) return;
+    const list = byType.get(type) ?? [];
+    list.push(ms);
+    byType.set(type, list);
+  };
+  for (const row of answers.data ?? []) add((row.question as unknown as { type: string } | null)?.type ?? "quiz", row.response_ms);
+  for (const row of items.data ?? []) add(itemType(row.kind, row.format), row.response_ms);
+  return Object.fromEntries([...byType].map(([type, values]) => [type, median(values)]));
+}
+
+/** Concept id → content category, from each material's analysis (key concepts matched by name). */
+export async function conceptCategories(supabase: Client, userId: string, conceptIds: string[]): Promise<Map<string, ConceptCategory>> {
+  const result = new Map<string, ConceptCategory>();
+  if (conceptIds.length === 0) return result;
+  const wanted = new Set(conceptIds);
+  const base = supabase.from("concepts").select("id, normalized_name, material_id").eq("user_id", userId);
+  const { data: concepts } = await (conceptIds.length <= IN_LIST_LIMIT ? base.in("id", conceptIds) : base.limit(5000));
+  const rows = (concepts ?? []).filter((concept) => wanted.has(concept.id));
+  const materialIds = [...new Set(rows.map((concept) => concept.material_id).filter((id): id is string => Boolean(id)))];
+  const byMaterial = new Map<string, Map<string, ConceptCategory>>();
+  for (let start = 0; start < materialIds.length; start += IN_LIST_LIMIT) {
+    const { data: analyses } = await supabase
+      .from("material_analyses")
+      .select("material_id, key_concepts:data->key_concepts")
+      .eq("user_id", userId)
+      .in("material_id", materialIds.slice(start, start + IN_LIST_LIMIT));
+    for (const analysis of analyses ?? []) {
+      const parsed = parseAnalysisData({ key_concepts: (analysis as { key_concepts: unknown }).key_concepts ?? [] });
+      byMaterial.set(analysis.material_id, new Map(parsed.key_concepts.map((concept) => [normalizeConceptName(concept.name), concept.category])));
+    }
+  }
+  for (const concept of rows) {
+    const category = concept.material_id ? byMaterial.get(concept.material_id)?.get(concept.normalized_name) : undefined;
+    result.set(concept.id, category ?? DEFAULT_CATEGORY);
+  }
+  return result;
+}
+
+/** Shared item buckets (difficulty in logits by bucket key). Readable by every signed-in student. */
+export async function loadBuckets(supabase: Client): Promise<Map<string, number>> {
+  const { data } = await supabase.from("item_buckets").select("bucket_key, difficulty").limit(2000);
+  return new Map((data ?? []).map((row) => [row.bucket_key, Number(row.difficulty)]));
+}
+
+/** Answers-weighted mean of the student's concept ratings, shrunk towards 0 while there are few answers. */
+export function abilityOf(rows: Array<{ elo_rating: number; elo_answers: number }>): number {
+  let weighted = 0;
+  let answers = 0;
+  for (const row of rows) {
+    if (row.elo_answers <= 0) continue;
+    weighted += Number(row.elo_rating) * row.elo_answers;
+    answers += row.elo_answers;
+  }
+  return answers === 0 ? 0 : weighted / (answers + ENGINE.elo.abilityPriorAnswers);
+}
+
+export async function loadModelContext(supabase: Client, userId: string, conceptIds: string[]): Promise<ModelContext> {
+  const [{ data: profile }, medians, buckets, categories, { data: mastery }] = await Promise.all([
+    supabase.from("profiles").select("timezone").eq("id", userId).maybeSingle(),
+    responseMedians(supabase, userId),
+    loadBuckets(supabase),
+    conceptCategories(supabase, userId, conceptIds),
+    supabase.from("concept_mastery").select("concept_id, best_status, elo_start, elo_rating, elo_answers").eq("user_id", userId).limit(5000),
+  ]);
+  const rows = mastery ?? [];
+  const zone = profile?.timezone;
+  return {
+    timeZone: isValidTimezone(zone) ? zone : DEFAULT_TIMEZONE,
+    medians,
+    buckets,
+    categories,
+    previous: new Map(rows.map((row) => [row.concept_id, { bestStatus: row.best_status, eloStart: row.elo_start === null ? null : Number(row.elo_start) }])),
+    ability: abilityOf(rows),
+  };
+}

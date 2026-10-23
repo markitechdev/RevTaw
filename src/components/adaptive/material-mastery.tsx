@@ -7,6 +7,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MasteryView } from "@/lib/adaptive/engine";
 import { MASTERY_THRESHOLD, STATUS_LABEL } from "@/lib/adaptive/mastery";
+import { ENGINE } from "@/lib/engine/config";
 import { routes } from "@/lib/routes";
 
 /** Per-material mastery summary for the material overview (§23: progress per material). */
@@ -15,7 +16,7 @@ export function MaterialMastery({ materialId, rows }: { materialId: string; rows
   if (practiced.length === 0) return null;
   const average = Math.round(practiced.reduce((sum, row) => sum + Number(row.mastery), 0) / practiced.length);
   const mastered = practiced.filter((row) => row.status === "mastered").length;
-  const weak = practiced.filter((row) => row.status === "weak" || row.status === "learning");
+  const weak = practiced.filter((row) => row.status === "weak" || row.status === "learning" || Number(row.weakness) >= ENGINE.weakness.flagAt);
 
   return (
     <Card>

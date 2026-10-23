@@ -91,15 +91,16 @@ export async function StudyTimeWidget() {
 
 export async function MasteryWidget() {
   const summary = await getMasterySummary();
-  const tracked = summary.mastered.length + summary.strong.length + summary.learning.length + summary.weak.length;
+  const tracked = summary.mastered.length + summary.strong.length + summary.developing.length + summary.learning.length + summary.weak.length;
   if (tracked === 0 || summary.averageMastery === null) {
     return <StatTile icon={Target} label="Mastery" value="—" caption="Answer a few questions and RevTaw starts tracking each concept." href={routes.progress} />;
   }
   const segments = [
     { key: "mastered", count: summary.mastered.length, label: "mastered", tone: "bg-success" },
     { key: "strong", count: summary.strong.length, label: "strong", tone: "bg-info" },
+    { key: "developing", count: summary.developing.length, label: "developing", tone: "bg-developing" },
     { key: "learning", count: summary.learning.length, label: "learning", tone: "bg-warning" },
-    { key: "weak", count: summary.weak.length, label: "weak", tone: "bg-danger" },
+    { key: "weak", count: summary.weak.length, label: "need a foundation", tone: "bg-danger" },
   ].filter((segment) => segment.count > 0);
   const description = segments.map((segment) => `${segment.count} ${segment.label}`).join(", ");
   return (

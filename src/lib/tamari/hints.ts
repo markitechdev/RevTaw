@@ -125,7 +125,7 @@ export async function homeLine(language: ResponseLanguage, planning: Promise<unk
     () => (goal ? goalLine(lang, goal) : null),
     () => (better ? improvementLine(lang, better) : null),
     () => {
-      const weakest = [...mastery.weak].sort((a, b) => Number(a.mastery) - Number(b.mastery)).find((row) => row.concept);
+      const weakest = mastery.needsWork.find((row) => row.concept);
       return weakest?.concept ? weakestLine(lang, { id: weakest.concept.id, name: weakest.concept.name, materialId: weakest.concept.material_id }) : null;
     },
   ];

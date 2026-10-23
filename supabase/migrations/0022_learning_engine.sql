@@ -5,11 +5,11 @@
 --   * mastery_status gains 'developing' (60–79%) between learning and
 --     strong; 'weak' is shown as Needs Foundation.
 --   * concept_mastery keeps the engine's estimates beside the existing
---     columns: P(learned), today's recall, the concept's Elo rating, the
---     weakness score, which evidence gates are met and the next step, the
---     highest state reached, and the concept's FSRS state (one review per
---     day). It stays a cache: every column is recomputed from the evidence
---     tables.
+--     columns: P(learned), today's recall, the concept's Elo rating and
+--     where it started, the weakness score, which evidence gates are met
+--     and the next step, the highest state reached, and the concept's FSRS
+--     state (one review per day). It stays a cache: every column except the
+--     rating's starting point is recomputed from the evidence tables.
 --   * flashcards keep their FSRS state (stability, difficulty, state,
 --     learning step, scheduled days); flashcard_reviews log it. The SM-2
 --     columns stay readable; Leitner boxes now come from stability. Cards
@@ -31,6 +31,8 @@ alter table public.concept_mastery
     constraint concept_mastery_elo_rating_range check (elo_rating between -20 and 20),
   add column elo_answers integer not null default 0
     constraint concept_mastery_elo_answers_nonnegative check (elo_answers >= 0),
+  add column elo_start numeric(7, 4)
+    constraint concept_mastery_elo_start_range check (elo_start is null or elo_start between -20 and 20),
   add column weakness numeric(5, 4) not null default 0
     constraint concept_mastery_weakness_range check (weakness between 0 and 1),
   add column first_attempts integer not null default 0
@@ -52,6 +54,7 @@ alter table public.concept_mastery
 comment on column public.concept_mastery.p_learned is 'Bayesian Knowledge Tracing: probability the concept is learned.';
 comment on column public.concept_mastery.recall is 'FSRS recall probability today (concept reviewed once a day).';
 comment on column public.concept_mastery.elo_rating is 'Elo ability on this concept, in logits (student ability + concept offset).';
+comment on column public.concept_mastery.elo_start is 'Where the concept''s rating starts: the student''s ability when it was first answered. Kept, so replaying the history never drifts.';
 comment on column public.concept_mastery.weakness is 'Weakness score W (0–1); weak from 0.30.';
 comment on column public.concept_mastery.gates is 'Evidence gates met: evidence (3+ answers), hardItem, noMisconception, spaced.';
 comment on column public.concept_mastery.next_step is 'The unmet gate that caps mastery now.';

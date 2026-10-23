@@ -4,7 +4,7 @@ import Link from "next/link";
 import { formatDue } from "@/components/study/session-summary";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import type { MasteryView } from "@/lib/adaptive/engine";
-import { DIFFICULTY_LABEL, STATUS_LABEL } from "@/lib/adaptive/mastery";
+import { DIFFICULTY_LABEL, NEXT_STEP_LABEL, needsRefresh, STATUS_LABEL } from "@/lib/adaptive/mastery";
 import { routes } from "@/lib/routes";
 import type { MasteryStatus } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
@@ -43,7 +43,7 @@ export function MasteryBar({ value, status, compact = false }: { value: number; 
         aria-valuenow={percent}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuetext={`${percent}%, ${status}`}
+        aria-valuetext={`${percent}%, ${STATUS_LABEL[status]}`}
       >
         <div className={cn("h-full rounded-full", barColor(status))} style={{ width: `${percent}%` }} />
       </div>
@@ -87,7 +87,14 @@ export function MasteryTable({ rows }: { rows: MasteryView[] }) {
                   </div>
                 </td>
                 <td className="px-3 py-2">
-                  <Badge tone={STATUS_TONE[row.status]}>{STATUS_LABEL[row.status]}</Badge>
+                  <div className="flex flex-col items-start gap-1">
+                    <Badge tone={STATUS_TONE[row.status]}>{STATUS_LABEL[row.status]}</Badge>
+                    {needsRefresh(row) ? (
+                      <span className="text-xs text-muted-foreground">Was {STATUS_LABEL[row.best_status!].toLowerCase()}: a quick review brings it back</span>
+                    ) : row.next_step && row.attempts > 0 ? (
+                      <span className="text-xs text-muted-foreground">Next step: {NEXT_STEP_LABEL[row.next_step]}</span>
+                    ) : null}
+                  </div>
                 </td>
                 <td className="px-3 py-2">
                   <MasteryBar value={Number(row.mastery)} status={row.status} />

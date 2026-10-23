@@ -58,6 +58,8 @@ export const ENGINE = {
     target: { normal: 0.72, foundation: 0.85, stretch: 0.62 },
     /** A stretch beyond "hard" ("advanced") when even hard items are this likely to be right. */
     advancedMargin: 0.1,
+    /** Student ability is the answers-weighted mean of concept ratings, shrunk to 0 as if by this many answers. */
+    abilityPriorAnswers: 10,
   },
 
   /** Shared difficulty buckets (label × question type × concept category), refit nightly. */

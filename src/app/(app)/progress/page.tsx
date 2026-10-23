@@ -15,7 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { getMasterySummary, listMastery } from "@/lib/adaptive/engine";
-import { MASTERY_THRESHOLD, STATUS_LABEL } from "@/lib/adaptive/mastery";
+import { MASTERY_THRESHOLD, STATUS_BANDS, STATUS_LABEL } from "@/lib/adaptive/mastery";
 import { getRecommendations } from "@/lib/adaptive/recommend";
 import { ANALYTICS_DAYS, getAnalyticsOverview } from "@/lib/analytics/queries";
 import { ACHIEVEMENTS } from "@/lib/gamification/achievements";
@@ -43,7 +43,7 @@ export default async function ProgressPage() {
       <AssistantPage context={{ kind: "progress" }} label="Your progress" />
       <PageHeader
         title="Progress"
-        description={`What your studying adds up to: scores, accuracy, time, mastery per concept and where you stand. A concept counts as mastered at ${MASTERY_THRESHOLD}%; nothing is ever locked — RevTaw just recommends more practice.`}
+        description={`What your studying adds up to: scores, accuracy, time, mastery per concept and where you stand. A concept counts as mastered at ${MASTERY_THRESHOLD}%, once you have shown it on a hard question and again on another day; nothing is ever locked — RevTaw just recommends more practice.`}
         actions={
           <>
             <ExportMenu target={{ kind: "progress" }} label="Export report" />
@@ -64,7 +64,7 @@ export default async function ProgressPage() {
         <StatCard icon={CheckCircle2} label="Accuracy" value={analytics.totals.accuracy === null ? "—" : `${analytics.totals.accuracy}%`} caption={analytics.totals.questions ? `${analytics.totals.questions.toLocaleString("en-US")} questions answered in total.` : "Answer questions to see it."} />
         <StatCard icon={Clock} label={`Study time, ${ANALYTICS_DAYS} days`} value={`${analytics.totals.focusMinutes} min`} caption={`${analytics.totals.sessions} session${analytics.totals.sessions === 1 ? "" : "s"} completed · ${activity.streakDays}-day streak`} />
         <StatCard icon={Layers} label={`Flashcards, ${ANALYTICS_DAYS} days`} value={String(analytics.totals.cards)} caption={analytics.totals.cards ? "Reviews keep the schedule honest." : "No reviews in this period."} />
-        <StatCard icon={Brain} label="Concepts tracked" value={String(summary.total)} caption={summary.total === 0 ? "Answer questions to start tracking." : `${summary.mastered.length} mastered · ${summary.weak.length} weak`} />
+        <StatCard icon={Brain} label="Concepts tracked" value={String(summary.total)} caption={summary.total === 0 ? "Answer questions to start tracking." : `${summary.mastered.length} mastered · ${summary.needsWork.length} need work`} />
         <StatCard icon={Gauge} label="Average mastery" value={summary.averageMastery === null ? "—" : `${summary.averageMastery}%`} caption={summary.averageMastery === null ? "No answers yet." : summary.averageMastery >= MASTERY_THRESHOLD ? "Above the mastery line." : "Weak concepts pull this down."} />
         <StatCard icon={TrendingUp} label="Retrieval strength" value={analytics.retrieval.average === null ? "—" : `${analytics.retrieval.average}%`} caption={analytics.retrieval.average === null ? "Fades until the next review." : analytics.retrieval.fading ? `${analytics.retrieval.fading} concept${analytics.retrieval.fading === 1 ? "" : "s"} due for review.` : "Nothing due for review right now."} />
         <StatCard icon={ShieldAlert} label="Possible misconceptions" value={String(summary.misconceptions.length)} caption={summary.misconceptions.length ? "Confident but wrong — see below." : "No confident wrong answers."} />
@@ -218,7 +218,7 @@ export default async function ProgressPage() {
           <h2 id="mastery-heading" className="text-lg font-semibold">
             Concept mastery
           </h2>
-          <p className="text-xs text-muted-foreground">Weak &lt; 40 · Learning 40–59 · Strong 60–79 · Mastered ≥ {MASTERY_THRESHOLD}. Recall strength fades until the next review.</p>
+          <p className="text-xs text-muted-foreground">{STATUS_BANDS}. Mastery is how likely you know it times how well you can recall it today, so it fades until the next review.</p>
         </div>
         {practiced.length === 0 ? (
           <EmptyState
