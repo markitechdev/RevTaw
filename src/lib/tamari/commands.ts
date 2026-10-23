@@ -12,6 +12,8 @@ import { normalizeSpeech } from "@/lib/voice/intents";
  *   and build its review plan.
  * - "Move this to Friday" / "Ilipat mo 'to sa Biyernes" → move the selected
  *   planner task.
+ * - "English please" / "Tagalog na lang" / "Mag-Taglish ka" / "Answer in
+ *   my language" → change the language Tamari answers in, any time.
  *
  * Only clear requests become commands; anything else is a question for
  * Tamari. Dates are local calendar days (YYYY-MM-DD). Pure and client-safe.
@@ -21,7 +23,40 @@ export type TamariCommand =
   | { kind: "plan"; minutes: number }
   | { kind: "quiz"; topic: string | null }
   | { kind: "exam"; date: string; title: string | null }
-  | { kind: "move"; date: string };
+  | { kind: "move"; date: string }
+  | { kind: "language"; language: SpokenLanguage };
+
+/** The languages a sentence can switch Tamari to ("other" needs a name, so it stays in Settings). */
+export type SpokenLanguage = "auto" | "en" | "fil" | "taglish";
+
+const LANGUAGE_WORDS: Record<string, SpokenLanguage> = { english: "en", ingles: "en", filipino: "fil", pilipino: "fil", tagalog: "fil", taglish: "taglish" };
+const LANG = "(english|ingles|filipino|pilipino|tagalog|taglish)";
+const LANGUAGE_TAIL = "(?:\\s+(?:please|po|na lang|nalang|na|lang|naman|tayo|ulit|now|from now on|only|language|ka))*";
+const LANGUAGE_PATTERNS: RegExp[] = [
+  // "speak English", "answer in Filipino", "switch to Taglish", "talk to me in English please"
+  new RegExp(`^(?:speak|talk|answer|reply|respond|use|switch|change|go)(?:\\s+(?:to me|with me|back))?(?:\\s+(?:in|to|into))?(?:\\s+the)?\\s+${LANG}${LANGUAGE_TAIL}$`),
+  // "English please", "Tagalog na lang", "Taglish na tayo", "in English", "in English please" (a bare "English" stays a question)
+  new RegExp(`^(?:in\\s+${LANG}|${LANG}(?=\\s))(?:\\s+(?:please|po|na lang|nalang|na|lang|naman|tayo|ulit|now|from now on|only))*$`),
+  // "mag-English ka", "magtagalog ka na lang", "mag Taglish tayo"
+  new RegExp(`^mag\\s*${LANG}(?:\\s+(?:ka|tayo))?${LANGUAGE_TAIL}$`),
+  // "sumagot ka sa Filipino", "sagutin mo ako sa English", "magsalita ka ng Tagalog", "kausapin mo ako sa Taglish"
+  new RegExp(`^(?:sumagot ka|sagot ka|sagutin mo (?:ako|ko)|magsalita ka|kausapin mo (?:ako|ko))\\s+(?:sa|ng|in)\\s+${LANG}${LANGUAGE_TAIL}$`),
+  // "change the language to English", "set language to Filipino", "palitan mo ang language sa Taglish"
+  new RegExp(`^(?:change|set|switch|palitan mo|palitan)(?:\\s+(?:the|ang|your|my))?\\s+(?:language|wika|lengguwahe)(?:\\s+(?:to|into|sa|ng))?\\s+${LANG}${LANGUAGE_TAIL}$`),
+];
+/** "Answer in my language", "match my language", "kung ano yung language ko". */
+const LANGUAGE_AUTO = /^(?:(?:answer|reply|respond|talk|speak)\s+(?:in\s+)?(?:my|the same)\s+language(?:\s+as me)?|match my language|same language as me|kung ano (?:ang|yung|un) (?:language|wika) ko)$/;
+
+/** "English please" → en; null when the sentence is not a request to switch languages. */
+export function languageIn(text: string): SpokenLanguage | null {
+  if (LANGUAGE_AUTO.test(text)) return "auto";
+  for (const pattern of LANGUAGE_PATTERNS) {
+    const match = pattern.exec(text);
+    const word = match?.slice(1).find(Boolean);
+    if (word) return LANGUAGE_WORDS[word] ?? null;
+  }
+  return null;
+}
 
 const NUMBER_WORDS: Record<string, number> = {
   five: 5,
@@ -162,6 +197,10 @@ export function parseTamariCommand(message: string, today: string): TamariComman
   const original = message.replace(/\s+/g, " ").trim();
   const text = normalizeSpeech(original);
   if (!text || text.split(" ").length > 24) return null;
+
+  // The answer language: "English please", "Tagalog na lang", "mag-Taglish ka".
+  const language = text.split(" ").length <= 10 ? languageIn(text) : null;
+  if (language) return { kind: "language", language };
 
   // Moving the selected task: "move this to Friday", "ilipat mo 'to sa Biyernes".
   if (MOVE.test(text) && !EXAM.test(text)) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { dayIn, durationIn, parseTamariCommand, spokenDay } from "@/lib/tamari/commands";
+import { dayIn, durationIn, languageIn, parseTamariCommand, spokenDay } from "@/lib/tamari/commands";
 
 // Wednesday, October 21, 2026.
 const today = "2026-10-21";
@@ -88,5 +88,39 @@ describe("dates", () => {
     expect(dayIn("ngayon", today)).toBe(today);
     expect(dayIn("someday", today)).toBeNull();
     expect(spokenDay("2026-10-23")).toBe("Friday, Oct 23");
+  });
+});
+
+describe("parseTamariCommand: the answer language, any time", () => {
+  it.each([
+    ["English please", "en"],
+    ["Tamari, English please!", "en"],
+    ["Can you speak English?", "en"],
+    ["Answer in English from now on", "en"],
+    ["in English", "en"],
+    ["Switch to Taglish", "taglish"],
+    ["Change the language to Filipino", "fil"],
+    ["Tagalog na lang", "fil"],
+    ["Filipino po", "fil"],
+    ["Mag-English ka", "en"],
+    ["magtagalog ka na lang", "fil"],
+    ["Mag Taglish tayo", "taglish"],
+    ["Sagutin mo ako sa Filipino", "fil"],
+    ["Magsalita ka ng Tagalog", "fil"],
+    ["Palitan mo ang language sa Taglish", "taglish"],
+    ["Answer in my language", "auto"],
+    ["Match my language", "auto"],
+  ])("%s → %s", (text, language) => {
+    expect(parse(text)).toEqual({ kind: "language", language });
+  });
+
+  it.each(["English", "Is English hard to learn?", "Translate this to Filipino", "Explain photosynthesis in Filipino", "What is Taglish?", "Use English words in the summary", "Do you speak Tagalog?"])("%s → not a switch", (text) => {
+    expect(parse(text)).toBeNull();
+  });
+
+  it("reads normalized speech", () => {
+    expect(languageIn("english na")).toBe("en");
+    expect(languageIn("speak to me in tagalog please")).toBe("fil");
+    expect(languageIn("the english")).toBeNull();
   });
 });

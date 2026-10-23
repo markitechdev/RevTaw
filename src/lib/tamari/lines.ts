@@ -109,4 +109,17 @@ export const commandLines = {
   moveNeedsTask: (lang: TamariLanguage) =>
     say(lang, { taglish: "Alin? Pumili ka muna ng task sa planner, tapos sabihin mo ulit.", en: "Which one? Pick a task in the planner first, then ask me again.", fil: "Alin? Pumili ka muna ng task sa planner, tapos sabihin mo ulit." }),
   nothingMoved: (lang: TamariLanguage) => say(lang, { taglish: "Okay, hindi ko ginalaw.", en: "Okay, I left it where it is.", fil: "Sige, hindi ko ginalaw." }),
+  /** Said in the new language, so the switch is heard at once ("auto" answers in the current one). */
+  language: (lang: TamariLanguage, next: "auto" | TamariLanguage) =>
+    next === "auto"
+      ? say(lang, {
+          taglish: "Sige! Kung anong language mo, 'yun din gagamitin ko.",
+          en: "Okay — I'll answer in whatever language you write in.",
+          fil: "Sige! Kung anong wika ang gamit mo, iyon din ang gagamitin ko.",
+        })
+      : say(next, {
+          taglish: "Sige, Taglish na tayo from now on.",
+          en: "Okay, I'll answer in English from now on.",
+          fil: "Sige, sa Filipino na ako sasagot mula ngayon.",
+        }),
 };

@@ -1,9 +1,9 @@
 "use client";
 
-import { ArrowLeft, BookOpen, Check, FileText, History, Maximize2, MessageCircle, Mic, Minimize2, Minus, Paperclip, Plus, Quote, SendHorizontal, Square, Volume2, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Check, FileText, History, Languages, Maximize2, MessageCircle, Mic, Minimize2, Minus, Paperclip, Plus, Quote, SendHorizontal, Square, Volume2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useEffectEvent, useId, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useId, useOptimistic, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 
 import { useAssistant, type AssistantRequest, type RegisteredPage } from "@/components/assistant/assistant-provider";
 import { useVoice } from "@/components/assistant/use-voice";
@@ -202,6 +202,7 @@ export default function AssistantPanel() {
   const pickerId = useId();
   const filterId = useId();
   const languageId = useId();
+  const languageSelectId = useId();
   const confirmId = useId();
 
   const [restoreId] = useState(readStoredConversation);
@@ -227,6 +228,8 @@ export default function AssistantPanel() {
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
   const [moving, setMoving] = useState(false);
   const [, startSaving] = useTransition();
+  // The language shows as changed at once; the saved preference follows when the page refreshes.
+  const [shownLanguage, setShownLanguage] = useOptimistic(ai.language);
   const voice = useVoice(
     {
       onPartial: (text) => setDraft(text),
@@ -236,7 +239,7 @@ export default function AssistantPanel() {
   );
   /** The microphone shows when the browser can listen and the student keeps voice on. */
   const canListen = voice.supported && assistant.voice;
-  const lang = tamariLanguage(ai.language);
+  const lang = tamariLanguage(shownLanguage);
 
   const pageKey = page?.ref ? JSON.stringify(page.ref) : null;
   const includeContext = pageKey !== null && contextOffFor !== pageKey;
@@ -373,6 +376,15 @@ export default function AssistantPanel() {
         const covers = wantedMaterial?.id ?? conversation?.material?.id ?? null;
         router.push(`${routes.planner}?exam=new&examDate=${command.date}${command.title ? `&examTitle=${encodeURIComponent(command.title)}` : ""}${covers ? `&examMaterial=${covers}` : ""}`);
         if (!desktop) hide();
+        return true;
+      }
+      case "language": {
+        const next = command.language;
+        const line = commandLines.language(lang, next === "auto" ? "auto" : tamariLanguage(next));
+        setNotice(line);
+        setError(null);
+        if (aloud && voiceReplies) void voice.speak(line, speakingLanguage(next === "auto" ? shownLanguage : next, line, navigator.language));
+        chooseLanguage(next);
         return true;
       }
       case "move": {
@@ -737,10 +749,12 @@ export default function AssistantPanel() {
     textareaRef.current?.focus();
   };
 
+  /** Changes the language Tamari answers in, any time (the chips, the select or "English please"). */
   const chooseLanguage = (language: ResponseLanguage) => {
     setLanguageAsked(true);
     startSaving(async () => {
-      const result = await saveResponseLanguageAction({ language, otherLanguage: "" });
+      setShownLanguage(language);
+      const result = await saveResponseLanguageAction({ language, otherLanguage: language === "other" ? ai.otherLanguage : "" });
       if (!result.ok) setError(result.error);
     });
   };
@@ -931,7 +945,7 @@ export default function AssistantPanel() {
                         </button>
                       ))}
                     </div>
-                    <p className="text-xs text-muted-foreground">You can change it any time in Settings → Tamari &amp; AI.</p>
+                    <p className="text-xs text-muted-foreground">Change it any time under the message box, by saying “English please” or “Tagalog na lang”, or in Settings → Tamari &amp; AI.</p>
                   </div>
                 )}
               </div>
@@ -1072,6 +1086,24 @@ export default function AssistantPanel() {
               >
                 <SendHorizontal className="h-4 w-4" aria-hidden="true" />
               </button>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Languages className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <label htmlFor={languageSelectId}>Tamari answers in</label>
+              <select
+                id={languageSelectId}
+                value={shownLanguage}
+                onChange={(event) => chooseLanguage(event.target.value as ResponseLanguage)}
+                className="min-h-6 cursor-pointer rounded-md border border-transparent bg-transparent px-1 font-medium text-foreground hover:border-border [&>option]:bg-card"
+              >
+                {LANGUAGE_CHOICES.map((choice) => (
+                  <option key={choice.id} value={choice.id}>
+                    {choice.label}
+                  </option>
+                ))}
+                {(ai.otherLanguage || shownLanguage === "other") && <option value="other">{ai.otherLanguage || "Another language"}</option>}
+              </select>
             </div>
 
             {voice.status === "listening" && (
