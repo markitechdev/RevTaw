@@ -67,6 +67,25 @@ export function optionCount(options: unknown): number | null {
   return Array.isArray(options) && options.length >= 2 ? options.length : null;
 }
 
+/** Supabase returns at most 1,000 rows per request by default. */
+const PAGE = 1000;
+
+/**
+ * Reads a query a page at a time (newest first, so a cap keeps the latest
+ * rows), up to `maxRows`. `build` makes a fresh query for each range.
+ */
+export async function readPages<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>, maxRows: number): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; from < maxRows; from += PAGE) {
+    const to = Math.min(maxRows, from + PAGE) - 1;
+    const { data, error } = await build(from, to);
+    if (error) throw new Error(`mastery evidence: ${error.message}`);
+    rows.push(...(data ?? []));
+    if (!data || data.length < to - from + 1) break;
+  }
+  return rows;
+}
+
 /**
  * Every graded answer per concept, oldest first: quiz answers, study-session
  * items and flashcard reviews, plus open notebook mistakes. With
@@ -84,45 +103,54 @@ export async function collectEvidence(supabase: Client, userId: string, conceptI
     conceptIds ? query.in(column, conceptIds) : query.not(column, "is", null);
 
   const [answers, items, reviews, mistakes] = await Promise.all([
-    narrow(
-      supabase
-        .from("quiz_answers")
-        .select("question_id, is_correct, confidence, response_ms, answered_at, question:quiz_questions!quiz_answers_question_fk!inner(concept_id, difficulty, type, options)")
-        .eq("user_id", userId)
-        .not("is_correct", "is", null)
-        .order("answered_at", { ascending: false })
-        .limit(3000),
-      "question.concept_id",
+    readPages(
+      (from, to) =>
+        narrow(
+          supabase
+            .from("quiz_answers")
+            .select("question_id, is_correct, confidence, response_ms, answered_at, question:quiz_questions!quiz_answers_question_fk!inner(concept_id, difficulty, type, options)")
+            .eq("user_id", userId)
+            .not("is_correct", "is", null),
+          "question.concept_id",
+        )
+          .order("answered_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, to),
+      10_000,
     ),
-    narrow(
-      supabase
-        .from("study_session_items")
-        .select("id, kind, format, concept_id, is_correct, confidence, response_ms, answered_at")
-        .eq("user_id", userId)
-        .not("answered_at", "is", null)
-        .not("is_correct", "is", null)
-        .order("answered_at", { ascending: false })
-        .limit(2000),
-      "concept_id",
+    readPages(
+      (from, to) =>
+        narrow(
+          supabase
+            .from("study_session_items")
+            .select("id, kind, format, concept_id, is_correct, confidence, response_ms, answered_at")
+            .eq("user_id", userId)
+            .not("answered_at", "is", null)
+            .not("is_correct", "is", null),
+          "concept_id",
+        )
+          .order("answered_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, to),
+      6_000,
     ),
-    narrow(
-      supabase
-        .from("flashcard_reviews")
-        .select("card_id, rating, response_ms, reviewed_at, card:flashcards!flashcard_reviews_card_fk!inner(concept_id)")
-        .eq("user_id", userId)
-        .order("reviewed_at", { ascending: false })
-        .limit(3000),
-      "card.concept_id",
+    readPages(
+      (from, to) =>
+        narrow(
+          supabase.from("flashcard_reviews").select("card_id, rating, response_ms, reviewed_at, card:flashcards!flashcard_reviews_card_fk!inner(concept_id)").eq("user_id", userId),
+          "card.concept_id",
+        )
+          .order("reviewed_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, to),
+      10_000,
     ),
-    narrow(supabase.from("mistakes").select("concept_id").eq("user_id", userId).is("resolved_at", null).limit(2000), "concept_id"),
+    readPages((from, to) => narrow(supabase.from("mistakes").select("concept_id").eq("user_id", userId).is("resolved_at", null), "concept_id").order("id").range(from, to), 5_000),
   ]);
-  for (const result of [answers, items, reviews, mistakes]) {
-    if (result.error) throw new Error(`mastery evidence: ${result.error.message}`);
-  }
 
   // Quiz answers, oldest first, so the first answer to each question is its first attempt.
   const seenQuestions = new Set<string>();
-  for (const row of [...(answers.data ?? [])].reverse()) {
+  for (const row of [...answers].reverse()) {
     const question = row.question as unknown as { concept_id: string | null; difficulty: QuestionDifficulty; type: QuestionType; options: unknown } | null;
     if (!question?.concept_id) continue;
     const firstAttempt = !seenQuestions.has(row.question_id);
@@ -140,7 +168,7 @@ export async function collectEvidence(supabase: Client, userId: string, conceptI
       responseMs: row.response_ms,
     });
   }
-  for (const row of items.data ?? []) {
+  for (const row of items) {
     if (!row.concept_id || !row.answered_at) continue;
     entry(row.concept_id).events.push({
       at: row.answered_at,
@@ -155,7 +183,7 @@ export async function collectEvidence(supabase: Client, userId: string, conceptI
       responseMs: row.response_ms,
     });
   }
-  for (const row of reviews.data ?? []) {
+  for (const row of reviews) {
     const card = row.card as unknown as { concept_id: string | null } | null;
     if (!card?.concept_id) continue;
     entry(card.concept_id).events.push({
@@ -172,7 +200,7 @@ export async function collectEvidence(supabase: Client, userId: string, conceptI
       rating: row.rating,
     });
   }
-  for (const row of mistakes.data ?? []) {
+  for (const row of mistakes) {
     if (row.concept_id) entry(row.concept_id).openMistakes += 1;
   }
   for (const value of byConcept.values()) value.events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
@@ -264,14 +292,14 @@ export function abilityOf(rows: Array<{ elo_rating: number; elo_answers: number 
 }
 
 export async function loadModelContext(supabase: Client, userId: string, conceptIds: string[]): Promise<ModelContext> {
-  const [{ data: profile }, medians, buckets, categories, { data: mastery }] = await Promise.all([
+  const [{ data: profile }, medians, buckets, categories, mastery] = await Promise.all([
     supabase.from("profiles").select("timezone").eq("id", userId).maybeSingle(),
     responseMedians(supabase, userId),
     loadBuckets(supabase),
     conceptCategories(supabase, conceptIds, userId),
-    supabase.from("concept_mastery").select("concept_id, best_status, elo_start, elo_rating, elo_answers").eq("user_id", userId).limit(5000),
+    readPages((from, to) => supabase.from("concept_mastery").select("concept_id, best_status, elo_start, elo_rating, elo_answers").eq("user_id", userId).order("concept_id").range(from, to), 10_000),
   ]);
-  const rows = mastery ?? [];
+  const rows = mastery;
   const zone = profile?.timezone;
   return {
     timeZone: isValidTimezone(zone) ? zone : DEFAULT_TIMEZONE,

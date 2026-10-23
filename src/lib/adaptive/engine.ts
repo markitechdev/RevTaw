@@ -3,7 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cache } from "react";
 
-import { abilityOf, collectEvidence, loadModelContext } from "@/lib/adaptive/evidence";
+import { abilityOf, chunked, collectEvidence, loadModelContext, readPages } from "@/lib/adaptive/evidence";
 import { needsRefresh } from "@/lib/adaptive/mastery";
 import { guessFloor } from "@/lib/engine/bkt";
 import { ENGINE } from "@/lib/engine/config";
@@ -39,8 +39,8 @@ export async function recomputeMasteryFor(supabase: Client, userId: string, conc
   let targets = ids ?? [...evidence.keys()];
   if (!ids) {
     // A full run also refreshes concepts whose evidence was deleted, so no row is left stale.
-    const { data: practiced } = await supabase.from("concept_mastery").select("concept_id").eq("user_id", userId).gt("attempts", 0).limit(5000);
-    targets = [...new Set([...targets, ...(practiced ?? []).map((row) => row.concept_id)])];
+    const practiced = await readPages((from, to) => supabase.from("concept_mastery").select("concept_id").eq("user_id", userId).gt("attempts", 0).order("concept_id").range(from, to), 10_000);
+    targets = [...new Set([...targets, ...practiced.map((row) => row.concept_id)])];
   }
   if (targets.length === 0) return 0;
   const context = await loadModelContext(supabase, userId, targets);
@@ -98,10 +98,12 @@ export async function recomputeMasteryFor(supabase: Client, userId: string, conc
       computed_at: now.toISOString(),
     };
   });
-  const { error } = await supabase.from("concept_mastery").upsert(rows, { onConflict: "user_id,concept_id" });
-  if (error) {
-    console.error("concept_mastery: upsert failed", error.message);
-    return 0;
+  for (const batch of chunked(rows, 500)) {
+    const { error } = await supabase.from("concept_mastery").upsert(batch, { onConflict: "user_id,concept_id" });
+    if (error) {
+      console.error("concept_mastery: upsert failed", error.message);
+      return 0;
+    }
   }
   // First-time mastery earns XP (§31); the award key makes a concept count once.
   if (options.awardXp !== false) {
