@@ -1,6 +1,6 @@
 import "server-only";
 
-import { difficultyTargets, weakConceptNames } from "@/lib/adaptive/engine";
+import { defaultDifficulty, difficultyTargets, weakConceptNames } from "@/lib/adaptive/engine";
 import { isAiError } from "@/lib/ai";
 import { normalizeConceptName } from "@/lib/concepts/service";
 import { loadMaterialContext } from "@/lib/reviewers/service";
@@ -55,8 +55,12 @@ export function parseSolution(value: string | null): Solution | null {
 }
 
 async function generate(context: MaterialContext, mode: ProblemMode, count: number, difficulty: ProblemDifficulty | "adaptive"): Promise<{ problems: GeneratedProblem[]; provider: string }> {
-  const [targets, focus] = await Promise.all([difficulty === "adaptive" ? difficultyTargets(context.material.id) : Promise.resolve([]), weakConceptNames(context.material.id, 4)]);
-  const generated = await generateProblems({ materialTitle: context.material.title, chunks: context.chunks, student: context.student, mode, count, difficulty, targets, focusConcepts: focus });
+  const [targets, focus, fallback] = await Promise.all([
+    difficulty === "adaptive" ? difficultyTargets(context.material.id) : Promise.resolve([]),
+    weakConceptNames(context.material.id, 4),
+    difficulty === "adaptive" ? defaultDifficulty() : Promise.resolve(undefined),
+  ]);
+  const generated = await generateProblems({ materialTitle: context.material.title, chunks: context.chunks, student: context.student, mode, count, difficulty, targets, fallback, focusConcepts: focus });
   if (generated.problems.length === 0) throw new SessionError("No problems could be written from this material.", 422);
   return generated;
 }

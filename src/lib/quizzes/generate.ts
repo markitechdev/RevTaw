@@ -63,6 +63,8 @@ export type AdaptiveTargets = {
   targets: Array<{ concept: string; difficulty: "easy" | "medium" | "hard" | "advanced" }>;
   /** Concepts that should get a larger share of questions. */
   focusConcepts: string[];
+  /** Difficulty for concepts without a target, from the student's overall ability. */
+  fallback?: QuestionDifficulty;
 };
 
 export type GenerateQuizResult = {
@@ -162,7 +164,7 @@ export async function generateQuiz(
   const difficultyRule =
     difficulty === "adaptive"
       ? adaptive && adaptive.targets.length
-        ? `adaptive — use these per-concept targets (advanced = hard with no hints or scaffolding): ${adaptive.targets.map((target) => `${target.concept}: ${target.difficulty}`).join("; ")}; concepts without a target: medium`
+        ? `adaptive — use these per-concept targets (advanced = hard with no hints or scaffolding): ${adaptive.targets.map((target) => `${target.concept}: ${target.difficulty}`).join("; ")}; concepts without a target: ${adaptive.fallback ?? "medium"}`
         : "spread easy, medium and hard across the set (no history yet for this material)"
       : difficulty === "mixed"
         ? "spread easy, medium and hard across the set"

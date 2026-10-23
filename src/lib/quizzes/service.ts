@@ -1,6 +1,6 @@
 import "server-only";
 
-import { difficultyTargets, refreshMastery, weakConceptNames } from "@/lib/adaptive/engine";
+import { defaultDifficulty, difficultyTargets, refreshMastery, weakConceptNames } from "@/lib/adaptive/engine";
 import { awardAttemptXp } from "@/lib/gamification/service";
 import { isAiError } from "@/lib/ai";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
@@ -89,7 +89,7 @@ async function populateQuiz(
   try {
     const adaptive =
       config.difficulty === "adaptive"
-        ? { targets: await difficultyTargets(context.material.id), focusConcepts: await weakConceptNames(context.material.id, 4) }
+        ? { targets: await difficultyTargets(context.material.id), focusConcepts: await weakConceptNames(context.material.id, 4), fallback: await defaultDifficulty() }
         : null;
     const result = await generateQuiz(context.material.title, context.chunks, config, context.student, adaptive);
     if (result.questions.length === 0) {

@@ -3,13 +3,16 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cache } from "react";
 
-import { collectEvidence, loadModelContext } from "@/lib/adaptive/evidence";
+import { abilityOf, collectEvidence, loadModelContext } from "@/lib/adaptive/evidence";
 import { needsRefresh } from "@/lib/adaptive/mastery";
+import { guessFloor } from "@/lib/engine/bkt";
+import { ENGINE } from "@/lib/engine/config";
+import { chooseDifficulty, labelPrior } from "@/lib/engine/elo";
 import { modelConcept } from "@/lib/engine/mastery-model";
 import { CONCEPT_STATES } from "@/lib/engine/types";
 import { isWeak } from "@/lib/engine/weakness";
 import { awardMasteredXp } from "@/lib/gamification/service";
-import type { ConceptMastery, Database, MasteryStatus } from "@/lib/supabase/database.types";
+import type { ConceptMastery, Database, MasteryStatus, QuestionDifficulty } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 type Client = SupabaseClient<Database>;
@@ -222,7 +225,19 @@ export async function weakConceptNames(materialId: string | null, limit = 6): Pr
   return names;
 }
 
-/** Per-concept target difficulty for adaptive question generation. */
+/**
+ * The difficulty for concepts without a target yet: the label Elo predicts
+ * closest to the usual 72% success at the student's overall ability.
+ */
+export async function defaultDifficulty(): Promise<QuestionDifficulty> {
+  const rows = await listMastery();
+  const ability = abilityOf(rows.map((row) => ({ elo_rating: Number(row.elo_rating), elo_answers: row.elo_answers })));
+  const options = (["easy", "medium", "hard"] as const).map((label) => ({ label, difficulty: labelPrior(label), guessFloor: guessFloor("multiple_choice", null) }));
+  const choice = chooseDifficulty(ability, options, ENGINE.elo.target.normal, false);
+  return choice.label === "advanced" ? "hard" : choice.label;
+}
+
+/** Per-concept target difficulty for adaptive question generation (Elo's pick for each concept). */
 export async function difficultyTargets(materialId: string): Promise<Array<{ concept: string; difficulty: "easy" | "medium" | "hard" | "advanced" }>> {
   const rows = await listMastery({ materialId });
   return rows.filter((row) => row.concept && row.attempts > 0).map((row) => ({ concept: row.concept!.name, difficulty: row.next_difficulty }));

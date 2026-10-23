@@ -70,6 +70,8 @@ export async function generateProblems(input: {
   /** Fixed difficulty, or per-concept adaptive targets. */
   difficulty: ProblemDifficulty | "adaptive";
   targets?: Array<{ concept: string; difficulty: string }>;
+  /** Difficulty for concepts without a target, from the student's overall ability. */
+  fallback?: string;
   focusConcepts?: string[];
 }): Promise<{ problems: GeneratedProblem[]; provider: string; model: string }> {
   const provider = getAiProvider("strong");
@@ -77,7 +79,7 @@ export async function generateProblems(input: {
   const difficultyRule =
     input.difficulty === "adaptive"
       ? input.targets?.length
-        ? `Difficulty per concept (adaptive targets; advanced = challenge): ${input.targets.map((target) => `${target.concept}: ${target.difficulty}`).join("; ")}; other concepts: medium.`
+        ? `Difficulty per concept (adaptive targets; advanced = challenge): ${input.targets.map((target) => `${target.concept}: ${target.difficulty}`).join("; ")}; other concepts: ${input.fallback ?? "medium"}.`
         : "Difficulty: start easy and rise to hard across the set."
       : `Every problem is "${input.difficulty}" difficulty (challenge = multi-step, combines ideas, no hints).`;
   const system = `You are RevTaw's problem-solving coach. You write source-grounded problems with complete step-by-step solutions.
