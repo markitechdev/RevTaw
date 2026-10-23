@@ -5,6 +5,7 @@ import { MobileNav } from "@/components/app/mobile-nav";
 import { AccountNav, SidebarNav } from "@/components/app/sidebar-nav";
 import { UserCard } from "@/components/app/user-card";
 import { Logo } from "@/components/brand/logo";
+import type { Standing } from "@/lib/gamification/standing";
 import type { ToolId } from "@/lib/preferences/schema";
 import { routes } from "@/lib/routes";
 
@@ -15,19 +16,22 @@ import { routes } from "@/lib/routes";
 export function AppShell({
   displayName,
   email,
+  standing,
   pinned,
   notifications,
   children,
 }: {
   displayName: string;
   email: string | null;
+  /** Level, XP and badges shown under the name. */
+  standing: Standing;
   /** Tools pinned to the navigation (Settings → RevTaw tools). */
   pinned: readonly ToolId[];
   /** Server-rendered notifications bell (see NotificationsMenu). */
   notifications?: ReactNode;
   children: ReactNode;
 }) {
-  const userCard = <UserCard displayName={displayName} email={email} />;
+  const userCard = <UserCard displayName={displayName} email={email} standing={standing} />;
 
   return (
     <div className="min-h-full">

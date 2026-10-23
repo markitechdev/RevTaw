@@ -6,6 +6,7 @@ import { TimezoneSync } from "@/components/app/timezone-sync";
 import { AssistantProvider } from "@/components/assistant/assistant-provider";
 import { ReminderWatcher } from "@/components/planner/reminder-watcher";
 import { AppearanceRoot } from "@/components/theme/appearance-root";
+import { getStanding } from "@/lib/gamification/standing";
 import { countUnreadNotifications, listNotifications } from "@/lib/notifications/service";
 import { getPreferences } from "@/lib/preferences/queries";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
@@ -26,12 +27,12 @@ export default async function AppLayout({ children }: LayoutProps<"/"> ) {
   if (profile && !profile.onboarding_completed_at) {
     redirect(routes.onboarding);
   }
-  const [notifications, unread, preferences] = await Promise.all([listNotifications(12), countUnreadNotifications(), getPreferences()]);
+  const [notifications, unread, preferences, standing] = await Promise.all([listNotifications(12), countUnreadNotifications(), getPreferences(), getStanding(user.id)]);
 
   return (
     <AppearanceRoot appearance={preferences.appearance}>
       <AssistantProvider ai={preferences.ai} assistant={preferences.assistant} voiceServer={voiceCapabilities()}>
-        <AppShell displayName={profile?.display_name ?? ""} email={user.email} pinned={preferences.tools.pinned} notifications={<NotificationsMenu notifications={notifications} unread={unread} />}>
+        <AppShell displayName={profile?.display_name ?? ""} email={user.email} standing={standing} pinned={preferences.tools.pinned} notifications={<NotificationsMenu notifications={notifications} unread={unread} />}>
           <TimezoneSync current={profile?.timezone ?? null} />
           <ReminderWatcher />
           {children}

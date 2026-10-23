@@ -1,6 +1,7 @@
-import { Award, BookOpen, Brain, Castle, Clock, Compass, Flame, GraduationCap, Layers, ListChecks, Lock, Play, Sparkles, Target, TrendingUp, type LucideIcon } from "lucide-react";
+import { Award, Flame, Lock } from "lucide-react";
 import Link from "next/link";
 
+import { BADGE_ICONS } from "@/components/gamification/badge-icons";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,23 +16,6 @@ import { cn } from "@/lib/utils";
  * grid with progress towards locked ones, and the XP history. Server-safe
  * markup; plain, not childish.
  */
-
-const ICONS: Record<AchievementDef["icon"], LucideIcon> = {
-  play: Play,
-  layers: Layers,
-  "list-checks": ListChecks,
-  flame: Flame,
-  award: Award,
-  brain: Brain,
-  compass: Compass,
-  clock: Clock,
-  target: Target,
-  "trending-up": TrendingUp,
-  castle: Castle,
-  "book-open": BookOpen,
-  "graduation-cap": GraduationCap,
-  sparkles: Sparkles,
-};
 
 const GROUP_ORDER: AchievementGroup[] = ["sessions", "methods", "answers", "reviews", "streak", "mastery", "milestones"];
 
@@ -90,7 +74,7 @@ export type BadgeView = { achievement: AchievementDef; unlockedAt: string | null
 
 export function BadgeTile({ view }: { view: BadgeView }) {
   const { achievement, unlockedAt, progress } = view;
-  const Icon = ICONS[achievement.icon];
+  const Icon = BADGE_ICONS[achievement.icon];
   const target = achievement.target ?? 1;
   const percent = Math.min(100, Math.round((Math.min(progress, target) / target) * 100));
   return (
