@@ -1,13 +1,16 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { unstable_rethrow } from "next/navigation";
 
+import { archiveCutoff } from "@/lib/materials/retention";
 import { removeMaterialObjects } from "@/lib/materials/storage";
 import type { Database } from "@/lib/supabase/database.types";
+import { createClient } from "@/lib/supabase/server";
 
 /**
- * Permanent deletion of archived materials ("Delete permanently" in the
- * Archive). The file in storage, the
+ * Permanent deletion of archived materials (30 days after Delete, or at once
+ * with "Delete permanently" in the Archive). The file in storage, the
  * extracted text and the analysis go for good; the material row stays with
  * status "deleted" so every reviewer, quiz, flashcard deck, memory aid and
  * bit of progress made from it keeps its title, subject and folder.
@@ -64,4 +67,42 @@ export async function purgeMaterials(client: Client, candidates: Candidate[]): P
     return 0;
   }
   return (finished ?? []).length;
+}
+
+/**
+ * Archived materials past their 30 days, plus purges that stopped half-way
+ * (claimed, file not yet removed). `userId` keeps one student's.
+ */
+export async function purgeExpiredMaterials(client: Client, options: { userId?: string; limit?: number; now?: Date } = {}): Promise<number> {
+  const cutoff = archiveCutoff(options.now).toISOString();
+  let query = client
+    .from("materials")
+    .select("id, storage_path, purged_at")
+    .not("archived_at", "is", null)
+    .or(`and(purged_at.is.null,archived_at.lte."${cutoff}"),and(purged_at.not.is.null,storage_path.not.is.null)`)
+    .order("archived_at")
+    .limit(options.limit ?? 50);
+  if (options.userId) query = query.eq("user_id", options.userId);
+  const { data, error } = await query;
+  if (error) {
+    console.error("materials: listing expired archive failed", error.message);
+    return 0;
+  }
+  return purgeMaterials(client, data ?? []);
+}
+
+/**
+ * The signed-in student's own expired materials, with their session (RLS):
+ * runs on Home and the Materials pages so the 30 days hold even where no
+ * scheduler calls /api/cron/archive. Never throws.
+ */
+export async function purgeMyExpiredMaterials(userId: string): Promise<number> {
+  try {
+    const supabase = await createClient();
+    return await purgeExpiredMaterials(supabase, { userId, limit: 20 });
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("materials: purge on visit failed", error);
+    return 0;
+  }
 }

@@ -20,14 +20,16 @@ import { buttonClasses } from "@/components/ui/button";
 import { listMastery } from "@/lib/adaptive/engine";
 import { listReviewTasks } from "@/lib/planner/queries";
 import { formatBytes, SOURCE_LABEL } from "@/lib/materials/constants";
+import { purgeMaterials } from "@/lib/materials/purge";
 import { getMaterial, getMaterialAnalysis, getMaterialChunks, listSubjects } from "@/lib/materials/queries";
-import { dayLabel, KEPT_ITEMS, purgeCountdown, purgeDueAt } from "@/lib/materials/retention";
+import { dayLabel, daysUntilPurge, KEPT_ITEMS, purgeCountdown, purgeDueAt } from "@/lib/materials/retention";
 import { listDecks } from "@/lib/flashcards/queries";
 import { listQuizzes } from "@/lib/quizzes/queries";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { listReviewers } from "@/lib/reviewers/queries";
 import { routes } from "@/lib/routes";
 import { countMnemonicsFor } from "@/lib/study/flows/memory";
+import { createClient } from "@/lib/supabase/server";
 
 type Params = { id: string };
 
@@ -43,10 +45,15 @@ type Tab = (typeof TABS)[number];
 export default async function MaterialPage({ params, searchParams }: PageProps<"/materials/[id]">) {
   const { id } = await params;
   const query = await searchParams;
-  const [material, { profile }] = await Promise.all([getMaterial(id), getCurrentUserWithProfile()]);
-  if (!material) notFound();
+  const [found, { user, profile }] = await Promise.all([getMaterial(id), getCurrentUserWithProfile()]);
+  if (!found) notFound();
   const timeZone = profile?.timezone ?? undefined;
 
+  // Past its 30 days in the Archive: delete the file now rather than show it one last time.
+  let material = found;
+  if (user && material.archived_at && !material.purged_at && daysUntilPurge(material.archived_at) === 0 && (await purgeMaterials(await createClient(), [material])) > 0) {
+    material = { ...material, status: "deleted", status_detail: null, storage_path: null, purged_at: new Date().toISOString() };
+  }
   const deleted = material.status === "deleted" || Boolean(material.purged_at);
   const archived = Boolean(material.archived_at) && !deleted;
 

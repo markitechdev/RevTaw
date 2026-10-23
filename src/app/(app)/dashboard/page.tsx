@@ -12,6 +12,7 @@ import { HeroSkeleton, WidgetSkeleton } from "@/components/dashboard/widget-shel
 import { Alert } from "@/components/forms/form-alert";
 import { TamariHome } from "@/components/tamari/tamari-home";
 import { syncGamification } from "@/lib/gamification/sync";
+import { purgeMyExpiredMaterials } from "@/lib/materials/purge";
 import { syncNotifications } from "@/lib/notifications/service";
 import { hourIn } from "@/lib/planner/dates";
 import { plannerClock, rebalanceAllPlans } from "@/lib/planner/service";
@@ -79,6 +80,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   });
   const syncs = planning.then(() => Promise.allSettled([syncGamification(), syncNotifications()]));
   after(syncs);
+  // Materials past their 30 days in the Archive are deleted permanently (no scheduler needed).
+  after(purgeMyExpiredMaterials(user.id));
 
   const layout = preferences.dashboard;
   const shown = new Set(layout.order.filter((id) => !layout.hidden.includes(id)));

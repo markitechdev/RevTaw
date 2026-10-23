@@ -1,6 +1,7 @@
 import { Archive, FolderOpen, Layers } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { after } from "next/server";
 import { z } from "zod";
 
 import { Alert } from "@/components/forms/form-alert";
@@ -10,6 +11,7 @@ import { MaterialCard } from "@/components/materials/material-card";
 import { UploadButton } from "@/components/materials/upload-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { purgeMyExpiredMaterials } from "@/lib/materials/purge";
 import { listMaterials, listSubjects } from "@/lib/materials/queries";
 import { ARCHIVE_DAYS, ARCHIVE_RULE, KEPT_ITEMS } from "@/lib/materials/retention";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
@@ -32,7 +34,13 @@ export default async function MaterialsPage({ searchParams }: PageProps<"/materi
   const notice = param(params.notice);
   const movedId = z.uuid().safeParse(param(params.material)).data ?? null;
 
-  const { profile } = await getCurrentUserWithProfile();
+  const { user, profile } = await getCurrentUserWithProfile();
+  // Archived materials past their 30 days are deleted permanently on the way (the scheduler does it too);
+  // the Archive waits for it so it never lists one that is already due.
+  if (user) {
+    if (archived) await purgeMyExpiredMaterials(user.id);
+    else after(purgeMyExpiredMaterials(user.id));
+  }
 
   const [subjects, materials] = await Promise.all([
     listSubjects(),
