@@ -76,6 +76,22 @@ describe("planTamariBlocks", () => {
     expect(draft.blocks.find((block) => block.key === "feynman")).toMatchObject({ concepts: ["Heaps"] });
   });
 
+  it("calls it a plain quiz when the top concepts aren't weak topics", () => {
+    const quiz = planTamariBlocks({ ...base, lang: "en", weakTopics: false }).blocks.find((block) => block.key === "quiz");
+    expect(quiz).toMatchObject({ label: "Quiz", reason: "A quiz on Binary Trees and Recursion: what's next to practise." });
+  });
+
+  it("starts concepts never studied with the rule table's method, in the quiz's place", () => {
+    const draft = planTamariBlocks({ ...base, lang: "en", exam: { title: "Midterm", daysLeft: 3 }, fresh: { names: ["Graphs", "Heaps"], method: "chunking" } });
+    expect(draft.blocks.map((block) => block.key)).toEqual(["recall", "learn", "feynman", "mistakes", "retest"]);
+    const learn = draft.blocks[1];
+    expect(learn).toMatchObject({ method: "chunking", label: "Chunking", concepts: ["Graphs", "Heaps"], minutes: 7 });
+    expect(learn.reason).toBe("Graphs and Heaps are new to you. Small pieces first, then a few easy questions on each.");
+    expect(planTamariBlocks({ ...base, lang: "taglish", fresh: { names: ["Graphs"], method: "blurting" } }).blocks[1].reason).toBe(
+      "Bago pa sa'yo ang Graphs. Basahin mo, tapos isulat lahat ng naaalala mo.",
+    );
+  });
+
   it("works without a material: the notebook and cards, else a plain focus block", () => {
     expect(shape({ ...base, material: null })).toEqual(["mistakes:10", "cards:10"]);
     const focus = planTamariBlocks({ ...base, material: null, openMistakes: 0, dueCards: 0, minutes: 25 });

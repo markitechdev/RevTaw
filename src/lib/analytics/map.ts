@@ -5,7 +5,9 @@ import { cache } from "react";
 import { listMastery, type MasteryView } from "@/lib/adaptive/engine";
 import { normalizeConceptName } from "@/lib/concepts/service";
 import { parseAnalysisData, type ConceptCategory } from "@/lib/materials/analysis-schema";
+import { chooseMethod } from "@/lib/engine/method-rules";
 import { routes } from "@/lib/routes";
+import { BUILDER_METHOD_IDS, methodName } from "@/lib/study/catalog";
 import type { StudyMethodId } from "@/lib/study/methods";
 import type { MasteryStatus } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -33,36 +35,16 @@ export type MapSubject = { id: string | null; name: string; materials: MapMateri
 
 export type MasteryMap = { subjects: MapSubject[]; total: number; counts: Record<MasteryStatus, number> };
 
-const METHOD_LABEL: Record<string, string> = {
-  feynman: "Feynman session",
-  worked_examples: "Worked examples",
-  mnemonics: "Mnemonics",
-  active_recall: "Active recall",
-  error_review: "Error review",
-  practice_testing: "Practice test",
-  spaced_repetition: "Flashcard review",
-};
+/** The map links can start any session the study builder runs, except Tamari's own plan. */
+const STARTABLE: ReadonlySet<StudyMethodId> = new Set(BUILDER_METHOD_IDS.filter((id) => id !== "smart_study"));
 
-/** Picks the session that fits what the evidence says about one concept (§15: a method is chosen for a reason). */
-export function recommendForConcept(row: Pick<MasteryView, "status" | "misconceptions" | "open_mistakes" | "underconfident" | "next_review_at" | "retrieval_strength">, category: ConceptCategory | null, materialId: string | null): MapConcept["recommendation"] {
-  const href = (method: StudyMethodId) => {
-    if (method === "spaced_repetition") return `${routes.flashcards}/review`;
-    const params = new URLSearchParams({ method });
-    if (materialId) params.set("material", materialId);
-    return `${routes.study}?${params.toString()}`;
-  };
-  const pick = (method: StudyMethodId, reason: string) => ({ method, label: METHOD_LABEL[method] ?? method, reason, href: href(method) });
-  if (row.misconceptions > 0) return pick("feynman", "Wrong while confident — explain it in your own words to expose the faulty idea.");
-  if (row.status === "weak" || row.status === "learning") {
-    if (category === "calculation") return pick("worked_examples", "A calculation concept: see each step explained, then solve a similar problem.");
-    if (category === "memorization") return pick("mnemonics", "Something to memorize: a memory device gives it a hook.");
-    if (row.open_mistakes > 0) return pick("error_review", "Open mistakes on it — a correct retest marks them learned.");
-    return pick("active_recall", "Retrieving the answer from memory is the fastest way up.");
-  }
-  if (row.next_review_at && row.next_review_at <= new Date().toISOString()) return pick("active_recall", "Recall strength has dropped below the review line — a short recall pass restores it.");
-  if (row.underconfident > 0) return pick("practice_testing", "Right but unsure — a timed test shows you that you know it.");
-  if (row.status === "mastered") return pick("spaced_repetition", "Mastered: let spaced reviews keep it there.");
-  return pick("practice_testing", "Strong: confirm it under test conditions.");
+/** The session the rule table picks for one concept (research doc §11), with its reason. */
+export function recommendForConcept(row: Pick<MasteryView, "status" | "misconceptions">, category: ConceptCategory | null, materialId: string | null): MapConcept["recommendation"] {
+  const pick = chooseMethod({ state: row.status, category: category ?? "understanding", openMisconception: row.misconceptions > 0, daysToExam: null, minutes: 15, allowed: STARTABLE });
+  const params = new URLSearchParams({ method: pick.method });
+  if (materialId) params.set("material", materialId);
+  const href = pick.method === "spaced_repetition" || pick.method === "flashcards" ? `${routes.flashcards}/review` : `${routes.study}?${params.toString()}`;
+  return { method: pick.method, label: methodName(pick.method), reason: pick.reason, href };
 }
 
 function average(values: number[]): number | null {

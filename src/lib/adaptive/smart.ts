@@ -2,11 +2,11 @@ import "server-only";
 
 import { z } from "zod";
 
-import { getMasterySummary } from "@/lib/adaptive/engine";
+import { BLOCK_METHODS, examInScope, isWeakTopic, methodFor, rankConcepts } from "@/lib/adaptive/focus";
+import { conceptsPerPlan } from "@/lib/engine/priority";
 import { countDueCards } from "@/lib/flashcards/queries";
-import { getNextExam } from "@/lib/planner/queries";
 import { getPreferences } from "@/lib/preferences/queries";
-import { BUILDER_METHOD_IDS } from "@/lib/study/catalog";
+import { BUILDER_METHOD_IDS, isBuilderMethod } from "@/lib/study/catalog";
 import { completeSession, createSession, loadSession, SessionError, updateSessionState, type SessionSummary, parseSessionSummary } from "@/lib/study/sessions";
 import type { Json, SessionGoal } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -53,51 +53,39 @@ export function parseSmartPlan(value: unknown): SmartPlan | null {
   return parsed.success ? parsed.data : null;
 }
 
-/** The material most of these concepts come from. */
-function mostCommonMaterial(rows: Array<{ concept: { material_id: string | null } | null }>): string | null {
-  const counts = new Map<string, number>();
-  for (const row of rows) {
-    const id = row.concept?.material_id;
-    if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
-  }
-  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-}
-
-/** Exams this close shape the plan (their material comes first, and Tamari says so). */
-const EXAM_HORIZON_DAYS = 14;
 /** Mistakes this recent count towards "missed three times". */
 const REPEAT_WINDOW_DAYS = 30;
 
 type PlanContext = { input: TamariPlanInput; materialId: string | null };
 
 /**
- * What Tamari plans from (companion doc §5): the minutes, the exam date,
- * weak and fading concepts, misconceptions, the concept missed most often,
- * open mistakes and due cards — on one material: the one asked for, else the
- * nearest exam's, else the one the weak concepts come from, else the last
- * one opened. Read with the student's session (RLS).
+ * What Tamari plans from (companion doc §5, research doc §10–§11): the
+ * minutes, the exam date, the concepts ranked by priority (weakness, fading,
+ * the exam's scope, what was already studied today), misconceptions, the
+ * concept missed most often, open mistakes and due cards — on one material:
+ * the one asked for, else the nearest exam's, else the one the top-priority
+ * concept comes from, else the last one opened. Read with the student's
+ * session (RLS).
  */
 async function planContext(request: { materialId: string | null; minutes: number }): Promise<PlanContext> {
   const supabase = await createClient();
   const since = new Date(Date.now() - REPEAT_WINDOW_DAYS * 86_400_000).toISOString();
-  const [summary, dueCards, exam, preferences, { data: mistakes }] = await Promise.all([
-    getMasterySummary(),
+  const [ranked, dueCards, examSoon, preferences, { data: mistakes }] = await Promise.all([
+    rankConcepts(),
     countDueCards(),
-    getNextExam(),
+    examInScope(),
     getPreferences(),
     supabase.from("mistakes").select("concept_id, material_id, resolved_at, concept:concepts!mistakes_concept_fk(name)").gte("created_at", since).order("created_at", { ascending: false }).limit(500),
   ]);
   const lang = tamariLanguage(preferences.ai.language);
-  const practiced = [...summary.weak, ...summary.learning, ...summary.misconceptions, ...summary.dueForReview];
-  const examSoon = exam && exam.daysLeft >= 0 && exam.daysLeft <= EXAM_HORIZON_DAYS ? exam : null;
   const examMaterials = (examSoon?.materials ?? []).filter((material) => material.status === "ready");
 
   let materialId = request.materialId;
   if (!materialId && examMaterials.length > 0) {
-    // The exam material with the most weak concepts, else the exam's first one.
-    materialId = mostCommonMaterial(practiced.filter((row) => examMaterials.some((material) => material.id === row.concept?.material_id))) ?? examMaterials[0].id;
+    // The exam material holding the top-priority concept, else the exam's first one.
+    materialId = ranked.find((concept) => examMaterials.some((material) => material.id === concept.materialId))?.materialId ?? examMaterials[0].id;
   }
-  materialId ??= mostCommonMaterial(practiced);
+  materialId ??= ranked.find((concept) => concept.materialId)?.materialId ?? null;
   if (!materialId) {
     const { data: recent } = await supabase.from("materials").select("id").eq("status", "ready").order("last_opened_at", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
     materialId = recent?.id ?? null;
@@ -108,11 +96,24 @@ async function planContext(request: { materialId: string | null; minutes: number
     const { data } = await supabase.from("materials").select("id, title, status").eq("id", materialId).maybeSingle();
     material = data && data.status === "ready" ? { id: data.id, title: data.title } : null;
   }
-  const inMaterial = (row: { concept: { material_id: string | null } | null }) => Boolean(material) && row.concept?.material_id === material?.id;
-  const names = (rows: typeof summary.weak) => [...new Set(rows.map((row) => row.concept?.name).filter((name): name is string => Boolean(name)))];
-  const weak = names([...summary.weak, ...summary.learning].filter(inMaterial).sort((a, b) => Number(a.mastery) - Number(b.mastery)));
-  const overdue = names(summary.dueForReview.filter(inMaterial));
-  const misconception = names(summary.misconceptions.filter(inMaterial))[0] ?? null;
+
+  // The material's concepts by priority, with the ones never studied (coverage).
+  const inMaterial = material ? await rankConcepts({ materialId: material.id, includeUnpracticed: true }) : [];
+  const perPlan = conceptsPerPlan(request.minutes);
+  const practiced = inMaterial.filter((concept) => concept.row);
+  const focus = practiced.filter((concept) => concept.parts.need > 0).slice(0, perPlan);
+  const overdue = practiced
+    .filter((concept) => concept.parts.due > 0)
+    .sort((a, b) => Number(a.row!.recall ?? 1) - Number(b.row!.recall ?? 1))
+    .map((concept) => concept.name);
+  const misconception = practiced.filter((concept) => concept.row!.misconceptions > 0).sort((a, b) => b.row!.misconceptions - a.row!.misconceptions)[0]?.name ?? null;
+  // When a concept never studied tops the ranking, the rule table picks how to start it (§11).
+  const freshConcepts = inMaterial[0] && !inMaterial[0].row ? inMaterial.filter((concept) => !concept.row && concept.parts.coverage > 0).slice(0, perPlan) : [];
+  let fresh: TamariPlanInput["fresh"] = null;
+  if (freshConcepts.length > 0) {
+    const pick = methodFor(freshConcepts[0], Math.round(request.minutes * 0.35), { allowed: BLOCK_METHODS, dueCards: dueCards > 0 });
+    fresh = { names: freshConcepts.map((concept) => concept.name), method: isBuilderMethod(pick.method) ? pick.method : "chunking" };
+  }
 
   const rows = (mistakes ?? []) as unknown as Array<{ concept_id: string | null; material_id: string | null; resolved_at: string | null; concept: { name: string } | null }>;
   const relevant = material ? rows.filter((row) => row.material_id === material.id) : rows;
@@ -131,7 +132,20 @@ async function planContext(request: { materialId: string | null; minutes: number
   const examFor = examSoon && material && examMaterials.some((item) => item.id === material.id) ? { title: examSoon.title, daysLeft: examSoon.daysLeft } : null;
   return {
     materialId: material?.id ?? null,
-    input: { minutes: request.minutes, lang, material, exam: examFor, overdue, weak, misconception, repeated: repeated ? { name: repeated.name, count: repeated.count } : null, openMistakes, dueCards },
+    input: {
+      minutes: request.minutes,
+      lang,
+      material,
+      exam: examFor,
+      overdue,
+      weak: focus.map((concept) => concept.name),
+      weakTopics: focus.some(isWeakTopic),
+      fresh,
+      misconception,
+      repeated: repeated ? { name: repeated.name, count: repeated.count } : null,
+      openMistakes,
+      dueCards,
+    },
   };
 }
 

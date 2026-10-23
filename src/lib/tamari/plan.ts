@@ -1,14 +1,17 @@
 import type { SmartBlock } from "@/lib/adaptive/smart";
+import { methodName } from "@/lib/study/catalog";
 import type { SessionSummary } from "@/lib/study/sessions";
 import type { TamariLanguage } from "@/lib/tamari/lines";
 
 /**
  * Tamari's time-boxed plan (companion doc §5–§6): "20 minutes lang ako.
  * Bahala ka na." becomes a short run of blocks sized to the minutes, built
- * from what the student's data says — fading concepts first, then the weakest
- * topics as a quiz, one concept to explain, the mistake notebook and a last
- * retest. This file only decides the blocks; lib/adaptive/smart.ts reads the
- * data and saves the plan. Pure and client-safe.
+ * from what the student's data says — fading concepts first, then the
+ * highest-priority topics as a quiz (or, when concepts never studied come
+ * first, the method the rule table picks for them), one concept to explain,
+ * the mistake notebook and a last retest. This file only decides the blocks;
+ * lib/adaptive/smart.ts ranks the concepts (research doc §10–§11) and saves
+ * the plan. Pure and client-safe.
  */
 
 export type TamariPlanInput = {
@@ -20,8 +23,12 @@ export type TamariPlanInput = {
   exam: { title: string; daysLeft: number } | null;
   /** Concepts due for review (fading), most faded first. */
   overdue: string[];
-  /** Weak and still-learning concepts, weakest first. */
+  /** Practised concepts to work on, highest priority first (weakness, fading, the exam's scope). */
   weak: string[];
+  /** Some of them are weak topics (flagged weak, under 60% or holding a confident mistake): a "Weak Topic Quiz". */
+  weakTopics?: boolean;
+  /** Concepts never studied that outrank the practised ones, and the method the rule table picks for them. */
+  fresh?: { names: string[]; method: SmartBlock["method"] } | null;
   /** A concept answered confidently but wrongly. */
   misconception: string | null;
   /** The concept missed most often lately. */
@@ -81,6 +88,38 @@ export function allocateMinutes(total: number, slots: ReadonlyArray<{ share: num
 }
 
 const questionsFor = (minutes: number) => Math.max(3, Math.min(20, Math.round(minutes * 1.2)));
+
+/** Tamari's reason for starting concepts the student has never studied with the method the rules picked. */
+function freshLine(lang: TamariLanguage, fresh: { names: string[]; method: SmartBlock["method"] }): string {
+  const names = fresh.names;
+  const isAre = names.length === 1 ? "is" : "are";
+  switch (fresh.method) {
+    case "chunking":
+      return say(lang, {
+        taglish: `Bago pa sa'yo ang ${list(names)}. Paisa-isa muna, tapos ilang madaling tanong sa bawat isa.`,
+        en: `${list(names)} ${isAre} new to you. Small pieces first, then a few easy questions on each.`,
+        fil: `Bago pa sa iyo ang ${listFil(names)}. Paisa-isa muna, saka ilang madaling tanong sa bawat isa.`,
+      });
+    case "sq3r":
+      return say(lang, {
+        taglish: `Bago pa sa'yo ang ${list(names)}. Survey, tanong, basa, recite, review — step by step.`,
+        en: `${list(names)} ${isAre} new to you. Survey, question, read, recite, review — step by step.`,
+        fil: `Bago pa sa iyo ang ${listFil(names)}. Suriin, magtanong, basahin, bigkasin, balikan — hakbang-hakbang.`,
+      });
+    case "blurting":
+      return say(lang, {
+        taglish: `Bago pa sa'yo ang ${list(names)}. Basahin mo, tapos isulat lahat ng naaalala mo.`,
+        en: `${list(names)} ${isAre} new to you. Read it, then write down everything you remember.`,
+        fil: `Bago pa sa iyo ang ${listFil(names)}. Basahin mo, saka isulat ang lahat ng naaalala mo.`,
+      });
+    default:
+      return say(lang, {
+        taglish: `Bago pa sa'yo ang ${list(names)}. ${methodName(fresh.method)} muna.`,
+        en: `${list(names)} ${isAre} new to you. ${methodName(fresh.method)} first.`,
+        fil: `Bago pa sa iyo ang ${listFil(names)}. ${methodName(fresh.method)} muna.`,
+      });
+  }
+}
 
 export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
   const { lang } = input;
@@ -145,33 +184,58 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
       }),
     });
 
-    slots.push({
-      key: "quiz",
-      share: 0.35,
-      min: 3,
-      block: (minutes) => ({
+    const fresh = input.fresh && input.fresh.names.length > 0 ? { names: input.fresh.names.slice(0, 4), method: input.fresh.method } : null;
+    const weakTopics = weak.length > 0 && input.weakTopics !== false;
+    if (fresh) {
+      // Concepts never studied come first: the rule table's method for them takes the quiz's place.
+      slots.push({
+        key: "learn",
+        share: 0.35,
+        min: 3,
+        block: (minutes) => ({
+          key: "learn",
+          method: fresh.method,
+          label: methodName(fresh.method),
+          minutes,
+          reason: freshLine(lang, fresh),
+          concepts: fresh.names,
+          ...pending,
+        }),
+      });
+    } else {
+      slots.push({
         key: "quiz",
-        method: "practice_testing",
-        label: weak.length > 0 ? "Weak Topic Quiz" : "Quiz",
-        minutes,
-        reason:
-          weak.length > 0
+        share: 0.35,
+        min: 3,
+        block: (minutes) => ({
+          key: "quiz",
+          method: "practice_testing",
+          label: weakTopics ? "Weak Topic Quiz" : "Quiz",
+          minutes,
+          reason: weakTopics
             ? say(lang, {
                 taglish: `Quiz sa mga mahina mong topic: ${list(weak)}.`,
                 en: `A quiz on your weakest topics: ${list(weak)}.`,
                 fil: `Quiz sa mga mahina mong paksa: ${listFil(weak)}.`,
               })
-            : say(lang, {
-                taglish: `Quiz sa ${material.title}, para makita natin kung saan ka mahina.`,
-                en: `A quiz on ${material.title}, to find where the gaps are.`,
-                fil: `Quiz sa ${material.title}, para makita natin kung saan ka mahina.`,
-              }),
-        concepts: weak,
-        questionCount: questionsFor(minutes),
-        focus: weak.length > 0 ? weak.join(", ") : null,
-        ...pending,
-      }),
-    });
+            : weak.length > 0
+              ? say(lang, {
+                  taglish: `Quiz sa ${list(weak)} — ito ang susunod na dapat i-practice.`,
+                  en: `A quiz on ${list(weak)}: what's next to practise.`,
+                  fil: `Quiz sa ${listFil(weak)} — ito ang susunod na dapat sanayin.`,
+                })
+              : say(lang, {
+                  taglish: `Quiz sa ${material.title}, para makita natin kung saan ka mahina.`,
+                  en: `A quiz on ${material.title}, to find where the gaps are.`,
+                  fil: `Quiz sa ${material.title}, para makita natin kung saan ka mahina.`,
+                }),
+          concepts: weak,
+          questionCount: questionsFor(minutes),
+          focus: weak.length > 0 ? weak.join(", ") : null,
+          ...pending,
+        }),
+      });
+    }
 
     const explain = input.misconception ?? input.repeated?.name ?? weak[0] ?? null;
     if (explain) {
@@ -266,7 +330,7 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
         }),
         concepts: [],
         questionCount: minutes >= 4 ? questionsFor(minutes) : 3,
-        focus: weak.length > 0 ? weak.join(", ") : null,
+        focus: weak.length > 0 ? weak.join(", ") : fresh ? fresh.names.join(", ") : null,
         ...pending,
       }),
     });

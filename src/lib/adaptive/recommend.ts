@@ -3,18 +3,20 @@ import "server-only";
 import { cache } from "react";
 
 import { getMasterySummary, type MasteryView } from "@/lib/adaptive/engine";
-import { normalizeConceptName } from "@/lib/concepts/service";
+import { methodFor, rankConcepts, type RankedConcept } from "@/lib/adaptive/focus";
+import { ENGINE } from "@/lib/engine/config";
 import { countDueCards } from "@/lib/flashcards/queries";
-import { parseAnalysisData, type ConceptCategory } from "@/lib/materials/analysis-schema";
 import { countOpenMistakes } from "@/lib/quizzes/queries";
 import { routes } from "@/lib/routes";
+import { BUILDER_METHOD_IDS, methodName } from "@/lib/study/catalog";
 import type { StudyMethodId } from "@/lib/study/methods";
-import { createClient } from "@/lib/supabase/server";
 
 /**
  * Recommendations with reasons (spec §22 "RevTaw recommendation", §28
  * "determine what appears next", §15 "recommendations should include a
- * short explanation of why the method was selected").
+ * short explanation of why the method was selected"). Concepts are ranked by
+ * the learning engine's priority and each gets the rule table's method
+ * (research doc §10–§11); open mistakes, due cards and confidence follow.
  */
 
 export type Recommendation = {
@@ -43,90 +45,53 @@ function materialOf(rows: MasteryView[]): string | null {
 }
 
 function sessionHref(method: StudyMethodId, materialId: string | null): string {
+  if (method === "spaced_repetition" || method === "flashcards") return `${routes.flashcards}/review`;
   const params = new URLSearchParams({ method });
   if (materialId) params.set("material", materialId);
   return `${routes.study}?${params.toString()}`;
 }
 
-/** The analysis category of each weak concept of one material (the kind of knowledge it is), by normalized name. */
-async function conceptCategories(materialId: string | null): Promise<Map<string, ConceptCategory>> {
-  if (!materialId) return new Map();
-  const supabase = await createClient();
-  const { data } = await supabase.from("material_analyses").select("data").eq("material_id", materialId).maybeSingle();
-  if (!data) return new Map();
-  return new Map(parseAnalysisData(data.data).key_concepts.map((concept) => [normalizeConceptName(concept.name), concept.category]));
+/** Recommendations can start any session the study builder runs, except Tamari's own plan. */
+const STARTABLE: ReadonlySet<StudyMethodId> = new Set(BUILDER_METHOD_IDS.filter((id) => id !== "smart_study"));
+const RECOMMENDED_MINUTES = 15;
+
+/** Where a concept stands, in one sentence. */
+function standing(concept: RankedConcept): string {
+  const exam = concept.daysToExam === null ? "" : concept.daysToExam <= 0 ? " Its exam is today." : concept.daysToExam === 1 ? " Its exam is tomorrow." : ` Its exam is in ${concept.daysToExam} days.`;
+  if (!concept.row) return `You haven't studied ${concept.name} yet.${exam}`;
+  const row = concept.row;
+  const recall = row.recall !== null && Number(row.recall) < ENGINE.fsrs.retention ? `, and recall is down to ${Math.round(Number(row.recall) * 100)}%` : "";
+  return `${concept.name} is at ${Math.round(Number(row.mastery))}% mastery (${row.correct} of ${row.attempts} right${recall}).${exam}`;
 }
 
-/** Ranked list of what to do next, derived from mastery, confidence, due reviews, mistakes and flashcards. */
+/** Ranked list of what to do next (research doc §10–§11): the top concepts by priority, each with the rule table's method and why. */
 export const getRecommendations = cache(async (limit = 4): Promise<Recommendation[]> => {
-  const [summary, dueCards, openMistakes] = await Promise.all([getMasterySummary(), countDueCards(), countOpenMistakes()]);
+  const [summary, ranked, dueCards, openMistakes] = await Promise.all([getMasterySummary(), rankConcepts({ includeUnpracticed: true }), countDueCards(), countOpenMistakes()]);
   const items: Recommendation[] = [];
 
-  // Weak concepts get the method that fits the kind of knowledge they are (§15: the method is chosen for a reason).
-  if (summary.weak.length > 0) {
-    const materialId = materialOf(summary.weak);
-    const categories = await conceptCategories(materialId);
-    const ofKind = (kind: ConceptCategory) => summary.weak.filter((row) => row.concept && categories.get(normalizeConceptName(row.concept.name)) === kind).map(label);
-    const calculation = ofKind("calculation");
-    if (calculation.length > 0) {
-      items.push({
-        id: "calculation",
-        title: `Worked examples for ${calculation[0]}`,
-        reason: `${calculation[0]} is a calculation concept and it is weak. Seeing every step explained, then solving a similar problem yourself, builds the method before you drill it.`,
-        method: "worked_examples",
-        minutes: 25,
-        href: sessionHref("worked_examples", materialId),
-        priority: 85,
-        concepts: calculation.slice(0, 3),
-        materialId,
-      });
-    }
-    const memorization = ofKind("memorization");
-    if (memorization.length > 0) {
-      items.push({
-        id: "memorization",
-        title: `A mnemonic for ${memorization[0]}`,
-        reason: `${memorization[0]} is something to memorize rather than understand, and it keeps slipping. A memory device — an acronym, a rhyme, a short story — gives it a hook.`,
-        method: "mnemonics",
-        minutes: 10,
-        href: sessionHref("mnemonics", materialId),
-        priority: 75,
-        concepts: memorization.slice(0, 3),
-        materialId,
-      });
-    }
-  }
-
-  if (summary.misconceptions.length > 0) {
-    const top = summary.misconceptions[0];
+  // The two highest-priority concepts, plus the worst open misconception: a confident error is fixed first.
+  const top = ranked.filter((concept) => concept.parts.need > 0).slice(0, 2);
+  const misconception = ranked.filter((concept) => (concept.row?.misconceptions ?? 0) > 0).sort((a, b) => b.row!.misconceptions - a.row!.misconceptions)[0];
+  if (misconception && !top.some((concept) => concept.id === misconception.id)) top.push(misconception);
+  top.forEach((concept, index) => {
+    const pick = methodFor(concept, RECOMMENDED_MINUTES, { allowed: STARTABLE, dueCards: dueCards > 0 });
+    const confident = concept.row?.misconceptions ?? 0;
     items.push({
-      id: "misconception",
-      title: `Clear up ${label(top)}`,
-      reason: `You answered ${top.misconceptions} ${label(top)} question${top.misconceptions === 1 ? "" : "s"} wrong while feeling confident — a sign of a misconception rather than a memory gap. Explaining it in your own words exposes the faulty idea.`,
-      method: "feynman",
-      minutes: 15,
-      href: sessionHref("feynman", top.concept?.material_id ?? null),
-      priority: 100,
-      concepts: [label(top)],
-      materialId: top.concept?.material_id ?? null,
+      id: `concept:${concept.id}`,
+      title: confident > 0 ? `Clear up ${concept.name}` : concept.row ? `${methodName(pick.method)} for ${concept.name}` : `Start ${concept.name} with ${methodName(pick.method)}`,
+      reason:
+        confident > 0
+          ? `You answered ${confident} ${concept.name} question${confident === 1 ? "" : "s"} wrong while feeling confident — a sign of a misconception rather than a memory gap. ${pick.reason}`
+          : `${standing(concept)} ${pick.reason}`,
+      method: pick.method,
+      minutes: RECOMMENDED_MINUTES,
+      href: sessionHref(pick.method, concept.materialId),
+      priority: confident > 0 ? 100 : 95 - index * 5,
+      concepts: [concept.name],
+      materialId: concept.materialId,
     });
-  }
-
-  if (summary.weak.length > 0) {
-    const names = summary.weak.slice(0, 3).map(label);
-    const top = summary.weak[0];
-    items.push({
-      id: "weak",
-      title: `Active recall on ${names[0]}`,
-      reason: `${names[0]} is at ${Math.round(Number(top.mastery))}% mastery (${top.correct} of ${top.attempts} correct)${names.length > 1 ? `, and ${names.slice(1).join(" and ")} ${names.length === 2 ? "is" : "are"} weak too` : ""}. Retrieving the answer from memory is the fastest way to move it up.`,
-      method: "active_recall",
-      minutes: 10,
-      href: sessionHref("active_recall", materialOf(summary.weak)),
-      priority: 90,
-      concepts: names,
-      materialId: materialOf(summary.weak),
-    });
-  }
+  });
+  const shown = new Set(top.map((concept) => concept.name));
 
   if (openMistakes > 0) {
     items.push({
@@ -142,18 +107,19 @@ export const getRecommendations = cache(async (limit = 4): Promise<Recommendatio
     });
   }
 
-  if (summary.dueForReview.length > 0) {
-    const names = summary.dueForReview.slice(0, 3).map(label);
+  const fading = summary.dueForReview.filter((row) => !shown.has(label(row)));
+  if (fading.length > 0) {
+    const names = fading.slice(0, 3).map(label);
     items.push({
       id: "due",
       title: `Refresh ${names[0]} before it fades`,
-      reason: `Retrieval strength for ${names.join(", ")} has dropped below the review line; a short recall session now costs far less than relearning later.`,
+      reason: `Recall of ${names.join(", ")} has dropped below 90%; a short recall session now costs far less than relearning later.`,
       method: "active_recall",
       minutes: 10,
-      href: sessionHref("active_recall", materialOf(summary.dueForReview)),
+      href: sessionHref("active_recall", materialOf(fading)),
       priority: 70,
       concepts: names,
-      materialId: materialOf(summary.dueForReview),
+      materialId: materialOf(fading),
     });
   }
 
@@ -186,7 +152,7 @@ export const getRecommendations = cache(async (limit = 4): Promise<Recommendatio
     });
   }
 
-  if (summary.total > 0 && summary.weak.length === 0 && summary.learning.length === 0) {
+  if (summary.total > 0 && summary.needsWork.length === 0 && summary.weak.length === 0 && summary.learning.length === 0 && summary.developing.length === 0) {
     items.push({
       id: "exam",
       title: "Confirm it under exam conditions",
