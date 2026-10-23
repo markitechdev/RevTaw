@@ -44,7 +44,10 @@ Planner reminders reach the in-app bell (and the browser, while RevTaw is
 open) without any setup. Email reminders and the daily study digest are
 optional: set Resend (`RESEND_API_KEY`, `EMAIL_FROM` on a domain you own) and
 the scheduler (`CRON_SECRET`, `SUPABASE_SECRET_KEY`, and `supabase/schedules.sql`
-or another cron calling the `/api/cron/*` routes) — see `.env.example`.
+or another cron calling the `/api/cron/*` routes) — see `.env.example`. The
+same scheduler runs the learning engine at night (`/api/cron/engine`: question
+difficulty and exam boosters); without it, mastery still refreshes whenever a
+student opens RevTaw.
 Also optional: Filipino read-aloud through Azure AI Speech
 (`AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`), Google Calendar sync through
 Google's own OAuth (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`,
@@ -65,8 +68,8 @@ variables only.
   (Phase 3)
 - Study sessions: builder by material, time, goal and method; active recall,
   Feynman, practice testing, error review and Pomodoro, each with a saved
-  summary; flashcards with spaced repetition (Leitner boxes), streak and
-  focus-time tracking (Phase 4)
+  summary; flashcards with spaced repetition (now FSRS, shown as Leitner
+  boxes), streak and focus-time tracking (Phase 4)
 - AI tutor grounded in your materials: answers cite their sources and say
   when the material does not cover a question; quick actions (explain,
   simplify, example, analogy, quiz me, guide me…), highlight-and-ask inside
@@ -125,6 +128,16 @@ variables only.
   them; a daily study digest and one-click unsubscribe by email (Resend);
   a "RevTaw Study" calendar in Google Calendar; opt-in, content-free usage
   analytics; and a service check at `/api/system/services`
+- The learning engine (learning engine round): mastery is the chance you've
+  learned a concept times how well you can recall it today (Bayesian
+  Knowledge Tracing × FSRS), held back until there is real evidence and
+  shown in six states (Needs foundation, Learning, Developing, Strong,
+  Mastered) with the step still missing; flashcards scheduled by FSRS-6
+  with short learning steps; question difficulty matched to you with Elo
+  and shared difficulty buckets refit every night; Tamari's plan and the
+  recommendations ranked by weakness, fading recall and your next exam,
+  with the study method picked by a rule table that says why; and an exam
+  booster two days before an exam for what would otherwise fade
 
 ## Scripts
 
@@ -155,7 +168,9 @@ src/components        ui primitives, forms, app shell, Tamari, feature
                       components
 src/lib               supabase clients, ai providers, materials pipeline,
                       reviewers, quizzes, flashcards, study sessions, tutor,
-                      adaptive engine (mastery, recommendations, smart study),
+                      learning engine (FSRS, BKT, Elo, priority, method
+                      rules), adaptive layer (mastery, recommendations, smart
+                      study, the night run),
                       planner (exams, plans, tasks, goals, calendar),
                       reminders, notifications and email, preferences and
                       theme, assistant context, voice, analytics,

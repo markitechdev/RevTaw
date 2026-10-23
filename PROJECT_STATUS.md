@@ -4,7 +4,7 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-21 (UI/UX Improvement and Personalization Phase complete, after Phases 1–10)_
+_Last updated: 2026-10-23 (learning engine round complete, after the API integrations round, the UI/UX phase and Phases 1–10)_
 
 ## Completed
 
@@ -845,18 +845,107 @@ BKT, Elo, Smart Study ranking) is the next round.
   vision formats, Azure TTS and Google Calendar were verified against
   faithful stand-ins, not real keys (check with the service check).
 
+### Learning engine round (FSRS, BKT, Elo, priority and method rules)
+
+The learning engine from the research doc "RevTaw Learning Intelligence
+Stack" (§5–§11). The models are pure functions in `src/lib/engine/`, tested
+against the doc's worked examples; every number lives in
+`src/lib/engine/config.ts` (the doc's values, heuristics to tune on real
+answers). `concept_mastery` stays a cache recomputed from the evidence
+tables.
+
+- **Reading an answer** (`answers.ts`) — correctness, confidence and time
+  together: a misconception (wrong while sure), a gap, a rapid guess (under
+  30% of the student's median time for that question type, once there are
+  five timed answers; counts a quarter), a fragile success (right but
+  unsure; half) or knowledge. Self-rated flashcards count half.
+- **Mastery = BKT × FSRS** (`bkt.ts`, `fsrs.ts`, `mastery-model.ts`) —
+  P(learned) from Bayesian Knowledge Tracing (prior 0.20, learn 0.15, guess
+  1/k for k-option multiple choice, 0.5 true/false, 0.05 typed; slip
+  0.05/0.10/0.20 by difficulty) times today's recall from FSRS-6 run on the
+  concept once a day (Again if any first try that day was wrong, Hard if
+  one was unsure, else Good). Gates hold it back until the evidence is
+  there: under 3 answers ≤ 59, an open confident mistake ≤ 79, no correct
+  answer on an item Elo gave ≤ 70% ≤ 79, no correct answer on another day
+  ≤ 89. Six states: Needs foundation (< 40 after 3 answers), Learning
+  (< 60), Developing (60–79, new), Strong (80–89), Mastered (≥ 90). The
+  mastery table shows the gate holding a concept back, and a concept that
+  faded from strong or mastered as a refresh (`best_status`).
+- **Weakness** (`weakness.ts`) — W = n/(n+3)·[0.6(1 − P(learned)) +
+  0.25·share of confident misses + 0.15·repeated misses], flagged from
+  0.30: the dashboard's weak topics, Tamari's hint and the focus of
+  generated quizzes.
+- **Elo difficulty** (`elo.ts`) — a rating per student and concept (K
+  shrinks with answers, never under 0.2; the guessing floor is kept),
+  starting at the student's ability the first time the concept is answered
+  (`elo_start`, so replaying the history never drifts). Question difficulty
+  is pooled in buckets (difficulty label × question type × concept
+  category, `item_buckets`) refit every night from first attempts across
+  students, the label counting as ten answers. The next difficulty is the
+  label predicted closest to 72% success (85% while rebuilding a
+  foundation, 62% to stretch a strong concept; "advanced" beyond hard);
+  concepts without a target get the student's overall pick.
+- **Flashcards on FSRS** (`src/lib/flashcards/scheduler.ts`) — each card
+  keeps its stability and difficulty (desired retention 0.90, fuzz off);
+  new cards take learning steps of 1–10 minutes, repeated later in the same
+  review; the buttons show when each rating brings the card back; boxes
+  are a view of stability (1 under a day … 5 beyond three weeks); reviews
+  log stability, difficulty and the recall just before; cards scheduled
+  under SM-2 are rebuilt from their review history on first use.
+- **Priority and method rules** (`priority.ts`, `method-rules.ts`,
+  `src/lib/adaptive/focus.ts`) — every concept is ranked by relevance (0.6
+  outside the next exam's materials) × urgency (1 + 2e^(−days/7)) × need
+  (0.45 weakness + 0.30 fading + 0.25 never studied) × freshness (halved
+  after six answers today). Tamari's plan keeps its blocks and quizzes the
+  top concepts (2 in 10 minutes, 3 in 20, 4 beyond); when concepts never
+  studied rank first, the rule table's method (Chunking, say) takes the
+  quiz's place with Tamari's reason. Recommendations and the mastery map
+  use the same ranking and the rule table (state × content category, with
+  overrides for a confident mistake, a close exam, short sessions and
+  ordered lists); a confident mistake is still fixed first.
+- **Night run** (`src/lib/adaptive/nightly.ts`, `/api/cron/engine`,
+  `supabase/schedules.sql` at 2:47 and 4:47 a.m. Manila time) — refits the
+  buckets, adds an **exam booster** (one review task two days before the
+  exam, and the exam materials' fading flashcards due by then) for
+  concepts whose recall would be under 90% on exam morning (Cepeda et al.
+  2008), and recomputes stale mastery with the secret-key client (every
+  query filtered by the student). Mastery older than 20 hours, or written
+  by the old model, is also recomputed when the student next reads it, so
+  recall fades without the scheduler too.
+- **Migration 0022** — `mastery_status` gains `developing`;
+  `concept_mastery` keeps P(learned), recall, the Elo rating, its answers
+  and starting point, weakness, first attempts, gates, next step, best
+  status and the concept's FSRS state; `flashcards` and
+  `flashcard_reviews` get FSRS columns; `item_buckets` is readable by
+  students and written only by the server.
+- **Library** — ts-fsrs 5.4.2 (MIT, open-spaced-repetition). BKT, Elo, the
+  bucket fit (Newton steps on the Rasch likelihood with a normal prior),
+  weakness, priority and the rules are RevTaw's own code.
+- **Decisions** — the concept's FSRS state is replayed from its answers
+  (no separate review log); student ability is the answers-weighted mean
+  of concept ratings, shrunk as if by ten answers at 0; bucket refits use
+  each student's current concept rating as their ability; FSRS keeps its
+  default parameters until a student has enough reviews for the optimizer,
+  and BKT's parameters are set, not fitted, until there are enough
+  students; evidence is read a page at a time (Supabase returns 1,000 rows
+  a request), the latest 10,000 answers per kind.
+
 ## In Progress
 
 - Nothing at the moment. All ten phases of the specification, the UI/UX
   Improvement and Personalization Phase, the Tamari visual AI companion
-  integration and the API integrations round are implemented. The round's
-  services still need the owner's real keys (see Environment Requirements).
+  integration, the API integrations round and the learning engine round are
+  implemented. The services still need the owner's real keys (see
+  Environment Requirements) and the hosted database needs migrations
+  0016–0022.
 
 ## Next (priority order)
 
-1. The learning engine from the research doc: FSRS scheduling for
-   flashcards and reviews, Bayesian Knowledge Tracing and Elo-style
-   difficulty for mastery, and Smart Study ranking on top.
+1. Tune the learning engine on real answers: calibration of predicted
+   against actual correctness, next-day retests, the FSRS optimizer per
+   student once they have about a thousand reviews, and BKT parameters
+   fitted across students (pyBKT in the Python worker the research doc
+   allows).
 2. Background jobs for long generations (reviewers, quizzes, analysis of very
    long materials); the daily plan adjustment could move to the reminder
    scheduler (it still runs on page load).
@@ -896,11 +985,12 @@ BKT, Elo, Smart Study ranking) is the next round.
 | `public.mnemonics` | Saved memory devices: kind (acronym, acrostic, rhyme, phrase, association, story, custom), target, ordered `items`, content, explanation, source (ai/user), favorite, `last_practiced_at` | owner full access; material/concept FKs set null |
 | `public.memory_palaces` | Routes of locations for the method of loci: title, `locations` JSON (name, detail), `last_used_at` | owner full access |
 | `public.flashcard_decks` | Generated deck: title, status + detail, provider/model, card count | owner full access; cascade from material |
-| `public.flashcards` | Card: front/back/hint, concept, source, favorite, suspended, Leitner `box`, `ease`, `interval_days`, `repetitions`, `lapses`, `due_at`, last review/rating, generated `search_text` | owner full access; cascade from deck; partial index on due cards; GIN full-text index |
-| `public.flashcard_reviews` | Review log: rating, response time, box before/after, interval, due date, optional session | owner full access; cascade from card |
+| `public.flashcards` | Card: front/back/hint, concept, source, favorite, suspended, Leitner `box` (a view of FSRS stability), `interval_days`, `repetitions`, `lapses`, `due_at`, last review/rating, FSRS `fsrs_stability`, `fsrs_difficulty`, `fsrs_state`, `fsrs_learning_steps`, `fsrs_scheduled_days` (migration 0022; `ease` is left from SM-2), generated `search_text` | owner full access; cascade from deck; partial index on due cards; GIN full-text index |
+| `public.flashcard_reviews` | Review log: rating, response time, box before/after, interval, due date, optional session, FSRS state, stability, difficulty and the recall just before (`retrievability`) | owner full access; cascade from card |
 | `public.tutor_conversations` | Tutor chat: material, optional study session, mode, title, message count, last message | owner full access; material/session FKs set null |
 | `public.tutor_messages` | One turn: role, content, quick action, selection, grounding, `sources` JSON, additional explanation, follow-ups, flashcard draft, optional `visual`, provider/model | owner full access; cascade from conversation |
-| `public.concept_mastery` | Recomputable cache per student and concept: mastery, retrieval strength, status, next difficulty, counters, streak, open mistakes, misconceptions, underconfident, average confidence/response time, trend, last practised, next review | owner full access; unique `(user_id, concept_id)`; cascade from concept |
+| `public.concept_mastery` | Recomputable cache per student and concept: mastery, retrieval strength, status, next difficulty, counters, streak, open mistakes, misconceptions, underconfident, average confidence/response time, trend, last practised, next review; and the learning engine's `p_learned`, `recall`, `elo_rating`, `elo_answers`, `elo_start` (kept: where the rating starts), `weakness`, `first_attempts`, `gates`, `next_step`, `best_status`, the concept's FSRS state (migration 0022) | owner full access; unique `(user_id, concept_id)`; cascade from concept |
+| `public.item_buckets` | Shared question difficulty (logits) per difficulty label × question type × concept category, with the answers it was fitted on and when (migration 0022) | signed-in students may select (no personal data); written only by the server's secret key (the night run) |
 | `public.exams` | An exam: title, date, subject, priority, confidence, topics, notes, `archived_at` | owner full access; subject FK set null |
 | `public.exam_materials` | Materials an exam covers, with position | owner full access; cascade from exam and material |
 | `public.study_plans` | One plan per exam: mode (exam/cram), status, start/end, `available_days`, `minutes_per_day`, `settings` (warnings), `generated_at`, `adjusted_at`, `adjustment_note` | owner full access; unique `exam_id`; cascade from exam |
@@ -919,7 +1009,7 @@ Enums: `education_level`, `study_goal`, `material_source`, `material_status`,
 `difficulty_level`, `reviewer_kind`, `generation_status`, `question_type`,
 `question_difficulty`, `quiz_mode`, `attempt_status`, `confidence_level`,
 `mistake_type`, `session_status`, `session_goal`, `flashcard_rating`,
-`tutor_mode` (incl. `teach_back`), `tutor_role`, `mastery_status`, `next_difficulty`,
+`tutor_mode` (incl. `teach_back`), `tutor_role`, `mastery_status` (incl. `developing`, migration 0022), `next_difficulty`,
 `exam_priority`, `plan_mode`, `plan_status`, `task_kind`, `task_status`,
 `goal_kind`, `goal_period`, `goal_status`, `notification_kind`. Helper functions: `public.set_updated_at()`,
 `public.handle_new_user()` and `public.apply_xp_event()` (security definer, pinned `search_path`),
@@ -1064,10 +1154,12 @@ linked).
 - **Concepts** — `src/lib/concepts/service.ts` upserts names generated by
   the model into the per-student `concepts` table; every later system
   (mistakes, mastery) points at those rows (spec §51/§56 consistency rule).
-- **Flashcards** — `src/lib/flashcards/`: `scheduler.ts` (pure, tested
-  SM-2/Leitner scheduling), `generate.ts`, `service.ts` (deck generation,
-  `reviewCard` = reschedule + log + session counters), `queries.ts` (decks
-  with due counts, review queues, due counts), `actions.ts`.
+- **Flashcards** — `src/lib/flashcards/`: `scheduler.ts` (FSRS-6 card
+  scheduling through the engine, history replay for SM-2-era cards, the
+  buttons' waits), `labels.ts` (client-safe boxes and rating labels),
+  `generate.ts`, `service.ts` (deck generation, `reviewCard` = reschedule +
+  log + session counters), `queries.ts` (decks with due counts, review
+  queues with each card's waits, due counts), `actions.ts`.
 - **Study sessions** — `src/lib/study/`: `methods.ts` (catalog), `catalog.ts`
   (per-method behaviour, goals, availability, builder/recall/test/tutor
   method groups, builder recommendations), `formats.ts` (retrieval formats,
@@ -1112,15 +1204,25 @@ linked).
   integrations round) and are not streamed (one validated JSON object per
   turn). Passages come from `rankMaterialChunks()` (hybrid search) when it
   is available, else from keyword scoring.
-- **Adaptive engine** — `src/lib/adaptive/`: `mastery.ts` (pure model,
-  thresholds, labels), `engine.ts` (evidence collection, recompute/refresh,
-  mastery views and summary, weak concepts, difficulty targets),
-  `recommend.ts` (ranked recommendations with reasons), `smart.ts` (Smart
-  Study planner, plan schema in `study_sessions.state`, block bookkeeping,
-  combined summary). UI in `src/components/adaptive/` (mastery bar/table,
-  recommendation list, material mastery) and
-  `src/components/study/smart-session.tsx`. Mastery is a cache: deleting
-  the rows and answering anything rebuilds them.
+- **Learning engine** — `src/lib/engine/` (pure, client-safe): `config.ts`
+  (every tunable number), `answers.ts` (reading an answer), `bkt.ts`,
+  `fsrs.ts` (ts-fsrs wrapper: replay, review, preview, recall, Leitner
+  view), `elo.ts` (ratings, buckets, the bucket fit, next difficulty),
+  `weakness.ts`, `priority.ts`, `method-rules.ts`, `mastery-model.ts` (one
+  concept's model from its answers) and `types.ts` (the six states).
+- **Adaptive engine** — `src/lib/adaptive/`: `mastery.ts` (labels, state
+  bands, next steps, refresh), `evidence.ts` (the evidence and context the
+  model reads, paged, filtered by student), `engine.ts`
+  (`recomputeMasteryFor()` for the student's or the secret-key client,
+  stale refresh on read, mastery views and summary, weak concepts,
+  difficulty targets and the default difficulty), `focus.ts` (priority
+  ranking and the rule table's method per concept), `recommend.ts` (ranked
+  recommendations with reasons), `smart.ts` (Smart Study planner, plan
+  schema in `study_sessions.state`, block bookkeeping, combined summary),
+  `nightly.ts` (bucket refit, exam boosters, stale recompute). UI in
+  `src/components/adaptive/` (mastery bar/table, recommendation list,
+  material mastery) and `src/components/study/smart-session.tsx`. Mastery
+  is a cache: deleting the rows and answering anything rebuilds them.
 - **Analytics** — `src/lib/analytics/`: `queries.ts` (the 30-day daily
   series, totals, quiz scores, breakdowns by difficulty, confidence, subject
   and material, mastery distribution, retrieval strength — all from the
@@ -1188,9 +1290,13 @@ linked).
   by a free-text topic); picking individual chapters/chunks as the source is
   a later refinement.
 - Mastery is recomputed from evidence on every graded answer (one query
-  per evidence table scoped to the touched concepts); very large histories
-  would benefit from incremental updates. Rows for answers given before
-  Phase 6 appear the next time one of their concepts is practised.
+  per evidence table scoped to the touched concepts), once a day on read
+  and by the night run; very large histories would benefit from
+  incremental updates (the latest 10,000 answers per kind are read).
+- The learning engine's numbers are the research doc's starting values:
+  until there are real answers to calibrate against, FSRS uses its default
+  parameters, BKT its set guess/slip/learn values and the buckets their
+  label priors (a bucket needs answers from several students to move).
 - Session items and flashcard generation also run inside a single request
   (`maxDuration = 120` for routes; Server Actions for sessions). Very long
   materials rely on the transcript budget.
@@ -1337,8 +1443,11 @@ Flows verified end to end against a local Supabase-compatible stack
   results; mistake notebook classify/resolve/learned view; dashboard weak
   topics and recent scores; rename; delete keeps notebook entries
 - Flashcards: deck generation from the material page, card edit, favorite,
-  review with keyboard shortcuts (Don't know repeats within the session),
-  summary and session row, review log, boxes/due dates updated, review-all
+  review with keyboard shortcuts (FSRS learning steps and Don't know repeat
+  within the session; a new card's buttons show 1 min / 6 min / 10 min /
+  8 days), summary and session row, review log with FSRS stability and
+  difficulty, boxes/due dates from FSRS (Medium → 2 days, Easy → 8 days,
+  Don't know → tomorrow), review-all
   empty state, dashboard due count, study-all with shuffle, favorites mode,
   rename, delete keeps sessions
 - Study sessions: builder from the methods page, active recall (prompt
@@ -1523,7 +1632,11 @@ Flows verified end to end against a local Supabase-compatible stack
   allowance (voice seconds and characters included), embeddings and hybrid
   ranking, Whisper and Azure requests, the digest and unsubscribe tokens,
   calendar encryption, events and sync, analytics payloads, endpoint and
-  site-address checks
+  site-address checks; the learning engine (BKT, answer readings, Elo and
+  the bucket fit, FSRS replay/preview/Leitner view, weakness, the priority
+  worked example, the method rules, the concept model's gates and states),
+  FSRS card scheduling, evidence paging and the Tamari plan's new-concept
+  block
 
 Commands: `npm run lint`, `npx tsc --noEmit`, `npm test` (vitest unit tests),
 `npm run build`.
