@@ -235,6 +235,8 @@ describe("concept model (§5–§8)", () => {
     expect(model.status).toBe("weak");
     expect(model.weakness).toBeGreaterThan(0.3);
     expect(model.nextDifficulty).toBe("easy");
+    // No gate is what holds it down: the low P(learned) is.
+    expect(model.nextStep).toBeNull();
   });
 
   it("lets recall fade without new answers, so a mastered concept needs a refresh", () => {

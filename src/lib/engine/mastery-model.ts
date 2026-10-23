@@ -82,7 +82,7 @@ export type ConceptModel = {
   weakness: number;
   firstAttempts: number;
   gates: Gates;
-  /** The gate that caps mastery now, i.e. Tamari's next step. */
+  /** The gate holding mastery down right now (Tamari's next step); null when none is the limit. */
   nextStep: GateKey | null;
   fsrs: FsrsSnapshot | null;
 };
@@ -270,7 +270,8 @@ export function modelConcept(input: ConceptModelInput): ConceptModel {
     weakness: round4(weakness),
     firstAttempts,
     gates,
-    nextStep: unmet[0]?.key ?? null,
+    // A gate is the next step only while it is what holds mastery down (a low P(learned) is its own problem).
+    nextStep: unmet[0] && raw > cap ? unmet[0].key : null,
     fsrs,
   };
 }
