@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, BookOpen, Check, FileText, History, Languages, Maximize2, MessageCircle, Mic, Minimize2, Minus, Paperclip, Plus, Quote, SendHorizontal, Square, Volume2, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Check, ChevronDown, FileText, History, Languages, Maximize2, MessageCircle, Mic, Minimize2, Minus, Paperclip, Plus, Quote, SendHorizontal, Square, Volume2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useEffectEvent, useId, useOptimistic, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
@@ -1091,19 +1091,23 @@ export default function AssistantPanel() {
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Languages className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <label htmlFor={languageSelectId}>Tamari answers in</label>
-              <select
-                id={languageSelectId}
-                value={shownLanguage}
-                onChange={(event) => chooseLanguage(event.target.value as ResponseLanguage)}
-                className="min-h-6 cursor-pointer rounded-md border border-transparent bg-transparent px-1 font-medium text-foreground hover:border-border [&>option]:bg-card"
-              >
-                {LANGUAGE_CHOICES.map((choice) => (
-                  <option key={choice.id} value={choice.id}>
-                    {choice.label}
-                  </option>
-                ))}
-                {(ai.otherLanguage || shownLanguage === "other") && <option value="other">{ai.otherLanguage || "Another language"}</option>}
-              </select>
+              <span className="relative inline-flex items-center">
+                {/* Sized to the chosen language (where the browser can), with its own arrow right beside it. */}
+                <select
+                  id={languageSelectId}
+                  value={shownLanguage}
+                  onChange={(event) => chooseLanguage(event.target.value as ResponseLanguage)}
+                  className="field-sizing-content min-h-6 cursor-pointer appearance-none rounded-md border border-transparent bg-transparent py-0.5 pl-1 pr-5 font-medium text-foreground hover:border-border [&>option]:bg-card"
+                >
+                  {LANGUAGE_CHOICES.map((choice) => (
+                    <option key={choice.id} value={choice.id}>
+                      {choice.label}
+                    </option>
+                  ))}
+                  {(ai.otherLanguage || shownLanguage === "other") && <option value="other">{ai.otherLanguage || "Another language"}</option>}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-1 h-3 w-3 text-muted-foreground" aria-hidden="true" />
+              </span>
             </div>
 
             {voice.status === "listening" && (
