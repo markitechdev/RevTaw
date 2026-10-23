@@ -54,8 +54,9 @@ const EVIDENCE_FOR_FULL_CREDIT = 6;
 
 export const STATUS_LABEL: Record<MasteryStatus, string> = {
   new: "Not started",
-  weak: "Weak",
+  weak: "Needs foundation",
   learning: "Learning",
+  developing: "Developing",
   strong: "Strong",
   mastered: "Mastered",
 };

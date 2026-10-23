@@ -13,12 +13,22 @@ export const STATUS_TONE: Record<MasteryStatus, BadgeTone> = {
   new: "neutral",
   weak: "danger",
   learning: "warning",
+  developing: "developing",
   strong: "info",
   mastered: "success",
 };
 
+const STATUS_FILL: Record<MasteryStatus, string> = {
+  new: "bg-danger",
+  weak: "bg-danger",
+  learning: "bg-warning",
+  developing: "bg-developing",
+  strong: "bg-info",
+  mastered: "bg-success",
+};
+
 function barColor(status: MasteryStatus): string {
-  return status === "mastered" ? "bg-success" : status === "strong" ? "bg-info" : status === "learning" ? "bg-warning" : "bg-danger";
+  return STATUS_FILL[status];
 }
 
 /** Mastery indicator (§52): a labelled bar that reads the same everywhere. */

@@ -70,7 +70,7 @@ function average(values: number[]): number | null {
 }
 
 function emptyCounts(): Record<MasteryStatus, number> {
-  return { new: 0, weak: 0, learning: 0, strong: 0, mastered: 0 };
+  return { new: 0, weak: 0, learning: 0, developing: 0, strong: 0, mastered: 0 };
 }
 
 export const getMasteryMap = cache(async (): Promise<MasteryMap> => {

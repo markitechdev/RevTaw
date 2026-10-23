@@ -262,12 +262,12 @@ export function ScoreColumns({ title, scores, className }: { title: string; scor
   );
 }
 
-const STATUS_FILL: Record<string, string> = { mastered: "bg-success", strong: "bg-info", learning: "bg-warning", weak: "bg-danger", new: "bg-muted-foreground/40" };
+const STATUS_FILL: Record<string, string> = { mastered: "bg-success", strong: "bg-info", developing: "bg-developing", learning: "bg-warning", weak: "bg-danger", new: "bg-muted-foreground/40" };
 
 /** One stacked strip of the mastery statuses (status colours mean status here) with a legend. */
 export function StatusStrip({ title, counts, labels, className }: { title: string; counts: Record<string, number>; labels: Record<string, string>; className?: string }) {
   const id = useId();
-  const order = ["mastered", "strong", "learning", "weak", "new"];
+  const order = ["mastered", "strong", "developing", "learning", "weak", "new"];
   const total = order.reduce((sum, key) => sum + (counts[key] ?? 0), 0);
   return (
     <figure className={cn("flex flex-col gap-2", className)} aria-labelledby={`${id}-title`}>

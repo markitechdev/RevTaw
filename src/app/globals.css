@@ -48,6 +48,10 @@
   --info: #1d5bd8;
   --info-foreground: #ffffff;
   --info-soft: #eef4ff;
+  /* Developing mastery (60–79%), between learning and strong: fuchsia-700, 5.9:1 on its tint. */
+  --developing: #a21caf;
+  --developing-foreground: #ffffff;
+  --developing-soft: #fdf4ff;
 
   /* Elevation: borders do most of the work; shadows only lift what floats. */
   --shadow-color: 22 19 42;
@@ -88,6 +92,9 @@
   --info: #7ba7ff;
   --info-foreground: #0b1220;
   --info-soft: #111f3d;
+  --developing: #f472b6;
+  --developing-foreground: #0b1220;
+  --developing-soft: #3a1028;
 
   --shadow-color: 0 0 0;
   --elevation-sm: 0 1px 2px rgb(var(--shadow-color) / 0.4);
@@ -231,6 +238,9 @@
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
   --color-info-soft: var(--info-soft);
+  --color-developing: var(--developing);
+  --color-developing-foreground: var(--developing-foreground);
+  --color-developing-soft: var(--developing-soft);
 
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;

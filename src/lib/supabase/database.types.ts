@@ -98,7 +98,7 @@ export type SessionItemKind =
 export type StudyMapKind = "mind" | "concept" | "visual";
 export type MnemonicKind = "acronym" | "acrostic" | "rhyme" | "phrase" | "association" | "story" | "custom";
 export type TutorRole = "user" | "assistant";
-export type MasteryStatus = "new" | "weak" | "learning" | "strong" | "mastered";
+export type MasteryStatus = "new" | "weak" | "learning" | "developing" | "strong" | "mastered";
 export type NextDifficulty = "easy" | "medium" | "hard" | "advanced";
 export type ExamPriority = "low" | "normal" | "high";
 export type PlanMode = "exam" | "cram";
@@ -419,6 +419,11 @@ type FlashcardsRow = {
   due_at: string;
   last_reviewed_at: string | null;
   last_rating: FlashcardRating | null;
+  fsrs_stability: number | null;
+  fsrs_difficulty: number | null;
+  fsrs_state: number | null;
+  fsrs_learning_steps: number;
+  fsrs_scheduled_days: number;
   created_at: string;
   updated_at: string;
   search_text: string;
@@ -436,6 +441,10 @@ type FlashcardReviewsRow = {
   interval_days: number | null;
   due_at: string | null;
   reviewed_at: string;
+  fsrs_state: number | null;
+  stability: number | null;
+  difficulty: number | null;
+  retrievability: number | null;
 };
 
 type TutorConversationsRow = {
@@ -494,6 +503,28 @@ type ConceptMasteryRow = {
   computed_at: string;
   created_at: string;
   updated_at: string;
+  p_learned: number;
+  recall: number | null;
+  elo_rating: number;
+  elo_answers: number;
+  weakness: number;
+  first_attempts: number;
+  gates: Json;
+  next_step: "evidence" | "noMisconception" | "hardItem" | "spaced" | null;
+  best_status: MasteryStatus | null;
+  fsrs_stability: number | null;
+  fsrs_difficulty: number | null;
+  fsrs_state: number | null;
+  fsrs_reps: number;
+  fsrs_lapses: number;
+  fsrs_last_review: string | null;
+};
+
+type ItemBucketsRow = {
+  bucket_key: string;
+  difficulty: number;
+  answers: number;
+  refit_at: string;
 };
 
 type ExamsRow = {
@@ -1295,6 +1326,12 @@ export type Database = {
         Update: Partial<AiUsageRow>;
         Relationships: [];
       };
+      item_buckets: {
+        Row: ItemBucketsRow;
+        Insert: Writable<ItemBucketsRow, "bucket_key">;
+        Update: Partial<ItemBucketsRow>;
+        Relationships: [];
+      };
       achievements: {
         Row: AchievementsRow;
         Insert: Writable<AchievementsRow, "key">;
@@ -1397,6 +1434,7 @@ export type FlashcardReview = Tables<"flashcard_reviews">;
 export type TutorConversation = Tables<"tutor_conversations">;
 export type TutorMessage = Tables<"tutor_messages">;
 export type ConceptMastery = Tables<"concept_mastery">;
+export type ItemBucket = Tables<"item_buckets">;
 export type Exam = Tables<"exams">;
 export type ExamMaterial = Tables<"exam_materials">;
 export type StudyPlan = Tables<"study_plans">;

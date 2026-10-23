@@ -137,7 +137,7 @@ export const getAnalyticsOverview = cache(async (): Promise<AnalyticsOverview> =
   const materialIds = [...new Set(practiced.map((row) => row.concept?.material_id).filter((id): id is string => Boolean(id)))];
   const { data: materials } = materialIds.length ? await supabase.from("materials").select("id, title, subject:subjects!materials_subject_fk(id, name)").in("id", materialIds) : { data: [] };
   const subjectOf = new Map((materials ?? []).map((material) => [material.id, (material.subject as unknown as { id: string; name: string } | null) ?? null]));
-  const distribution: Record<MasteryStatus, number> = { new: 0, weak: 0, learning: 0, strong: 0, mastered: 0 };
+  const distribution: Record<MasteryStatus, number> = { new: 0, weak: 0, learning: 0, developing: 0, strong: 0, mastered: 0 };
   for (const row of practiced) distribution[row.status] += 1;
   const retrievalValues = practiced.map((row) => Number(row.retrieval_strength));
   const fading = practiced.filter((row) => row.next_review_at && row.next_review_at <= new Date().toISOString()).length;
