@@ -2,7 +2,8 @@ import "server-only";
 
 import { cache } from "react";
 
-import type { Flashcard, FlashcardDeck } from "@/lib/supabase/database.types";
+import { currentSnapshot, ratingWaits } from "@/lib/flashcards/scheduler";
+import type { Flashcard, FlashcardDeck, FlashcardRating } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 type MaterialRef = { id: string; title: string; subject: { name: string } | null } | null;
@@ -48,7 +49,26 @@ export async function listDecks(filters: { materialId?: string } = {}): Promise<
 
 export type CardView = Pick<
   Flashcard,
-  "id" | "position" | "front" | "back" | "hint" | "source_excerpt" | "favorite" | "suspended" | "box" | "ease" | "interval_days" | "repetitions" | "lapses" | "due_at" | "last_reviewed_at" | "last_rating"
+  | "id"
+  | "position"
+  | "front"
+  | "back"
+  | "hint"
+  | "source_excerpt"
+  | "favorite"
+  | "suspended"
+  | "box"
+  | "interval_days"
+  | "repetitions"
+  | "lapses"
+  | "due_at"
+  | "last_reviewed_at"
+  | "last_rating"
+  | "fsrs_stability"
+  | "fsrs_difficulty"
+  | "fsrs_state"
+  | "fsrs_learning_steps"
+  | "fsrs_scheduled_days"
 > & { concept: { id: string; name: string } | null };
 
 export type DeckDetail = Omit<FlashcardDeck, "material_id"> & {
@@ -63,7 +83,7 @@ export type DeckDetail = Omit<FlashcardDeck, "material_id"> & {
 };
 
 const CARD_COLUMNS =
-  "id, position, front, back, hint, source_excerpt, favorite, suspended, box, ease, interval_days, repetitions, lapses, due_at, last_reviewed_at, last_rating, concept:concepts!flashcards_concept_fk(id, name)";
+  "id, position, front, back, hint, source_excerpt, favorite, suspended, box, interval_days, repetitions, lapses, due_at, last_reviewed_at, last_rating, fsrs_stability, fsrs_difficulty, fsrs_state, fsrs_learning_steps, fsrs_scheduled_days, concept:concepts!flashcards_concept_fk(id, name)";
 
 export const getDeck = cache(async (deckId: string): Promise<DeckDetail | null> => {
   const supabase = await createClient();
@@ -95,7 +115,11 @@ export const getDeck = cache(async (deckId: string): Promise<DeckDetail | null> 
   };
 });
 
-export type ReviewQueueCard = CardView & { deck: { id: string; title: string } };
+export type ReviewQueueCard = CardView & {
+  deck: { id: string; title: string };
+  /** When each rating would bring the card back ("10 min", "2 days"), from its FSRS state. */
+  waits: Record<FlashcardRating, string>;
+};
 
 /**
  * Cards to review: due cards first (oldest due first), optionally padded with
@@ -118,7 +142,16 @@ export async function getReviewQueue(options: { deckId?: string; mode: "due" | "
     console.error("flashcards: queue failed", error.message);
     return [];
   }
-  return ((data ?? []) as unknown as Array<ReviewQueueCard & { deck: { archived_at: string | null } }>).filter((card) => !card.deck.archived_at);
+  const cards = ((data ?? []) as unknown as Array<Omit<ReviewQueueCard, "waits"> & { deck: { archived_at: string | null } }>).filter((card) => !card.deck.archived_at);
+  // Cards reviewed before FSRS have no state yet: their history gives it.
+  const replay = cards.filter((card) => card.fsrs_stability === null && card.last_reviewed_at).map((card) => card.id);
+  const history = new Map<string, Array<{ at: string; rating: FlashcardRating }>>();
+  if (replay.length > 0) {
+    const { data: reviews } = await supabase.from("flashcard_reviews").select("card_id, rating, reviewed_at").in("card_id", replay).order("reviewed_at", { ascending: true }).limit(5000);
+    for (const row of reviews ?? []) history.set(row.card_id, [...(history.get(row.card_id) ?? []), { at: row.reviewed_at, rating: row.rating }]);
+  }
+  const now = new Date();
+  return cards.map((card) => ({ ...card, waits: ratingWaits(currentSnapshot(card, history.get(card.id) ?? []), now) }));
 }
 
 /** Random order for "shuffle" study; done on the server so the first render and hydration agree. */

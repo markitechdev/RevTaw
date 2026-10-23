@@ -3,7 +3,8 @@ import "server-only";
 import { refreshMastery } from "@/lib/adaptive/engine";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { generateFlashcards } from "@/lib/flashcards/generate";
-import { schedule, type SchedulerState } from "@/lib/flashcards/scheduler";
+import { describeWait } from "@/lib/engine/fsrs";
+import { currentSnapshot, ratingWaits, scheduleCard, scheduleColumns } from "@/lib/flashcards/scheduler";
 import { friendlyGenerationFailure, loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
 import type { FlashcardRating } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -85,6 +86,10 @@ export type ReviewResult = {
   box: number;
   intervalDays: number;
   dueAt: string;
+  /** "10 min", "2 days": when the card comes back. */
+  wait: string;
+  /** What each rating would do the next time the card is shown. */
+  waits: Record<FlashcardRating, string>;
 };
 
 /** Applies a rating: updates the card's schedule, logs the review and updates the session counters. */
@@ -92,28 +97,24 @@ export async function reviewCard(input: { cardId: string; rating: FlashcardRatin
   const supabase = await createClient();
   const { data: card } = await supabase
     .from("flashcards")
-    .select("id, user_id, box, ease, interval_days, repetitions, lapses, suspended, concept_id")
+    .select("id, user_id, box, suspended, concept_id, repetitions, lapses, due_at, last_reviewed_at, fsrs_stability, fsrs_difficulty, fsrs_state, fsrs_learning_steps, fsrs_scheduled_days")
     .eq("id", input.cardId)
     .maybeSingle();
   if (!card) throw new ServiceError("Card not found.", 404);
   if (card.suspended) throw new ServiceError("This card is suspended.", 409);
 
-  const state: SchedulerState = { box: card.box, ease: Number(card.ease), interval_days: card.interval_days, repetitions: card.repetitions, lapses: card.lapses };
+  // Cards scheduled before FSRS are rebuilt from their review history on their first FSRS review.
+  let history: Array<{ at: string; rating: FlashcardRating }> = [];
+  if (card.fsrs_stability === null && card.last_reviewed_at) {
+    const { data: reviews } = await supabase.from("flashcard_reviews").select("rating, reviewed_at").eq("card_id", card.id).order("reviewed_at", { ascending: true }).limit(500);
+    history = (reviews ?? []).map((row) => ({ at: row.reviewed_at, rating: row.rating }));
+  }
   const now = new Date();
-  const next = schedule(state, input.rating, now);
+  const next = scheduleCard(currentSnapshot(card, history), input.rating, now);
 
   const { error } = await supabase
     .from("flashcards")
-    .update({
-      box: next.box,
-      ease: next.ease,
-      interval_days: next.interval_days,
-      repetitions: next.repetitions,
-      lapses: next.lapses,
-      due_at: next.due_at,
-      last_reviewed_at: now.toISOString(),
-      last_rating: input.rating,
-    })
+    .update({ ...scheduleColumns(next), last_reviewed_at: now.toISOString(), last_rating: input.rating })
     .eq("id", card.id);
   if (error) throw new Error(`flashcards: update failed: ${error.message}`);
 
@@ -125,9 +126,13 @@ export async function reviewCard(input: { cardId: string; rating: FlashcardRatin
     response_ms: input.responseMs,
     box_before: card.box,
     box_after: next.box,
-    interval_days: next.interval_days,
-    due_at: next.due_at,
+    interval_days: next.intervalDays,
+    due_at: next.dueAt,
     reviewed_at: now.toISOString(),
+    fsrs_state: next.snapshot.state,
+    stability: Math.round(next.snapshot.stability * 10_000) / 10_000,
+    difficulty: Math.round(next.snapshot.difficulty * 10_000) / 10_000,
+    retrievability: next.recallBefore === null ? null : Math.round(next.recallBefore * 10_000) / 10_000,
   });
   if (logError) console.error("flashcard_reviews: insert failed", logError.message);
 
@@ -147,5 +152,5 @@ export async function reviewCard(input: { cardId: string; rating: FlashcardRatin
   }
 
   if (card.concept_id) await refreshMastery([card.concept_id]);
-  return { box: next.box, intervalDays: next.interval_days, dueAt: next.due_at };
+  return { box: next.box, intervalDays: next.intervalDays, dueAt: next.dueAt, wait: describeWait(new Date(next.dueAt), now), waits: ratingWaits(next.snapshot, now) };
 }

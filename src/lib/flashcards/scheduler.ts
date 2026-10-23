@@ -1,117 +1,74 @@
-import type { FlashcardRating } from "@/lib/supabase/database.types";
+import { describeWait, leitnerBox, preview, recallAt, replay, review, type FsrsSnapshot, type GradedReview } from "@/lib/engine/fsrs";
+import type { Flashcard, FlashcardRating } from "@/lib/supabase/database.types";
 
 /**
- * Spaced-repetition scheduler: an SM-2 style interval/ease model combined
- * with a five-box Leitner ladder (spec §16 Spaced Repetition + Leitner).
- *
- * - Correct/easy answers lengthen the interval and move the card up a box.
- * - Incorrect answers reset the interval and drop the card to box 1.
- * - Intervals follow the spec's ladder (today, 1, 3, 7, 14, 30 days…) and
- *   grow with the card's ease afterwards.
+ * Flashcard scheduling with FSRS-6 (research doc §9): each card keeps its
+ * stability and difficulty, a rating moves them, and the card comes back
+ * when its recall is predicted to fall to 90%. New cards take short
+ * learning steps (1–10 minutes) before their first interval in days. The
+ * Leitner box is derived from stability, so the five boxes still read the
+ * same. Cards scheduled before FSRS are rebuilt from their review history.
  */
 
-export type SchedulerState = {
+export type CardSchedule = Pick<
+  Flashcard,
+  "fsrs_stability" | "fsrs_difficulty" | "fsrs_state" | "fsrs_learning_steps" | "fsrs_scheduled_days" | "repetitions" | "lapses" | "last_reviewed_at" | "due_at"
+>;
+
+/** The stored FSRS state, or null before the card's first FSRS review. */
+export function cardSnapshot(card: CardSchedule): FsrsSnapshot | null {
+  if (card.fsrs_stability === null || card.fsrs_difficulty === null || card.fsrs_state === null) return null;
+  return {
+    stability: Number(card.fsrs_stability),
+    difficulty: Number(card.fsrs_difficulty),
+    state: card.fsrs_state,
+    reps: card.repetitions,
+    lapses: card.lapses,
+    learningSteps: card.fsrs_learning_steps,
+    scheduledDays: card.fsrs_scheduled_days,
+    lastReview: card.last_reviewed_at,
+    due: card.due_at,
+  };
+}
+
+/** The card's state now: stored, or replayed from its review history (oldest first); null for a new card. */
+export function currentSnapshot(card: CardSchedule, history: GradedReview[]): FsrsSnapshot | null {
+  return cardSnapshot(card) ?? (history.length > 0 ? replay(history, "card") : null);
+}
+
+export type ScheduledCard = {
+  snapshot: FsrsSnapshot;
   box: number;
-  ease: number;
-  interval_days: number;
-  repetitions: number;
-  lapses: number;
+  intervalDays: number;
+  dueAt: string;
+  /** Predicted recall just before this review (null for a new card). */
+  recallBefore: number | null;
 };
 
-export type ScheduledState = SchedulerState & { due_at: string };
-
-export const BOX_LABELS: Record<number, string> = {
-  1: "Difficult",
-  2: "Learning",
-  3: "Familiar",
-  4: "Strong",
-  5: "Mastered",
-};
-
-export const RATING_LABELS: Record<FlashcardRating, { label: string; hint: string }> = {
-  again: { label: "Don't know", hint: "Show again soon" },
-  hard: { label: "Hard", hint: "Recalled with effort" },
-  good: { label: "Medium", hint: "Recalled correctly" },
-  easy: { label: "Easy", hint: "Knew it instantly" },
-};
-
-const MIN_EASE = 1.3;
-const MAX_EASE = 4;
-const MAX_INTERVAL_DAYS = 365;
-const AGAIN_DELAY_MINUTES = 10;
-
-function clampEase(value: number): number {
-  return Math.round(Math.max(MIN_EASE, Math.min(MAX_EASE, value)) * 100) / 100;
+export function scheduleCard(before: FsrsSnapshot | null, rating: FlashcardRating, now: Date = new Date()): ScheduledCard {
+  const snapshot = review(before, rating, now, "card");
+  return { snapshot, box: leitnerBox(snapshot), intervalDays: snapshot.scheduledDays, dueAt: snapshot.due, recallBefore: before ? recallAt(before, now) : null };
 }
 
-function addDays(now: Date, days: number): Date {
-  return new Date(now.getTime() + days * 86_400_000);
+/** "1 min", "10 min", "2 days" — when each rating would bring the card back. */
+export function ratingWaits(snapshot: FsrsSnapshot | null, now: Date = new Date()): Record<FlashcardRating, string> {
+  const due = preview(snapshot, now);
+  return { again: describeWait(due.again, now), hard: describeWait(due.hard, now), good: describeWait(due.good, now), easy: describeWait(due.easy, now) };
 }
 
-export function schedule(state: SchedulerState, rating: FlashcardRating, now: Date = new Date()): ScheduledState {
-  switch (rating) {
-    case "again":
-      return {
-        box: 1,
-        ease: clampEase(state.ease - 0.2),
-        interval_days: 0,
-        repetitions: 0,
-        lapses: state.lapses + 1,
-        due_at: new Date(now.getTime() + AGAIN_DELAY_MINUTES * 60_000).toISOString(),
-      };
-    case "hard": {
-      const interval = Math.min(MAX_INTERVAL_DAYS, state.interval_days === 0 ? 1 : Math.max(state.interval_days + 1, Math.round(state.interval_days * 1.2)));
-      return {
-        box: state.box,
-        ease: clampEase(state.ease - 0.15),
-        interval_days: interval,
-        repetitions: state.repetitions + 1,
-        lapses: state.lapses,
-        due_at: addDays(now, interval).toISOString(),
-      };
-    }
-    case "good": {
-      const interval = Math.min(
-        MAX_INTERVAL_DAYS,
-        state.repetitions === 0 ? 1 : state.repetitions === 1 ? 3 : Math.max(state.interval_days + 1, Math.round(state.interval_days * state.ease)),
-      );
-      return {
-        box: Math.min(5, state.box + 1),
-        ease: clampEase(state.ease),
-        interval_days: interval,
-        repetitions: state.repetitions + 1,
-        lapses: state.lapses,
-        due_at: addDays(now, interval).toISOString(),
-      };
-    }
-    case "easy": {
-      const ease = clampEase(state.ease + 0.15);
-      const interval = Math.min(
-        MAX_INTERVAL_DAYS,
-        state.repetitions === 0 ? 3 : state.repetitions === 1 ? 7 : Math.max(state.interval_days + 2, Math.round(state.interval_days * ease * 1.3)),
-      );
-      return {
-        box: Math.min(5, state.box + 1),
-        ease,
-        interval_days: interval,
-        repetitions: state.repetitions + 1,
-        lapses: state.lapses,
-        due_at: addDays(now, interval).toISOString(),
-      };
-    }
-  }
-}
-
-/** "in 10 min", "tomorrow", "in 3 days" — what each rating button would do. */
-export function describeInterval(state: SchedulerState, rating: FlashcardRating): string {
-  const next = schedule(state, rating, new Date(0));
-  if (rating === "again") return `${AGAIN_DELAY_MINUTES} min`;
-  if (next.interval_days === 1) return "1 day";
-  if (next.interval_days < 30) return `${next.interval_days} days`;
-  const months = Math.round(next.interval_days / 30);
-  return months === 1 ? "1 month" : `${months} months`;
-}
-
-export function isDue(dueAt: string, now: Date = new Date()): boolean {
-  return new Date(dueAt).getTime() <= now.getTime();
+/** The columns a review writes on the card. */
+export function scheduleColumns(next: ScheduledCard) {
+  const round4 = (value: number) => Math.round(value * 10_000) / 10_000;
+  return {
+    box: next.box,
+    interval_days: next.intervalDays,
+    repetitions: next.snapshot.reps,
+    lapses: next.snapshot.lapses,
+    due_at: next.dueAt,
+    fsrs_stability: round4(next.snapshot.stability),
+    fsrs_difficulty: round4(next.snapshot.difficulty),
+    fsrs_state: next.snapshot.state,
+    fsrs_learning_steps: next.snapshot.learningSteps,
+    fsrs_scheduled_days: next.snapshot.scheduledDays,
+  };
 }

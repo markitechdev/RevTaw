@@ -1,45 +1,70 @@
 import { describe, expect, it } from "vitest";
 
-import { describeInterval, isDue, schedule, type SchedulerState } from "@/lib/flashcards/scheduler";
+import { FsrsState } from "@/lib/engine/fsrs";
+import { isDue } from "@/lib/flashcards/labels";
+import { cardSnapshot, currentSnapshot, ratingWaits, scheduleCard, scheduleColumns, type CardSchedule } from "@/lib/flashcards/scheduler";
 
-const fresh: SchedulerState = { box: 1, ease: 2.5, interval_days: 0, repetitions: 0, lapses: 0 };
 const now = new Date("2026-10-19T08:00:00Z");
+const minutes = (count: number) => new Date(now.getTime() + count * 60_000);
 
-describe("flashcard scheduler", () => {
-  it("follows the ladder for repeated good answers and climbs the boxes", () => {
-    const first = schedule(fresh, "good", now);
-    expect(first).toMatchObject({ box: 2, interval_days: 1, repetitions: 1 });
-    expect(first.due_at).toBe("2026-10-20T08:00:00.000Z");
-    const second = schedule(first, "good", now);
-    expect(second).toMatchObject({ box: 3, interval_days: 3, repetitions: 2 });
-    const third = schedule(second, "good", now);
-    expect(third).toMatchObject({ box: 4, interval_days: 8, repetitions: 3 });
-    const fourth = schedule(third, "good", now);
-    expect(fourth.box).toBe(5);
-    expect(schedule(fourth, "good", now).box).toBe(5);
+const fresh: CardSchedule = {
+  fsrs_stability: null,
+  fsrs_difficulty: null,
+  fsrs_state: null,
+  fsrs_learning_steps: 0,
+  fsrs_scheduled_days: 0,
+  repetitions: 0,
+  lapses: 0,
+  last_reviewed_at: null,
+  due_at: now.toISOString(),
+};
+
+describe("flashcard scheduler (FSRS)", () => {
+  it("takes a new card through its learning steps before its first interval in days", () => {
+    expect(ratingWaits(null, now)).toEqual({ again: "1 min", hard: "6 min", good: "10 min", easy: "8 days" });
+    const first = scheduleCard(currentSnapshot(fresh, []), "good", now);
+    expect(first.dueAt).toBe(minutes(10).toISOString());
+    expect(first.snapshot.state).toBe(FsrsState.Learning);
+    expect(first.recallBefore).toBeNull();
+    // Shown again later in the session, a second Medium graduates it: back in 2 days, box 2.
+    const second = scheduleCard(first.snapshot, "good", minutes(3));
+    expect(second.snapshot.state).toBe(FsrsState.Review);
+    expect(second.intervalDays).toBe(2);
+    expect(second.box).toBe(2);
+    expect(isDue(second.dueAt, minutes(60))).toBe(false);
   });
 
-  it("resets to box 1 with a short delay after a lapse and lowers ease", () => {
-    const strong: SchedulerState = { box: 4, ease: 2.5, interval_days: 14, repetitions: 4, lapses: 0 };
-    const lapsed = schedule(strong, "again", now);
-    expect(lapsed).toMatchObject({ box: 1, interval_days: 0, repetitions: 0, lapses: 1, ease: 2.3 });
-    expect(lapsed.due_at).toBe("2026-10-19T08:10:00.000Z");
-    expect(isDue(lapsed.due_at, now)).toBe(false);
-    expect(isDue(lapsed.due_at, new Date("2026-10-19T08:11:00Z"))).toBe(true);
+  it("keeps lapses, moves boxes with stability and writes the stored columns", () => {
+    let snapshot = scheduleCard(null, "easy", now).snapshot;
+    let at = now;
+    for (const days of [8, 20, 50]) {
+      at = new Date(at.getTime() + days * 86_400_000);
+      snapshot = scheduleCard(snapshot, "good", at).snapshot;
+    }
+    const mature = scheduleCard(snapshot, "good", new Date(at.getTime() + 90 * 86_400_000));
+    expect(mature.box).toBe(5);
+    expect(mature.recallBefore).toBeGreaterThan(0);
+    expect(mature.recallBefore).toBeLessThan(1);
+    const lapsed = scheduleCard(mature.snapshot, "again", new Date(mature.dueAt));
+    expect(lapsed.snapshot.lapses).toBe(1);
+    expect(lapsed.snapshot.state).toBe(FsrsState.Relearning);
+    expect(lapsed.box).toBeLessThan(5);
+    const columns = scheduleColumns(lapsed);
+    expect(columns).toMatchObject({ box: lapsed.box, lapses: 1, fsrs_state: FsrsState.Relearning, due_at: lapsed.dueAt });
+    expect(cardSnapshot({ ...fresh, ...columns, last_reviewed_at: mature.dueAt })?.stability).toBe(columns.fsrs_stability);
   });
 
-  it("keeps the box on hard, grows faster on easy and never drops below the minimum ease", () => {
-    const learning: SchedulerState = { box: 2, ease: 1.35, interval_days: 3, repetitions: 2, lapses: 2 };
-    expect(schedule(learning, "hard", now)).toMatchObject({ box: 2, ease: 1.3, interval_days: 4 });
-    expect(schedule(fresh, "easy", now)).toMatchObject({ box: 2, interval_days: 3, ease: 2.65 });
-    const mature: SchedulerState = { box: 5, ease: 2.5, interval_days: 200, repetitions: 8, lapses: 0 };
-    expect(schedule(mature, "easy", now).interval_days).toBe(365);
-  });
-
-  it("describes what each button will do", () => {
-    expect(describeInterval(fresh, "again")).toBe("10 min");
-    expect(describeInterval(fresh, "good")).toBe("1 day");
-    expect(describeInterval(fresh, "easy")).toBe("3 days");
-    expect(describeInterval({ box: 5, ease: 2.5, interval_days: 40, repetitions: 5, lapses: 0 }, "good")).toBe("3 months");
+  it("rebuilds a card scheduled before FSRS from its review history", () => {
+    const old = { ...fresh, repetitions: 2, last_reviewed_at: "2026-10-12T08:00:00Z", due_at: "2026-10-15T08:00:00Z" };
+    const history = [
+      { at: "2026-10-10T08:00:00Z", rating: "good" as const },
+      { at: "2026-10-10T08:12:00Z", rating: "good" as const },
+      { at: "2026-10-12T08:00:00Z", rating: "good" as const },
+    ];
+    const rebuilt = currentSnapshot(old, history);
+    expect(rebuilt?.state).toBe(FsrsState.Review);
+    expect(rebuilt?.reps).toBe(3);
+    expect(currentSnapshot(old, [])).toBeNull();
+    expect(ratingWaits(rebuilt, now).good).toMatch(/days?|month/);
   });
 });

@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { finishReviewSessionAction, reviewCardAction, startReviewSessionAction, toggleFavoriteAction } from "@/lib/flashcards/actions";
 import type { ReviewQueueCard } from "@/lib/flashcards/queries";
-import { BOX_LABELS, describeInterval, RATING_LABELS, type SchedulerState } from "@/lib/flashcards/scheduler";
+import { BOX_LABELS, RATING_LABELS, REPEAT_WITHIN_MINUTES } from "@/lib/flashcards/labels";
 import type { SessionSummary } from "@/lib/study/sessions";
 import type { FlashcardRating } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
@@ -24,8 +24,9 @@ type QueueEntry = { card: ReviewQueueCard; requeues: number };
 
 /**
  * Flashcard review runner: flip, rate (Don't know / Hard / Medium / Easy),
- * favorite, keyboard shortcuts. Cards rated "Don't know" come back later in
- * the same session; every rating is saved immediately with its new schedule.
+ * favorite, keyboard shortcuts. Every rating is saved immediately with its
+ * FSRS schedule; a card due again within minutes ("Don't know", and a new
+ * card's first learning steps) comes back later in the same session.
  */
 export function FlashcardReview({
   queue,
@@ -57,7 +58,7 @@ export function FlashcardReview({
   const [pending, startTransition] = useTransition();
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [finishing, setFinishing] = useState(false);
-  const [lastResult, setLastResult] = useState<{ rating: FlashcardRating; box: number; intervalDays: number } | null>(null);
+  const [lastResult, setLastResult] = useState<{ rating: FlashcardRating; box: number; wait: string; repeat: boolean } | null>(null);
   const [progress, setProgress] = useState({ reviewed: 0, again: 0, promoted: 0 });
 
   // Per-concept tallies and timing only matter in event handlers, so they live in refs.
@@ -158,7 +159,9 @@ export function FlashcardReview({
           if (rating === "again") tally.again += 1;
           conceptStats.current.set(concept, tally);
         }
-        if (rating !== "again" && (!nextDue.current || result.data.dueAt < nextDue.current)) nextDue.current = result.data.dueAt;
+        const soon = new Date(result.data.dueAt).getTime() - Date.now() <= REPEAT_WITHIN_MINUTES * 60_000;
+        const repeat = soon && entry.requeues < MAX_REQUEUES;
+        if (!repeat && (!nextDue.current || result.data.dueAt < nextDue.current)) nextDue.current = result.data.dueAt;
         const nextProgress = {
           reviewed: progress.reviewed + (first ? 1 : 0),
           again: progress.again + (first && rating === "again" ? 1 : 0),
@@ -166,19 +169,19 @@ export function FlashcardReview({
         };
         const rest = entries.slice(1);
         const nextEntries =
-          rating === "again" && entry.requeues < MAX_REQUEUES
+          repeat
             ? (() => {
                 const position = Math.min(rest.length, Math.max(2, Math.floor(rest.length / 2)));
                 return [...rest.slice(0, position), { card, requeues: entry.requeues + 1 }, ...rest.slice(position)];
               })()
             : rest;
         setProgress(nextProgress);
-        setLastResult({ rating, box: result.data.box, intervalDays: result.data.intervalDays });
+        setLastResult({ rating, box: result.data.box, wait: result.data.wait, repeat });
         setFlipped(false);
         setShowHint(false);
         setCards((state) => ({
           ...state,
-          [card.id]: { ...card, box: result.data.box, interval_days: result.data.intervalDays, due_at: result.data.dueAt, repetitions: rating === "again" ? 0 : card.repetitions + 1 },
+          [card.id]: { ...card, box: result.data.box, interval_days: result.data.intervalDays, due_at: result.data.dueAt, repetitions: card.repetitions + 1, waits: result.data.waits },
         }));
         setEntries(nextEntries);
         if (nextEntries.length === 0) finishWith(nextProgress);
@@ -270,7 +273,6 @@ export function FlashcardReview({
     );
   }
 
-  const schedulerState: SchedulerState = { box: card.box, ease: Number(card.ease), interval_days: card.interval_days, repetitions: card.repetitions, lapses: card.lapses };
   const percent = Math.min(100, Math.round((reviewedCount / Math.max(1, total)) * 100));
   const repeats = Math.max(0, entries.length - (total - reviewedCount));
 
@@ -367,7 +369,7 @@ export function FlashcardReview({
                   <kbd className="mr-1 rounded border border-current/30 px-1 text-[10px]">{index + 1}</kbd>
                   {RATING_LABELS[rating].label}
                 </span>
-                <span className="text-xs font-normal opacity-80">{describeInterval(schedulerState, rating)}</span>
+                <span className="text-xs font-normal opacity-80">{card.waits[rating]}</span>
               </button>
             ))}
           </div>
@@ -382,7 +384,7 @@ export function FlashcardReview({
         {lastResult && !flipped && (
           <p className="text-center text-xs text-muted-foreground" role="status">
             Last card: {RATING_LABELS[lastResult.rating].label} → box {lastResult.box}
-            {lastResult.rating === "again" ? ", shown again shortly" : `, next review in ${lastResult.intervalDays === 1 ? "1 day" : `${lastResult.intervalDays} days`}`}
+            {lastResult.repeat ? ", shown again later in this review" : `, next review in ${lastResult.wait}`}
           </p>
         )}
       </div>

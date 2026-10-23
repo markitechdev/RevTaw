@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { toggleFavoriteAction, updateCardAction } from "@/lib/flashcards/actions";
 import type { CardView } from "@/lib/flashcards/queries";
-import { BOX_LABELS } from "@/lib/flashcards/scheduler";
+import { BOX_LABELS } from "@/lib/flashcards/labels";
 import { useNow } from "@/lib/hooks/use-now";
 import { cn } from "@/lib/utils";
 
