@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { appearanceAttributes, decodeAppearance, encodeAppearance } from "@/lib/theme/appearance";
+import { appearanceAttributes, decodeAppearance, encodeAppearance, themeColorAttributes } from "@/lib/theme/appearance";
 
 describe("appearance cookie", () => {
   it("round-trips presets and custom colors", () => {
@@ -28,6 +28,13 @@ describe("appearanceAttributes", () => {
   it("always names the accent and only adds what is needed", () => {
     expect(appearanceAttributes({ accent: "purple", customColor: null, reduceMotion: false })).toEqual({ "data-accent": "purple" });
     expect(appearanceAttributes({ accent: "green", customColor: null, reduceMotion: true })).toEqual({ "data-accent": "green", "data-motion": "reduce" });
+  });
+
+  it("leaves Reduce motion to the app: <html> on every page gets the theme color only", () => {
+    expect(themeColorAttributes({ accent: "green", customColor: null, reduceMotion: true })).toEqual({ "data-accent": "green" });
+    const custom = themeColorAttributes({ accent: "custom", customColor: "#ff8800", reduceMotion: true });
+    expect(custom["data-motion"]).toBeUndefined();
+    expect((custom.style as Record<string, string>)["--custom-primary"]).toMatch(/^#[0-9a-f]{6}$/);
   });
 
   it("adds contrast-checked custom variables for a custom color", () => {

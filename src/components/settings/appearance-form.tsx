@@ -191,7 +191,7 @@ export function AppearanceForm() {
           checked={appearance.reduceMotion}
           onChange={(next) => void commit({ ...appearance, reduceMotion: next })}
           label="Reduce motion"
-          description="Turns off RevTaw's animations and transitions on every device you sign in on. A device that asks for reduced motion always gets it."
+          description="Turns off animations and transitions inside RevTaw on every device you sign in on; the landing page keeps its own. A device that asks for reduced motion always gets it."
         />
       </section>
 

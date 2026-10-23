@@ -29,10 +29,11 @@ function readCookie(name: string): string | null {
 }
 
 /**
- * The signed-in app's theme color frame (UI phase §10–§11). The account value
- * arrives from the server, so the frame renders in the right color on the
- * first paint; <html> and the appearance cookie are kept in step for pages
- * outside the frame and for the next first paint on this device.
+ * The signed-in app's theme color and motion frame (UI phase §10–§11). The
+ * account value arrives from the server, so the frame renders in the right
+ * color and motion on the first paint; <html> and the appearance cookie are
+ * kept in step for dialogs outside the frame and for the next first paint on
+ * this device. Reduce motion is applied only while the frame is mounted.
  */
 export function AppearanceRoot({ appearance, children }: { appearance: AppearancePreferences; children: ReactNode }) {
   const [previewing, setPreviewing] = useState<AppearancePreferences | null>(null);
@@ -43,6 +44,14 @@ export function AppearanceRoot({ appearance, children }: { appearance: Appearanc
   useEffect(() => {
     applyAppearance(document.documentElement, current);
   }, [current]);
+
+  // Reduce motion is the app's: on leaving it (for the landing page, say) the page moves again.
+  useEffect(
+    () => () => {
+      delete document.documentElement.dataset.motion;
+    },
+    [],
+  );
 
   useEffect(() => {
     // A new device (or a cleared cookie): mirror the account value for the next first paint.

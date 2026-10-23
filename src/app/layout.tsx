@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { cookies, headers } from "next/headers";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "@/components/theme/theme-provider";
 import { BRAND } from "@/lib/brand";
-import { APPEARANCE_COOKIE, appearanceAttributes, decodeAppearance } from "@/lib/theme/appearance";
+import { APPEARANCE_COOKIE, decodeAppearance, themeColorAttributes } from "@/lib/theme/appearance";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -27,14 +27,15 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   // Per-request CSP nonce generated in src/proxy.ts. Reading headers makes
   // every page dynamic, which nonce-based CSP requires anyway.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
-  // Theme color and reduced motion for the first paint (validated cookie;
-  // the signed-in app frame re-applies the account value on top).
+  // The theme color for the first paint (validated cookie; the signed-in app
+  // frame re-applies the account value on top). Reduce motion is not set here:
+  // it applies inside the app only, so the landing page keeps its animation.
   const appearance = decodeAppearance((await cookies()).get(APPEARANCE_COOKIE)?.value);
 
   return (
     // suppressHydrationWarning: the inline script below sets the `dark` class
     // before hydration, which React would otherwise flag as a mismatch.
-    <html lang="en" className="h-full antialiased" suppressHydrationWarning {...(appearance ? appearanceAttributes(appearance) : {})}>
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning {...(appearance ? themeColorAttributes(appearance) : {})}>
       <head>
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>

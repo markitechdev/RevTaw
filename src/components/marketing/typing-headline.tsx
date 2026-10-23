@@ -11,8 +11,9 @@ import { cn } from "@/lib/utils";
  * readable at first paint (and without JavaScript); both phrases are rendered
  * invisibly underneath to reserve the space, so nothing shifts while typing.
  * Screen readers get the full text once (the animated copy is aria-hidden).
- * With reduced motion (device setting or Appearance) both phrases are shown,
- * no caret — CSS picks that version, so there is no swap after hydration.
+ * With reduced motion (the device's setting; the app's Reduce motion stays in
+ * the app) both phrases are shown, no caret — CSS picks that version, so there
+ * is no swap after hydration.
  */
 /** Zero-height box on the baseline: the bar inside is absolutely placed, so the caret never changes line heights. */
 const CARET = "relative ml-[0.04em] inline-block h-0 w-[0.07em] align-baseline";

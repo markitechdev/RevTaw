@@ -7,10 +7,14 @@ import { buildAccentPalette } from "@/lib/theme/color";
  * Theme color and reduced motion on the page (UI phase §10–§11).
  *
  * The student's choice lives in their account (`preferences.appearance`). A
- * small cookie mirrors it so the root layout can put the right attributes on
+ * small cookie mirrors it so the root layout can put the theme color on
  * <html> in the very first response — no flash of RevTaw Purple before a
- * custom color — on every page, signed in or not. The cookie only ever holds
- * the values below and is re-validated on every read. Client-safe.
+ * custom color — on every page, signed in or not. Reduce motion belongs to
+ * the signed-in app only: the app frame (`AppearanceRoot`) applies it while
+ * the app is open, and public pages such as the landing page keep their
+ * animation (they still follow the device's prefers-reduced-motion). The
+ * cookie only ever holds the values below and is re-validated on every
+ * read. Client-safe.
  */
 
 export const APPEARANCE_COOKIE = "revtaw-appearance";
@@ -68,6 +72,11 @@ export function appearanceAttributes(appearance: AppearancePreferences): Appeara
     attributes.style = customAccentVariables(appearance.customColor) as CSSProperties;
   }
   return attributes;
+}
+
+/** The theme color alone, for <html> on every page: the account's Reduce motion stays inside the app. */
+export function themeColorAttributes(appearance: AppearancePreferences): AppearanceAttributes {
+  return appearanceAttributes({ ...appearance, reduceMotion: false });
 }
 
 const CUSTOM_VARIABLES = Object.keys(customAccentVariables("#7d4de7"));
