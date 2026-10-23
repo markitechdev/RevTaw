@@ -977,6 +977,12 @@ tables.
   in Filipino" is not a switch). Tamari confirms in the new language, and
   the choice is saved to the same preference as Settings → Tamari & AI
   (shown at once with `useOptimistic`).
+- **Reduce motion stays in the app** — the account's Reduce motion
+  (Appearance, or Tamari & AI) now applies only inside the signed-in app;
+  the landing page keeps its typing headline and other animation, and
+  still holds still for a device that asks for reduced motion
+  (`themeColorAttributes()` on `<html>`, `data-motion` from
+  `AppearanceRoot`, removed when leaving the app).
 - **Level and badges under the name** — the sidebar and the phone menu show
   the level, XP and the three newest badges (with the count) instead of the
   email, linking to Badges; a ring around the initials fills through the
@@ -1111,9 +1117,11 @@ linked).
 - **Preferences and theming** — `src/lib/preferences/` (schema with strict
   input and lenient reader per section, cached `getPreferences()`, one
   Server Action per section, rate-limited); `src/lib/theme/` (OKLCH palette
-  builder, appearance cookie). The root layout sets `data-accent`,
-  `data-motion` and custom-color variables on `<html>` from the cookie;
-  `AppearanceRoot` keeps the cookie in step with the account.
+  builder, appearance cookie). The root layout sets `data-accent` and the
+  custom-color variables on `<html>` from the cookie; `AppearanceRoot` (the
+  signed-in frame) adds `data-motion` while the app is open and keeps the
+  cookie in step with the account, so the account's Reduce motion never
+  reaches the landing page (which follows only the device's setting).
 - **Tamari (the assistant)** — `src/components/assistant/`:
   `AssistantProvider` (in the signed-in layout: the chat button
   `ChatLauncher`, a stack of page registrations, request queue, lazy panel,
@@ -1605,8 +1613,9 @@ Flows verified end to end against a local Supabase-compatible stack
 - UI/UX phase: preferences smoke (theme color on the first response, a
   forged cookie ignored, account sync), dashboard customization (show,
   hide, reorder, reset, empty board, persisted), navigation groups and
-  pinning, command menu (19 checks incl. keyboard and axe), settings (20
-  checks), contrast of every theme color in light and dark; the assistant
+  pinning, command menu (19 checks incl. keyboard and axe), settings (24
+  checks, incl. the landing page still typing with the account's Reduce
+  motion on, and holding still for a device that asks), contrast of every theme color in light and dark; the assistant
   (`assistant-e2e.mjs`: Tamari on Home and the chat button elsewhere, non-modal desktop panel, phone sheet,
   language question, the language picker and "Tagalog na lang" / "answer in
   my language" / "mag-Taglish tayo" switching it any time without a chat
