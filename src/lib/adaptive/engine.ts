@@ -141,7 +141,7 @@ export type MasteryView = ConceptMastery & {
 const MASTERY_COLUMNS = "*, concept:concepts!concept_mastery_concept_fk(id, name, material_id, material:materials!concepts_material_fk(id, title))";
 
 /** Recall fades every day: mastery older than this is recomputed on the next read (the nightly job usually gets there first). */
-const MASTERY_STALE_MS = 20 * 60 * 60 * 1000;
+export const MASTERY_STALE_MS = 20 * 60 * 60 * 1000;
 
 /**
  * Once per request: recompute the student's mastery when any practised

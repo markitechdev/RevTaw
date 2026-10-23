@@ -50,8 +50,8 @@ const QUESTION_TYPES: ReadonlySet<string> = new Set<QuestionType>([
   "problem_solving",
 ]);
 
-const DEFAULT_CATEGORY: ConceptCategory = "understanding";
-/** Above this many ids, read all of the student's rows instead of a long `in (…)` list. */
+export const DEFAULT_CATEGORY: ConceptCategory = "understanding";
+/** Ids per `in (…)` list: keeps request URLs short. */
 const IN_LIST_LIMIT = 150;
 
 function eventKind(kind: SessionItemKind): EngineEventKind {
@@ -63,7 +63,7 @@ function itemType(kind: SessionItemKind, format: string | null): string {
   return format && QUESTION_TYPES.has(format) ? format : kind;
 }
 
-function optionCount(options: unknown): number | null {
+export function optionCount(options: unknown): number | null {
   return Array.isArray(options) && options.length >= 2 ? options.length : null;
 }
 
@@ -203,26 +203,40 @@ async function responseMedians(supabase: Client, userId: string): Promise<Record
   return Object.fromEntries([...byType].map(([type, values]) => [type, median(values)]));
 }
 
-/** Concept id → content category, from each material's analysis (key concepts matched by name). */
-export async function conceptCategories(supabase: Client, userId: string, conceptIds: string[]): Promise<Map<string, ConceptCategory>> {
+/** Splits ids into `in (…)` lists short enough for a request URL. */
+export function chunked<T>(items: T[], size: number = IN_LIST_LIMIT): T[][] {
+  const chunks: T[][] = [];
+  for (let start = 0; start < items.length; start += size) chunks.push(items.slice(start, start + size));
+  return chunks;
+}
+
+/**
+ * Concept id → content category, from each material's analysis (key
+ * concepts matched by name). With `userId` only that student's rows are
+ * read; without it (nightly bucket refit, secret-key client) any student's.
+ */
+export async function conceptCategories(supabase: Client, conceptIds: string[], userId?: string): Promise<Map<string, ConceptCategory>> {
   const result = new Map<string, ConceptCategory>();
-  if (conceptIds.length === 0) return result;
-  const wanted = new Set(conceptIds);
-  const base = supabase.from("concepts").select("id, normalized_name, material_id").eq("user_id", userId);
-  const { data: concepts } = await (conceptIds.length <= IN_LIST_LIMIT ? base.in("id", conceptIds) : base.limit(5000));
-  const rows = (concepts ?? []).filter((concept) => wanted.has(concept.id));
+  const ids = [...new Set(conceptIds)];
+  if (ids.length === 0) return result;
+  const conceptPages = await Promise.all(
+    chunked(ids).map((chunk) => {
+      const query = supabase.from("concepts").select("id, normalized_name, material_id").in("id", chunk);
+      return userId ? query.eq("user_id", userId) : query;
+    }),
+  );
+  const rows = conceptPages.flatMap((page) => page.data ?? []);
   const materialIds = [...new Set(rows.map((concept) => concept.material_id).filter((id): id is string => Boolean(id)))];
+  const analysisPages = await Promise.all(
+    chunked(materialIds).map((chunk) => {
+      const query = supabase.from("material_analyses").select("material_id, key_concepts:data->key_concepts").in("material_id", chunk);
+      return userId ? query.eq("user_id", userId) : query;
+    }),
+  );
   const byMaterial = new Map<string, Map<string, ConceptCategory>>();
-  for (let start = 0; start < materialIds.length; start += IN_LIST_LIMIT) {
-    const { data: analyses } = await supabase
-      .from("material_analyses")
-      .select("material_id, key_concepts:data->key_concepts")
-      .eq("user_id", userId)
-      .in("material_id", materialIds.slice(start, start + IN_LIST_LIMIT));
-    for (const analysis of analyses ?? []) {
-      const parsed = parseAnalysisData({ key_concepts: (analysis as { key_concepts: unknown }).key_concepts ?? [] });
-      byMaterial.set(analysis.material_id, new Map(parsed.key_concepts.map((concept) => [normalizeConceptName(concept.name), concept.category])));
-    }
+  for (const analysis of analysisPages.flatMap((page) => page.data ?? [])) {
+    const parsed = parseAnalysisData({ key_concepts: (analysis as { key_concepts: unknown }).key_concepts ?? [] });
+    byMaterial.set(analysis.material_id, new Map(parsed.key_concepts.map((concept) => [normalizeConceptName(concept.name), concept.category])));
   }
   for (const concept of rows) {
     const category = concept.material_id ? byMaterial.get(concept.material_id)?.get(concept.normalized_name) : undefined;
@@ -254,7 +268,7 @@ export async function loadModelContext(supabase: Client, userId: string, concept
     supabase.from("profiles").select("timezone").eq("id", userId).maybeSingle(),
     responseMedians(supabase, userId),
     loadBuckets(supabase),
-    conceptCategories(supabase, userId, conceptIds),
+    conceptCategories(supabase, conceptIds, userId),
     supabase.from("concept_mastery").select("concept_id, best_status, elo_start, elo_rating, elo_answers").eq("user_id", userId).limit(5000),
   ]);
   const rows = mastery ?? [];
