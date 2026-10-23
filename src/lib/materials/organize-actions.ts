@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { removeMaterialObjects } from "@/lib/materials/storage";
+import { purgeMaterials } from "@/lib/materials/purge";
 import { routes } from "@/lib/routes";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { fieldErrorsFrom } from "@/lib/validation/auth";
@@ -109,6 +109,11 @@ export async function moveMaterialAction(input: {
   return { ok: true };
 }
 
+/**
+ * Delete (archived = true) moves a material to the Archive, where it can be
+ * restored (archived = false) for 30 days before it is deleted permanently.
+ * A material whose file is already gone can't be restored.
+ */
 export async function setMaterialArchivedAction(materialId: string, archived: boolean): Promise<OrganizeResult> {
   const user = await getCurrentUser();
   if (!user) redirect(routes.login);
@@ -117,20 +122,29 @@ export async function setMaterialArchivedAction(materialId: string, archived: bo
   if (!parsed.success) return invalid(parsed.error);
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("materials")
     .update({ archived_at: archived ? new Date().toISOString() : null })
-    .eq("id", parsed.data.materialId);
+    .eq("id", parsed.data.materialId)
+    .is("purged_at", null)
+    .select("id");
   if (error) {
     console.error("materials: archive failed", error.message);
     return { ok: false, message: GENERIC };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, message: archived ? "This material no longer exists." : "This material's file was already deleted permanently, so it can't be restored." };
   }
   revalidateMaterials(parsed.data.materialId);
   return { ok: true };
 }
 
-/** Deletes the material, its file in storage and (via cascade) chunks and analysis. */
-export async function deleteMaterialAction(materialId: string): Promise<OrganizeResult> {
+/**
+ * "Delete permanently" in the Archive: the file, extracted text and analysis
+ * go for good now. Reviewers, quizzes, flashcards, memory aids and progress
+ * made from the material stay, filed under the same subject and folder.
+ */
+export async function purgeMaterialAction(materialId: string): Promise<OrganizeResult> {
   const user = await getCurrentUser();
   if (!user) redirect(routes.login);
 
@@ -140,26 +154,17 @@ export async function deleteMaterialAction(materialId: string): Promise<Organize
   const supabase = await createClient();
   const { data: material } = await supabase
     .from("materials")
-    .select("id, storage_path")
+    .select("id, storage_path, archived_at, purged_at")
     .eq("id", parsed.data.materialId)
     .maybeSingle();
   if (!material) return { ok: false, message: "This material no longer exists." };
+  if (!material.archived_at) return { ok: false, message: "Delete it first; it can be deleted permanently from the Archive." };
 
-  if (material.storage_path) {
-    try {
-      await removeMaterialObjects(supabase, [material.storage_path]);
-    } catch (error) {
-      console.error("materials: storage cleanup failed", error);
-      return { ok: false, message: "The file could not be removed from storage. Please try again." };
-    }
+  if (!material.purged_at || material.storage_path) {
+    const finished = await purgeMaterials(supabase, [material]);
+    if (finished === 0) return { ok: false, message: "The file could not be deleted. Please try again." };
   }
-
-  const { error } = await supabase.from("materials").delete().eq("id", material.id);
-  if (error) {
-    console.error("materials: delete failed", error.message);
-    return { ok: false, message: GENERIC };
-  }
-  revalidateMaterials();
+  revalidateMaterials(material.id);
   return { ok: true };
 }
 

@@ -82,9 +82,13 @@ export type MaterialFilters = {
 
 export async function listMaterials(filters: MaterialFilters = {}): Promise<MaterialListItem[]> {
   const supabase = await createClient();
-  let query = supabase.from("materials").select(MATERIAL_LIST_COLUMNS).order("updated_at", { ascending: false }).limit(200);
+  let query = supabase.from("materials").select(MATERIAL_LIST_COLUMNS).limit(200);
 
-  query = filters.archived ? query.not("archived_at", "is", null) : query.is("archived_at", null);
+  // The Archive lists what can still be restored, the next to be deleted first; a material whose file
+  // is gone stays out of both lists (what was made from it keeps its place elsewhere).
+  query = filters.archived
+    ? query.not("archived_at", "is", null).is("purged_at", null).order("archived_at", { ascending: true })
+    : query.is("archived_at", null).order("updated_at", { ascending: false });
   if (filters.subjectId) query = query.eq("subject_id", filters.subjectId);
   if (filters.folderId) query = query.eq("folder_id", filters.folderId);
   if (filters.search) query = query.ilike("title", `%${escapeLike(filters.search)}%`);

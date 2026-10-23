@@ -135,7 +135,8 @@ async function planMaterials(supabase: Client, materialIds: string[]): Promise<P
   const mistakeCount = new Map<string, number>();
   for (const row of mistakes ?? []) if (row.material_id) mistakeCount.set(row.material_id, (mistakeCount.get(row.material_id) ?? 0) + 1);
   const deckMaterials = new Set((decks ?? []).map((row) => row.material_id));
-  const found = materialIds.flatMap((id) => (materials ?? []).filter((material) => material.id === id));
+  // A material whose file was deleted stays on the exam (its concepts still count) but gets no new tasks.
+  const found = materialIds.flatMap((id) => (materials ?? []).filter((material) => material.id === id && material.status !== "deleted"));
   return found.map((material) => {
       const analysis = analysisByMaterial.get(material.id);
       const data = analysis ? parseAnalysisData(analysis.data) : null;

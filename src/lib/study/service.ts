@@ -114,6 +114,7 @@ async function startSessionInner(userId: string, input: StartSessionInput): Prom
     if (input.materialId) {
       const { data: material } = await supabase.from("materials").select("status").eq("id", input.materialId).maybeSingle();
       if (!material) throw new SessionError("Material not found.", 404);
+      if (material.status === "deleted") throw new SessionError("The file behind this material was deleted, so it can't be studied from anymore. What you made from it before is still here.", 410);
       if (material.status !== "ready") throw new SessionError("This material has not finished processing yet.", 409);
     }
     const { sessionId } = await startSmartSession(userId, { materialId: input.materialId, goal: input.goal, minutes: input.plannedMinutes });

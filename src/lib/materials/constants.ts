@@ -61,6 +61,7 @@ export const STATUS_LABEL: Record<MaterialStatus, string> = {
   analyzing: "Analyzing concepts",
   ready: "Ready",
   failed: "Failed",
+  deleted: "File deleted",
 };
 
 export const IN_FLIGHT_STATUSES: ReadonlySet<MaterialStatus> = new Set(["uploading", "extracting", "analyzing"]);

@@ -32,6 +32,9 @@ export async function loadMaterialContext(supabase: Client, materialId: string) 
   ]);
 
   if (!material) throw new ServiceError("Material not found.", 404);
+  if (material.status === "deleted") {
+    throw new ServiceError(`The file behind “${material.title}” was deleted, so nothing new can be made from it. What you made from it before is still here.`, 410);
+  }
   if (material.status !== "ready" || !chunks || chunks.length === 0) {
     throw new ServiceError("This material has not finished processing yet.", 409);
   }

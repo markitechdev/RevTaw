@@ -81,7 +81,8 @@ export async function rankConcepts(options: { materialId?: string | null; includ
   const practiced = rows.filter((row) => row.attempts > 0 && row.concept && keep(row.concept.material_id));
 
   let unpracticed: Array<{ id: string; name: string; material_id: string | null }> = [];
-  const scope = options.materialId ? [options.materialId] : [...examMaterials];
+  // Never-practised concepts only from materials that can still be studied (a deleted file has nothing to learn from).
+  const scope = options.materialId ? [options.materialId] : (exam?.materials ?? []).filter((material) => material.status !== "deleted").map((material) => material.id);
   if (options.includeUnpracticed && scope.length > 0) {
     const supabase = await createClient();
     const { data } = await supabase.from("concepts").select("id, name, material_id").in("material_id", scope).order("created_at").limit(300);

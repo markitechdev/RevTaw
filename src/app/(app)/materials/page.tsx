@@ -1,14 +1,18 @@
 import { Archive, FolderOpen, Layers } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { z } from "zod";
 
 import { Alert } from "@/components/forms/form-alert";
+import { RestoreMaterialButton } from "@/components/materials/archive-controls";
 import { ManageSubjectsButton } from "@/components/materials/manage-subjects-dialog";
 import { MaterialCard } from "@/components/materials/material-card";
 import { UploadButton } from "@/components/materials/upload-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { listMaterials, listSubjects } from "@/lib/materials/queries";
+import { ARCHIVE_DAYS, ARCHIVE_RULE, KEPT_ITEMS } from "@/lib/materials/retention";
+import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +29,10 @@ export default async function MaterialsPage({ searchParams }: PageProps<"/materi
   const subjectId = param(params.subject);
   const folderId = param(params.folder);
   const archived = params.archived === "1";
-  const notice = params.notice === "deleted" ? "The material and its file were deleted." : null;
+  const notice = param(params.notice);
+  const movedId = z.uuid().safeParse(param(params.material)).data ?? null;
+
+  const { profile } = await getCurrentUserWithProfile();
 
   const [subjects, materials] = await Promise.all([
     listSubjects(),
@@ -50,7 +57,20 @@ export default async function MaterialsPage({ searchParams }: PageProps<"/materi
 
   return (
     <div className="flex flex-col gap-6">
-      {notice && <Alert tone="success">{notice}</Alert>}
+      {notice === "archived" && (
+        <Alert tone="success">
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span>
+              Moved to the Archive. You can restore it there for {ARCHIVE_DAYS} days.{" "}
+              <Link href={filterHref({ subject: null, folder: null, archived: true })} className="font-medium underline underline-offset-2">
+                Open the Archive
+              </Link>
+            </span>
+            {movedId && <RestoreMaterialButton materialId={movedId} label="Undo" then="open" />}
+          </span>
+        </Alert>
+      )}
+      {notice === "purged" && <Alert tone="success">Deleted permanently. {KEPT_ITEMS} made from it are still here.</Alert>}
       <PageHeader
         title="Materials"
         description="Everything you upload stays private to your account. RevTaw reads each file, finds its topics and gets it ready for reviewers, quizzes and study sessions."
@@ -131,7 +151,7 @@ export default async function MaterialsPage({ searchParams }: PageProps<"/materi
             )}
           >
             <Archive className="h-4 w-4" aria-hidden="true" />
-            Archived
+            Archive
           </Link>
         </aside>
 
@@ -139,19 +159,20 @@ export default async function MaterialsPage({ searchParams }: PageProps<"/materi
           {(activeSubject || archived) && (
             <h2 className="mb-3 text-sm font-medium text-muted-foreground">
               {archived
-                ? "Archived materials"
+                ? "Archive"
                 : activeFolder
                   ? `${activeSubject?.name} · ${activeFolder.name}`
                   : activeSubject?.name}
             </h2>
           )}
 
+          {archived && materials.length > 0 && <p className="mb-4 max-w-2xl text-sm text-muted-foreground">{ARCHIVE_RULE} {KEPT_ITEMS} made from them always stay.</p>}
           {materials.length === 0 ? (
             archived ? (
               <EmptyState
                 icon={Archive}
-                title="No archived materials"
-                description="Archived materials stay out of the way but keep their reviewers, quizzes and progress."
+                title="The Archive is empty"
+                description={`${ARCHIVE_RULE} ${KEPT_ITEMS} made from them always stay.`}
               />
             ) : (
               <EmptyState
@@ -165,7 +186,7 @@ export default async function MaterialsPage({ searchParams }: PageProps<"/materi
             <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {materials.map((material) => (
                 <li key={material.id}>
-                  <MaterialCard material={material} />
+                  <MaterialCard material={material} timeZone={profile?.timezone ?? undefined} />
                 </li>
               ))}
             </ul>

@@ -49,6 +49,8 @@ export async function processMaterial(
 
   if (error) throw new Error(`materials: load failed: ${error.message}`);
   if (!material) throw new MaterialNotFoundError();
+  // The file was deleted permanently: nothing left to process (and it must stay "deleted").
+  if (material.status === "deleted") return { status: "deleted", detail: null };
 
   if (!options.force && isRecentlyInFlight(material)) {
     return { status: material.status, detail: material.status_detail };

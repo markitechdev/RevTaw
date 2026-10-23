@@ -234,6 +234,14 @@ export async function listSavedMnemonics(filters: { favorites?: boolean } = {}):
   return (data ?? []) as unknown as SavedMnemonic[];
 }
 
+/** Memory aids made from one material (shown on its page, and kept when its file is deleted). */
+export async function countMnemonicsFor(materialId: string): Promise<number> {
+  const supabase = await createClient();
+  const { count, error } = await supabase.from("mnemonics").select("id", { count: "exact", head: true }).eq("material_id", materialId);
+  if (error) console.error("mnemonics: count failed", error.message);
+  return count ?? 0;
+}
+
 /** How many mnemonics are saved, and per material how many have a list to recall (the builder offers to practice those). */
 export async function getMnemonicCounts(): Promise<{ total: number; practicable: Record<string, number> }> {
   const supabase = await createClient();

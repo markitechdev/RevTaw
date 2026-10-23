@@ -1,10 +1,12 @@
-import { FileImage, FileText, FileType, NotebookPen } from "lucide-react";
+import { Clock, FileImage, FileText, FileType, NotebookPen } from "lucide-react";
 import Link from "next/link";
 
+import { PurgeMaterialButton, RestoreMaterialButton } from "@/components/materials/archive-controls";
 import { MaterialStatusBadge } from "@/components/materials/material-status";
 import { Card } from "@/components/ui/card";
 import { formatBytes, SOURCE_LABEL } from "@/lib/materials/constants";
 import type { MaterialListItem } from "@/lib/materials/queries";
+import { dayLabel, purgeCountdown, purgeDueAt } from "@/lib/materials/retention";
 import { routes } from "@/lib/routes";
 import type { MaterialSource } from "@/lib/supabase/database.types";
 
@@ -35,7 +37,14 @@ export function formatRelativeDate(value: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function MaterialCard({ material }: { material: MaterialListItem }) {
+/** "General Biology · Cells" (or null when unfiled). */
+export function placementOf(material: { subject: { name: string } | null; folder: { name: string } | null }): string | null {
+  if (!material.subject) return null;
+  return material.folder ? `${material.subject.name} · ${material.folder.name}` : material.subject.name;
+}
+
+/** A material in a list; in the Archive it shows when it goes and how to bring it back. */
+export function MaterialCard({ material, timeZone }: { material: MaterialListItem; timeZone?: string }) {
   const Icon = SOURCE_ICON[material.source];
   const meta = [
     SOURCE_LABEL[material.source],
@@ -74,6 +83,21 @@ export function MaterialCard({ material }: { material: MaterialListItem }) {
       <p className="text-xs text-muted-foreground">
         {meta.join(" · ")} · {formatRelativeDate(material.updated_at)}
       </p>
+
+      {material.archived_at && (
+        <div className="flex flex-col gap-2 border-t border-border pt-3">
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Clock className="h-3.5 w-3.5 shrink-0 text-warning" aria-hidden="true" />
+            <span>
+              Deletes permanently <span className="font-semibold text-foreground">{purgeCountdown(material.archived_at)}</span> ({dayLabel(purgeDueAt(material.archived_at), timeZone)})
+            </span>
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <RestoreMaterialButton materialId={material.id} />
+            <PurgeMaterialButton materialId={material.id} title={material.title} placement={placementOf(material)} />
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

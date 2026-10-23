@@ -35,7 +35,8 @@ export type StudyGoal =
 
 export type MaterialSource = "pdf" | "docx" | "doc" | "image" | "text";
 
-export type MaterialStatus = "uploading" | "extracting" | "analyzing" | "ready" | "failed";
+/** "deleted": the file, text and analysis were deleted permanently; the row stays for what was made from it. */
+export type MaterialStatus = "uploading" | "extracting" | "analyzing" | "ready" | "failed" | "deleted";
 
 export type DifficultyLevel = "beginner" | "intermediate" | "advanced";
 
@@ -172,6 +173,7 @@ type MaterialsRow = {
   word_count: number | null;
   last_opened_at: string | null;
   archived_at: string | null;
+  purged_at: string | null;
   created_at: string;
   updated_at: string;
 };

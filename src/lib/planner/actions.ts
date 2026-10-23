@@ -164,6 +164,8 @@ export async function startTaskAction(taskId: string): Promise<PlannerActionResu
     }
     if (task.method === "activity") return { ok: false, message: "This activity has no study session. Mark it done when you have finished it." };
     if (task.method === "spaced_repetition") return { ok: true, data: { redirect: `${routes.flashcards}/review?task=${task.id}` } };
+    // The material's file was deleted: its page lists the notes, quizzes and flashcards that were kept.
+    if (task.material?.status === "deleted") return { ok: true, data: { redirect: `${routes.materials}/${task.material.id}` } };
     const candidate = task.method === "review" ? "active_recall" : task.method;
     if (!isBuilderMethod(candidate) || candidate === "smart_study") return { ok: false, message: "This task's method cannot be started yet. Mark it done when you have studied it." };
     const method: BuilderMethodId = candidate;

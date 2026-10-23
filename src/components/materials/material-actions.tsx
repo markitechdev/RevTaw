@@ -1,11 +1,12 @@
 "use client";
 
-import { Archive, ArchiveRestore, FolderInput, Pencil, Trash2 } from "lucide-react";
+import { FolderInput, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
+import { PurgeMaterialButton, RestoreMaterialButton } from "@/components/materials/archive-controls";
 import {
   NEW_SUBJECT,
   PlacementFields,
@@ -17,30 +18,39 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { MATERIAL_TITLE_MAX } from "@/lib/materials/constants";
 import {
-  deleteMaterialAction,
   moveMaterialAction,
   renameMaterialAction,
   setMaterialArchivedAction,
   type OrganizeResult,
 } from "@/lib/materials/organize-actions";
 import type { SubjectWithFolders } from "@/lib/materials/queries";
+import { ARCHIVE_DAYS, KEPT_ITEMS } from "@/lib/materials/retention";
 import { routes } from "@/lib/routes";
 
 type DialogKind = "rename" | "move" | "delete" | null;
 
+/**
+ * Rename, Move and the Archive: Delete moves the material to the Archive
+ * (restorable for 30 days); an archived one can be restored or deleted
+ * permanently; once its file is gone only Rename and Move remain, to keep
+ * what was made from it organized.
+ */
 export function MaterialActions({
   materialId,
   title,
   subjectId,
   folderId,
-  archived,
+  filedUnder,
+  state,
   subjects,
 }: {
   materialId: string;
   title: string;
   subjectId: string | null;
   folderId: string | null;
-  archived: boolean;
+  /** "General Biology · Cells", for the dialogs. */
+  filedUnder: string | null;
+  state: "active" | "archived" | "deleted";
   subjects: SubjectWithFolders[];
 }) {
   const router = useRouter();
@@ -95,24 +105,18 @@ export function MaterialActions({
           <FolderInput className="h-3.5 w-3.5" aria-hidden="true" />
           Move
         </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          loading={pending && dialog === null}
-          onClick={() => handle(() => setMaterialArchivedAction(materialId, !archived))}
-        >
-          {archived ? (
-            <ArchiveRestore className="h-3.5 w-3.5" aria-hidden="true" />
-          ) : (
-            <Archive className="h-3.5 w-3.5" aria-hidden="true" />
-          )}
-          {archived ? "Unarchive" : "Archive"}
-        </Button>
-        <Button type="button" variant="ghost" size="sm" className="text-danger hover:bg-danger-soft" onClick={() => open("delete")}>
-          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-          Delete
-        </Button>
+        {state === "active" && (
+          <Button type="button" variant="ghost" size="sm" className="text-danger hover:bg-danger-soft" onClick={() => open("delete")}>
+            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            Delete
+          </Button>
+        )}
+        {state === "archived" && (
+          <>
+            <RestoreMaterialButton materialId={materialId} />
+            <PurgeMaterialButton materialId={materialId} title={title} placement={filedUnder} />
+          </>
+        )}
       </div>
       {error && dialog === null && (
         <p className="text-sm text-danger" role="alert">
@@ -195,10 +199,13 @@ export function MaterialActions({
 
       <Dialog open={dialog === "delete"} onClose={close} title="Delete this material?" dismissible={!pending}>
         <div className="flex flex-col gap-4">
-          <Alert tone="error">
-            “{title}” and its file, extracted text and analysis will be deleted permanently. Reviewers, quizzes and
-            flashcards built from it will be removed too.
-          </Alert>
+          <p className="text-sm">
+            “{title}” moves to the Archive. You can restore it there for {ARCHIVE_DAYS} days; after that, its file, extracted text and
+            analysis are deleted permanently.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {KEPT_ITEMS} made from it always stay{filedUnder ? `, filed under ${filedUnder}` : ""}.
+          </p>
           {error && <Alert tone="error">{error}</Alert>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={close} disabled={pending}>
@@ -210,12 +217,12 @@ export function MaterialActions({
               loading={pending}
               onClick={() =>
                 handle(
-                  () => deleteMaterialAction(materialId),
-                  () => router.push(`${routes.materials}?notice=deleted`),
+                  () => setMaterialArchivedAction(materialId, true),
+                  () => router.push(`${routes.materials}?notice=archived&material=${materialId}`),
                 )
               }
             >
-              Delete permanently
+              Move to Archive
             </Button>
           </div>
         </div>

@@ -86,16 +86,18 @@ async function planContext(request: { materialId: string | null; minutes: number
     materialId = ranked.find((concept) => examMaterials.some((material) => material.id === concept.materialId))?.materialId ?? examMaterials[0].id;
   }
   materialId ??= ranked.find((concept) => concept.materialId)?.materialId ?? null;
-  if (!materialId) {
-    const { data: recent } = await supabase.from("materials").select("id").eq("status", "ready").order("last_opened_at", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
-    materialId = recent?.id ?? null;
-  }
+  const recentReady = async () => {
+    const { data: recent } = await supabase.from("materials").select("id, title").eq("status", "ready").is("archived_at", null).order("last_opened_at", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
+    return recent ?? null;
+  };
 
   let material: { id: string; title: string } | null = null;
   if (materialId) {
     const { data } = await supabase.from("materials").select("id, title, status").eq("id", materialId).maybeSingle();
     material = data && data.status === "ready" ? { id: data.id, title: data.title } : null;
   }
+  // Nothing chosen, or the picked concept's material can't be studied (its file was deleted): the latest ready one.
+  if (!material && !request.materialId) material = await recentReady();
 
   // The material's concepts by priority, with the ones never studied (coverage).
   const inMaterial = material ? await rankConcepts({ materialId: material.id, includeUnpracticed: true }) : [];

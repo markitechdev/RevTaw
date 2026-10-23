@@ -11,7 +11,7 @@ import { ENGINE } from "@/lib/engine/config";
 import { routes } from "@/lib/routes";
 
 /** Per-material mastery summary for the material overview (§23: progress per material). */
-export function MaterialMastery({ materialId, rows }: { materialId: string; rows: MasteryView[] }) {
+export function MaterialMastery({ materialId, rows, studyable = true }: { materialId: string; rows: MasteryView[]; /** False once the file is deleted: no new sessions from it. */ studyable?: boolean }) {
   const practiced = rows.filter((row) => row.attempts > 0).sort((a, b) => Number(a.mastery) - Number(b.mastery));
   if (practiced.length === 0) return null;
   const average = Math.round(practiced.reduce((sum, row) => sum + Number(row.mastery), 0) / practiced.length);
@@ -42,7 +42,7 @@ export function MaterialMastery({ materialId, rows }: { materialId: string; rows
           ))}
         </ul>
         <div className="flex flex-wrap items-center gap-2">
-          {weak.length > 0 && (
+          {studyable && weak.length > 0 && (
             <Link href={`${routes.study}?method=active_recall&material=${materialId}`} className={buttonClasses({ size: "sm" })}>
               Recall the {weak.length} weak concept{weak.length === 1 ? "" : "s"}
             </Link>
