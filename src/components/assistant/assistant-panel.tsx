@@ -12,6 +12,7 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { useTamariMove } from "@/components/tamari/use-tamari-move";
 import { MessageBubble, type MessageExtras } from "@/components/tutor/message-bubble";
 import { Button } from "@/components/ui/button";
+import { useStableCallback } from "@/lib/hooks/use-stable-callback";
 import { moveTaskAction } from "@/lib/planner/actions";
 import { saveResponseLanguageAction } from "@/lib/preferences/actions";
 import type { ResponseLanguage } from "@/lib/preferences/options";
@@ -541,7 +542,8 @@ export default function AssistantPanel() {
   });
   useEffect(() => subscribe((request) => onRequest(request)), [subscribe]);
 
-  const followUp = (id: FollowUpId, action: TutorActionId | undefined, message: MessageView) => {
+  // Stable, so the memoized message bubbles stay put while the student types.
+  const followUp = useStableCallback((id: FollowUpId, action: TutorActionId | undefined, message: MessageView) => {
     if (id === "add_to_notes" || id === "create_flashcard") {
       if (id === "create_flashcard" && !message.flashcard) return;
       setExtras((state) => ({ ...state, [message.id]: { ...state[message.id], busy: id } }));
@@ -559,7 +561,7 @@ export default function AssistantPanel() {
       return;
     }
     if (action) void send({ content: "", action });
-  };
+  });
 
   /** Says a short line aloud when the student is talking to Tamari (and spoken replies are on). */
   const say = (line: string) => {

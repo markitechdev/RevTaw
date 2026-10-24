@@ -2,6 +2,7 @@
 
 import { BookOpen, Layers, NotebookPen, Quote } from "lucide-react";
 import Link from "next/link";
+import { memo } from "react";
 
 import { Markdown } from "@/components/content/markdown";
 import { VisualView } from "@/components/study/visual-view";
@@ -16,7 +17,12 @@ import { cn } from "@/lib/utils";
 export type MessageExtras = { notesReviewerId?: string; flashcardDeckId?: string; busy?: FollowUpId | null };
 
 /** One chat turn: the student's question (with highlight) or the tutor's grounded answer with sources and actions. */
-export function MessageBubble({
+/**
+ * One message in a conversation. Memoized: the composer re-renders its parent
+ * on every keystroke, and nothing about an existing message changes then (its
+ * parents keep `onFollowUp` stable with useStableCallback).
+ */
+export const MessageBubble = memo(function MessageBubble({
   message,
   materialId,
   extras,
@@ -133,4 +139,4 @@ export function MessageBubble({
       </div>
     </div>
   );
-}
+});

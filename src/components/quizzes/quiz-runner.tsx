@@ -1,15 +1,15 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Check, CircleCheck, CircleX, Flag, TimerIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CircleCheck, CircleX, Flag } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
+import { QuizCountdown } from "@/components/quizzes/quiz-countdown";
 import { QuestionInput } from "@/components/quizzes/question-input";
 import { Alert } from "@/components/forms/form-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { useNow } from "@/lib/hooks/use-now";
 import { answerQuestionAction, submitAttemptAction } from "@/lib/quizzes/actions";
 import type { AttemptRunnerView } from "@/lib/quizzes/queries";
 import type { AnswerFeedback } from "@/lib/quizzes/service";
@@ -18,13 +18,6 @@ import type { ConfidenceLevel } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 
 type SavedState = { graded: boolean; isCorrect: boolean | null };
-
-function formatClock(totalSeconds: number): string {
-  const seconds = Math.max(0, totalSeconds);
-  const minutes = Math.floor(seconds / 60);
-  const rest = seconds % 60;
-  return `${minutes}:${rest.toString().padStart(2, "0")}`;
-}
 
 function sameResponse(a: QuestionResponse | null, b: QuestionResponse | null): boolean {
   return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
@@ -62,8 +55,6 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pending, startTransition] = useTransition();
-  const now = useNow();
-  const remaining = deadline && now !== null ? Math.round((new Date(deadline).getTime() - now) / 1000) : null;
 
   const shownAt = useRef<number>(0);
   const elapsed = useRef<Record<string, number>>({});
@@ -138,9 +129,7 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
   );
 
   // Auto-submit when the countdown reaches zero (submit ignores repeats).
-  useEffect(() => {
-    if (remaining !== null && remaining <= 0) submit(true);
-  }, [remaining, submit]);
+  const expire = useCallback(() => submit(true), [submit]);
 
   // Warn before leaving with unsaved changes.
   useEffect(() => {
@@ -185,7 +174,6 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
 
   const info = QUESTION_TYPE_BY_ID[question.type];
   const currentFeedback = feedback[question.id];
-  const lowTime = remaining !== null && remaining <= 60;
   const unansweredCount = questions.filter((item) => !(item.id === question.id ? current : persisted[item.id])).length;
 
   const navigator = useMemo(
@@ -244,17 +232,7 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
           <span className="text-muted-foreground">· {answeredCount} answered</span>
         </div>
         <div className="flex items-center gap-3">
-          {remaining !== null && (
-            <span
-              className={cn("flex items-center gap-1.5 rounded-md px-2 py-1 font-mono text-sm tabular-nums", lowTime ? "bg-danger-soft text-danger" : "bg-muted text-foreground")}
-              role="timer"
-              aria-live={lowTime ? "assertive" : "off"}
-              aria-label={`Time remaining ${formatClock(remaining)}`}
-            >
-              <TimerIcon className="h-4 w-4" aria-hidden="true" />
-              {formatClock(remaining)}
-            </span>
-          )}
+          {deadline && <QuizCountdown deadline={deadline} onExpire={expire} />}
           <Button type="button" size="sm" variant="secondary" onClick={finish} disabled={pending}>
             <Flag className="h-3.5 w-3.5" aria-hidden="true" />
             Finish quiz

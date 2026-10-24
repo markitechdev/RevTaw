@@ -10,6 +10,7 @@ import { MessageBubble, type MessageExtras } from "@/components/tutor/message-bu
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
+import { useStableCallback } from "@/lib/hooks/use-stable-callback";
 import { routes } from "@/lib/routes";
 import { addToNotesAction, completeTutorSessionAction, createFlashcardAction, setConversationModeAction } from "@/lib/tutor/actions";
 import type { ConversationDetail, MessageView } from "@/lib/tutor/queries";
@@ -99,7 +100,8 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
     }
   };
 
-  const followUp = (id: FollowUpId, action: TutorActionId | undefined, message: MessageView) => {
+  // Stable, so the memoized message bubbles stay put while the student types.
+  const followUp = useStableCallback((id: FollowUpId, action: TutorActionId | undefined, message: MessageView) => {
     if (id === "add_to_notes") {
       setExtras((state) => ({ ...state, [message.id]: { ...state[message.id], busy: id } }));
       startTransition(async () => {
@@ -120,7 +122,7 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
       return;
     }
     if (action) void send("", action);
-  };
+  });
 
   const toggleMode = (next: "tutor" | "guided") => {
     setMode(next);
