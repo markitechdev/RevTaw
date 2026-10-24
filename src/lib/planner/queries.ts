@@ -11,7 +11,14 @@ import type { Exam, MaterialStatus, ReminderStatus, StudyPlan, StudyTask } from 
 import { readPagesQuietly } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-export type TaskView = StudyTask & {
+/**
+ * The task columns the planner shows and edits. Tasks go to the browser (the
+ * calendar, Due today, an exam's plan), so the rest of the row (owner, plan,
+ * timestamps) stays out, and TaskView is exactly what is selected.
+ */
+const TASK_FIELDS = ["id", "exam_id", "material_id", "subject_id", "kind", "method", "category", "title", "reason", "notes", "scheduled_for", "starts_at", "position", "minutes", "concepts", "status", "priority", "session_id", "reminder", "reminder_minutes"] as const;
+
+export type TaskView = Pick<StudyTask, (typeof TASK_FIELDS)[number]> & {
   /** status "deleted": the file is gone; starting the task opens what was made from it. */
   material: { id: string; title: string; status: MaterialStatus } | null;
   exam: { id: string; title: string; exam_date: string } | null;
@@ -20,8 +27,7 @@ export type TaskView = StudyTask & {
   reminders: Array<{ remind_at: string; status: ReminderStatus }>;
 };
 
-const TASK_COLUMNS =
-  "*, material:materials!study_tasks_material_fk(id, title, status), exam:exams!study_tasks_exam_fk(id, title, exam_date), subject:subjects!study_tasks_subject_fk(id, name), reminders!reminders_task_fk(remind_at, status)";
+const TASK_COLUMNS = `${TASK_FIELDS.join(", ")}, material:materials!study_tasks_material_fk(id, title, status), exam:exams!study_tasks_exam_fk(id, title, exam_date), subject:subjects!study_tasks_subject_fk(id, name), reminders!reminders_task_fk(remind_at, status)`;
 
 export type ExamSummary = Exam & {
   subject: { id: string; name: string; color: string | null } | null;
