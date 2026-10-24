@@ -94,6 +94,11 @@ export async function loadSession(supabase: Client, sessionId: string): Promise<
 }
 
 /** Merges progress into `state` and bumps `last_active_at` (keeps refresh-safe progress, §53). */
+/** Whole seconds since a session started: the most focus time it can have. */
+function secondsSince(startedAt: string, now: Date = new Date()): number {
+  return Math.max(0, Math.round((now.getTime() - new Date(startedAt).getTime()) / 1000));
+}
+
 export async function updateSessionState(
   supabase: Client,
   sessionId: string,
@@ -108,7 +113,7 @@ export async function updateSessionState(
     .update({
       state: state as Json,
       last_active_at: new Date().toISOString(),
-      ...(counters?.focusSeconds !== undefined ? { focus_seconds: Math.max(session.focus_seconds, Math.min(86_400, Math.round(counters.focusSeconds))) } : {}),
+      ...(counters?.focusSeconds !== undefined ? { focus_seconds: Math.max(session.focus_seconds, Math.min(secondsSince(session.started_at), 86_400, Math.round(counters.focusSeconds))) } : {}),
     })
     .eq("id", sessionId);
   if (error) throw new Error(`study_sessions: update failed: ${error.message}`);
@@ -153,8 +158,9 @@ export async function completeSession(supabase: Client, sessionId: string, input
     if (existing) return existing;
   }
   const now = new Date();
-  const elapsed = Math.round((now.getTime() - new Date(session.started_at).getTime()) / 1000);
-  const focusSeconds = Math.max(session.focus_seconds, Math.min(elapsed, Math.round(input.focusSeconds ?? elapsed)));
+  const elapsed = secondsSince(session.started_at, now);
+  // Focus time comes from the browser: never more than the time since the session started.
+  const focusSeconds = Math.min(elapsed, Math.max(session.focus_seconds, Math.min(elapsed, Math.round(input.focusSeconds ?? elapsed))));
   const accuracy = input.questionsAnswered > 0 ? input.correct / input.questionsAnswered : null;
   const previous = await previousAccuracy(supabase, session);
   const summary: SessionSummary = {

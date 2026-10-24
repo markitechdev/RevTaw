@@ -7,6 +7,7 @@ import { z } from "zod";
 import { reviewCard, ServiceError, type ReviewResult } from "@/lib/flashcards/service";
 import { routes } from "@/lib/routes";
 import { completeSession, createSession, SessionError, sessionTitle, suggestNext, type SessionSummary } from "@/lib/study/sessions";
+import { readPages } from "@/lib/supabase/paginate";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 export type FlashcardActionResult<T = undefined> = ({ ok: true } & (T extends undefined ? { data?: undefined } : { data: T })) | { ok: false; message: string };
@@ -72,6 +73,21 @@ export async function reviewCardAction(input: { cardId: string; rating: "again" 
   }
 }
 
+/**
+ * A review session's counts from the ratings the server saved during it, not from what the browser reports:
+ * cards reviewed, and cards whose first rating in the session was "Don't know" (a card that comes back later in
+ * the session counts once, as the review screen shows it).
+ */
+async function sessionReviewCounts(supabase: Awaited<ReturnType<typeof createClient>>, sessionId: string): Promise<{ reviewed: number; again: number }> {
+  const rows = await readPages(
+    (from, to) => supabase.from("flashcard_reviews").select("card_id, rating").eq("session_id", sessionId).order("reviewed_at").order("id").range(from, to),
+    5000,
+  );
+  const first = new Map<string, string>();
+  for (const row of rows) if (!first.has(row.card_id)) first.set(row.card_id, row.rating);
+  return { reviewed: first.size, again: [...first.values()].filter((rating) => rating === "again").length };
+}
+
 /** Closes a review session and writes its summary. */
 export async function finishReviewSessionAction(input: {
   sessionId: string;
@@ -100,18 +116,20 @@ export async function finishReviewSessionAction(input: {
   if (!parsed.success) return { ok: false, message: "Invalid summary." };
   try {
     const supabase = await createClient();
-    const correct = Math.max(0, parsed.data.reviewed - parsed.data.again);
-    const accuracy = parsed.data.reviewed > 0 ? correct / parsed.data.reviewed : null;
+    // Counted from the ratings the server saved during the session, not from what the browser reports.
+    const { reviewed, again } = await sessionReviewCounts(supabase, parsed.data.sessionId);
+    const correct = Math.max(0, reviewed - again);
+    const accuracy = reviewed > 0 ? correct / reviewed : null;
     const summary = await completeSession(supabase, parsed.data.sessionId, {
       focusSeconds: parsed.data.focusSeconds,
       topics: parsed.data.topics,
-      questionsAnswered: parsed.data.reviewed,
+      questionsAnswered: reviewed,
       correct,
-      incorrect: parsed.data.again,
+      incorrect: again,
       weakConcepts: parsed.data.weakConcepts,
       strongConcepts: parsed.data.strongConcepts,
       suggestedNext:
-        parsed.data.reviewed === 0
+        reviewed === 0
           ? "Nothing was reviewed. Come back when cards are due, or study the whole deck."
           : suggestNext(accuracy, parsed.data.weakConcepts, "flashcards"),
       nextReviewAt: parsed.data.nextReviewAt,
