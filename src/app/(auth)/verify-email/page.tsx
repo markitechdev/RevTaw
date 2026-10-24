@@ -7,6 +7,7 @@ import { ResendVerificationForm } from "@/components/auth/resend-verification-fo
 import { Alert } from "@/components/forms/form-alert";
 import { getPendingEmail } from "@/lib/auth/pending-email";
 import { routes } from "@/lib/routes";
+import { turnstileSiteKey } from "@/lib/security/turnstile";
 
 export const metadata: Metadata = {
   title: "Verify your email",
@@ -17,6 +18,7 @@ export default async function VerifyEmailPage({ searchParams }: PageProps<"/veri
   const email = await getPendingEmail();
   const reason = typeof params.reason === "string" ? params.reason : "";
   const error = typeof params.error === "string" ? params.error : "";
+  const captchaSiteKey = await turnstileSiteKey();
 
   return (
     <AuthCard
@@ -68,7 +70,7 @@ export default async function VerifyEmailPage({ searchParams }: PageProps<"/veri
           </div>
         </div>
 
-        <ResendVerificationForm email={email} />
+        <ResendVerificationForm email={email} captchaSiteKey={captchaSiteKey} />
       </div>
     </AuthCard>
   );

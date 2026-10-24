@@ -5,11 +5,13 @@ import { useActionState } from "react";
 import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert, FormAlert } from "@/components/forms/form-alert";
 import { SubmitButton } from "@/components/forms/submit-button";
+import { TurnstileField } from "@/components/forms/turnstile-field";
 import { Input } from "@/components/ui/input";
 import { forgotPasswordAction } from "@/lib/auth/actions";
 import { IDLE_STATE } from "@/lib/forms/action-state";
 
-export function ForgotPasswordForm({ expired }: { expired?: boolean }) {
+/** `captchaSiteKey`: Turnstile's site key while the bot check is on. */
+export function ForgotPasswordForm({ expired, captchaSiteKey }: { expired?: boolean; captchaSiteKey?: string }) {
   const [state, formAction] = useActionState(forgotPasswordAction, IDLE_STATE);
   const errors = state.fieldErrors ?? {};
 
@@ -44,6 +46,8 @@ export function ForgotPasswordForm({ expired }: { expired?: boolean }) {
           defaultValue={state.values?.email ?? ""}
         />
       </Field>
+
+      <TurnstileField siteKey={captchaSiteKey} action="forgot" />
 
       <SubmitButton size="lg" className="w-full">
         Send reset link

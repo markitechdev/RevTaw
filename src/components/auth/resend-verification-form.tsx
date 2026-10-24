@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { Field, fieldA11y } from "@/components/forms/field";
 import { FormAlert } from "@/components/forms/form-alert";
 import { SubmitButton } from "@/components/forms/submit-button";
+import { TurnstileField } from "@/components/forms/turnstile-field";
 import { Input } from "@/components/ui/input";
 import { resendVerificationAction } from "@/lib/auth/actions";
 import { IDLE_STATE } from "@/lib/forms/action-state";
@@ -12,8 +13,9 @@ import { IDLE_STATE } from "@/lib/forms/action-state";
 /**
  * Lets a student request another verification email. When the address is
  * already known (from the registration just completed) only a button is shown.
+ * `captchaSiteKey` is Turnstile's site key while the bot check is on.
  */
-export function ResendVerificationForm({ email }: { email: string | null }) {
+export function ResendVerificationForm({ email, captchaSiteKey }: { email: string | null; captchaSiteKey?: string }) {
   const [state, formAction] = useActionState(resendVerificationAction, IDLE_STATE);
   const errors = state.fieldErrors ?? {};
 
@@ -33,6 +35,8 @@ export function ResendVerificationForm({ email }: { email: string | null }) {
           />
         </Field>
       )}
+
+      <TurnstileField siteKey={captchaSiteKey} action="resend" />
 
       <SubmitButton variant="secondary" className="w-full">
         {email ? "Resend verification email" : "Send verification email"}

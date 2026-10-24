@@ -14,6 +14,7 @@ import {
 } from "@/lib/forms/action-state";
 import { describeRetry, getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { routes, safeNextPath } from "@/lib/routes";
+import { verifyTurnstile } from "@/lib/security/turnstile";
 import { createAuthClient } from "@/lib/supabase/auth-client";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -60,6 +61,11 @@ export async function registerAction(
       fieldErrors: fieldErrorsFrom(parsed.error),
       values,
     });
+  }
+
+  const captcha = await verifyTurnstile(formData, "register");
+  if (!captcha.ok) {
+    return errorState(captcha.message, { values });
   }
 
   const { displayName, email, password } = parsed.data;
@@ -112,6 +118,12 @@ export async function loginAction(
     });
   }
 
+  // Before the per-account limit: a request without a passing check never tried the password.
+  const captcha = await verifyTurnstile(formData, "login");
+  if (!captcha.ok) {
+    return errorState(captcha.message, { values });
+  }
+
   const { email, password } = parsed.data;
   const accountLimit = await rateLimit(`login:email:${email}`, 8, 15 * MINUTE);
   if (!accountLimit.ok) {
@@ -161,6 +173,11 @@ export async function forgotPasswordAction(
       fieldErrors: fieldErrorsFrom(parsed.error),
       values,
     });
+  }
+
+  const captcha = await verifyTurnstile(formData, "forgot");
+  if (!captcha.ok) {
+    return errorState(captcha.message, { values });
   }
 
   const { email } = parsed.data;
@@ -229,6 +246,12 @@ export async function resendVerificationAction(
     return errorState("Enter the email address you registered with.", {
       fieldErrors: { email: parsed.error.issues[0]?.message ?? "Enter a valid email address." },
     });
+  }
+
+  // Before the once-a-minute limit, which should count only emails actually requested.
+  const captcha = await verifyTurnstile(formData, "resend");
+  if (!captcha.ok) {
+    return errorState(captcha.message);
   }
 
   const email = parsed.data;

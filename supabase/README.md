@@ -91,6 +91,13 @@ that started the flow, point the templates at the token-hash route instead:
 Supabase applies its own limits to sign-up, sign-in and email sending. RevTaw
 adds a small per-IP limiter in front of the auth actions as an extra layer.
 
+**Authentication → Bot and Abuse Protection**: leave **Enable CAPTCHA
+protection** off. RevTaw's optional Cloudflare Turnstile check
+(`TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in `.env.example`) is
+confirmed by RevTaw's server before it calls Supabase Auth. Each Turnstile
+token can be confirmed only once, so turning on Supabase's check as well would
+reject sign-ins whenever RevTaw calls Supabase without the secret key.
+
 ## 5. Scheduler (optional)
 
 Reminder emails, the daily digest, search embeddings for older materials,

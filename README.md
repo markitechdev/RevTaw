@@ -53,9 +53,12 @@ Also optional: Filipino read-aloud through Azure AI Speech
 (`AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION`), Google Calendar sync through
 Google's own OAuth (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`,
 `CALENDAR_TOKEN_KEY`) and opt-in usage analytics on PostHog EU
-(`POSTHOG_KEY`). In production set `NEXT_PUBLIC_SITE_URL` so emails and
-calendar events link back to RevTaw. Credentials stay in server environment
-variables only.
+(`POSTHOG_KEY`), and Cloudflare Turnstile's bot check on sign-up, sign-in,
+"Forgot password" and "Resend verification email" (`TURNSTILE_SITE_KEY`,
+`TURNSTILE_SECRET_KEY`; RevTaw confirms each token on its server, so leave
+Supabase's own CAPTCHA protection off). In production set
+`NEXT_PUBLIC_SITE_URL` so emails and calendar events link back to RevTaw.
+Credentials stay in server environment variables only.
 
 ## Deploying
 

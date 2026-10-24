@@ -1,3 +1,5 @@
+const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
+
 /**
  * Content Security Policy for every HTML response.
  *
@@ -12,10 +14,13 @@ export function buildContentSecurityPolicy(nonce: string): string {
   // Only ask browsers to upgrade http → https when the site itself is served
   // over TLS; otherwise a production build served locally would break.
   const servedOverTls = (process.env.NEXT_PUBLIC_SITE_URL ?? "").startsWith("https://");
+  // Cloudflare Turnstile (src/lib/security/turnstile.ts) runs its check in a frame from this origin. Its script is
+  // already allowed by 'strict-dynamic'; the origin is listed too for browsers that predate 'strict-dynamic'.
+  const turnstile = process.env.TURNSTILE_SITE_KEY?.trim() ? ` ${TURNSTILE_ORIGIN}` : "";
 
   const directives = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${turnstile}${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' blob: data:${supabaseOrigins.http ? ` ${supabaseOrigins.http}` : ""}`,
     // Filipino answers read by the server play from blob: URLs; a data: clip unlocks audio on iPhone.
@@ -23,7 +28,7 @@ export function buildContentSecurityPolicy(nonce: string): string {
     "font-src 'self'",
     `connect-src 'self'${supabaseOrigins.http ? ` ${supabaseOrigins.http} ${supabaseOrigins.ws}` : ""}${isDev ? " ws: wss:" : ""}`,
     "worker-src 'self' blob:",
-    "frame-src 'self' blob:",
+    `frame-src 'self' blob:${turnstile}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

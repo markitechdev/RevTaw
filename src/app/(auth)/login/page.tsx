@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AuthCard } from "@/components/auth/auth-card";
 import { LoginForm } from "@/components/auth/login-form";
 import { routes, safeNextPath } from "@/lib/routes";
+import { turnstileSiteKey } from "@/lib/security/turnstile";
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -32,6 +33,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         ? params.notice
         : "";
   const notice = NOTICES[code] ?? null;
+  const captchaSiteKey = await turnstileSiteKey();
 
   return (
     <AuthCard
@@ -46,7 +48,11 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         </>
       }
     >
-      <LoginForm next={next !== routes.dashboard ? next : undefined} notice={notice} />
+      <LoginForm
+        next={next !== routes.dashboard ? next : undefined}
+        notice={notice}
+        captchaSiteKey={captchaSiteKey}
+      />
     </AuthCard>
   );
 }

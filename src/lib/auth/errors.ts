@@ -37,6 +37,8 @@ const MESSAGES: Record<string, string> = {
   session_expired: "Your session has expired. Please sign in again.",
   session_not_found: "Your session has expired. Please sign in again.",
   request_timeout: "The request timed out. Please try again.",
+  // Only if Supabase's own CAPTCHA setting is switched on; RevTaw checks Turnstile itself and expects it off.
+  captcha_failed: "The security check did not go through. Please try again.",
 };
 
 export function authErrorMessage(error: AuthError | null | undefined): string {

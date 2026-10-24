@@ -104,6 +104,15 @@ const serverSchema = z.object({
   // Product analytics (PostHog Cloud EU), only for students who opt in.
   POSTHOG_KEY: z.string().min(1).optional(),
   POSTHOG_HOST: keyedEndpoint("POSTHOG_HOST").optional(),
+  // Cloudflare Turnstile on the sign-up, sign-in, reset and resend forms (optional; set both or neither).
+  // The site key is public: it goes to the browser with those pages. The secret key stays on the server.
+  TURNSTILE_SITE_KEY: z.string().min(1).optional(),
+  TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+  /** Tests only: a stand-in for Cloudflare's siteverify endpoint. */
+  TURNSTILE_VERIFY_URL: z
+    .url()
+    .refine(isLoopbackUrl, "TURNSTILE_VERIFY_URL is for local tests only and must point at localhost; leave it unset in production")
+    .optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicSchema>;
@@ -173,6 +182,9 @@ export function getServerEnv(): ServerEnv {
     GOOGLE_API_BASE_URL: process.env.GOOGLE_API_BASE_URL || undefined,
     POSTHOG_KEY: process.env.POSTHOG_KEY || undefined,
     POSTHOG_HOST: process.env.POSTHOG_HOST || undefined,
+    TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY?.trim() || undefined,
+    TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY?.trim() || undefined,
+    TURNSTILE_VERIFY_URL: process.env.TURNSTILE_VERIFY_URL || undefined,
   });
 
   if (!parsed.success) {

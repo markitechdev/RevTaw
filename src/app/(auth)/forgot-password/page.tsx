@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AuthCard } from "@/components/auth/auth-card";
 import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
 import { routes } from "@/lib/routes";
+import { turnstileSiteKey } from "@/lib/security/turnstile";
 
 export const metadata: Metadata = {
   title: "Reset your password",
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
 export default async function ForgotPasswordPage({ searchParams }: PageProps<"/forgot-password">) {
   const params = await searchParams;
   const expired = params.error === "expired";
+  const captchaSiteKey = await turnstileSiteKey();
 
   return (
     <AuthCard
@@ -26,7 +28,7 @@ export default async function ForgotPasswordPage({ searchParams }: PageProps<"/f
         </>
       }
     >
-      <ForgotPasswordForm expired={expired} />
+      <ForgotPasswordForm expired={expired} captchaSiteKey={captchaSiteKey} />
     </AuthCard>
   );
 }

@@ -6,6 +6,7 @@ import { Field, fieldA11y } from "@/components/forms/field";
 import { FormAlert } from "@/components/forms/form-alert";
 import { PasswordInput } from "@/components/forms/password-input";
 import { SubmitButton } from "@/components/forms/submit-button";
+import { TurnstileField } from "@/components/forms/turnstile-field";
 import { Input } from "@/components/ui/input";
 import { registerAction } from "@/lib/auth/actions";
 import { IDLE_STATE } from "@/lib/forms/action-state";
@@ -15,7 +16,8 @@ import {
   PASSWORD_MIN_LENGTH,
 } from "@/lib/validation/limits";
 
-export function RegisterForm() {
+/** `captchaSiteKey`: Turnstile's site key while the bot check is on. */
+export function RegisterForm({ captchaSiteKey }: { captchaSiteKey?: string }) {
   const [state, formAction] = useActionState(registerAction, IDLE_STATE);
   const errors = state.fieldErrors ?? {};
 
@@ -63,6 +65,8 @@ export function RegisterForm() {
           required
         />
       </Field>
+
+      <TurnstileField siteKey={captchaSiteKey} action="register" />
 
       <SubmitButton size="lg" className="w-full">
         Create account

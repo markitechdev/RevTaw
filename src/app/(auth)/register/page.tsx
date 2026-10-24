@@ -4,12 +4,15 @@ import Link from "next/link";
 import { AuthCard } from "@/components/auth/auth-card";
 import { RegisterForm } from "@/components/auth/register-form";
 import { routes } from "@/lib/routes";
+import { turnstileSiteKey } from "@/lib/security/turnstile";
 
 export const metadata: Metadata = {
   title: "Create account",
 };
 
-export default function RegisterPage() {
+export default async function RegisterPage() {
+  const captchaSiteKey = await turnstileSiteKey();
+
   return (
     <AuthCard
       title="Create your account"
@@ -23,7 +26,7 @@ export default function RegisterPage() {
         </>
       }
     >
-      <RegisterForm />
+      <RegisterForm captchaSiteKey={captchaSiteKey} />
     </AuthCard>
   );
 }

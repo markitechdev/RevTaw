@@ -10,6 +10,7 @@ import { analyticsConfigured } from "@/lib/analytics/server";
 import { calendarConfigured } from "@/lib/calendar/google";
 import { getPublicSiteUrl, getServerEnv } from "@/lib/env";
 import { emailConfig } from "@/lib/notifications/email-config";
+import { turnstileState } from "@/lib/security/turnstile";
 import { cronSecret } from "@/lib/server/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { azureVoiceListed, synthesizeSpeech, transcribeAudio, voiceCapabilities } from "@/lib/voice/server";
@@ -193,5 +194,7 @@ export function otherServicesSummary() {
     calendar: { configured: calendarConfigured() },
     analytics: { configured: analyticsConfigured(), optIn: true },
     scheduler: { cronSecret: cronSecret() !== null, secretKey: Boolean(getServerEnv().SUPABASE_SECRET_KEY) },
+    // Cloudflare Turnstile on sign-up, sign-in, reset and resend: "incomplete" means those forms refuse requests.
+    botCheck: { provider: "turnstile", state: turnstileState() },
   };
 }
