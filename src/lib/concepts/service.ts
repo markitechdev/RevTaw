@@ -4,12 +4,17 @@ import type { createClient } from "@/lib/supabase/server";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 
-/** Canonical key for a concept name so "Linked Lists" and "linked list" share a row. */
+/**
+ * Canonical key for a concept name so "Linked Lists" and "linked list" share a row. Plus and sharp signs
+ * are spelled out first, because they tell names apart: C, C++ and C# stay three concepts.
+ */
 export function normalizeConceptName(name: string): string {
   return name
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
+    .replace(/\+/g, " plus ")
+    .replace(/[#♯]/g, " sharp ")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim()
