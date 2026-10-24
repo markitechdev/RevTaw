@@ -1,4 +1,4 @@
-import type { ResponseLanguage } from "@/lib/preferences/schema";
+import type { ResponseLanguage } from "@/lib/preferences/options";
 
 /**
  * Text helpers for voice mode: what to read aloud, in which language, in

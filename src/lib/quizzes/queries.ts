@@ -3,17 +3,8 @@ import "server-only";
 import { cache } from "react";
 
 import { attemptDeadline, orderOptions } from "@/lib/quizzes/service";
-import {
-  answerSchema,
-  describeAnswer,
-  describeResponse,
-  parseQuizConfig,
-  responseSchema,
-  type QuestionAnswer,
-  type QuestionOption,
-  type QuestionResponse,
-  type QuizConfig,
-} from "@/lib/quizzes/types";
+import { answerSchema, parseQuizConfig, responseSchema } from "@/lib/quizzes/schemas";
+import { describeAnswer, describeResponse, type QuestionAnswer, type QuestionOption, type QuestionResponse, type QuizConfig } from "@/lib/quizzes/types";
 import type { ConfidenceLevel, Json, Mistake, Quiz, QuizAttempt, QuizQuestion } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 

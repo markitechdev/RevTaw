@@ -11,7 +11,7 @@ import {
   type StudyPreferenceDefaults,
 } from "@/components/profile/study-preferences-fields";
 import { IDLE_STATE } from "@/lib/forms/action-state";
-import { RESPONSE_LANGUAGES } from "@/lib/preferences/schema";
+import { RESPONSE_LANGUAGES } from "@/lib/preferences/options";
 import { completeOnboardingAction } from "@/lib/profile/actions";
 
 /** The onboarding language question (UI phase §24); "Other" is set later in Settings → AI. */

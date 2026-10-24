@@ -26,7 +26,7 @@ import {
   updateExam,
   updatePlanSettings,
 } from "@/lib/planner/service";
-import type { ActivityInput, ExamFormInput, GoalFormInput } from "@/lib/planner/types";
+import type { ActivityInput, ExamFormInput, GoalFormInput } from "@/lib/planner/schemas";
 import { routes } from "@/lib/routes";
 import { isBuilderMethod, isTestMethod, type BuilderMethodId } from "@/lib/study/catalog";
 import { ServiceError, SessionError, startSession } from "@/lib/study/service";

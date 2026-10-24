@@ -8,7 +8,7 @@ import { Alert } from "@/components/forms/form-alert";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { saveToolsAction } from "@/lib/preferences/actions";
-import { DEFAULT_PINNED_TOOLS, TOOL_IDS, type ToolId } from "@/lib/preferences/schema";
+import { DEFAULT_PINNED_TOOLS, TOOL_IDS, type ToolId } from "@/lib/preferences/options";
 
 /**
  * My RevTaw Tools (UI phase §9): choose which tools sit in the navigation.

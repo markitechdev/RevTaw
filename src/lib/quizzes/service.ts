@@ -6,15 +6,13 @@ import { isAiError } from "@/lib/ai";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { gradeObjective, gradeOpenAnswers, normalizeText, type GradeResult, type OpenAnswerItem } from "@/lib/quizzes/grade";
 import { generateQuiz } from "@/lib/quizzes/generate";
+import { answerSchema, parseQuizConfig, responseSchema } from "@/lib/quizzes/schemas";
 import {
-  answerSchema,
   defaultExamMinutes,
   describeAnswer,
   describeResponse,
   isObjectiveType,
-  parseQuizConfig,
   QUESTION_TYPE_BY_ID,
-  responseSchema,
   type QuestionAnswer,
   type QuestionOption,
   type QuestionResponse,

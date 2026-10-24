@@ -1,4 +1,4 @@
-import type { ResponseLanguage } from "@/lib/preferences/schema";
+import type { ResponseLanguage } from "@/lib/preferences/options";
 import type { TamariState } from "@/lib/tamari/states";
 
 /**

@@ -8,7 +8,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { activeHref, mobileTabs, navLayout } from "@/components/app/nav-items";
 import { AccountNav, SidebarNav } from "@/components/app/sidebar-nav";
 import { Logo } from "@/components/brand/logo";
-import type { ToolId } from "@/lib/preferences/schema";
+import type { ToolId } from "@/lib/preferences/options";
 import { cn } from "@/lib/utils";
 
 /**

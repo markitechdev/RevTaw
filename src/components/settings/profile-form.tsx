@@ -8,7 +8,7 @@ import { SubmitButton } from "@/components/forms/submit-button";
 import { Input } from "@/components/ui/input";
 import { IDLE_STATE } from "@/lib/forms/action-state";
 import { updateProfileAction } from "@/lib/profile/actions";
-import { DISPLAY_NAME_MAX_LENGTH } from "@/lib/validation/auth";
+import { DISPLAY_NAME_MAX_LENGTH } from "@/lib/validation/limits";
 
 export function ProfileForm({ displayName, email }: { displayName: string; email: string }) {
   const [state, formAction] = useActionState(updateProfileAction, IDLE_STATE);

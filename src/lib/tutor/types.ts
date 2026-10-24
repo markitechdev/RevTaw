@@ -1,8 +1,9 @@
-import { z } from "zod";
-
 import type { TutorMode } from "@/lib/supabase/database.types";
 
-/** Quick actions a student can send to the tutor (spec §19/§20). Client-safe. */
+/**
+ * Quick actions a student can send to the tutor (spec §19/§20). Client-safe
+ * and free of zod; the validators for tutor replies are in `schemas.ts`.
+ */
 export type TutorActionId =
   | "explain"
   | "simplify"
@@ -82,21 +83,11 @@ export const TUTOR_MODE_BY_ID: Record<TutorMode, { id: TutorMode; label: string;
   { id: TutorMode; label: string; description: string }
 >;
 
-export const sourceSchema = z.object({
-  position: z.number().int().min(0),
-  heading: z.string().trim().max(200).nullable().default(null),
-  pages: z.string().trim().max(40).nullable().default(null),
-  quote: z.string().trim().max(400).default(""),
-});
+/** A passage of the material a tutor answer is grounded in (validated by `sourceSchema`). */
+export type TutorSource = { position: number; heading: string | null; pages: string | null; quote: string };
 
-export type TutorSource = z.infer<typeof sourceSchema>;
-
-export const flashcardDraftSchema = z.object({
-  front: z.string().trim().min(1).max(500),
-  back: z.string().trim().min(1).max(1000),
-});
-
-export type FlashcardDraft = z.infer<typeof flashcardDraftSchema>;
+/** A flashcard the tutor offers to add (validated by `flashcardDraftSchema`). */
+export type FlashcardDraft = { front: string; back: string };
 
 export const GROUNDING_LABEL: Record<"material" | "partial" | "general" | "not_found", string> = {
   material: "Based on your material",

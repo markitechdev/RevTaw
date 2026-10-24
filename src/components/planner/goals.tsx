@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { completeGoalAction, createGoalAction, deleteGoalAction } from "@/lib/planner/actions";
 import type { GoalProgress } from "@/lib/planner/goals";
-import { GOAL_KIND_BY_ID, GOAL_KINDS, GOAL_PERIOD_LABEL, type GoalFormInput } from "@/lib/planner/types";
+import type { GoalFormInput } from "@/lib/planner/schemas";
+import { GOAL_KIND_BY_ID, GOAL_KINDS, GOAL_PERIOD_LABEL } from "@/lib/planner/types";
 import type { GoalKind, GoalPeriod } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 

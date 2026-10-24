@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { saveDashboardAction } from "@/lib/preferences/actions";
 import { defaultDashboard, widgetGroup } from "@/lib/preferences/dashboard-layout";
-import { WIDGET_BY_ID, type DashboardPreferences, type WidgetId } from "@/lib/preferences/schema";
+import { WIDGET_BY_ID, type DashboardPreferences, type WidgetId } from "@/lib/preferences/options";
 import { cn } from "@/lib/utils";
 
 const STAT_COLUMNS = ["", "lg:grid-cols-1", "lg:grid-cols-2", "lg:grid-cols-3", "lg:grid-cols-4"] as const;

@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 import { HOME_ITEM, SETTINGS_ITEM, TOOLS } from "@/components/app/nav-items";
-import { TOOL_IDS } from "@/lib/preferences/schema";
+import { TOOL_IDS } from "@/lib/preferences/options";
 import { routes } from "@/lib/routes";
 import { BUILDER_METHOD_IDS, methodName } from "@/lib/study/catalog";
 import { STUDY_METHOD_BY_ID } from "@/lib/study/methods";

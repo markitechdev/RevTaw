@@ -14,7 +14,7 @@ import { MessageBubble, type MessageExtras } from "@/components/tutor/message-bu
 import { Button } from "@/components/ui/button";
 import { moveTaskAction } from "@/lib/planner/actions";
 import { saveResponseLanguageAction } from "@/lib/preferences/actions";
-import type { ResponseLanguage } from "@/lib/preferences/schema";
+import type { ResponseLanguage } from "@/lib/preferences/options";
 import { routes } from "@/lib/routes";
 import { parseTamariCommand, spokenDay, type TamariCommand } from "@/lib/tamari/commands";
 import { commandLines, hereLine, tamariLanguage, tamariStatus, transcribingLine } from "@/lib/tamari/lines";

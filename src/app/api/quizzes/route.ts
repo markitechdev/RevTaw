@@ -3,7 +3,8 @@ import { z } from "zod";
 
 import { track } from "@/lib/analytics/server";
 import { createQuiz, ServiceError } from "@/lib/quizzes/service";
-import { quizConfigSchema, typeCoverageError } from "@/lib/quizzes/types";
+import { quizConfigSchema } from "@/lib/quizzes/schemas";
+import { typeCoverageError } from "@/lib/quizzes/types";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/supabase/server";
 

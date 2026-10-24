@@ -14,7 +14,8 @@ import { addOwnMnemonic, answerLoci, checkStoryRetell, createMnemonic, deleteMne
 import { checkVisualItem, type VisualCheck } from "@/lib/study/flows/visual";
 import { saveItemDraft } from "@/lib/study/items";
 import { CONCEPT_RELATIONS, type ConceptRelation } from "@/lib/study/maps";
-import { MNEMONIC_KINDS, palaceInputSchema, type LociResult, type MnemonicOption, type MnemonicPracticeResult, type PalaceInput, type PalaceState, type StoryResult } from "@/lib/study/memory-options";
+import { MNEMONIC_KINDS, type LociResult, type MnemonicOption, type MnemonicPracticeResult, type PalaceInput, type PalaceState, type StoryResult } from "@/lib/study/memory-options";
+import { palaceInputSchema } from "@/lib/study/memory-schemas";
 import type { ReadingStage } from "@/lib/study/reading-options";
 import type { VisualAnswer } from "@/lib/study/visuals";
 import { getCurrentUser } from "@/lib/supabase/server";

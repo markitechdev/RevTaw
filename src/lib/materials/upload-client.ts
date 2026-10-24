@@ -1,6 +1,6 @@
 "use client";
 
-import { getPublicEnv } from "@/lib/env";
+import { browserSupabaseConfig } from "@/lib/public-env";
 import type { MaterialStatus } from "@/lib/supabase/database.types";
 
 export type UploadProgress = { loaded: number; total: number; percent: number };
@@ -15,12 +15,12 @@ export function uploadFileToSignedUrl(
   onProgress: (progress: UploadProgress) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const { NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY } = getPublicEnv();
+  const apiKey = browserSupabaseConfig().publishableKey;
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", signedUrl, true);
-    xhr.setRequestHeader("apikey", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+    xhr.setRequestHeader("apikey", apiKey);
     xhr.setRequestHeader("x-upsert", "false");
     xhr.setRequestHeader("content-type", file.type || "application/octet-stream");
     xhr.setRequestHeader("cache-control", "max-age=3600");

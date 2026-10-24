@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { Alert } from "@/components/forms/form-alert";
 import { Switch } from "@/components/ui/switch";
 import { savePrivacyPreferencesAction, type SavePreferencesResult } from "@/lib/preferences/actions";
-import type { PrivacyPreferences } from "@/lib/preferences/schema";
+import type { PrivacyPreferences } from "@/lib/preferences/options";
 
 /** Usage analytics: off unless the student turns it on; saved as soon as it changes. */
 export function PrivacyForm({ initial, available }: { initial: PrivacyPreferences; available: boolean }) {

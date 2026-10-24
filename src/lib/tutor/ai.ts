@@ -11,7 +11,8 @@ import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import type { TutorMode } from "@/lib/supabase/database.types";
 import { tidyVisual, visualSchema, VISUAL_RULES } from "@/lib/study/prompts/visual";
 import { labelChunk, type ContextChunk } from "@/lib/tutor/context";
-import { flashcardDraftSchema, FOLLOW_UP_IDS, sourceSchema, TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
+import { flashcardDraftSchema, sourceSchema } from "@/lib/tutor/schemas";
+import { FOLLOW_UP_IDS, TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
 
 export const tutorReplySchema = z.object({
   answer: z.string().trim().min(1).max(6000),

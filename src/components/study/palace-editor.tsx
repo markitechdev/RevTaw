@@ -3,7 +3,7 @@
 import { ArrowDown, ArrowUp, Castle, MapPin, Pencil, Plus, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Field } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
@@ -12,8 +12,15 @@ import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { routes } from "@/lib/routes";
-import { PALACE_SUGGESTIONS, palaceInputSchema, type PalaceInput, type PalaceLocation, type PalaceSummary } from "@/lib/study/memory-options";
+import { PALACE_SUGGESTIONS, type PalaceInput, type PalaceLocation, type PalaceSummary } from "@/lib/study/memory-options";
 import { deletePalaceAction, savePalaceAction } from "@/lib/study/method-actions";
+
+/**
+ * The route is checked with the server's own schema before it is sent. It (and
+ * zod with it) loads when the editor opens; a repeated import resolves from the
+ * module cache.
+ */
+const loadMemorySchemas = () => import("@/lib/study/memory-schemas");
 
 type Row = { key: string; name: string; detail: string };
 
@@ -56,8 +63,25 @@ export function PalaceEditor({
       return state.length >= 30 ? state : [...state, { key: `row-${crypto.randomUUID()}`, name, detail: "" }];
     });
 
-  const submit = () => {
-    const parsed = palaceInputSchema.safeParse({ title, locations: rows.map((row) => ({ name: row.name, detail: row.detail.trim() || null })) });
+  useEffect(() => {
+    void loadMemorySchemas().catch(() => undefined);
+  }, []);
+
+  // One check at a time: a second press while the schema loads does nothing.
+  const checking = useRef(false);
+  const submit = async () => {
+    if (checking.current) return;
+    checking.current = true;
+    let schemas: Awaited<ReturnType<typeof loadMemorySchemas>>;
+    try {
+      schemas = await loadMemorySchemas();
+    } catch {
+      setError("RevTaw couldn't check the route. Check your connection and try again.");
+      return;
+    } finally {
+      checking.current = false;
+    }
+    const parsed = schemas.palaceInputSchema.safeParse({ title, locations: rows.map((row) => ({ name: row.name, detail: row.detail.trim() || null })) });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Check the route.");
       return;
@@ -71,7 +95,7 @@ export function PalaceEditor({
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
-        submit();
+        void submit();
       }}
     >
       {error && <Alert tone="error">{error}</Alert>}

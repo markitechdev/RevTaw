@@ -7,7 +7,7 @@ import { Alert } from "@/components/forms/form-alert";
 import { Button } from "@/components/ui/button";
 import { ChipGroup } from "@/components/ui/chip-group";
 import { saveStudyPreferencesAction, type SavePreferencesResult } from "@/lib/preferences/actions";
-import { MAX_PREFERRED_METHODS } from "@/lib/preferences/schema";
+import { MAX_PREFERRED_METHODS } from "@/lib/preferences/options";
 import { BUILDER_METHOD_IDS, methodName, type BuilderMethodId } from "@/lib/study/catalog";
 
 /**

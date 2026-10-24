@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useId, useState } from "react";
 
 import { activeHref, navLayout, SETTINGS_ITEM, type NavItem } from "@/components/app/nav-items";
-import type { ToolId } from "@/lib/preferences/schema";
+import type { ToolId } from "@/lib/preferences/options";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 

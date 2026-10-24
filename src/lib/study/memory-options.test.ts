@@ -12,7 +12,6 @@ import {
   mnemonicCount,
   mnemonicResultOf,
   mnemonicViewOf,
-  palaceInputSchema,
   palaceStateOf,
   palaceStopCount,
   retellScore,
@@ -24,6 +23,7 @@ import {
   targetIsOrdered,
   tidyStory,
 } from "@/lib/study/memory-options";
+import { palaceInputSchema } from "@/lib/study/memory-schemas";
 
 const stages = ["Prophase", "Metaphase", "Anaphase", "Telophase"];
 

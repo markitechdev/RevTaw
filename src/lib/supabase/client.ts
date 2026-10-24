@@ -2,7 +2,7 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 
-import { getPublicEnv } from "@/lib/env";
+import { browserSupabaseConfig } from "@/lib/public-env";
 import type { Database } from "@/lib/supabase/database.types";
 
 /**
@@ -12,9 +12,6 @@ import type { Database } from "@/lib/supabase/database.types";
  * still subject to row-level security on the database side.
  */
 export function createClient() {
-  const env = getPublicEnv();
-  return createBrowserClient<Database>(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-  );
+  const { url, publishableKey } = browserSupabaseConfig();
+  return createBrowserClient<Database>(url, publishableKey);
 }

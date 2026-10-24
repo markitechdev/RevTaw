@@ -9,7 +9,7 @@ import { useTheme, type Theme } from "@/components/theme/theme-provider";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
-import { ACCENT_PRESETS, type AppearancePreferences } from "@/lib/preferences/schema";
+import { ACCENT_PRESETS, type AppearancePreferences } from "@/lib/preferences/options";
 import { buildAccentPalette, isHexColor } from "@/lib/theme/color";
 import { cn } from "@/lib/utils";
 

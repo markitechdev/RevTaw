@@ -1,9 +1,11 @@
-import { z } from "zod";
-
 import { normalizeText } from "@/lib/quizzes/text-match";
 import type { MnemonicKind } from "@/lib/supabase/database.types";
 
-/** Memory techniques (spec §16): mnemonics, memory palaces and the story method — shapes, checks and the pure graders. Client-safe. */
+/**
+ * Memory techniques (spec §16): mnemonics, memory palaces and the story
+ * method — shapes, checks and the pure graders. Client-safe and free of zod;
+ * the palace route validators are in `memory-schemas.ts`.
+ */
 
 export const MNEMONIC_KINDS = ["acronym", "acrostic", "rhyme", "phrase", "association", "story", "custom"] as const satisfies ReadonlyArray<MnemonicKind>;
 
@@ -132,18 +134,10 @@ export function deviceMatchesItems(option: Pick<MnemonicOption, "kind" | "conten
 // Memory palace (method of loci)
 // ---------------------------------------------------------------------------
 
-export const palaceLocationSchema = z.object({
-  name: z.string().trim().min(1, "Name every location.").max(80, "Keep location names under 80 characters."),
-  detail: z.string().trim().max(160).nullable().default(null),
-});
-
-export const palaceInputSchema = z.object({
-  title: z.string().trim().min(1, "Give the palace a name.").max(120),
-  locations: z.array(palaceLocationSchema).min(3, "A route needs at least three locations.").max(30, "A route can have up to 30 locations."),
-});
-
-export type PalaceLocation = z.infer<typeof palaceLocationSchema>;
-export type PalaceInput = z.infer<typeof palaceInputSchema>;
+/** A stop on a palace route (validated by `palaceLocationSchema`). */
+export type PalaceLocation = { name: string; detail: string | null };
+/** A palace as the student saves it (validated by `palaceInputSchema`). */
+export type PalaceInput = { title: string; locations: PalaceLocation[] };
 export type PalaceSummary = { id: string; title: string; locations: PalaceLocation[]; lastUsedAt: string | null };
 
 /** Places most homes have, to start a route quickly. */

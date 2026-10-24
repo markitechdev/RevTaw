@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ChipGroup } from "@/components/ui/chip-group";
 import { Segmented } from "@/components/ui/segmented";
 import { saveAnswerStyleAction, type SavePreferencesResult } from "@/lib/preferences/actions";
-import { EXPLANATION_DEPTHS, RESPONSE_STYLES, type AiPreferences, type ExplanationDepth, type ResponseStyle } from "@/lib/preferences/schema";
+import { EXPLANATION_DEPTHS, RESPONSE_STYLES, type AiPreferences, type ExplanationDepth, type ResponseStyle } from "@/lib/preferences/options";
 
 /**
  * How Tamari explains (UI phase §23–§25, §35): the tone and how deep

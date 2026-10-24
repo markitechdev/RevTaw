@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useOptimistic, useState, useTransition, type ReactNode } from "react";
 
 import { saveAppearanceAction, type SavePreferencesResult } from "@/lib/preferences/actions";
-import type { AppearancePreferences } from "@/lib/preferences/schema";
+import type { AppearancePreferences } from "@/lib/preferences/options";
 import { APPEARANCE_COOKIE, APPEARANCE_COOKIE_MAX_AGE, appearanceAttributes, applyAppearance, encodeAppearance } from "@/lib/theme/appearance";
 
 type AppearanceContextValue = {

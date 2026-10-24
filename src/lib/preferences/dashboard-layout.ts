@@ -1,4 +1,4 @@
-import { DEFAULT_DASHBOARD, WIDGET_BY_ID, type DashboardPreferences, type WidgetId } from "@/lib/preferences/schema";
+import { DEFAULT_DASHBOARD, WIDGET_BY_ID, type DashboardPreferences, type WidgetId } from "@/lib/preferences/options";
 
 /** Pure layout operations for the dashboard customizer (client-safe, unit-tested). */
 

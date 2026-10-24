@@ -2,7 +2,7 @@
 
 import { ListChecks, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { useTamariActivity } from "@/components/assistant/assistant-provider";
 import { Field, fieldA11y } from "@/components/forms/field";
@@ -22,12 +22,18 @@ import {
   QUIZ_MAX_QUESTIONS,
   QUIZ_MIN_QUESTIONS,
   QUIZ_PRESET_COUNTS,
-  quizConfigSchema,
   typeCoverageError,
   type QuizConfig,
 } from "@/lib/quizzes/types";
 import { clearQueryParam } from "@/lib/hooks/query-param";
 import { routes } from "@/lib/routes";
+
+/**
+ * The settings are checked with the server's own schema before sending. It
+ * (and zod with it) loads when the dialog opens, not with every page that
+ * shows the button; a repeated import resolves from the module cache.
+ */
+const loadQuizSchemas = () => import("@/lib/quizzes/schemas");
 
 export type QuizMaterialOption = { id: string; title: string; subject?: string | null };
 
@@ -64,6 +70,10 @@ export function NewQuizButton({
     .filter(Boolean)
     .join(" · ");
 
+  useEffect(() => {
+    if (open) void loadQuizSchemas().catch(() => undefined);
+  }, [open]);
+
   const generate = () => {
     setError(null);
     const target = materialId ?? material;
@@ -71,17 +81,24 @@ export function NewQuizButton({
       setError("Choose a material first.");
       return;
     }
-    const parsed = quizConfigSchema.safeParse(config);
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Check the quiz settings.");
-      return;
-    }
-    const coverageProblem = typeCoverageError(parsed.data);
-    if (coverageProblem) {
-      setError(coverageProblem);
-      return;
-    }
     startTransition(async () => {
+      let schemas: Awaited<ReturnType<typeof loadQuizSchemas>>;
+      try {
+        schemas = await loadQuizSchemas();
+      } catch {
+        setError("RevTaw couldn't load the quiz settings. Check your connection and try again.");
+        return;
+      }
+      const parsed = schemas.quizConfigSchema.safeParse(config);
+      if (!parsed.success) {
+        setError(parsed.error.issues[0]?.message ?? "Check the quiz settings.");
+        return;
+      }
+      const coverageProblem = typeCoverageError(parsed.data);
+      if (coverageProblem) {
+        setError(coverageProblem);
+        return;
+      }
       const response = await fetch("/api/quizzes", {
         method: "POST",
         headers: { "content-type": "application/json", accept: "application/json" },

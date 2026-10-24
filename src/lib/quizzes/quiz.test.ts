@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { gradeHeuristically, quizHeuristically } from "@/lib/ai/providers/mock";
 import { finalizeQuestions, quizResponseSchema } from "@/lib/quizzes/generate";
 import { gradeObjective, normalizeText, textMatches } from "@/lib/quizzes/grade";
-import { DEFAULT_QUIZ_CONFIG, describeAnswer, distributeQuestions, parseQuizConfig, typeCoverageError, type QuizConfig } from "@/lib/quizzes/types";
+import { parseQuizConfig } from "@/lib/quizzes/schemas";
+import { DEFAULT_QUIZ_CONFIG, describeAnswer, distributeQuestions, typeCoverageError, type QuizConfig } from "@/lib/quizzes/types";
 
 describe("distributeQuestions", () => {
   it("splits the count evenly and gives the remainder to the first types", () => {

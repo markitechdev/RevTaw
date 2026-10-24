@@ -8,7 +8,7 @@ import { ChatLauncher } from "@/components/assistant/chat-launcher";
 import type { ServerVoice } from "@/components/assistant/use-voice";
 import { useTamariMove } from "@/components/tamari/use-tamari-move";
 import type { PageContextRef } from "@/lib/assistant/context-schema";
-import type { AiPreferences, AssistantPreferences } from "@/lib/preferences/schema";
+import type { AiPreferences, AssistantPreferences } from "@/lib/preferences/options";
 import { napBubble, tamariLanguage, type TamariBubble, type TamariLanguage } from "@/lib/tamari/lines";
 import type { TamariReaction, TamariState } from "@/lib/tamari/states";
 import type { TutorActionId } from "@/lib/tutor/types";

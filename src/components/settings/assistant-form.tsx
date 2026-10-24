@@ -11,7 +11,7 @@ import { ChipGroup } from "@/components/ui/chip-group";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { saveAssistantPreferencesAction, saveResponseLanguageAction } from "@/lib/preferences/actions";
-import { RESPONSE_LANGUAGES, type AiPreferences, type AssistantPreferences, type ResponseLanguage } from "@/lib/preferences/schema";
+import { RESPONSE_LANGUAGES, type AiPreferences, type AssistantPreferences, type ResponseLanguage } from "@/lib/preferences/options";
 
 /** One sentence per language, so the choice is concrete (UI phase §23). */
 const SAMPLE: Record<Exclude<ResponseLanguage, "auto" | "other">, string> = {

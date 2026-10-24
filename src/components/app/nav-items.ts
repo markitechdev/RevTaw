@@ -18,7 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { TOOL_IDS, type ToolId } from "@/lib/preferences/schema";
+import { TOOL_IDS, type ToolId } from "@/lib/preferences/options";
 import { routes } from "@/lib/routes";
 
 /**

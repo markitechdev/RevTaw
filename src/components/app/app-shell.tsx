@@ -6,7 +6,7 @@ import { AccountNav, SidebarNav } from "@/components/app/sidebar-nav";
 import { UserCard } from "@/components/app/user-card";
 import { Logo } from "@/components/brand/logo";
 import type { Standing } from "@/lib/gamification/standing";
-import type { ToolId } from "@/lib/preferences/schema";
+import type { ToolId } from "@/lib/preferences/options";
 import { routes } from "@/lib/routes";
 
 /**

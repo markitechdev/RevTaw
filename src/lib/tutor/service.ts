@@ -12,7 +12,8 @@ import { createClient } from "@/lib/supabase/server";
 import { evaluateTutorSession, TUTOR_HISTORY_TURNS, tutorReply, type TutorReply } from "@/lib/tutor/ai";
 import { rankMaterialChunks } from "@/lib/search/hybrid";
 import { selectContext, type ContextChunk } from "@/lib/tutor/context";
-import { flashcardDraftSchema, TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
+import { flashcardDraftSchema } from "@/lib/tutor/schemas";
+import { TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { saveNotificationPreferencesAction, type SavePreferencesResult } from "@/lib/preferences/actions";
-import { MUTABLE_NOTIFICATION_KINDS, REMINDER_OFFSETS, type NotificationPreferences, type ReminderOffset } from "@/lib/preferences/schema";
+import { MUTABLE_NOTIFICATION_KINDS, REMINDER_OFFSETS, type NotificationPreferences, type ReminderOffset } from "@/lib/preferences/options";
 import type { NotificationKind } from "@/lib/supabase/database.types";
 
 type BrowserPermission = "default" | "granted" | "denied" | "unsupported";

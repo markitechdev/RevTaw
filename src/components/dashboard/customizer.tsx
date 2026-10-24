@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { saveDashboardAction } from "@/lib/preferences/actions";
 import { defaultDashboard, moveWidget, toggleWidget, widgetGroup, type WidgetGroup } from "@/lib/preferences/dashboard-layout";
-import { WIDGET_BY_ID, type DashboardPreferences } from "@/lib/preferences/schema";
+import { WIDGET_BY_ID, type DashboardPreferences } from "@/lib/preferences/options";
 import { cn } from "@/lib/utils";
 
 const GROUPS: ReadonlyArray<{ id: WidgetGroup; label: string; description: string }> = [

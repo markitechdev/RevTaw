@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 
-import { ACCENT_IDS, type AccentId, type AppearancePreferences } from "@/lib/preferences/schema";
+import { ACCENT_IDS, type AccentId, type AppearancePreferences } from "@/lib/preferences/options";
 import { buildAccentPalette } from "@/lib/theme/color";
 
 /**

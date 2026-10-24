@@ -6,7 +6,8 @@ import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
-import { distributeQuestions, optionSchema, QUESTION_TYPE_BY_ID, QUESTION_TYPE_IDS, type QuizConfig } from "@/lib/quizzes/types";
+import { optionSchema } from "@/lib/quizzes/schemas";
+import { distributeQuestions, QUESTION_TYPE_BY_ID, QUESTION_TYPE_IDS, type QuizConfig } from "@/lib/quizzes/types";
 import type { QuestionDifficulty, QuestionType } from "@/lib/supabase/database.types";
 
 const text = (max: number) => z.string().trim().min(1).max(max);

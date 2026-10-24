@@ -3,7 +3,8 @@ import "server-only";
 import { listMastery } from "@/lib/adaptive/engine";
 import { addDays, dateIn, weekStartOf } from "@/lib/planner/dates";
 import { PlannerError, plannerClock } from "@/lib/planner/service";
-import { GOAL_KIND_BY_ID, goalFormSchema } from "@/lib/planner/types";
+import { goalFormSchema } from "@/lib/planner/schemas";
+import { GOAL_KIND_BY_ID } from "@/lib/planner/types";
 import type { StudyGoalRow } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 

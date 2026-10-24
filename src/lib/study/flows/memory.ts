@@ -13,7 +13,6 @@ import {
   listScore,
   lociResultOf,
   lociViewOf,
-  palaceLocationSchema,
   palaceStateOf,
   palaceStopCount,
   retellScore,
@@ -40,6 +39,7 @@ import {
   type StoryResult,
   type StoryView,
 } from "@/lib/study/memory-options";
+import { palaceLocationSchema } from "@/lib/study/memory-schemas";
 import { checkRetell, generateAssociations, generateMnemonics, generateStories } from "@/lib/study/prompts/memory";
 import { loadSession, SessionError, sessionTitle, updateSessionState } from "@/lib/study/sessions";
 import type { Json, Mnemonic, MnemonicKind, StudySession } from "@/lib/supabase/database.types";

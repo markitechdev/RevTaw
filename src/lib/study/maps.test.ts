@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { conceptMapHeuristically, mindMapHeuristically } from "@/lib/ai/providers/mock-study";
-import { addChild, addConcept, addRelationship, conceptMapSchema, connectNodes, layoutMindMap, mindMapSchema, removeConcept, removeNode, subtreeIds, toggleNode, type MindMapData } from "@/lib/study/maps";
+import { conceptMapSchema, mindMapSchema } from "@/lib/study/map-schemas";
+import { addChild, addConcept, addRelationship, connectNodes, layoutMindMap, removeConcept, removeNode, subtreeIds, toggleNode, type MindMapData } from "@/lib/study/maps";
 import { conceptMapResponseSchema, mindMapResponseSchema, toConceptMap, toMindMap } from "@/lib/study/prompts/maps";
 
 const base: MindMapData = {
