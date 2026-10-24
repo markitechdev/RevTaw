@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getMasterySummary, refreshMastery } from "@/lib/adaptive/engine";
+import { getMasterySummary } from "@/lib/adaptive/engine";
 import { isAiError } from "@/lib/ai";
 import { normalizeConceptName } from "@/lib/concepts/service";
 import { parseAnalysisData } from "@/lib/materials/analysis-schema";
@@ -16,9 +16,9 @@ import {
 } from "@/lib/study/ai";
 import { RAPID_REVIEW_MINUTES } from "@/lib/study/catalog";
 import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
-import { conceptsFor, insertItems, loadOpenItem, openSession, type Client, type FlowStartInput, type FlowStartResult, type ItemRow, type MaterialContext } from "@/lib/study/items";
+import { conceptsFor, insertItems, loadOpenItem, openSession, reloadItem, settleAnsweredItem, storeItemAttempt, type Client, type FlowStartInput, type FlowStartResult, type ItemRow, type MaterialContext } from "@/lib/study/items";
 import { loadSession, SessionError, sessionTitle } from "@/lib/study/sessions";
-import type { Json, SessionItemKind } from "@/lib/supabase/database.types";
+import type { Json, SessionItemKind, StudySessionItem } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -331,41 +331,38 @@ export async function compareBlurtItem(input: { itemId: string; text: string; re
   const rounds = [...previous, { ...comparison, round }];
   const best = Math.max(...rounds.map((entry) => entry.score));
   const now = new Date().toISOString();
-  const { error } = await supabase
-    .from("study_session_items")
-    .update({
-      response: input.text.slice(0, 8000),
-      analysis: { rounds } as unknown as Json,
-      score: best,
-      is_correct: final ? best >= 60 : null,
-      response_ms: input.responseMs,
-      attempts: item.attempts + 1,
-      answered_at: final ? now : null,
-    })
-    .eq("id", item.id);
-  if (error) throw new Error(`study_session_items: update failed: ${error.message}`);
+  const stored = await storeItemAttempt(supabase, item, {
+    response: input.text.slice(0, 8000),
+    analysis: { rounds } as unknown as Json,
+    score: best,
+    is_correct: final ? best >= 60 : null,
+    response_ms: input.responseMs,
+    answered_at: final ? now : null,
+  });
+  // A double submit (or a second tab) stored this round first: its round stands.
+  if (!stored) return storedBlurtRound(await reloadItem(supabase, item.id));
   if (final) {
     const isCorrect = best >= 60;
-    await supabase
-      .from("study_sessions")
-      .update({ items_total: session.items_total + 1, items_correct: session.items_correct + (isCorrect ? 1 : 0), items_incorrect: session.items_incorrect + (isCorrect ? 0 : 1), state: { ...((session.state as Record<string, unknown>) ?? {}), index: item.position + 1 } as Json, last_active_at: now })
-      .eq("id", session.id);
-    if (!isCorrect && comparison.forgotten_important.length) {
-      await supabase.from("mistakes").insert({
-        user_id: session.user_id,
-        concept_id: item.concept_id,
-        material_id: session.material_id,
-        question_text: `Blurt everything you remember about: ${item.prompt}`.slice(0, 4000),
-        student_answer: input.text.slice(0, 4000) || null,
-        correct_answer: `Forgotten: ${comparison.forgotten_important.join("; ")}`.slice(0, 4000),
-        explanation: comparison.feedback.slice(0, 4000),
-      });
-    }
-    if (item.concept_id) await refreshMastery([item.concept_id]);
+    await settleAnsweredItem(supabase, item, session, {
+      isCorrect,
+      response: input.text,
+      mistake: comparison.forgotten_important.length
+        ? { question: `Blurt everything you remember about: ${item.prompt}`, correctAnswer: `Forgotten: ${comparison.forgotten_important.join("; ")}`, explanation: comparison.feedback }
+        : null,
+    });
   } else {
     await supabase.from("study_sessions").update({ last_active_at: now }).eq("id", session.id);
   }
   return { analysis: comparison, round, final, source: final ? item.model_answer : null };
+}
+
+/** The latest stored round of a blurt item. */
+function storedBlurtRound(item: StudySessionItem): BlurtResult {
+  const rounds = ((item.analysis as { rounds?: BlurtRound[] } | null)?.rounds ?? []) as BlurtRound[];
+  const last = rounds[rounds.length - 1];
+  if (!last) throw new SessionError("This blurt is already being checked.", 409);
+  const final = Boolean(item.answered_at);
+  return { analysis: last, round: last.round, final, source: final ? item.model_answer : null };
 }
 
 // ---------------------------------------------------------------------------

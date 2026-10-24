@@ -1,6 +1,6 @@
 import "server-only";
 
-import { refreshMastery, weakConceptNames as masteryWeakConcepts } from "@/lib/adaptive/engine";
+import { weakConceptNames as masteryWeakConcepts } from "@/lib/adaptive/engine";
 import { markSmartBlock, startSmartSession } from "@/lib/adaptive/smart";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { isAiError } from "@/lib/ai";
@@ -18,7 +18,7 @@ import { startDualCoding } from "@/lib/study/flows/visual";
 import { startFadedExamples, startPracticeProblems, startWorkedExamples } from "@/lib/study/flows/problems";
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
 import { isTutorMethod, METHOD_BEHAVIOUR, TEST_METHOD_IDS, type BuilderMethodId, type TestMethodId } from "@/lib/study/catalog";
-import { loadOpenItem } from "@/lib/study/items";
+import { loadOpenItem, recordItemResult, reloadItem, settleAnsweredItem, storeItemAttempt } from "@/lib/study/items";
 import type { StudyMethodId } from "@/lib/study/methods";
 import type { ProblemDifficulty } from "@/lib/study/prompts/problems";
 import { completeSession, createSession, loadSession, SessionError, sessionTitle, suggestNext, updateSessionState, type SessionSummary } from "@/lib/study/sessions";
@@ -400,11 +400,7 @@ export async function answerRecallItem(input: { itemId: string; response: string
   const supabase = await createClient();
   const { item, session } = await loadOpenItem(supabase, input.itemId);
   if (!RECALL_FLOW_KINDS.includes(item.kind) || (item.kind === "stage" && item.format === "summary")) throw new SessionError("This item uses a different flow.", 400);
-  if (item.answered_at) {
-    if (!(item.analysis as { verdict?: string } | null)?.verdict) throw new SessionError("This item is already answered.", 409);
-    const comparison = item.analysis as unknown as RecallComparison;
-    return { comparison, isCorrect: Boolean(item.is_correct), modelAnswer: item.model_answer ?? "", sourceExcerpt: item.source_excerpt };
-  }
+  if (item.answered_at) return storedRecallResult(item);
 
   const keyPoints = Array.isArray(item.key_points) ? (item.key_points as string[]) : [];
   let comparison: RecallComparison;
@@ -430,52 +426,29 @@ export async function answerRecallItem(input: { itemId: string; response: string
     };
   }
   const isCorrect = comparison.score >= 60;
-  const now = new Date().toISOString();
   // Items keep what they carried before the answer (a chunk's reading text, a guided-reading question's section).
   const carried = (item.analysis && typeof item.analysis === "object" && !Array.isArray(item.analysis) ? item.analysis : {}) as Record<string, unknown>;
-  const { error } = await supabase
-    .from("study_session_items")
-    .update({
-      response: input.response.slice(0, 8000),
-      analysis: { ...carried, ...comparison } as unknown as Json,
-      is_correct: isCorrect,
-      score: comparison.score,
-      confidence: input.confidence,
-      response_ms: input.responseMs,
-      attempts: item.attempts + 1,
-      answered_at: now,
-    })
-    .eq("id", item.id);
-  if (error) throw new Error(`study_session_items: update failed: ${error.message}`);
-
-  await supabase
-    .from("study_sessions")
-    .update({
-      items_total: session.items_total + 1,
-      items_correct: session.items_correct + (isCorrect ? 1 : 0),
-      items_incorrect: session.items_incorrect + (isCorrect ? 0 : 1),
-      state: { ...((session.state as Record<string, unknown>) ?? {}), index: item.position + 1 } as Json,
-      last_active_at: now,
-    })
-    .eq("id", session.id);
-
-  if (item.kind === "mistake" && item.source_mistake_id) {
-    // A retested mistake is learned when answered correctly; otherwise it stays open.
-    if (isCorrect) await supabase.from("mistakes").update({ resolved_at: now }).eq("id", item.source_mistake_id);
-  } else if (!isCorrect) {
-    await supabase.from("mistakes").insert({
-      user_id: session.user_id,
-      concept_id: item.concept_id,
-      material_id: item.material_id ?? session.material_id,
-      question_text: item.prompt.slice(0, 4000),
-      student_answer: input.response.slice(0, 4000) || null,
-      correct_answer: (item.model_answer ?? "").slice(0, 4000),
-      explanation: comparison.feedback.slice(0, 4000),
-    });
-  }
-
-  if (item.concept_id) await refreshMastery([item.concept_id]);
+  const retest = item.kind === "mistake" && item.source_mistake_id ? item.source_mistake_id : null;
+  const stored = await recordItemResult(supabase, item, session, {
+    response: input.response,
+    analysis: { ...carried, ...comparison } as unknown as Json,
+    score: comparison.score,
+    isCorrect,
+    confidence: input.confidence,
+    responseMs: input.responseMs,
+    // A retested mistake is learned when answered correctly and otherwise stays open; any other wrong answer is filed.
+    retestedMistakeId: retest,
+    mistake: retest ? null : { question: item.prompt, correctAnswer: item.model_answer ?? "", explanation: comparison.feedback },
+  });
+  // A double submit (or a second tab) answered first: its answer stands.
+  if (!stored) return storedRecallResult(await reloadItem(supabase, item.id));
   return { comparison, isCorrect, modelAnswer: item.model_answer ?? "", sourceExcerpt: item.source_excerpt };
+}
+
+/** The result of a recall item that is already answered. */
+function storedRecallResult(item: StudySessionItem): RecallItemResult {
+  if (!item.answered_at || !(item.analysis as { verdict?: string } | null)?.verdict) throw new SessionError("This item is already answered.", 409);
+  return { comparison: item.analysis as unknown as RecallComparison, isCorrect: Boolean(item.is_correct), modelAnswer: item.model_answer ?? "", sourceExcerpt: item.source_excerpt };
 }
 
 // ---------------------------------------------------------------------------
@@ -528,48 +501,37 @@ export async function analyzeFeynmanItem(input: { itemId: string; explanation: s
   const isCorrect = analysis.score >= 70;
   const now = new Date().toISOString();
   const previous = (item.analysis as unknown as { rounds?: unknown[] } | null)?.rounds ?? [];
-  const { error } = await supabase
-    .from("study_session_items")
-    .update({
-      response: input.explanation.slice(0, 8000),
-      analysis: { rounds: [...previous, { round, ...analysis }], final } as unknown as Json,
-      is_correct: isCorrect,
-      score: analysis.score,
-      response_ms: (item.response_ms ?? 0) + (input.responseMs ?? 0),
-      attempts: round,
-      answered_at: final ? now : null,
-    })
-    .eq("id", item.id);
-  if (error) throw new Error(`study_session_items: update failed: ${error.message}`);
+  const stored = await storeItemAttempt(supabase, item, {
+    response: input.explanation.slice(0, 8000),
+    analysis: { rounds: [...previous, { round, ...analysis }], final } as unknown as Json,
+    is_correct: isCorrect,
+    score: analysis.score,
+    response_ms: (item.response_ms ?? 0) + (input.responseMs ?? 0),
+    answered_at: final ? now : null,
+  });
+  // A double submit (or a second tab) stored this round first: its round stands.
+  if (!stored) return storedFeynmanRound(await reloadItem(supabase, item.id));
 
   if (final) {
-    await supabase
-      .from("study_sessions")
-      .update({
-        items_total: session.items_total + 1,
-        items_correct: session.items_correct + (isCorrect ? 1 : 0),
-        items_incorrect: session.items_incorrect + (isCorrect ? 0 : 1),
-        state: { ...((session.state as Record<string, unknown>) ?? {}), index: item.position + 1 } as Json,
-        last_active_at: now,
-      })
-      .eq("id", session.id);
-    if (!isCorrect) {
-      await supabase.from("mistakes").insert({
-        user_id: session.user_id,
-        concept_id: item.concept_id,
-        material_id: session.material_id,
-        question_text: `Explain ${item.prompt} to a beginner.`,
-        student_answer: input.explanation.slice(0, 4000) || null,
-        correct_answer: (item.model_answer ?? "").slice(0, 4000),
-        explanation: analysis.feedback.slice(0, 4000),
-        error_type: "misunderstood_concept",
-      });
-    }
+    await settleAnsweredItem(supabase, item, session, {
+      isCorrect,
+      response: input.explanation,
+      mistake: { question: `Explain ${item.prompt} to a beginner.`, correctAnswer: item.model_answer ?? "", explanation: analysis.feedback, errorType: "misunderstood_concept" },
+    });
   } else {
     await supabase.from("study_sessions").update({ last_active_at: now }).eq("id", session.id);
   }
-  if (final && item.concept_id) await refreshMastery([item.concept_id]);
 
+  return { analysis, round, final, idealExplanation: final ? item.model_answer : null, sourceExcerpt: final ? item.source_excerpt : null };
+}
+
+/** The latest stored round of a Feynman item. */
+function storedFeynmanRound(item: StudySessionItem): FeynmanRoundResult {
+  const rounds = (item.analysis as unknown as { rounds?: Array<FeynmanAnalysis & { round: number }> } | null)?.rounds ?? [];
+  const last = rounds[rounds.length - 1];
+  if (!last) throw new SessionError("This explanation is already being checked.", 409);
+  const { round, ...analysis } = last;
+  const final = Boolean(item.answered_at);
   return { analysis, round, final, idealExplanation: final ? item.model_answer : null, sourceExcerpt: final ? item.source_excerpt : null };
 }
 

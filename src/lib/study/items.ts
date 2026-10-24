@@ -4,7 +4,7 @@ import { refreshMastery } from "@/lib/adaptive/engine";
 import { ensureConcepts } from "@/lib/concepts/service";
 import { loadMaterialContext } from "@/lib/reviewers/service";
 import { createSession, loadSession, SessionError, type CreateSessionInput } from "@/lib/study/sessions";
-import type { ConfidenceLevel, Json, MistakeType, SessionGoal, SessionItemKind, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
+import type { ConfidenceLevel, Database, Json, MistakeType, SessionGoal, SessionItemKind, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -68,35 +68,37 @@ export type ItemResult = {
   confidence?: ConfidenceLevel | null;
   /** Filed in the mistake notebook when the answer is wrong. */
   mistake?: { question: string; correctAnswer: string; explanation: string; errorType?: MistakeType } | null;
+  /** The notebook mistake this item retests: marked learned when the answer is right (a wrong answer leaves it open). */
+  retestedMistakeId?: string | null;
 };
 
+type ItemUpdate = Database["public"]["Tables"]["study_session_items"]["Update"];
+
 /**
- * Stores an answered item, advances the session counters, files a mistake
- * when the answer is wrong and refreshes the concept's mastery (§51: one
- * answer updates every system that depends on it). Returns false when the
- * item had already been answered (a double submit), in which case nothing
- * else is touched.
+ * Stores one attempt at an item. The update matches only while the item is
+ * unanswered and still has the attempts it was read with, so of two submits
+ * of the same attempt (a double click, a second tab) exactly one is stored.
+ * Returns false for the one that came second.
  */
-export async function recordItemResult(supabase: Client, item: StudySessionItem, session: StudySession, result: ItemResult): Promise<boolean> {
-  const now = new Date().toISOString();
+export async function storeItemAttempt(supabase: Client, item: StudySessionItem, values: Omit<ItemUpdate, "attempts">): Promise<boolean> {
   const { data: updated, error } = await supabase
     .from("study_session_items")
-    .update({
-      response: result.response?.slice(0, 8000) ?? null,
-      analysis: result.analysis,
-      is_correct: result.isCorrect,
-      score: Math.max(0, Math.min(100, Math.round(result.score))),
-      confidence: result.confidence ?? null,
-      response_ms: result.responseMs,
-      attempts: item.attempts + 1,
-      answered_at: now,
-    })
+    .update({ ...values, attempts: item.attempts + 1 })
     .eq("id", item.id)
+    .eq("attempts", item.attempts)
     .is("answered_at", null)
     .select("id");
   if (error) throw new Error(`study_session_items: update failed: ${error.message}`);
-  if (!updated?.length) return false;
+  return Boolean(updated?.length);
+}
 
+/**
+ * What a finished item updates (§51: one answer updates every system that
+ * depends on it): the session counters, the mistake notebook and the
+ * concept's mastery. Only the request that stored the answer calls this.
+ */
+export async function settleAnsweredItem(supabase: Client, item: StudySessionItem, session: StudySession, result: Pick<ItemResult, "isCorrect" | "response" | "mistake" | "retestedMistakeId">): Promise<void> {
+  const now = new Date().toISOString();
   await supabase
     .from("study_sessions")
     .update({
@@ -108,7 +110,9 @@ export async function recordItemResult(supabase: Client, item: StudySessionItem,
     })
     .eq("id", session.id);
 
-  if (!result.isCorrect && result.mistake) {
+  if (result.isCorrect && result.retestedMistakeId) {
+    await supabase.from("mistakes").update({ resolved_at: now }).eq("id", result.retestedMistakeId);
+  } else if (!result.isCorrect && result.mistake) {
     await supabase.from("mistakes").insert({
       user_id: session.user_id,
       concept_id: item.concept_id,
@@ -121,7 +125,33 @@ export async function recordItemResult(supabase: Client, item: StudySessionItem,
     });
   }
   if (item.concept_id) await refreshMastery([item.concept_id]);
+}
+
+/**
+ * Stores an answered item and settles it (counters, notebook, mastery).
+ * Returns false when the item had already been answered (a double submit),
+ * in which case nothing else is touched.
+ */
+export async function recordItemResult(supabase: Client, item: StudySessionItem, session: StudySession, result: ItemResult): Promise<boolean> {
+  const stored = await storeItemAttempt(supabase, item, {
+    response: result.response?.slice(0, 8000) ?? null,
+    analysis: result.analysis,
+    is_correct: result.isCorrect,
+    score: Math.max(0, Math.min(100, Math.round(result.score))),
+    confidence: result.confidence ?? null,
+    response_ms: result.responseMs,
+    answered_at: new Date().toISOString(),
+  });
+  if (!stored) return false;
+  await settleAnsweredItem(supabase, item, session, result);
   return true;
+}
+
+/** An item as it is now (after a submit lost to another one). */
+export async function reloadItem(supabase: Client, itemId: string): Promise<StudySessionItem> {
+  const { data: item, error } = await supabase.from("study_session_items").select("*").eq("id", itemId).maybeSingle();
+  if (error || !item) throw new SessionError("Item not found.", 404);
+  return item;
 }
 
 /** Saves a draft answer for an unanswered item so a refresh does not lose it (§53). */
