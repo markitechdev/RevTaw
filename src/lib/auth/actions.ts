@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { authErrorMessage } from "@/lib/auth/errors";
 import { clearPendingEmail, getPendingEmail, setPendingEmail } from "@/lib/auth/pending-email";
+import { getRecoveryState } from "@/lib/auth/recovery";
 import { getSiteUrl } from "@/lib/env";
 import {
   errorState,
@@ -13,7 +14,7 @@ import {
 } from "@/lib/forms/action-state";
 import { describeRetry, getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { routes, safeNextPath } from "@/lib/routes";
-import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import {
   emailSchema,
   fieldErrorsFrom,
@@ -182,8 +183,9 @@ export async function resetPasswordAction(
   _previous: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const user = await getCurrentUser();
-  if (!user) {
+  // Only a session opened from a reset link minutes ago may skip the current password.
+  const { user, fresh } = await getRecoveryState();
+  if (!user || !fresh) {
     redirect(`${routes.forgotPassword}?error=expired`);
   }
 

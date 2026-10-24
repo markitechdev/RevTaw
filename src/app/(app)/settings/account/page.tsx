@@ -16,8 +16,12 @@ export const metadata: Metadata = {
   title: "Account settings",
 };
 
-const NOTICES: Record<string, string> = {
-  "email-updated": "Your email address has been updated.",
+const NOTICES: Record<string, { tone: "success" | "info"; message: string }> = {
+  "email-updated": { tone: "success", message: "Your email address has been updated." },
+  "use-current-password": {
+    tone: "info",
+    message: "That password reset link is no longer valid for this session. To change your password, enter your current one below, or sign out and request a new link.",
+  },
 };
 
 export default async function AccountSettingsPage({ searchParams }: PageProps<"/settings/account">) {
@@ -31,7 +35,7 @@ export default async function AccountSettingsPage({ searchParams }: PageProps<"/
 
   return (
     <div className="flex flex-col gap-6">
-      {notice && <Alert tone="success">{notice}</Alert>}
+      {notice && <Alert tone={notice.tone}>{notice.message}</Alert>}
 
       <Card>
         <CardHeader>
