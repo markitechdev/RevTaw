@@ -27,6 +27,8 @@ const MAX_COOLDOWN_MS = 60 * 60_000;
 export const DEFAULT_DEADLINE_MS = 110_000;
 /** Below this, starting another provider is pointless. */
 const MIN_ATTEMPT_MS = 5_000;
+/** One call's limit for providers that set none, so a stalled one cannot use up the whole deadline. */
+export const DEFAULT_ATTEMPT_MS = 90_000;
 
 type Keyed = Pick<AiProvider, "name" | "model">;
 
@@ -132,7 +134,7 @@ export class AiRouter implements AiProvider {
   }
 
   async generate(options: AiGenerateOptions): Promise<AiGenerateResult> {
-    const deadline = Date.now() + (this.options.deadlineMs ?? DEFAULT_DEADLINE_MS);
+    const deadline = Math.min(Date.now() + (this.options.deadlineMs ?? DEFAULT_DEADLINE_MS), options.deadline ?? Number.POSITIVE_INFINITY);
     const images = hasImages(options);
     const attempts: RouteAttempt[] = [];
     let lastError: AiError | null = null;
@@ -160,9 +162,11 @@ export class AiRouter implements AiProvider {
 
         const started = Date.now();
         try {
+          // Each provider gets its own limit (Groq 45 s, Cloudflare 100 s, …) within what is left, so a stalled
+          // provider leaves time for the next one.
           const result = await candidate.generate({
             ...options,
-            timeoutMs: Math.min(options.timeoutMs ?? Number.POSITIVE_INFINITY, remaining),
+            timeoutMs: Math.min(options.timeoutMs ?? Number.POSITIVE_INFINITY, candidate.timeoutMs ?? DEFAULT_ATTEMPT_MS, remaining),
           });
           attempts.push({ ...base, outcome: "ok", ms: Date.now() - started });
           return result;

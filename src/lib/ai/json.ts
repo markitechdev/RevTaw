@@ -36,6 +36,11 @@ export function extractJson(text: string): unknown {
   }
 }
 
+/** A JSON request and its repair share this much time, under the AI routes' 120-second limit. */
+export const JSON_DEADLINE_MS = 110_000;
+/** A repair needs at least this long to be worth starting. */
+const MIN_REPAIR_MS = 8_000;
+
 export type JsonGenerateResult<T> = {
   data: T;
   raw: AiGenerateResult;
@@ -51,14 +56,21 @@ export async function generateJson<T>(
   schema: z.ZodType<T>,
   options: AiGenerateOptions,
 ): Promise<JsonGenerateResult<T>> {
-  const first = await provider.generate({ ...options, json: true });
+  // One deadline for the call and its repair, so together they finish inside the route's time limit.
+  const deadline = options.deadline ?? Date.now() + JSON_DEADLINE_MS;
+  const first = await provider.generate({ ...options, json: true, deadline });
   const firstAttempt = parseAndValidate(schema, first.text);
   if (firstAttempt.ok) {
     return { data: firstAttempt.data, raw: first, attempts: 1 };
   }
+  if (deadline - Date.now() < MIN_REPAIR_MS) {
+    throw new AiError("invalid_output", `${firstAttempt.error} (no time left to repair it)`);
+  }
 
   const repair = await provider.generate({
     ...options,
+    deadline,
+    timeoutMs: Math.min(options.timeoutMs ?? Number.POSITIVE_INFINITY, deadline - Date.now()),
     json: true,
     temperature: 0,
     // A repair is part of the same request: it does not count toward the student's daily limit.

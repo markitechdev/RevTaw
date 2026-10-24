@@ -124,6 +124,10 @@ export class OpenAiCompatibleProvider implements AiProvider {
   readonly model: string;
   readonly supportsVision: boolean;
 
+  get timeoutMs(): number | undefined {
+    return this.config.timeoutMs;
+  }
+
   constructor(private readonly config: OpenAiCompatibleConfig) {
     this.name = config.name;
     this.model = config.model;

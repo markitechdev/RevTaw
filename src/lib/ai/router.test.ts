@@ -104,6 +104,27 @@ describe("AiRouter", () => {
     expect(groq.calls[0].timeoutMs).toBeLessThanOrEqual(30_000);
   });
 
+  it("gives each provider its own limit, so a stalled one leaves time for the next", async () => {
+    const groq = fake("groq", [new AiError("provider_error", "timed out", true)], { timeoutMs: 45_000 });
+    const cloudflare = fake("cloudflare", ["ok"], { timeoutMs: 100_000 });
+    await new AiRouter([groq.provider, cloudflare.provider]).generate(ask);
+    expect(groq.calls[0].timeoutMs).toBe(45_000);
+    // Groq failed at once, so Cloudflare still has its full 100 seconds within the 110.
+    expect(cloudflare.calls[0].timeoutMs).toBe(100_000);
+    const plain = fake("plain", ["ok"]);
+    await new AiRouter([plain.provider]).generate(ask);
+    expect(plain.calls[0].timeoutMs).toBe(90_000);
+  });
+
+  it("never runs past the request's own deadline", async () => {
+    const groq = fake("groq", ["ok"], { timeoutMs: 45_000 });
+    await new AiRouter([groq.provider]).generate({ ...ask, deadline: Date.now() + 20_000 });
+    expect(groq.calls[0].timeoutMs).toBeLessThanOrEqual(20_000);
+    const late = fake("groq", ["ok"]);
+    await expect(new AiRouter([late.provider]).generate({ ...ask, deadline: Date.now() + 1_000 })).rejects.toMatchObject({ code: "rate_limited" });
+    expect(late.calls).toHaveLength(0);
+  });
+
   it("lets programming errors through instead of trying the next provider", async () => {
     const groq = fake("groq", [() => {
       throw new TypeError("bug");

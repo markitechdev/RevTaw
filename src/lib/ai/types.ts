@@ -34,6 +34,12 @@ export type AiGenerateOptions = {
   signal?: AbortSignal;
   /** Per-call timeout set by the router so a fallback still fits the route's time limit. */
   timeoutMs?: number;
+  /**
+   * When the whole request must be done (epoch milliseconds). generateJson
+   * sets it once for the first call and its repair, so the pair fits the
+   * route's time limit; the router never runs past it.
+   */
+  deadline?: number;
 };
 
 export type AiUsage = {
@@ -53,6 +59,8 @@ export interface AiProvider {
   readonly name: string;
   readonly model: string;
   readonly supportsVision: boolean;
+  /** How long one call may take before the router moves on to the next provider (its own default otherwise). */
+  readonly timeoutMs?: number;
   generate(options: AiGenerateOptions): Promise<AiGenerateResult>;
   /**
    * Whether a request fits this provider's per-request budget (for example

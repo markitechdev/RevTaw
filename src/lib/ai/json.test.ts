@@ -78,3 +78,43 @@ describe("MockProvider", () => {
     expect(parsed.recommended_methods.length).toBeGreaterThan(0);
   });
 });
+
+describe("generateJson deadlines", () => {
+  const schema = z.object({ value: z.number() });
+
+  it("gives the first call and its repair one shared deadline", async () => {
+    const seen: Array<{ deadline?: number; timeoutMs?: number }> = [];
+    let calls = 0;
+    const provider: AiProvider = {
+      name: "test",
+      model: "t",
+      supportsVision: false,
+      generate: async (options) => {
+        calls += 1;
+        seen.push({ deadline: options.deadline, timeoutMs: options.timeoutMs });
+        return { text: calls === 1 ? "not json" : '{"value": 1}', usage: { inputTokens: 1, outputTokens: 1 }, provider: "test", model: "t" };
+      },
+    };
+    const before = Date.now();
+    await generateJson(provider, schema, { messages: [{ role: "user", content: "hi" }] });
+    expect(seen).toHaveLength(2);
+    expect(seen[0].deadline).toBe(seen[1].deadline);
+    expect(seen[0].deadline! - before).toBeLessThanOrEqual(110_000 + 50);
+    expect(seen[1].timeoutMs).toBeLessThanOrEqual(seen[1].deadline! - before);
+  });
+
+  it("skips the repair when too little time is left", async () => {
+    let calls = 0;
+    const provider: AiProvider = {
+      name: "test",
+      model: "t",
+      supportsVision: false,
+      generate: async () => {
+        calls += 1;
+        return { text: "not json", usage: { inputTokens: 1, outputTokens: 1 }, provider: "test", model: "t" };
+      },
+    };
+    await expect(generateJson(provider, schema, { messages: [{ role: "user", content: "hi" }], deadline: Date.now() + 2_000 })).rejects.toMatchObject({ code: "invalid_output" });
+    expect(calls).toBe(1);
+  });
+});
