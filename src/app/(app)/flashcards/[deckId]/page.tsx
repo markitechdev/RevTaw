@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/error-state";
+import { GeneratingState } from "@/components/ui/generating-state";
 import { getDeck } from "@/lib/flashcards/queries";
 import { routes } from "@/lib/routes";
 
@@ -69,8 +70,10 @@ export default async function DeckPage({ params }: PageProps<"/flashcards/[deckI
 
       {deck.status === "failed" ? (
         <ErrorState title="This deck could not be generated" description={deck.status_detail ?? "Something went wrong while writing the cards."} />
+      ) : deck.status === "generating" ? (
+        <GeneratingState title="Writing your cards…" description="Cards appear here as soon as RevTaw finishes. This page checks by itself." />
       ) : deck.cards.length === 0 ? (
-        <ErrorState title="Still generating" description="Cards appear here once RevTaw finishes writing them. Refresh in a moment." />
+        <ErrorState title="This deck has no cards" description="Make a new deck from the material." />
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

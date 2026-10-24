@@ -13,6 +13,7 @@ import { HighlightToolbar } from "@/components/tutor/highlight-toolbar";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
+import { GeneratingState } from "@/components/ui/generating-state";
 import { REVIEWER_KIND_BY_ID } from "@/lib/reviewers/kinds";
 import { getReviewer } from "@/lib/reviewers/queries";
 import { routes } from "@/lib/routes";
@@ -76,11 +77,10 @@ export default async function ReviewerPage({ params }: PageProps<"/notes/[id]">)
           title="This reviewer could not be generated"
           description={reviewer.status_detail ?? "Something went wrong while generating."}
         />
+      ) : reviewer.status === "generating" ? (
+        <GeneratingState title="Writing your notes…" description="Sections appear here as soon as RevTaw finishes. This page checks by itself." />
       ) : reviewer.sections.length === 0 ? (
-        <ErrorState
-          title="Still generating"
-          description="Sections appear here once RevTaw finishes writing. Refresh in a moment."
-        />
+        <ErrorState title="These notes have no sections" description="Generate them again from the material." />
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[14rem_1fr]">
           <nav aria-label="Sections" className="hidden lg:block">

@@ -12,6 +12,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
+import { GeneratingState } from "@/components/ui/generating-state";
 import { getQuiz } from "@/lib/quizzes/queries";
 import { DIFFICULTY_LABEL, QUESTION_TYPE_BY_ID, QUIZ_MODE_LABEL } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
@@ -79,8 +80,10 @@ export default async function QuizDetailPage({ params }: PageProps<"/quiz/[id]">
 
       {quiz.status === "failed" ? (
         <ErrorState title="This quiz could not be generated" description={quiz.status_detail ?? "Something went wrong while writing the questions."} />
-      ) : quiz.status === "generating" || quiz.question_count === 0 ? (
-        <ErrorState title="Still generating" description="Questions appear here once RevTaw finishes writing them. Refresh in a moment." />
+      ) : quiz.status === "generating" ? (
+        <GeneratingState title="Writing your quiz…" description="Questions appear here as soon as RevTaw finishes. This page checks by itself." />
+      ) : quiz.question_count === 0 ? (
+        <ErrorState title="This quiz has no questions" description="Make a new quiz from the material." />
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card className="lg:col-span-2">
