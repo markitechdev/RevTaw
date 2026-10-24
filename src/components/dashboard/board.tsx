@@ -70,7 +70,7 @@ export function DashboardBoard({ layout, header, stage, widgets }: { layout: Das
       {visible.length === 0 ? (
         <div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-border p-8">
           <LayoutGrid className="h-6 w-6 text-primary" aria-hidden="true" />
-          <p className="font-display text-lg font-semibold">Your dashboard is empty.</p>
+          <p className="font-display tracking-display text-lg font-semibold">Your dashboard is empty.</p>
           <p className="text-sm text-muted-foreground">Every widget is hidden. Turn a few back on, or start over with the default layout.</p>
           <div className="flex flex-wrap gap-2">
             <Button type="button" size="sm" onClick={() => setOpen(true)}>

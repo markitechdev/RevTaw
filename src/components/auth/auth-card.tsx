@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { PAGE_TITLE } from "@/components/ui/typography";
 
 /** Consistent frame for every authentication screen. */
 export function AuthCard({
@@ -17,7 +18,7 @@ export function AuthCard({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
+        <h1 className={PAGE_TITLE}>{title}</h1>
         {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>
       <Card>

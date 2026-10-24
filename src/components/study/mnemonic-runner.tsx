@@ -182,7 +182,7 @@ export function MnemonicRunner({ session, methodName, parentSessionId = null, pa
           {item.concept && <Badge tone="primary">{item.concept.name}</Badge>}
           {view.ordered && view.items.length > 1 && <Badge tone="warning">Order matters</Badge>}
         </div>
-        <h2 id="mnemonic-target" className="text-lg font-medium leading-snug">
+        <h2 id="mnemonic-target" className="font-display tracking-display text-lg font-medium leading-snug">
           {view.target}
         </h2>
 

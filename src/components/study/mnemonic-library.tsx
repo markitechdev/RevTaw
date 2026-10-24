@@ -14,6 +14,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { SECTION_TITLE } from "@/components/ui/typography";
 import { routes } from "@/lib/routes";
 import { MNEMONIC_KIND_LABEL, MNEMONIC_KINDS } from "@/lib/study/memory-options";
 import { createMnemonicAction, deleteMnemonicAction, setMnemonicFavoriteAction, updateMnemonicAction } from "@/lib/study/method-actions";
@@ -225,7 +226,7 @@ export function MnemonicLibrary({ mnemonics, materials, favoritesOnly }: { mnemo
   return (
     <section aria-labelledby="mnemonics-heading" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="mnemonics-heading" className="text-lg font-semibold">
+        <h2 id="mnemonics-heading" className={SECTION_TITLE}>
           Mnemonics
         </h2>
         <div className="flex flex-wrap items-center gap-2">

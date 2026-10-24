@@ -108,7 +108,7 @@ export function ScenarioRunner({ session, methodName, parentSessionId = null, pa
           </Badge>
           {item.concept && <Badge tone="primary">{item.concept.name}</Badge>}
         </div>
-        <h2 id="scenario-title" className="text-lg font-medium leading-snug">
+        <h2 id="scenario-title" className="font-display tracking-display text-lg font-medium leading-snug">
           {view.title}
         </h2>
         <p className="whitespace-pre-wrap rounded-lg bg-muted/60 p-3 text-[15px] leading-relaxed">{view.situation}</p>

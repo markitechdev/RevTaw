@@ -6,6 +6,7 @@ import { StatusStrip } from "@/components/analytics/charts";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SECTION_TITLE } from "@/components/ui/typography";
 import { STATUS_LABEL } from "@/lib/adaptive/mastery";
 import type { MasteryMap as MasteryMapData } from "@/lib/analytics/map";
 import { routes } from "@/lib/routes";
@@ -36,7 +37,7 @@ export function MasteryMapView({ map }: { map: MasteryMapData }) {
       {map.subjects.map((subject) => (
         <section key={subject.id ?? "none"} aria-labelledby={`subject-${subject.id ?? "none"}`} className="flex flex-col gap-3">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 id={`subject-${subject.id ?? "none"}`} className="text-lg font-semibold">
+            <h2 id={`subject-${subject.id ?? "none"}`} className={SECTION_TITLE}>
               {subject.name}
               <span className="ml-2 text-sm font-normal text-muted-foreground">
                 {subject.concepts} concept{subject.concepts === 1 ? "" : "s"}

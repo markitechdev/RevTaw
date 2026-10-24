@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Logo } from "@/components/brand/logo";
 import { buttonClasses } from "@/components/ui/button";
+import { PAGE_TITLE } from "@/components/ui/typography";
 import { routes } from "@/lib/routes";
 
 export default function NotFound() {
@@ -13,7 +14,7 @@ export default function NotFound() {
       <main className="flex flex-1 items-center justify-center px-4 pb-16">
         <div className="flex max-w-md flex-col items-center gap-4 text-center">
           <p className="text-sm font-medium text-primary">404</p>
-          <h1 className="text-2xl font-semibold tracking-tight">This page does not exist</h1>
+          <h1 className={PAGE_TITLE}>This page does not exist</h1>
           <p className="text-sm text-muted-foreground">
             The link may be outdated, or the page may have moved. Your materials and progress are
             safe.

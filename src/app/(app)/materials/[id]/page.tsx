@@ -18,6 +18,7 @@ import { TrackOpen } from "@/components/materials/track-open";
 import { formatRelativeDate, placementOf } from "@/components/materials/material-card";
 import { buttonClasses } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
+import { PAGE_TITLE } from "@/components/ui/typography";
 import { listMastery } from "@/lib/adaptive/engine";
 import { listReviewTasks } from "@/lib/planner/queries";
 import { formatBytes, SOURCE_LABEL } from "@/lib/materials/constants";
@@ -103,7 +104,7 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
           {material.subject ? material.subject.name : "All materials"}
         </Link>
         <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight wrap-anywhere">{material.title}</h1>
+          <h1 className={PAGE_TITLE}>{material.title}</h1>
           <p className="text-sm text-muted-foreground">
             {material.subject ? material.subject.name : "No subject"}
             {material.folder ? ` · ${material.folder.name}` : ""}

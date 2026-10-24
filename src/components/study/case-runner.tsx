@@ -131,7 +131,7 @@ export function CaseRunner({ session, methodName, parentSessionId = null, parent
             </Badge>
             {item.concept && <Badge tone="primary">{item.concept.name}</Badge>}
           </div>
-          <h2 id="case-title" className="text-lg font-medium leading-snug">
+          <h2 id="case-title" className="font-display tracking-display text-lg font-medium leading-snug">
             {view.title}
           </h2>
           <div className="flex flex-col gap-3 text-[15px] leading-relaxed">

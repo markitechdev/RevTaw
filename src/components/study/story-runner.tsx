@@ -171,7 +171,7 @@ export function StoryRunner({ session, methodName, parentSessionId = null, paren
           {item.concept && <Badge tone="primary">{item.concept.name}</Badge>}
           <span className="text-muted-foreground">{view.facts.length} facts</span>
         </div>
-        <h2 id="story-title" className="text-lg font-medium leading-snug">
+        <h2 id="story-title" className="font-display tracking-display text-lg font-medium leading-snug">
           {view.title}
         </h2>
 

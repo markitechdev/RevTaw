@@ -37,7 +37,7 @@ export default function LandingPage() {
                 Created by <span className="text-foreground">{BRAND.creator}</span>
               </span>
             </p>
-            <h1 className="mt-5 text-[clamp(2.4rem,6.2vw,4.25rem)] font-extrabold leading-[1.04] tracking-tight text-foreground">
+            <h1 className="mt-5 font-display text-[clamp(2.4rem,6.2vw,4.25rem)] font-extrabold leading-[1.04] tracking-tight text-foreground">
               <TypingHeadline phrases={HEADLINE} langs={["fil", undefined]} />
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
@@ -77,7 +77,7 @@ export default function LandingPage() {
         <Reveal className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
           <div>
             <p className="text-sm font-semibold text-primary">What it does</p>
-            <h2 className="mt-2 text-3xl font-bold leading-tight sm:text-4xl">Not just a reviewer generator.</h2>
+            <h2 className="mt-2 font-display text-3xl font-bold leading-tight tracking-display sm:text-4xl">Not just a reviewer generator.</h2>
             <p className="mt-4 max-w-md text-muted-foreground">
               {BRAND.name} keeps track of what you know, what you keep getting wrong and when you need to see it again — so every session counts.
             </p>
@@ -100,7 +100,7 @@ export default function LandingPage() {
       <section id="how-it-works" className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-20 sm:px-6">
         <Reveal>
           <p className="text-sm font-semibold text-primary">How it works</p>
-          <h2 className="mt-2 max-w-2xl text-3xl font-bold leading-tight sm:text-4xl">From a pile of notes to exam-ready, one loop at a time.</h2>
+          <h2 className="mt-2 max-w-2xl font-display text-3xl font-bold leading-tight tracking-display sm:text-4xl">From a pile of notes to exam-ready, one loop at a time.</h2>
           <div className="mt-10">
             <HowItWorks />
           </div>
@@ -111,7 +111,7 @@ export default function LandingPage() {
       <section id="study-methods" className="scroll-mt-20 border-t border-border bg-card/50">
         <Reveal className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
           <p className="text-sm font-semibold text-primary">Study methods</p>
-          <h2 className="mt-2 max-w-2xl text-3xl font-bold leading-tight sm:text-4xl">A method isn&apos;t a label. It changes the session.</h2>
+          <h2 className="mt-2 max-w-2xl font-display text-3xl font-bold leading-tight tracking-display sm:text-4xl">A method isn&apos;t a label. It changes the session.</h2>
           <p className="mt-4 max-w-2xl text-muted-foreground">What you see first, when the answer shows up and what comes back tomorrow — pick one to see how.</p>
           <div className="mt-10">
             <MethodExplorer />

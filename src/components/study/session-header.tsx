@@ -58,7 +58,7 @@ export function SessionHeader({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Badge tone="primary">{methodName}</Badge>
-          <h1 className="truncate text-base font-medium">{title}</h1>
+          <h1 className="truncate font-display text-base font-medium tracking-display">{title}</h1>
           {progressLabel && <span className="text-sm text-muted-foreground">· {progressLabel}</span>}
         </div>
         <div className="flex items-center gap-3">

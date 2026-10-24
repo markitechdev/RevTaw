@@ -8,6 +8,7 @@ import { ExportMenu } from "@/components/export/export-menu";
 import { AttemptResults } from "@/components/quizzes/attempt-results";
 import { QuizRunner } from "@/components/quizzes/quiz-runner";
 import { buttonClasses } from "@/components/ui/button";
+import { PAGE_TITLE } from "@/components/ui/typography";
 import { getAttemptResults, getAttemptRunner, getQuiz } from "@/lib/quizzes/queries";
 import { expireIfNeeded } from "@/lib/quizzes/service";
 import { routes } from "@/lib/routes";
@@ -63,7 +64,7 @@ export default async function AttemptPage({ params }: PageProps<"/quiz/[id]/atte
           {quiz.title}
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight">Results</h1>
+          <h1 className={PAGE_TITLE}>Results</h1>
           <div className="flex flex-wrap items-center gap-2">
             <ExportMenu target={{ kind: "results", id: attemptId }} label="Export results" />
             {session && (

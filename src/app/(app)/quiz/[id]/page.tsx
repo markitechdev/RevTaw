@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { GeneratingState } from "@/components/ui/generating-state";
+import { PAGE_TITLE } from "@/components/ui/typography";
 import { getQuiz } from "@/lib/quizzes/queries";
 import { DIFFICULTY_LABEL, QUESTION_TYPE_BY_ID, QUIZ_MODE_LABEL } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
@@ -49,7 +50,7 @@ export default async function QuizDetailPage({ params }: PageProps<"/quiz/[id]">
             <Badge tone="neutral">{quiz.config.difficulty === "mixed" ? "Mixed difficulty" : quiz.config.difficulty === "adaptive" ? "Adaptive difficulty" : DIFFICULTY_LABEL[quiz.config.difficulty]}</Badge>
             {quiz.status === "generating" && <Badge tone="neutral">Generating…</Badge>}
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight wrap-anywhere">{quiz.title}</h1>
+          <h1 className={PAGE_TITLE}>{quiz.title}</h1>
           <p className="text-sm text-muted-foreground">
             {quiz.material ? (
               <>

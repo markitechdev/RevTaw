@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { SECTION_TITLE } from "@/components/ui/typography";
 import { routes } from "@/lib/routes";
 import { PALACE_SUGGESTIONS, type PalaceInput, type PalaceLocation, type PalaceSummary } from "@/lib/study/memory-options";
 import { deletePalaceAction, savePalaceAction } from "@/lib/study/method-actions";
@@ -249,7 +250,7 @@ export function PalaceLibrary({ palaces, lastUsedLabels }: { palaces: PalaceSumm
   return (
     <section aria-labelledby="palaces-heading" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="palaces-heading" className="text-lg font-semibold">
+        <h2 id="palaces-heading" className={SECTION_TITLE}>
           Memory palaces
         </h2>
         <div className="flex flex-wrap items-center gap-2">

@@ -56,7 +56,7 @@ function PalaceSetup({ session, methodName, palaces, parentSessionId = null, par
       {error && <Alert tone="error">{error}</Alert>}
       <section aria-labelledby="palace-setup" className="mx-auto flex w-full max-w-3xl flex-col gap-4 rounded-xl border border-border bg-card p-5">
         <div className="flex flex-col gap-1">
-          <h2 id="palace-setup" className="text-lg font-medium">
+          <h2 id="palace-setup" className="font-display tracking-display text-lg font-medium">
             {palaces.length ? "Choose your memory palace" : "Build your first memory palace"}
           </h2>
           <p className="text-sm text-muted-foreground">Pick a place you know well. RevTaw puts one key concept from the material at each location, in walking order, with an image that still says what it means.</p>
@@ -152,7 +152,7 @@ function PalacePlacements({ session, methodName, parentSessionId = null, parentL
               {state.palaceTitle ?? "Memory palace"}
             </Badge>
           </div>
-          <h2 id="palace-placements" className="text-lg font-medium">
+          <h2 id="palace-placements" className="font-display tracking-display text-lg font-medium">
             Picture each image at its place
           </h2>
           <p className="text-sm text-muted-foreground">Walk the route in your mind twice, seeing every image where it sits. When you start the walk, the concepts are hidden and you name each one at its stop.</p>
@@ -289,7 +289,7 @@ function PalaceWalk({ session, methodName, parentSessionId = null, parentLabel }
             <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
             Stop {view.stop} of {view.total}
           </p>
-          <h2 id="loci-location" className="text-xl font-semibold">
+          <h2 id="loci-location" className="font-display tracking-display text-xl font-semibold">
             {view.location}
           </h2>
           {view.detail && <p className="text-sm text-muted-foreground">{view.detail}</p>}

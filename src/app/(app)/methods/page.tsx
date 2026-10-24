@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { SECTION_TITLE } from "@/components/ui/typography";
 import { routes } from "@/lib/routes";
 import { isBuilderMethod, METHOD_BEHAVIOUR } from "@/lib/study/catalog";
 import { STUDY_METHODS } from "@/lib/study/methods";
@@ -42,7 +43,7 @@ export default function MethodsPage() {
       />
 
       <section aria-labelledby="available-heading" className="flex flex-col gap-3">
-        <h2 id="available-heading" className="text-lg font-semibold">
+        <h2 id="available-heading" className={SECTION_TITLE}>
           {upcoming.length > 0 ? "Available now" : `All ${available.length} methods`}
         </h2>
         <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -54,7 +55,7 @@ export default function MethodsPage() {
                 <Card className="flex h-full flex-col">
                   <CardContent className="flex h-full flex-col gap-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="text-base font-semibold">{method.name}</h3>
+                      <h3 className="font-display text-base font-semibold tracking-display">{method.name}</h3>
                       <Badge tone="neutral">
                         <Clock className="h-3 w-3" aria-hidden="true" />
                         {behavior.suggestedMinutes} min
@@ -94,7 +95,7 @@ export default function MethodsPage() {
 
       {upcoming.length > 0 && (
         <section aria-labelledby="upcoming-heading" className="flex flex-col gap-3">
-          <h2 id="upcoming-heading" className="text-lg font-semibold">
+          <h2 id="upcoming-heading" className={SECTION_TITLE}>
             Coming in later phases
           </h2>
           <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">

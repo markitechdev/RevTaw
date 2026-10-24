@@ -149,7 +149,7 @@ export function ProblemRunner({ session, methodName, parentSessionId = null, par
 
         {stage === "example" && worked ? (
           <>
-            <h2 id="problem-heading" className="flex items-center gap-2 text-lg font-medium">
+            <h2 id="problem-heading" className="font-display tracking-display flex items-center gap-2 text-lg font-medium">
               <ListOrdered className="h-5 w-5 text-primary" aria-hidden="true" />
               Worked example
             </h2>
@@ -182,7 +182,7 @@ export function ProblemRunner({ session, methodName, parentSessionId = null, par
           </>
         ) : (
           <>
-            <h2 id="problem-heading" className="flex items-center gap-2 text-lg font-medium">
+            <h2 id="problem-heading" className="font-display tracking-display flex items-center gap-2 text-lg font-medium">
               <PencilLine className="h-5 w-5 text-primary" aria-hidden="true" />
               {worked ? "Your turn: a similar problem" : faded ? (faded.givenSteps.length ? "Complete the solution" : "Solve it on your own") : "Problem"}
             </h2>

@@ -288,7 +288,7 @@ export function DualCodingRunner({ session, methodName, parentSessionId = null, 
             />
           )}
         </div>
-        <h2 id="visual-title" className="text-lg font-medium leading-snug">
+        <h2 id="visual-title" className="font-display tracking-display text-lg font-medium leading-snug">
           {topic.title}
         </h2>
 

@@ -8,6 +8,7 @@ import { Markdown } from "@/components/content/markdown";
 import { Alert } from "@/components/forms/form-alert";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
+import { SECTION_TITLE } from "@/components/ui/typography";
 import { updateReviewerSectionAction } from "@/lib/reviewers/actions";
 import { cn } from "@/lib/utils";
 
@@ -95,7 +96,7 @@ export function ReviewerSectionView({ reviewerId, section }: { reviewerId: strin
             className="max-w-md font-semibold"
           />
         ) : (
-          <h2 id={`section-heading-${section.id}`} className="text-lg font-semibold text-foreground">
+          <h2 id={`section-heading-${section.id}`} className={cn(SECTION_TITLE, "text-foreground")}>
             {heading}
           </h2>
         )}

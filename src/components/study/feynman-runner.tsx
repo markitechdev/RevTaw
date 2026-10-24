@@ -150,7 +150,7 @@ export function FeynmanRunner({ session, methodName, parentSessionId = null, par
           </Badge>
           {item.concept && <Badge tone="neutral">{item.concept.name}</Badge>}
         </div>
-        <h2 id="feynman-concept" className="text-lg font-medium leading-snug">
+        <h2 id="feynman-concept" className="font-display tracking-display text-lg font-medium leading-snug">
           Explain <span className="text-primary">{item.prompt}</span> as if you were teaching a beginner.
         </h2>
         <p className="text-sm text-muted-foreground">

@@ -91,7 +91,7 @@ export function HowItWorks() {
                 selected ? "border-primary bg-card" : "border-transparent hover:bg-card/60",
               )}
             >
-              <span className={cn("font-display text-2xl font-bold tabular-nums", selected ? "text-primary" : "text-muted-foreground")} aria-hidden="true">
+              <span className={cn("font-display tracking-display text-2xl font-bold tabular-nums", selected ? "text-primary" : "text-muted-foreground")} aria-hidden="true">
                 {String(index + 1).padStart(2, "0")}
               </span>
               <span className="flex min-w-0 flex-col gap-1">

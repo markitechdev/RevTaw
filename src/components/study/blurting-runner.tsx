@@ -149,7 +149,7 @@ export function BlurtingRunner({ session, methodName, parentSessionId = null, pa
           <Badge tone="primary">Attempt {Math.max(1, Math.min(2, rounds.length + (source ? 0 : 1)))} of 2</Badge>
           {item.concept && <Badge tone="neutral">{item.concept.name}</Badge>}
         </div>
-        <h2 id="blurt-topic" className="text-lg font-medium leading-snug">
+        <h2 id="blurt-topic" className="font-display tracking-display text-lg font-medium leading-snug">
           Topic: <span className="text-primary">{item.prompt}</span>
         </h2>
         <p className="text-sm text-muted-foreground">Write everything you remember about this section — definitions, steps, examples, numbers. Order and polish do not matter; coverage does.</p>

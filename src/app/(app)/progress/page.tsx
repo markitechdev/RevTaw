@@ -14,6 +14,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { SECTION_TITLE } from "@/components/ui/typography";
 import { getMasterySummary, listMastery } from "@/lib/adaptive/engine";
 import { MASTERY_THRESHOLD, STATUS_BANDS, STATUS_LABEL } from "@/lib/adaptive/mastery";
 import { getRecommendations } from "@/lib/adaptive/recommend";
@@ -215,7 +216,7 @@ export default async function ProgressPage() {
 
       <section aria-labelledby="mastery-heading" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <h2 id="mastery-heading" className="text-lg font-semibold">
+          <h2 id="mastery-heading" className={SECTION_TITLE}>
             Concept mastery
           </h2>
           <p className="text-xs text-muted-foreground">{STATUS_BANDS}. Mastery is how likely you know it times how well you can recall it today, so it fades until the next review.</p>

@@ -27,7 +27,7 @@ export function ExamCard({ exam, today, compact = false, actions, headingLevel: 
         <div className="min-w-0">
           {/* The heading is the title alone; the badges sit beside it. */}
           <div className="flex flex-wrap items-center gap-2">
-            <Heading className="min-w-0 text-base font-semibold wrap-anywhere">
+            <Heading className="min-w-0 font-display text-base font-semibold tracking-display wrap-anywhere">
               {onPage ? (
                 exam.title
               ) : (

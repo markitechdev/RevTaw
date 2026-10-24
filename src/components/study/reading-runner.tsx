@@ -52,7 +52,7 @@ function Panel({ title, icon: Icon, intro, children }: { title: string; icon: ty
   return (
     <section aria-labelledby="reading-stage-title" className="mx-auto flex w-full max-w-3xl flex-col gap-4 rounded-xl border border-border bg-card p-5">
       <div>
-        <h2 id="reading-stage-title" className="flex items-center gap-2 text-lg font-medium">
+        <h2 id="reading-stage-title" className="font-display tracking-display flex items-center gap-2 text-lg font-medium">
           <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
           {title}
         </h2>

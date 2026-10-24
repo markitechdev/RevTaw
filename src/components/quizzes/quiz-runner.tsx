@@ -249,7 +249,7 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
               {question.points} {question.points === 1 ? "point" : "points"}
             </span>
           </div>
-          <h2 id="question-heading" className="whitespace-pre-wrap text-lg font-medium leading-snug text-foreground">
+          <h2 id="question-heading" className="font-display tracking-display whitespace-pre-wrap text-lg font-medium leading-snug text-foreground">
             {question.prompt}
           </h2>
 

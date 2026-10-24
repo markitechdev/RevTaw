@@ -117,7 +117,7 @@ export function QuestionGenRunner({ session, methodName, parentSessionId = null,
 
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
         <section aria-labelledby="question-gen-heading" className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
-          <h2 id="question-gen-heading" className="flex items-center gap-2 text-lg font-medium">
+          <h2 id="question-gen-heading" className="font-display tracking-display flex items-center gap-2 text-lg font-medium">
             <HelpCircle className="h-5 w-5 text-primary" aria-hidden="true" />
             Write a question an examiner could ask
           </h2>

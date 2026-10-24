@@ -246,6 +246,11 @@
 @theme inline {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Bricolage Grotesque Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  /* Titles are set in the display face by role (see src/components/ui/typography.ts), with this tracking. */
+  --tracking-display: -0.012em;
+  /* The page title: every app page, detail page and screen outside the app (30 px from sm up). */
+  --text-title: 1.75rem;
+  --text-title--line-height: 1.25;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -391,12 +396,6 @@
     text-rendering: optimizeLegibility;
     /* A file name or link with no spaces breaks instead of pushing the page sideways on a phone. */
     overflow-wrap: break-word;
-  }
-  /* Display type for page and section titles: the RevTaw voice. */
-  h1,
-  h2 {
-    font-family: var(--font-display);
-    letter-spacing: -0.012em;
   }
   ::selection {
     background-color: var(--highlight);

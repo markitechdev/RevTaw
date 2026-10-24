@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 
+import { SECTION_TITLE } from "@/components/ui/typography";
 import { cn } from "@/lib/utils";
 
 /**
@@ -61,7 +62,7 @@ export function Sheet({
     >
       <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
         <div className="min-w-0">
-          <h2 id={titleId} className="text-lg font-semibold">
+          <h2 id={titleId} className={SECTION_TITLE}>
             {title}
           </h2>
           {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}

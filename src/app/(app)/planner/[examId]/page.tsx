@@ -15,6 +15,7 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SECTION_TITLE } from "@/components/ui/typography";
 import { listMaterials, listSubjects } from "@/lib/materials/queries";
 import { formatDate, WEEKDAY_LONG, weekdayOf } from "@/lib/planner/dates";
 import { CRAM_NOTE } from "@/lib/planner/generate";
@@ -129,7 +130,7 @@ export default async function ExamPlanPage({ params }: PageProps<"/planner/[exam
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="flex flex-col gap-4 lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold">Schedule</h2>
+            <h2 className={SECTION_TITLE}>Schedule</h2>
             <AddActivityButton options={activityOptions} examId={exam.id} label="Add task" />
           </div>
           {futureDays.length === 0 && pastDays.length === 0 ? (

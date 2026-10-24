@@ -145,7 +145,7 @@ export function ChunkRunner({ session, methodName, parentSessionId = null, paren
           </Badge>
           {item.concept && <Badge tone="primary">{item.concept.name}</Badge>}
         </div>
-        <h2 id="chunk-title" className="text-lg font-medium leading-snug">
+        <h2 id="chunk-title" className="font-display tracking-display text-lg font-medium leading-snug">
           {chunk.title}
         </h2>
 

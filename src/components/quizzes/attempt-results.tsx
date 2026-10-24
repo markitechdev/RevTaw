@@ -7,6 +7,7 @@ import { AskWhyWrongButton } from "@/components/tutor/ask-why-wrong";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SECTION_TITLE } from "@/components/ui/typography";
 import type { AttemptResultsView } from "@/lib/quizzes/queries";
 import { CONFIDENCE_LABEL, DIFFICULTY_LABEL, QUESTION_TYPE_BY_ID, QUIZ_MODE_LABEL } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
@@ -138,7 +139,7 @@ export function AttemptResults({ view, questionCount }: { view: AttemptResultsVi
       </div>
 
       <section aria-labelledby="review-heading" className="flex flex-col gap-3">
-        <h2 id="review-heading" className="text-lg font-semibold">
+        <h2 id="review-heading" className={SECTION_TITLE}>
           Question review
         </h2>
         <ol className="flex flex-col gap-3">

@@ -14,6 +14,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/error-state";
 import { GeneratingState } from "@/components/ui/generating-state";
+import { PAGE_TITLE, SECTION_TITLE } from "@/components/ui/typography";
 import { getDeck } from "@/lib/flashcards/queries";
 import { routes } from "@/lib/routes";
 
@@ -44,7 +45,7 @@ export default async function DeckPage({ params }: PageProps<"/flashcards/[deckI
             {deck.status === "ready" && <Badge tone={deck.dueCount > 0 ? "primary" : "success"}>{deck.dueCount > 0 ? `${deck.dueCount} due now` : "Nothing due"}</Badge>}
             {deck.status === "generating" && <Badge tone="neutral">Generating…</Badge>}
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight wrap-anywhere">{deck.title}</h1>
+          <h1 className={PAGE_TITLE}>{deck.title}</h1>
           <p className="text-sm text-muted-foreground">
             {deck.material ? (
               <>
@@ -118,7 +119,7 @@ export default async function DeckPage({ params }: PageProps<"/flashcards/[deckI
           </div>
 
           <section aria-labelledby="cards-heading" className="flex flex-col gap-3">
-            <h2 id="cards-heading" className="text-lg font-semibold">
+            <h2 id="cards-heading" className={SECTION_TITLE}>
               Cards
             </h2>
             <CardList cards={deck.cards} renderedAt={deck.fetchedAt} />

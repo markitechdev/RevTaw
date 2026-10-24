@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 export function WidgetHeading({ id, icon: Icon, title, action }: { id?: string; icon?: LucideIcon; title: string; action?: { href: string; label: string } }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <h2 id={id} className="flex items-center gap-2 font-sans text-sm font-semibold tracking-normal text-foreground">
+      <h2 id={id} className="flex items-center gap-2 text-sm font-semibold text-foreground">
         {Icon && <Icon className="h-4 w-4 text-primary" aria-hidden="true" />}
         {title}
       </h2>
@@ -39,12 +39,12 @@ export function WidgetPanel({ children, className, labelledBy }: { children: Rea
 export function StatTile({ icon: Icon, label, value, unit, caption, href, children }: { icon: LucideIcon; label: string; value: ReactNode; unit?: string; caption?: ReactNode; href?: string; children?: ReactNode }) {
   const body = (
     <>
-      <h2 className="flex items-center gap-1.5 font-sans text-xs font-semibold tracking-normal text-muted-foreground">
+      <h2 className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
         <Icon className="h-3.5 w-3.5" aria-hidden="true" />
         {label}
       </h2>
       <p className="mt-2 flex items-baseline gap-1">
-        <span className="font-display text-3xl font-bold leading-none tabular-nums text-foreground">{value}</span>
+        <span className="font-display tracking-display text-3xl font-bold leading-none tabular-nums text-foreground">{value}</span>
         {unit && <span className="text-sm font-medium text-muted-foreground">{unit}</span>}
       </p>
       {caption && <p className="mt-1.5 text-xs text-muted-foreground">{caption}</p>}

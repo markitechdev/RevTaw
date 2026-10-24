@@ -88,7 +88,7 @@ function FlashcardDemo() {
             <span>Biology · Card 3 of 12</span>
             <span className="rounded-full bg-highlight px-2 py-0.5 text-highlight-foreground">Box 2</span>
           </span>
-          <span className="font-display text-xl font-semibold leading-snug text-foreground">What does chlorophyll absorb best?</span>
+          <span className="font-display tracking-display text-xl font-semibold leading-snug text-foreground">What does chlorophyll absorb best?</span>
           <span className="text-xs text-muted-foreground group-hover:text-primary">Tap to flip</span>
         </span>
         <span
@@ -96,7 +96,7 @@ function FlashcardDemo() {
           className="absolute inset-0 flex flex-col justify-between rounded-2xl border border-primary/40 bg-primary-soft p-5 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]"
         >
           <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">Answer</span>
-          <span className="font-display text-xl font-semibold leading-snug text-foreground">Red and blue light — it reflects green, which is why leaves look green.</span>
+          <span className="font-display tracking-display text-xl font-semibold leading-snug text-foreground">Red and blue light — it reflects green, which is why leaves look green.</span>
           <span className="text-xs text-primary">How well did you know it? Again · Hard · Good · Easy</span>
         </span>
       </button>

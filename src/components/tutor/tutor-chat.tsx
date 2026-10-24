@@ -157,7 +157,7 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
           <div className="flex min-w-0 flex-col gap-1">
-            <h1 className="truncate text-base font-medium">{conversation.title}</h1>
+            <h1 className="truncate font-display text-base font-medium tracking-display">{conversation.title}</h1>
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <Badge tone="primary">{modeInfo.label}</Badge>
               {conversation.material ? (

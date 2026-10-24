@@ -62,7 +62,7 @@ export function MaterialContent({ chunks }: { chunks: MaterialChunkView[] }) {
         return (
           <section key={chunk.id} id={`chunk-${chunk.position + 1}`} aria-label={chunk.heading ?? `Section ${chunk.position + 1}`} className="scroll-mt-20">
             <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-base font-semibold text-foreground">
+              <h2 className="font-display text-base font-semibold tracking-display text-foreground">
                 {chunk.heading ?? `Section ${chunk.position + 1}`}
               </h2>
               <span className="text-xs text-muted-foreground">

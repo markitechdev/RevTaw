@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Alert } from "@/components/forms/form-alert";
 import { OnboardingForm } from "@/components/profile/onboarding-form";
 import { Card, CardContent } from "@/components/ui/card";
+import { PAGE_TITLE } from "@/components/ui/typography";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { routes } from "@/lib/routes";
 
@@ -29,7 +30,7 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
 
       <div className="flex flex-col gap-2">
         <p className="text-sm font-medium text-primary">Quick setup · about a minute</p>
-        <h1 className="text-3xl font-semibold tracking-tight">
+        <h1 className={PAGE_TITLE}>
           {firstName ? `Hi ${firstName}, let's set up your reviewer.` : "Let's set up your reviewer."}
         </h1>
         <p className="max-w-xl text-muted-foreground">

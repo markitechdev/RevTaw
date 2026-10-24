@@ -140,7 +140,7 @@ function HeroFrame({ tamari, eyebrow, title, details, actions }: { tamari?: Reac
           <div className="@2xl:row-span-2">{tamari}</div>
           <div data-tamari-lead="" className="min-w-0 pr-8 @2xl:pr-0">
             <HeroEyebrow>{eyebrow}</HeroEyebrow>
-            <p className="mt-1.5 line-clamp-3 font-display text-xl leading-tight font-semibold text-foreground @md:text-2xl @2xl:mt-2 @2xl:line-clamp-2 @2xl:text-[1.75rem]">{keepNumberWords(title)}</p>
+            <p className="mt-1.5 line-clamp-3 font-display tracking-display text-xl leading-tight font-semibold text-foreground @md:text-2xl @2xl:mt-2 @2xl:line-clamp-2 @2xl:text-title">{keepNumberWords(title)}</p>
           </div>
           <div data-tamari-lead="" className="col-span-2 min-w-0 @2xl:col-span-1 @2xl:col-start-2">
             {details}
@@ -154,7 +154,7 @@ function HeroFrame({ tamari, eyebrow, title, details, actions }: { tamari?: Reac
 
 function HeroEyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <h2 id="w-continue" className="font-sans text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+    <h2 id="w-continue" className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
       {children}
     </h2>
   );
@@ -172,13 +172,13 @@ export async function RecommendationWidget() {
 
   return (
     <section aria-labelledby="w-recommendation" className="@container flex h-full flex-col gap-3 rounded-2xl border border-primary/20 bg-primary-soft p-5">
-      <h2 id="w-recommendation" className="flex items-center gap-2 font-sans text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+      <h2 id="w-recommendation" className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary">
         <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
         RevTaw recommends
       </h2>
       {top ? (
         <>
-          <p className="font-display text-lg font-semibold leading-snug text-foreground">{top.title}</p>
+          <p className="font-display tracking-display text-lg font-semibold leading-snug text-foreground">{top.title}</p>
           <p className="line-clamp-3 text-sm text-muted-foreground">{top.reason}</p>
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-muted-foreground">
             <span className="inline-flex items-center gap-1">
@@ -203,7 +203,7 @@ export async function RecommendationWidget() {
         </>
       ) : (
         <>
-          <p className="font-display text-lg font-semibold leading-snug text-foreground">{materialCount === 0 ? "Recommendations start after your first material." : "Take one quick quiz first."}</p>
+          <p className="font-display tracking-display text-lg font-semibold leading-snug text-foreground">{materialCount === 0 ? "Recommendations start after your first material." : "Take one quick quiz first."}</p>
           <p className="text-sm text-muted-foreground">
             {materialCount === 0
               ? "Once RevTaw sees how you answer, it suggests what to review next and tells you why."
@@ -273,7 +273,7 @@ export async function DueTodayWidget({ planning }: { planning: Promise<unknown> 
   return (
     <section aria-labelledby="w-due" className="@container flex h-full flex-col gap-3 rounded-2xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <h2 id="w-due" className="flex items-center gap-2 font-sans text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+        <h2 id="w-due" className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary">
           <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
           Due today
         </h2>
@@ -291,7 +291,7 @@ export async function DueTodayWidget({ planning }: { planning: Promise<unknown> 
 
       {visible.length === 0 ? (
         <div className="flex flex-1 flex-col items-start justify-center gap-1 py-4">
-          <p className="flex items-center gap-2 font-display text-lg font-semibold text-foreground">
+          <p className="flex items-center gap-2 font-display tracking-display text-lg font-semibold text-foreground">
             <CheckCircle2 className="h-5 w-5 text-success" aria-hidden="true" />
             All caught up for today.
           </p>

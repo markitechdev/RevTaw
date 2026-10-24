@@ -192,7 +192,7 @@ export function RecallRunner({ session, methodName, parentSessionId = null, pare
             {answered} answered · {items.length - answered} left
           </span>
         </div>
-        <h2 id="recall-prompt" className="whitespace-pre-wrap text-lg font-medium leading-snug">
+        <h2 id="recall-prompt" className="font-display tracking-display whitespace-pre-wrap text-lg font-medium leading-snug">
           {item.prompt}
         </h2>
 

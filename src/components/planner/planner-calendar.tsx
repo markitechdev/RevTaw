@@ -9,6 +9,7 @@ import { ActivityDialog, type ActivityOptions } from "@/components/planner/activ
 import { TaskItem } from "@/components/planner/task-item";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { ChipGroup } from "@/components/ui/chip-group";
+import { SECTION_TITLE } from "@/components/ui/typography";
 import { monthGrid, shiftMonth } from "@/lib/planner/calendar";
 import { addDays, formatDate, WEEKDAY_LONG, WEEKDAY_SHORT, weekdayOf } from "@/lib/planner/dates";
 import type { CalendarExam, TaskView } from "@/lib/planner/queries";
@@ -162,7 +163,7 @@ export function PlannerCalendar({ month, selected: initialSelected, today, tasks
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <CalendarDays className="h-5 w-5 text-primary" aria-hidden="true" />
-          <h2 id={titleId} className="text-lg font-semibold">
+          <h2 id={titleId} className={SECTION_TITLE}>
             {monthLabel(month)}
           </h2>
         </div>
@@ -271,7 +272,7 @@ export function PlannerCalendar({ month, selected: initialSelected, today, tasks
 
         <section ref={panelRef} id={panelId} aria-labelledby={`${panelId}-title`} className="flex scroll-mt-20 flex-col gap-3 rounded-xl border border-border bg-card p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 id={`${panelId}-title`} className="font-display text-base font-semibold">
+            <h3 id={`${panelId}-title`} className="font-display tracking-display text-base font-semibold">
               {selected === today ? `Today · ${selectedLabel}` : selectedLabel}
             </h3>
             <Button type="button" size="sm" onClick={() => setDialog({ date: selected, task: null })} aria-haspopup="dialog">

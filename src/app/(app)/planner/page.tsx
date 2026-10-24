@@ -11,6 +11,7 @@ import { PlannerCalendar } from "@/components/planner/planner-calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { SECTION_TITLE } from "@/components/ui/typography";
 import { listMaterials, listSubjects } from "@/lib/materials/queries";
 import { syncNotifications } from "@/lib/notifications/service";
 import { monthGrid } from "@/lib/planner/calendar";
@@ -115,7 +116,7 @@ export default async function PlannerPage({ searchParams }: PageProps<"/planner"
 
       <section aria-labelledby="exams-heading" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <h2 id="exams-heading" className="text-lg font-semibold">
+          <h2 id="exams-heading" className={SECTION_TITLE}>
             Upcoming exams
           </h2>
           <p className="text-xs text-muted-foreground">Readiness blends the mastery of an exam&rsquo;s materials with how much of its plan is done.</p>

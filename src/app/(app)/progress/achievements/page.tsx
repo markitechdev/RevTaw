@@ -8,6 +8,7 @@ import { BadgeGrid, LevelCard, XpHistory } from "@/components/gamification/badge
 import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { SECTION_TITLE } from "@/components/ui/typography";
 import { ACHIEVEMENTS } from "@/lib/gamification/achievements";
 import { getGamificationView, syncGamification } from "@/lib/gamification/sync";
 import { routes } from "@/lib/routes";
@@ -50,7 +51,7 @@ export default async function AchievementsPage() {
         </Card>
       </div>
       <section aria-labelledby="badges-heading" className="flex flex-col gap-4">
-        <h2 id="badges-heading" className="text-lg font-semibold">
+        <h2 id="badges-heading" className={SECTION_TITLE}>
           Badges · {view.unlockedCount} of {ACHIEVEMENTS.length}
         </h2>
         <BadgeGrid badges={view.achievements} />

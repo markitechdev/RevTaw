@@ -1,10 +1,11 @@
 import { SettingsNav } from "@/components/settings/settings-nav";
+import { PAGE_TITLE } from "@/components/ui/typography";
 
 export default function SettingsLayout({ children }: LayoutProps<"/settings">) {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <h1 className={PAGE_TITLE}>Settings</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Your profile and account, and how RevTaw looks, talks and reminds you.
         </p>

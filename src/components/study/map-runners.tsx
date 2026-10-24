@@ -57,7 +57,7 @@ export function MindMapRunner({ session, methodName, map, parentSessionId = null
       <SessionHeader title={session.title} methodName={methodName} startedAt={session.started_at} plannedMinutes={session.planned_minutes} progressLabel={`${answered} branch question${answered === 1 ? "" : "s"} answered`} onEnd={() => finish(answered === 0)} ending={ending} endLabel="Finish session" />
       {error && <Alert tone="error">{error}</Alert>}
       <section aria-labelledby="mind-map-title" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
-        <h2 id="mind-map-title" className="flex items-center gap-2 text-lg font-medium">
+        <h2 id="mind-map-title" className="font-display tracking-display flex items-center gap-2 text-lg font-medium">
           <Workflow className="h-5 w-5 text-primary" aria-hidden="true" />
           {map.title}
         </h2>
@@ -66,7 +66,7 @@ export function MindMapRunner({ session, methodName, map, parentSessionId = null
       </section>
       {questions.length > 0 && (
         <section aria-labelledby="branch-questions" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
-          <h2 id="branch-questions" className="text-lg font-medium">
+          <h2 id="branch-questions" className="font-display tracking-display text-lg font-medium">
             Branch questions
           </h2>
           {questions.map((question) => (
@@ -134,7 +134,7 @@ export function ConceptMapRunner({ session, methodName, map, parentSessionId = n
       {error && <Alert tone="error">{error}</Alert>}
       <section aria-labelledby="concept-map-title" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="concept-map-title" className="flex items-center gap-2 text-lg font-medium">
+          <h2 id="concept-map-title" className="font-display tracking-display flex items-center gap-2 text-lg font-medium">
             <Network className="h-5 w-5 text-primary" aria-hidden="true" />
             {map.title}
           </h2>

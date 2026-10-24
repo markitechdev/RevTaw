@@ -11,6 +11,7 @@ import { FlashcardsWidget, GoalsWidget, PlannerWidget, RecentMaterialsWidget, We
 import { HeroSkeleton, WidgetSkeleton } from "@/components/dashboard/widget-shell";
 import { Alert } from "@/components/forms/form-alert";
 import { TamariHome } from "@/components/tamari/tamari-home";
+import { PAGE_TITLE } from "@/components/ui/typography";
 import { syncGamification } from "@/lib/gamification/sync";
 import { purgeMyExpiredMaterials } from "@/lib/materials/purge";
 import { syncNotifications } from "@/lib/notifications/service";
@@ -22,6 +23,7 @@ import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { routes } from "@/lib/routes";
 import { LATER_COOKIE, parseLater } from "@/lib/tamari/coach";
 import { homeLine } from "@/lib/tamari/hints";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Home",
@@ -134,7 +136,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         header={
           <div className="min-w-0">
             <p className="text-sm font-medium text-muted-foreground">{longDate(clock.today)}</p>
-            <h1 className="mt-0.5 text-[1.75rem] font-bold leading-tight text-foreground wrap-anywhere sm:text-3xl">{greetingFor(clock.timezone, firstName)}</h1>
+            <h1 className={cn(PAGE_TITLE, "mt-0.5")}>{greetingFor(clock.timezone, firstName)}</h1>
             <p lang={line.lang} className="mt-1 text-sm text-muted-foreground">
               {line.text}
             </p>

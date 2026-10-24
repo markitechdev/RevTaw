@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
 import { GeneratingState } from "@/components/ui/generating-state";
+import { PAGE_TITLE } from "@/components/ui/typography";
 import { REVIEWER_KIND_BY_ID } from "@/lib/reviewers/kinds";
 import { getReviewer } from "@/lib/reviewers/queries";
 import { routes } from "@/lib/routes";
@@ -46,7 +47,7 @@ export default async function ReviewerPage({ params }: PageProps<"/notes/[id]">)
             <Badge tone="primary">{kind.name}</Badge>
             {reviewer.status === "generating" && <Badge tone="neutral">Generating…</Badge>}
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight wrap-anywhere">{reviewer.title}</h1>
+          <h1 className={PAGE_TITLE}>{reviewer.title}</h1>
           <p className="text-sm text-muted-foreground">
             {reviewer.material ? (
               <>
