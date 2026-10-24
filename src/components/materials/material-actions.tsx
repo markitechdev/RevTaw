@@ -14,6 +14,7 @@ import {
   type PlacementValue,
 } from "@/components/materials/placement-fields";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { MATERIAL_TITLE_MAX } from "@/lib/materials/constants";
@@ -197,36 +198,28 @@ export function MaterialActions({
         </form>
       </Dialog>
 
-      <Dialog open={dialog === "delete"} onClose={close} title="Delete this material?" dismissible={!pending}>
-        <div className="flex flex-col gap-4">
-          <p className="text-sm">
-            “{title}” moves to the Archive. You can restore it there for {ARCHIVE_DAYS} days; after that, its file, extracted text and
-            analysis are deleted permanently.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {KEPT_ITEMS} made from it always stay{filedUnder ? `, filed under ${filedUnder}` : ""}.
-          </p>
-          {error && <Alert tone="error">{error}</Alert>}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={close} disabled={pending}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              loading={pending}
-              onClick={() =>
-                handle(
-                  () => setMaterialArchivedAction(materialId, true),
-                  () => router.push(`${routes.materials}?notice=archived&material=${materialId}`),
-                )
-              }
-            >
-              Move to Archive
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+      <ConfirmDialog
+        open={dialog === "delete"}
+        title="Delete this material?"
+        confirmLabel="Move to Archive"
+        pending={pending}
+        error={dialog === "delete" ? error : null}
+        onCancel={close}
+        onConfirm={() =>
+          handle(
+            () => setMaterialArchivedAction(materialId, true),
+            () => router.push(`${routes.materials}?notice=archived&material=${materialId}`),
+          )
+        }
+      >
+        <p className="text-sm">
+          “{title}” moves to the Archive. You can restore it there for {ARCHIVE_DAYS} days; after that, its file, extracted text and
+          analysis are deleted permanently.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {KEPT_ITEMS} made from it always stay{filedUnder ? `, filed under ${filedUnder}` : ""}.
+        </p>
+      </ConfirmDialog>
     </>
   );
 }

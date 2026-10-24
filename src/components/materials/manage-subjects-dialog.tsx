@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
@@ -135,7 +136,7 @@ function ManageSubjectsDialog({
                       <Button type="button" size="icon" variant="ghost" aria-label={`Add folder to ${subject.name}`} onClick={() => setNewFolder({ subjectId: subject.id, value: "" })}>
                         <FolderPlus className="h-4 w-4" aria-hidden="true" />
                       </Button>
-                      <Button type="button" size="icon" variant="danger-ghost" aria-label={`Delete ${subject.name}`} onClick={() => setConfirmDelete({ kind: "subject", id: subject.id, name: subject.name })}>
+                      <Button type="button" size="icon" variant="danger-ghost" aria-label={`Delete ${subject.name}`} onClick={() => { setError(null); setConfirmDelete({ kind: "subject", id: subject.id, name: subject.name }); }}>
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
                       </Button>
                     </>
@@ -168,7 +169,7 @@ function ManageSubjectsDialog({
                             <Button type="button" size="icon-sm" variant="ghost" aria-label={`Rename ${folder.name}`} onClick={() => setEditing({ kind: "folder", id: folder.id, value: folder.name })}>
                               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                             </Button>
-                            <Button type="button" size="icon-sm" variant="danger-ghost" aria-label={`Delete ${folder.name}`} onClick={() => setConfirmDelete({ kind: "folder", id: folder.id, name: folder.name })}>
+                            <Button type="button" size="icon-sm" variant="danger-ghost" aria-label={`Delete ${folder.name}`} onClick={() => { setError(null); setConfirmDelete({ kind: "folder", id: folder.id, name: folder.name }); }}>
                               <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                             </Button>
                           </>
@@ -201,32 +202,22 @@ function ManageSubjectsDialog({
           </ul>
         )}
 
-        {confirmDelete && (
-          <div className="flex flex-col gap-3 rounded-lg border border-danger/40 bg-danger-soft/60 p-3" role="alertdialog" aria-label="Confirm deletion">
-            <p className="text-sm">
-              Delete {confirmDelete.kind} <span className="font-medium">“{confirmDelete.name}”</span>? Materials inside it are kept.
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button type="button" size="sm" variant="ghost" onClick={() => setConfirmDelete(null)} disabled={pending}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="danger"
-                loading={pending}
-                onClick={() =>
-                  run(
-                    () => (confirmDelete.kind === "subject" ? deleteSubjectAction(confirmDelete.id) : deleteFolderAction(confirmDelete.id)),
-                    () => setConfirmDelete(null),
-                  )
-                }
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        )}
+        <ConfirmDialog
+          open={confirmDelete !== null}
+          title={`Delete this ${confirmDelete?.kind ?? "subject"}?`}
+          description={confirmDelete ? `“${confirmDelete.name}” is removed. Materials inside it are kept.` : undefined}
+          confirmLabel={`Delete ${confirmDelete?.kind ?? "subject"}`}
+          pending={pending}
+          error={confirmDelete ? error : null}
+          onCancel={() => setConfirmDelete(null)}
+          onConfirm={() => {
+            if (!confirmDelete) return;
+            run(
+              () => (confirmDelete.kind === "subject" ? deleteSubjectAction(confirmDelete.id) : deleteFolderAction(confirmDelete.id)),
+              () => setConfirmDelete(null),
+            );
+          }}
+        />
       </div>
     </Dialog>
   );

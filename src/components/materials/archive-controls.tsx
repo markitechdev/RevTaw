@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
 import { Button, type ButtonSize, type ButtonVariant } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { purgeMaterialAction, setMaterialArchivedAction } from "@/lib/materials/organize-actions";
 import { KEPT_ITEMS } from "@/lib/materials/retention";
 import { routes } from "@/lib/routes";
@@ -100,41 +100,33 @@ export function PurgeMaterialButton({
         <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
         Delete permanently
       </Button>
-      <Dialog open={open} onClose={close} title="Delete permanently?" dismissible={!pending}>
-        <div className="flex flex-col gap-4">
-          <Alert tone="error">
-            The file of “{title}”, its extracted text and its analysis will be deleted now. This can&apos;t be undone.
-          </Alert>
-          <p className="text-sm text-muted-foreground">
-            {KEPT_ITEMS} made from it stay{placement ? `, filed under ${placement}` : ""}.
-          </p>
-          {error && <Alert tone="error">{error}</Alert>}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={close} disabled={pending}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              loading={pending}
-              onClick={() =>
-                startTransition(async () => {
-                  setError(null);
-                  const result = await purgeMaterialAction(materialId);
-                  if (!result.ok) {
-                    setError(result.message);
-                    return;
-                  }
-                  setOpen(false);
-                  router.push(`${routes.materials}?archived=1&notice=purged`);
-                })
-              }
-            >
-              Delete permanently
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+      <ConfirmDialog
+        open={open}
+        title="Delete permanently?"
+        confirmLabel="Delete permanently"
+        pending={pending}
+        error={error}
+        onCancel={close}
+        onConfirm={() =>
+          startTransition(async () => {
+            setError(null);
+            const result = await purgeMaterialAction(materialId);
+            if (!result.ok) {
+              setError(result.message);
+              return;
+            }
+            setOpen(false);
+            router.push(`${routes.materials}?archived=1&notice=purged`);
+          })
+        }
+      >
+        <Alert tone="error">
+          The file of “{title}”, its extracted text and its analysis will be deleted now. This can&apos;t be undone.
+        </Alert>
+        <p className="text-sm text-muted-foreground">
+          {KEPT_ITEMS} made from it stay{placement ? `, filed under ${placement}` : ""}.
+        </p>
+      </ConfirmDialog>
     </>
   );
 }
