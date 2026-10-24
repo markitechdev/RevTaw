@@ -127,7 +127,10 @@ export type DueToday = {
   today: string;
   timezone: string | null;
   tasks: TaskView[];
+  /** The most recent unfinished tasks of the last two weeks (at most 200). */
   overdue: TaskView[];
+  /** How many there are in all. */
+  overdueCount: number;
   dueCards: number;
   dueConcepts: Array<{ id: string; name: string; materialId: string | null; retrieval: number }>;
   plannedMinutes: number;
@@ -138,14 +141,20 @@ export type DueToday = {
 export const getDueToday = cache(async (): Promise<DueToday> => {
   const supabase = await createClient();
   const { timezone, today } = await plannerClock();
-  const [{ data: tasks }, dueCards, mastery] = await Promise.all([
-    supabase.from("study_tasks").select(TASK_COLUMNS).lte("scheduled_for", today).gte("scheduled_for", addDays(today, -14)).in("status", ["pending", "done", "missed"]).order("scheduled_for").order("position").limit(200),
+  const [todayRows, overdueRows, dueCards, mastery] = await Promise.all([
+    // Today's tasks on their own, so older days can never push them out of a capped read.
+    readPagesQuietly(
+      "due today: tasks",
+      (from, to) => supabase.from("study_tasks").select(TASK_COLUMNS).eq("scheduled_for", today).in("status", ["pending", "done", "missed"]).order("position").order("id").range(from, to),
+      2000,
+    ),
+    // The last two weeks' unfinished tasks, newest first, so a cap drops the oldest.
+    supabase.from("study_tasks").select(TASK_COLUMNS, { count: "exact" }).lt("scheduled_for", today).gte("scheduled_for", addDays(today, -14)).in("status", ["pending", "missed"]).order("scheduled_for", { ascending: false }).order("position").limit(200),
     countDueCards(),
     listMastery(),
   ]);
-  const rows = (tasks ?? []) as unknown as TaskView[];
-  const todays = rows.filter((task) => task.scheduled_for === today);
-  const overdue = rows.filter((task) => task.scheduled_for < today && task.status !== "done");
+  const todays = todayRows as unknown as TaskView[];
+  const overdue = ((overdueRows.data ?? []) as unknown as TaskView[]).reverse();
   const now = Date.now();
   const dueConcepts = mastery
     .filter((row) => row.attempts > 0 && row.next_review_at && new Date(row.next_review_at).getTime() <= now && row.concept)
@@ -157,6 +166,7 @@ export const getDueToday = cache(async (): Promise<DueToday> => {
     timezone,
     tasks: todays,
     overdue,
+    overdueCount: overdueRows.count ?? overdue.length,
     dueCards,
     dueConcepts,
     plannedMinutes: todays.filter((task) => task.status !== "skipped").reduce((sum, task) => sum + task.minutes, 0),
@@ -167,12 +177,13 @@ export const getDueToday = cache(async (): Promise<DueToday> => {
 /** Tasks in a date window (planner agenda), newest plan first within a day. */
 export async function listTasks(options: { from: string; to: string }): Promise<TaskView[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("study_tasks").select(TASK_COLUMNS).gte("scheduled_for", options.from).lte("scheduled_for", options.to).order("scheduled_for").order("position").limit(500);
-  if (error) {
-    console.error("study_tasks: list failed", error.message);
-    return [];
-  }
-  return (data ?? []) as unknown as TaskView[];
+  // Every task in the window (a month view of a busy plan passes 500), a page at a time.
+  const rows = await readPagesQuietly(
+    "study_tasks: list",
+    (from, to) => supabase.from("study_tasks").select(TASK_COLUMNS).gte("scheduled_for", options.from).lte("scheduled_for", options.to).order("scheduled_for").order("position").order("id").range(from, to),
+    5000,
+  );
+  return rows as unknown as TaskView[];
 }
 
 export type CalendarExam = { id: string; title: string; exam_date: string; subject: string | null };

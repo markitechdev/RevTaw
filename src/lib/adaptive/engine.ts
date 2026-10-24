@@ -142,6 +142,8 @@ export type MasteryView = ConceptMastery & {
 };
 
 const MASTERY_COLUMNS = "*, concept:concepts!concept_mastery_concept_fk(id, name, material_id, material:materials!concepts_material_fk(id, title))";
+/** The same, joined so that a filter on the concept's material keeps only its rows. */
+const MASTERY_COLUMNS_FOR_MATERIAL = "*, concept:concepts!concept_mastery_concept_fk!inner(id, name, material_id, material:materials!concepts_material_fk(id, title))";
 
 /** Recall fades every day: mastery older than this is recomputed on the next read (the nightly job usually gets there first). */
 export const MASTERY_STALE_MS = 20 * 60 * 60 * 1000;
@@ -165,16 +167,29 @@ const refreshStaleMastery = cache(async (): Promise<void> => {
   }
 });
 
+/** Enough for any real student; every average, plan and goal is worked out from all of them. */
+const MASTERY_ROWS_MAX = 10_000;
+
 export const listMastery = cache(async (filters: { materialId?: string } = {}): Promise<MasteryView[]> => {
   await refreshStaleMastery();
   const supabase = await createClient();
-  const { data, error } = await supabase.from("concept_mastery").select(MASTERY_COLUMNS).order("mastery", { ascending: true }).limit(500);
-  if (error) {
-    console.error("concept_mastery: list failed", error.message);
+  try {
+    // One material's concepts are filtered in the database, so none are lost to a cap on the student's whole list.
+    const rows = await readPages(
+      (from, to) => {
+        const query = filters.materialId
+          ? supabase.from("concept_mastery").select(MASTERY_COLUMNS_FOR_MATERIAL).eq("concept.material_id", filters.materialId)
+          : supabase.from("concept_mastery").select(MASTERY_COLUMNS);
+        return query.order("mastery", { ascending: true }).order("concept_id").range(from, to);
+      },
+      MASTERY_ROWS_MAX,
+    );
+    return rows as unknown as MasteryView[];
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("concept_mastery: list failed", error instanceof Error ? error.message : error);
     return [];
   }
-  const rows = (data ?? []) as unknown as MasteryView[];
-  return filters.materialId ? rows.filter((row) => row.concept?.material_id === filters.materialId) : rows;
 });
 
 export type MasterySummary = {

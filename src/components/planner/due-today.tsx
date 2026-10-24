@@ -11,7 +11,9 @@ import { routes } from "@/lib/routes";
 /** The due-today system (§22 "Due Today", Phase 7): plan tasks, overdue tasks, due cards, fading concepts. */
 export function DueTodayCard({ due, compact = false, title = "Due today" }: { due: DueToday; compact?: boolean; title?: string }) {
   const pending = due.tasks.filter((task) => task.status !== "skipped");
-  const empty = pending.length === 0 && due.overdue.length === 0 && due.dueCards === 0 && due.dueConcepts.length === 0;
+  const empty = pending.length === 0 && due.overdueCount === 0 && due.dueCards === 0 && due.dueConcepts.length === 0;
+  const overdueShown = Math.min(due.overdue.length, compact ? 2 : 10);
+  const plannedShown = Math.min(pending.length, compact ? 3 : 20);
   const percent = due.plannedMinutes > 0 ? Math.round((due.doneMinutes / due.plannedMinutes) * 100) : 0;
 
   return (
@@ -49,25 +51,33 @@ export function DueTodayCard({ due, compact = false, title = "Due today" }: { du
               <div>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-danger">Overdue</h3>
                 <ul className="flex flex-col gap-2">
-                  {due.overdue.slice(0, compact ? 2 : 10).map((task) => (
+                  {due.overdue.slice(0, overdueShown).map((task) => (
                     <TaskItem key={task.id} task={task} today={due.today} showDate compact={compact} />
                   ))}
                 </ul>
+                {due.overdueCount > overdueShown && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {due.overdueCount - overdueShown} more overdue from the last two weeks
+                  </p>
+                )}
               </div>
             )}
             {pending.length > 0 && (
               <div>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Planned</h3>
                 <ul className="flex flex-col gap-2">
-                  {pending.slice(0, compact ? 3 : 20).map((task) => (
+                  {pending.slice(0, plannedShown).map((task) => (
                     <TaskItem key={task.id} task={task} today={due.today} compact={compact} />
                   ))}
                 </ul>
-                {compact && pending.length > 3 && (
-                  <Link href={routes.planner} className="mt-2 inline-block text-xs text-primary hover:underline">
-                    {pending.length - 3} more in the planner
-                  </Link>
-                )}
+                {pending.length > plannedShown &&
+                  (compact ? (
+                    <Link href={routes.planner} className="mt-2 inline-block text-xs text-primary hover:underline">
+                      {pending.length - plannedShown} more in the planner
+                    </Link>
+                  ) : (
+                    <p className="mt-2 text-xs text-muted-foreground">{pending.length - plannedShown} more today, in the calendar below</p>
+                  ))}
               </div>
             )}
             {(due.dueCards > 0 || due.dueConcepts.length > 0) && (

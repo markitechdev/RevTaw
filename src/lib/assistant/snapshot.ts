@@ -31,7 +31,7 @@ export async function studySnapshot(): Promise<string | null> {
         : summary.total === 0
           ? "No practice tracked yet, so there are no weak concepts to report."
           : "No weak concepts right now.",
-      `Today (${clock.today}): ${count(open.length, "planned task")}${open.length ? ` (${open.slice(0, 5).map((task) => `${clip(task.title, 60)}, ${task.minutes} min`).join("; ")})` : ""}, ${count(due.dueCards, "flashcard")} due, ${count(due.overdue.length, "overdue task")}${due.dueConcepts.length ? `, concepts fading: ${due.dueConcepts.slice(0, 5).map((concept) => clip(concept.name, 50)).join(", ")}` : ""}.`,
+      `Today (${clock.today}): ${count(open.length, "planned task")}${open.length ? ` (${open.slice(0, 5).map((task) => `${clip(task.title, 60)}, ${task.minutes} min`).join("; ")})` : ""}, ${count(due.dueCards, "flashcard")} due, ${count(due.overdueCount, "overdue task")}${due.dueConcepts.length ? `, concepts fading: ${due.dueConcepts.slice(0, 5).map((concept) => clip(concept.name, 50)).join(", ")}` : ""}.`,
       exam ? `Next exam: "${clip(exam.title, 80)}" on ${exam.exam_date} (${count(exam.daysLeft, "day")} left${exam.readiness !== null ? `, readiness ${exam.readiness}%` : ""}).` : "No upcoming exam.",
       `Open mistakes in the mistake notebook: ${mistakes}.`,
     ];

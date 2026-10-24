@@ -239,13 +239,15 @@ export async function DueTodayWidget({ planning }: { planning: Promise<unknown> 
   const [due, openMistakes] = await Promise.all([getDueToday(), countOpenMistakes()]);
   const rows: DueRow[] = [];
 
-  if (due.overdue.length > 0) {
-    rows.push({ key: "overdue", icon: CalendarClock, title: `${due.overdue.length} overdue task${due.overdue.length === 1 ? "" : "s"}`, meta: "From earlier days", tone: "danger", action: { href: routes.planner, label: "Plan" } });
+  if (due.overdueCount > 0) {
+    rows.push({ key: "overdue", icon: CalendarClock, title: `${due.overdueCount} overdue task${due.overdueCount === 1 ? "" : "s"}`, meta: "From earlier days", tone: "danger", action: { href: routes.planner, label: "Plan" } });
   }
   if (due.dueCards > 0) {
     rows.push({ key: "cards", icon: Layers, title: `${due.dueCards} flashcard${due.dueCards === 1 ? "" : "s"}`, meta: `About ${Math.max(1, Math.round(due.dueCards * 0.4))} min`, action: { href: `${routes.flashcards}/review`, label: "Review" } });
   }
-  for (const task of due.tasks.filter((item) => item.status !== "skipped")) {
+  // Unfinished tasks first, so finished ones never fill the widget's few rows while work is left.
+  const todays = due.tasks.filter((item) => item.status !== "skipped");
+  for (const task of [...todays.filter((item) => item.status !== "done"), ...todays.filter((item) => item.status === "done")]) {
     const done = task.status === "done";
     rows.push({ key: task.id, icon: done ? CheckCircle2 : BookOpen, title: task.title, meta: `${task.method === "review" ? "Scheduled review" : methodName(task.method)} · ${task.minutes} min`, done, action: done ? undefined : { taskId: task.id, label: task.session_id ? "Resume" : "Start" } });
   }
