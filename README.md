@@ -169,6 +169,15 @@ each job's last run). Errors and slow requests are in Vercel's Logs.
   long lists a page at a time, loading placeholders shaped like each page,
   fewer re-renders, smaller page data, and streaks, due counts, goals and
   Progress read in full past Supabase's 1,000-row limit
+- Ready for real students (launch review round): sign-in and email links
+  that stay on RevTaw and survive mail scanners, uploads read in a sandboxed
+  process, rate limits shared by every server and per student at Supabase,
+  optional Cloudflare Turnstile, answers and quiz attempts counted once even
+  when sent twice, work that can never stay "in progress" forever, 44 px
+  touch targets and keyboard paths throughout, one consistent look and one
+  name per page, a Privacy Notice (with a student version) and Terms of Use
+  agreed to at sign-up, link previews, and a health check for uptime
+  monitors
 
 ## Scripts
 
@@ -183,7 +192,8 @@ each job's last run). Errors and slow requests are in Vercel's Logs.
 ## Structure
 
 ```
-src/app/(marketing)   landing page
+src/app/(marketing)   landing page, Privacy Notice (and its student version),
+                      Terms of Use
 src/app/(auth)        login, register, verify, forgot/reset password
 src/app/(onboarding)  first-run study profile
 src/app/(app)         signed-in app: dashboard, materials, study (sessions,
@@ -193,8 +203,9 @@ src/app/auth          email-link route handlers (callback, confirm)
 src/app/api           route handlers (material processing, analysis, files,
                       reviewer, quiz and flashcard generation, tutor, export,
                       quick search, reminders, voice, Google Calendar,
-                      email unsubscribe, the scheduler's /api/cron/* jobs
-                      and the /api/system/services check)
+                      email unsubscribe, the scheduler's /api/cron/* jobs,
+                      the /api/health check for uptime monitors and the
+                      /api/system/services check)
 src/components        ui primitives, forms, app shell, Tamari, feature
                       components
 src/lib               supabase clients, ai providers, materials pipeline,

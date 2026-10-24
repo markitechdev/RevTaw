@@ -51,11 +51,19 @@ supabase db push
 | `0022_learning_engine.sql` | the learning engine: `mastery_status` gains `developing`; `concept_mastery` keeps P(learned), recall, Elo rating (and where it started), weakness, gates, next step, best status and the concept's FSRS state; FSRS columns on `flashcards` and `flashcard_reviews`; `item_buckets` (shared question difficulty, written by the server only) |
 | `0023_material_archive.sql` | the Archive: `material_status` gains `deleted`; `materials.purged_at` (the file, text and analysis deleted permanently 30 days after Delete; the row stays for what was made from it) with a check that a deleted file stays archived; materials archived before get the full 30 days |
 | `0024_performance_indexes.sql` | indexes for the per-student reads that scanned every student's rows and for the foreign keys that are cleared or followed when their parent goes, two for the night run, and six duplicates of unique indexes dropped (indexes only; no data changes) |
+| `0025_material_storage_guard.sql` | a trigger that refuses a `materials.storage_path` outside the material's own `<user_id>/<material id>/` folder, so the Archive's job (secret key) can only delete a material's own file |
+| `0026_rate_limits.sql` | `rate_limits` and `rate_limit_hit()`: rate limits shared by every server instance, with hashed keys (no email or IP address stored); secret key only |
+| `0027_fair_shared_jobs.sql` | limits on what one student can take from the scheduler's shared jobs: at most 1,000 pending reminders and 10 claimed per batch, embeddings handed out in turns (`unembedded_chunks_fair()`), chunk text capped at 20,000 characters, answers stamped with the time they were saved, at most 400 first attempts per student for the nightly refit (`bucket_first_attempts()`) |
+| `0028_quiz_submit_once.sql` | `quiz_attempts.submit_started_at` so an attempt is graded once; one mistake per question per attempt (duplicates removed, the earliest kept) |
+| `0029_nightly_students.sql` | `stale_mastery_students()`: the night run finds every student with stale mastery, longest-waiting first; secret key only |
+| `0030_student_elo_totals.sql` | `student_elo_totals()`: the two sums behind a student's overall ability, so grading an answer no longer reads every mastery row (caller's rights) |
+| `0031_count_session_answer.sql` | `count_session_answer()`: a study session's answer counters and position move in one update, so answers saved at the same moment all count (caller's rights) |
 | `0032_drop_unused_columns.sql` | drops columns nothing wrote: `archived_at` on `subjects`, `folders`, `reviewers`, `quizzes`, `flashcard_decks` and `tutor_conversations` (only materials and exams are archived) and `study_goals.subject_id`; their list indexes are rebuilt without it. It stops and changes nothing if one of those columns holds a value |
 | `0033_job_runs.sql` | `job_runs`: when each scheduled job (reminders, digest, embeddings, calendar, engine, archive) last finished, last succeeded and its last error; written by the jobs with the secret key and read by `/api/health`; students cannot read it |
 
-Migrations are additive. Never edit an applied migration; add a new numbered
-file instead.
+Never edit an applied migration; add a new numbered file instead. To bring a
+project at 0023 up to date in one go, run the update file shipped with the
+release (0024–0033 in one transaction: it changes nothing if any part fails).
 
 Leave the Data API's **Max rows** (in the dashboard: **Integrations → Data
 API → Settings**) at 1,000 or more, the default. RevTaw reads long lists
@@ -74,6 +82,9 @@ would cut those reads short.
 
 - Keep **Confirm email** enabled: RevTaw requires email verification before a
   student can sign in.
+- Turn on **Secure password change**, so a changed password needs a recent
+  sign-in. RevTaw itself sets a new password without the old one only from a
+  session that signed in through an email link in the last 15 minutes.
 
 **Authentication → Email Templates** (recommended)
 
@@ -96,8 +107,22 @@ confirmation link opens the live site; sign in locally afterwards.
 
 ## 4. Rate limits
 
-Supabase applies its own limits to sign-up, sign-in and email sending. RevTaw
-adds a small per-IP limiter in front of the auth actions as an extra layer.
+RevTaw counts its own limits (sign-in attempts per address and per account,
+sign-ups, reset and verification emails, uploads, exports, search and
+generation) in Postgres, shared by every server instance (migration 0026), and
+Supabase applies its own limits to sign-up, sign-in and email sending.
+
+**Authentication → Rate Limits**
+
+- Supabase counts by IP address, and RevTaw calls Supabase Auth from its
+  server. Turn on **IP Address Forwarding** there: RevTaw then sends each
+  student's address in `Sb-Forwarded-For`, so a class signing up from one
+  school network is limited per student, not as one. Forwarding works only
+  with a new-style secret key (`sb_secret_…`) in `SUPABASE_SECRET_KEY`, not
+  with the legacy `service_role` key.
+- Raise the defaults to what a class needs at once (for example 150 sign-ups
+  and sign-ins per 5 minutes per address); emails stay limited by your SMTP
+  plan (Resend's free plan sends 100 a day).
 
 **Authentication → Bot and Abuse Protection**: leave **Enable CAPTCHA
 protection** off. RevTaw's optional Cloudflare Turnstile check
