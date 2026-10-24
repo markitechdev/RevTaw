@@ -13,7 +13,11 @@ import { ExtractionError, extractText, type ExtractionResult } from "@/lib/mater
 import { downloadMaterialBytes } from "@/lib/materials/storage";
 import { embedMaterialQuietly } from "@/lib/search/hybrid";
 import type { Material, MaterialStatus } from "@/lib/supabase/database.types";
+import { readPages } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
+
+/** More chunks than any material has (600 pages and 1.5 million characters at most are read); Supabase returns 1,000 rows a request. */
+const MAX_CHUNKS_READ = 5000;
 
 export const ANALYSIS_UNAVAILABLE_DETAIL =
   "Text extracted. AI analysis will run once an AI provider is configured for RevTaw.";
@@ -142,12 +146,15 @@ export async function reanalyzeMaterial(materialId: string): Promise<ProcessOutc
     return { status: material.status, detail: material.status_detail };
   }
 
-  const { data: chunkRows } = await supabase
-    .from("material_chunks")
-    .select("position, heading, page_start, page_end, content")
-    .eq("material_id", material.id)
-    .order("position");
-  if (!chunkRows || chunkRows.length === 0) {
+  const chunkRows = await readPages(
+    (from, to) => supabase.from("material_chunks").select("position, heading, page_start, page_end, content").eq("material_id", material.id).order("position").range(from, to),
+    MAX_CHUNKS_READ,
+  ).catch((error: unknown) => {
+    // Without the stored text the file is processed again from the start.
+    console.error("materials: reading the chunks to re-analyze failed", error instanceof Error ? error.message : error);
+    return [];
+  });
+  if (chunkRows.length === 0) {
     return processMaterial(materialId, { force: true });
   }
 
@@ -329,12 +336,16 @@ async function reuseIdenticalMaterial(
     .maybeSingle();
   if (!twin) return null;
 
-  const { data: chunks } = await supabase
-    .from("material_chunks")
-    .select("position, heading, page_start, page_end, content, char_count, embedding, embedding_model")
-    .eq("material_id", twin.id)
-    .order("position");
-  if (!chunks || chunks.length === 0) return null;
+  // Every chunk of the twin, a page at a time (a long PDF has more than the 1,000 rows one read returns).
+  const chunks = await readPages(
+    (from, to) => supabase.from("material_chunks").select("position, heading, page_start, page_end, content, char_count, embedding, embedding_model").eq("material_id", twin.id).order("position").range(from, to),
+    MAX_CHUNKS_READ,
+  ).catch((error: unknown) => {
+    // Without the twin's text the file is simply read again.
+    console.error("materials: reading the identical material's chunks failed", error instanceof Error ? error.message : error);
+    return [];
+  });
+  if (chunks.length === 0) return null;
 
   await replaceChunks(
     supabase,
