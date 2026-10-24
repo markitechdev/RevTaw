@@ -19,21 +19,26 @@ export function readinessTone(value: number | null): string {
 /** Countdown + preparation progress for one exam (§22 "Upcoming Exams"). */
 export function ExamCard({ exam, today, compact = false, actions, headingLevel: Heading = "h3" }: { exam: ExamSummary; today: string; compact?: boolean; actions?: React.ReactNode; /** h1 on the exam's own page, h3 in lists under a section heading. */ headingLevel?: "h1" | "h2" | "h3" }) {
   const countdown = exam.daysLeft < 0 ? "Finished" : exam.daysLeft === 0 ? "Today" : exam.daysLeft === 1 ? "Tomorrow" : `${exam.daysLeft} days`;
+  // On the exam's own page the card is the page's heading, and "Open plan" would link to itself.
+  const onPage = Heading === "h1";
   return (
     <article className={cn("flex flex-col gap-3 rounded-xl border border-border bg-card p-4", exam.daysLeft >= 0 && exam.daysLeft <= 3 && "border-warning/50")}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <Heading className="flex flex-wrap items-center gap-2 text-base font-semibold">
-            {Heading === "h1" ? (
-              exam.title
-            ) : (
-              <Link href={`${routes.planner}/${exam.id}`} className="hover:underline">
-                {exam.title}
-              </Link>
-            )}
+          {/* The heading is the title alone; the badges sit beside it. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Heading className="min-w-0 text-base font-semibold wrap-anywhere">
+              {onPage ? (
+                exam.title
+              ) : (
+                <Link href={`${routes.planner}/${exam.id}`} className="hover:underline">
+                  {exam.title}
+                </Link>
+              )}
+            </Heading>
             <Badge tone={PRIORITY_TONE[exam.priority]}>{PRIORITY_LABEL[exam.priority]} priority</Badge>
             {exam.plan && <Badge tone={exam.plan.mode === "cram" ? "warning" : "neutral"}>{PLAN_MODE_LABEL[exam.plan.mode]}</Badge>}
-          </Heading>
+          </div>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
             <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
             <span>
@@ -75,12 +80,16 @@ export function ExamCard({ exam, today, compact = false, actions, headingLevel: 
         </ul>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Link href={`${routes.planner}/${exam.id}`} className={buttonClasses({ size: "sm", variant: compact ? "secondary" : "primary" })}>
-          Open plan
-        </Link>
-        {actions}
-      </div>
+      {(!onPage || actions) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {!onPage && (
+            <Link href={`${routes.planner}/${exam.id}`} className={buttonClasses({ size: "sm", variant: compact ? "secondary" : "primary" })}>
+              Open plan
+            </Link>
+          )}
+          {actions}
+        </div>
+      )}
     </article>
   );
 }
