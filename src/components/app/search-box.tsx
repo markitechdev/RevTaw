@@ -4,11 +4,9 @@ import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { PAGE_SEARCH_ID } from "@/components/app/command-menu-launcher";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
-
-/** The search page's input id; the command menu leaves "/" to it while it is on screen. */
-export const PAGE_SEARCH_ID = "page-search";
 
 /**
  * The full search page's box (§33): submits to /search. "/" focuses it while

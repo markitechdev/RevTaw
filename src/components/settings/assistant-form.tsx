@@ -3,7 +3,7 @@
 import { MessageCircle } from "lucide-react";
 import { useId, useOptimistic, useState, useTransition } from "react";
 
-import { useModifierLabel } from "@/components/app/command-menu";
+import { useModifierLabel } from "@/components/app/command-menu-launcher";
 import { Alert } from "@/components/forms/form-alert";
 import { useAppearance } from "@/components/theme/appearance-root";
 import { Button } from "@/components/ui/button";

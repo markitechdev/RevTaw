@@ -101,10 +101,3 @@ export const COMMAND_SECTIONS: CommandSection[] = [
   { id: "settings", label: "Settings", commands: SETTINGS, initial: false, limit: 4 },
   { id: "theme", label: "Theme", commands: THEME, initial: false, limit: 3 },
 ];
-
-/** Opens the command menu from anywhere (buttons, the assistant, shortcuts). */
-export const COMMAND_MENU_EVENT = "revtaw:command-menu";
-
-export function openCommandMenu(): void {
-  window.dispatchEvent(new Event(COMMAND_MENU_EVENT));
-}

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { CommandMenu, CommandMenuIconButton, CommandMenuTrigger } from "@/components/app/command-menu";
+import { CommandMenuIconButton, CommandMenuLauncher, CommandMenuTrigger } from "@/components/app/command-menu-launcher";
 import { MobileNav } from "@/components/app/mobile-nav";
 import { AccountNav, SidebarNav } from "@/components/app/sidebar-nav";
 import { UserCard } from "@/components/app/user-card";
@@ -77,7 +77,7 @@ export function AppShell({
         </main>
 
         <MobileNav userCard={userCard} pinned={pinned} />
-        <CommandMenu />
+        <CommandMenuLauncher />
       </div>
     </div>
   );

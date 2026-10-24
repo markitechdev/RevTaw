@@ -2,10 +2,10 @@
 
 import { CalendarDays, CornerDownLeft, FileText, GraduationCap, Layers, ListChecks, Loader2, MessageSquare, NotebookPen, Search, Target, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
-import { COMMAND_MENU_EVENT, COMMAND_SECTIONS, type CommandAction } from "@/components/app/commands";
-import { PAGE_SEARCH_ID } from "@/components/app/search-box";
+import { COMMAND_MENU_EVENT, commandMenuShortcut, useModifierLabel } from "@/components/app/command-menu-launcher";
+import { COMMAND_SECTIONS, type CommandAction } from "@/components/app/commands";
 import { openAssistant } from "@/components/assistant/assistant-provider";
 import { useTheme } from "@/components/theme/theme-provider";
 import { Kbd } from "@/components/ui/kbd";
@@ -38,16 +38,6 @@ const RESULT_ICON: Record<QuickResultType, LucideIcon> = {
   conversation: MessageSquare,
 };
 
-const noopSubscribe = () => () => {};
-/** "⌘" on Apple devices, "Ctrl" elsewhere (the server and first render say "Ctrl"). */
-export function useModifierLabel(): string {
-  return useSyncExternalStore(
-    noopSubscribe,
-    () => (/Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent) ? "⌘" : "Ctrl"),
-    () => "Ctrl",
-  );
-}
-
 function Highlight({ text, query }: { text: string; query: string }): ReactNode {
   const range = matchRange(text, query);
   if (!range) return text;
@@ -60,11 +50,6 @@ function Highlight({ text, query }: { text: string; query: string }): ReactNode 
   );
 }
 
-function isTextField(target: EventTarget | null): boolean {
-  const element = target as HTMLElement | null;
-  return Boolean(element && (element.tagName === "INPUT" || element.tagName === "TEXTAREA" || element.tagName === "SELECT" || element.isContentEditable));
-}
-
 /**
  * Ctrl/Cmd+K command menu (UI phase §13): jump to any tool (pinned or not),
  * run an action (create a quiz, upload a material, start flashcards, Smart
@@ -72,8 +57,12 @@ function isTextField(target: EventTarget | null): boolean {
  * quizzes, decks and conversations as you type. Also opens with "/" and from
  * the search buttons. A combobox over a listbox, so the keyboard and screen
  * readers move through results without leaving the input.
+ *
+ * Loaded by CommandMenuLauncher (command-menu-launcher.tsx), which answers the
+ * shortcuts until `onReady` says the menu listens for itself; `openRequested`
+ * opens it once, for a request made while it was loading.
  */
-export function CommandMenu() {
+export function CommandMenu({ openRequested = false, onReady }: { openRequested?: boolean; onReady?: () => void }) {
   const router = useRouter();
   const { setTheme } = useTheme();
   const modifier = useModifierLabel();
@@ -89,29 +78,25 @@ export function CommandMenu() {
   const [active, setActive] = useState(0);
   const baseId = useId();
 
+  const show = useCallback(() => {
+    const dialog = dialogRef.current;
+    if (!dialog || dialog.open) return;
+    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setQuery("");
+    setRemote(null);
+    setLoading(false);
+    setActive(0);
+    setOpen(true);
+    dialog.showModal();
+  }, []);
+
   useEffect(() => {
-    const show = () => {
-      const dialog = dialogRef.current;
-      if (!dialog || dialog.open) return;
-      returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      setQuery("");
-      setRemote(null);
-      setLoading(false);
-      setActive(0);
-      setOpen(true);
-      dialog.showModal();
-    };
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        if (dialogRef.current?.open) dialogRef.current.close();
-        else show();
-        return;
-      }
-      if (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey && !isTextField(event.target) && !document.getElementById(PAGE_SEARCH_ID)) {
-        event.preventDefault();
-        show();
-      }
+      const shortcut = commandMenuShortcut(event);
+      if (!shortcut) return;
+      event.preventDefault();
+      if (shortcut === "toggle" && dialogRef.current?.open) dialogRef.current.close();
+      else show();
     };
     document.addEventListener("keydown", onKeyDown);
     window.addEventListener(COMMAND_MENU_EVENT, show);
@@ -121,7 +106,15 @@ export function CommandMenu() {
       window.clearTimeout(timer.current);
       request.current?.abort();
     };
-  }, []);
+  }, [show]);
+
+  // Listening now: the launcher can stop.
+  useEffect(() => onReady?.(), [onReady]);
+
+  // Asked for while this chunk was still loading.
+  useEffect(() => {
+    if (openRequested) show();
+  }, [openRequested, show]);
 
   const search = (value: string) => {
     window.clearTimeout(timer.current);
@@ -323,41 +316,5 @@ export function CommandMenu() {
         </div>
       )}
     </dialog>
-  );
-}
-
-/** The search field in the sidebar: a button that opens the command menu. */
-export function CommandMenuTrigger({ className }: { className?: string }) {
-  const modifier = useModifierLabel();
-  return (
-    <button
-      type="button"
-      onClick={() => window.dispatchEvent(new Event(COMMAND_MENU_EVENT))}
-      aria-haspopup="dialog"
-      aria-keyshortcuts="Control+K Meta+K /"
-      className={cn("flex h-9 w-full cursor-pointer items-center gap-2 rounded-lg border border-input bg-background px-3 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground", className)}
-    >
-      <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-      <span className="flex-1 truncate text-left">Search or jump to…</span>
-      <span className="flex shrink-0 items-center gap-0.5" aria-hidden="true">
-        <Kbd>{modifier}</Kbd>
-        <Kbd>K</Kbd>
-      </span>
-    </button>
-  );
-}
-
-/** The phone top bar's search button. */
-export function CommandMenuIconButton() {
-  return (
-    <button
-      type="button"
-      onClick={() => window.dispatchEvent(new Event(COMMAND_MENU_EVENT))}
-      aria-haspopup="dialog"
-      aria-label="Search and commands"
-      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-    >
-      <Search className="h-4 w-4" aria-hidden="true" />
-    </button>
   );
 }
