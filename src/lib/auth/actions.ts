@@ -36,6 +36,11 @@ function tooManyAttempts(retryAfterSeconds: number, what: string): string {
   return `Too many ${what}. Please try again in ${describeRetry(retryAfterSeconds)}.`;
 }
 
+/** For whoever runs RevTaw: an email Supabase did not send (its email limits, or an error). Never the address. */
+function logUnsentEmail(kind: "reset" | "verification", error: { code?: string; status?: number }): void {
+  console.warn(`auth: ${kind} email not sent (${error.code ?? error.status ?? "error"})`);
+}
+
 export async function registerAction(
   _previous: ActionState,
   formData: FormData,
@@ -181,16 +186,22 @@ export async function forgotPasswordAction(
   }
 
   const { email } = parsed.data;
+  // Counted for every address alike, registered or not, so it reveals nothing; it stops one address being flooded.
+  const perEmail = await rateLimit(`forgot:email:${email}`, 3, 60 * MINUTE);
+  if (!perEmail.ok) {
+    return errorState(
+      `We have sent several reset links to this address recently. Check your inbox and spam folder, or try again in ${describeRetry(perEmail.retryAfterSeconds)}.`,
+      { values },
+    );
+  }
+
   const auth = await createAuthClient();
   const { error } = await auth.resetPasswordForEmail(email, {
     redirectTo: callbackUrl(routes.resetPassword),
   });
-
-  // Only surface rate limiting; anything else would reveal whether the
-  // address is registered.
-  if (error && (error.status === 429 || error.code?.startsWith("over_"))) {
-    return errorState(authErrorMessage(error), { values });
-  }
+  // Every outcome gets the same answer: Supabase limits emails per registered
+  // account, so passing its "too many" on would reveal that the address has one.
+  if (error) logUnsentEmail("reset", error);
 
   return successState(
     "If an account exists for that address, we have sent a link to reset the password. The link expires in one hour.",
@@ -267,9 +278,8 @@ export async function resendVerificationAction(
     options: { emailRedirectTo: callbackUrl(`${routes.onboarding}?verified=1`) },
   });
 
-  if (error && (error.status === 429 || error.code?.startsWith("over_"))) {
-    return errorState(authErrorMessage(error));
-  }
+  // As with reset links: the same answer whatever Supabase says, so the form reveals nothing.
+  if (error) logUnsentEmail("verification", error);
 
   await setPendingEmail(email);
   return successState(`If ${email} is registered and not yet verified, a new link is on its way.`);
