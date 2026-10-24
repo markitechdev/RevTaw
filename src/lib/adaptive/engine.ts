@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { unstable_rethrow } from "next/navigation";
 import { cache } from "react";
 
 import { abilityOf, chunked, collectEvidence, loadModelContext, readPages } from "@/lib/adaptive/evidence";
@@ -158,6 +159,8 @@ const refreshStaleMastery = cache(async (): Promise<void> => {
     const { data } = await supabase.from("concept_mastery").select("concept_id").gt("attempts", 0).or(`computed_at.lt.${cutoff},p_learned.eq.0`).limit(1);
     if (data && data.length > 0) await recomputeMastery(null);
   } catch (error) {
+    // Next.js's own signals (such as "this route reads cookies, render it per request") must pass through.
+    unstable_rethrow(error);
     console.error("concept_mastery: stale refresh failed", error);
   }
 });
