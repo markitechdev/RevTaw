@@ -14,7 +14,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { deleteRoutineAction, saveRoutineAction, startRoutineAction } from "@/lib/study/actions";
-import { BUILDER_METHOD_IDS, isTestMethod, METHOD_BEHAVIOUR, methodName } from "@/lib/study/catalog";
+import { BUILDER_METHOD_IDS, isTestMethod, METHOD_BEHAVIOR, methodName } from "@/lib/study/catalog";
 
 export type RoutineMaterialOption = { id: string; title: string };
 export type RoutineBlockInput = { method: string; minutes: number; materialId?: string | null; questionCount?: number };
@@ -116,7 +116,7 @@ function RoutineDialog({ open, onClose, materials, routine }: { open: boolean; o
                   <Input id={`routine-count-${index}`} type="number" min={3} max={50} value={block.questionCount ?? 10} disabled={pending} onChange={(event) => update(index, { questionCount: Number(event.target.value) || 10 })} className="w-24" />
                 </div>
               )}
-              {METHOD_BEHAVIOUR[block.method as keyof typeof METHOD_BEHAVIOUR]?.requiresMaterial && materials.length > 0 && (
+              {METHOD_BEHAVIOR[block.method as keyof typeof METHOD_BEHAVIOR]?.requiresMaterial && materials.length > 0 && (
                 <div className="flex flex-1 flex-col gap-1">
                   <label htmlFor={`routine-material-${index}`} className="text-xs font-medium text-muted-foreground">
                     Material

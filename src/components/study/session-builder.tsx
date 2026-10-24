@@ -15,7 +15,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { startSessionAction } from "@/lib/study/actions";
-import { BUILDER_METHOD_IDS, isBuilderMethod, isTestMethod, METHOD_BEHAVIOUR, RAPID_REVIEW_MINUTES, recommendMethods, TIME_PRESETS, type BuilderMethodId } from "@/lib/study/catalog";
+import { BUILDER_METHOD_IDS, isBuilderMethod, isTestMethod, METHOD_BEHAVIOR, RAPID_REVIEW_MINUTES, recommendMethods, TIME_PRESETS, type BuilderMethodId } from "@/lib/study/catalog";
 import { STUDY_METHOD_BY_ID } from "@/lib/study/methods";
 import { PROBLEM_DIFFICULTIES, PROBLEM_DIFFICULTY_LABEL, type ProblemDifficulty } from "@/lib/study/problem-options";
 import type { SessionGoal } from "@/lib/supabase/database.types";
@@ -114,7 +114,7 @@ export function SessionBuilder({
   const [pending, startTransition] = useTransition();
   const allMethodsId = useId();
 
-  const behavior = METHOD_BEHAVIOUR[method];
+  const behavior = METHOD_BEHAVIOR[method];
   const needsMaterial = behavior.requiresMaterial;
   const effectiveMaterial = needsMaterial || materialId !== "none" ? materialId : "";
   const recommended = useMemo(() => recommendMethods(goal, Boolean(effectiveMaterial && effectiveMaterial !== "none")), [goal, effectiveMaterial]);
@@ -169,7 +169,7 @@ export function SessionBuilder({
     if (id === "error_review") return openMistakes === 0;
     if (id === "spaced_repetition") return dueCards === 0;
     if (id === "interleaving") return materials.length < 2;
-    if (METHOD_BEHAVIOUR[id].requiresMaterial && materials.length === 0) return true;
+    if (METHOD_BEHAVIOR[id].requiresMaterial && materials.length === 0) return true;
     return false;
   };
 

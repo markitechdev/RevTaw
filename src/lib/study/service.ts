@@ -17,7 +17,7 @@ import { startPreTesting } from "@/lib/study/flows/pretest";
 import { startDualCoding } from "@/lib/study/flows/visual";
 import { startFadedExamples, startPracticeProblems, startWorkedExamples } from "@/lib/study/flows/problems";
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
-import { isTutorMethod, METHOD_BEHAVIOUR, TEST_METHOD_IDS, type BuilderMethodId, type TestMethodId } from "@/lib/study/catalog";
+import { isTutorMethod, METHOD_BEHAVIOR, TEST_METHOD_IDS, type BuilderMethodId, type TestMethodId } from "@/lib/study/catalog";
 import { loadOpenItem, recordItemResult, reloadItem, settleAnsweredItem, storeItemAttempt } from "@/lib/study/items";
 import type { StudyMethodId } from "@/lib/study/methods";
 import type { ProblemDifficulty } from "@/lib/study/prompts/problems";
@@ -107,7 +107,7 @@ export async function startSession(userId: string, input: StartSessionInput): Pr
 
 async function startSessionInner(userId: string, input: StartSessionInput): Promise<StartSessionResult> {
   const supabase = await createClient();
-  const behavior = METHOD_BEHAVIOUR[input.method];
+  const behavior = METHOD_BEHAVIOR[input.method];
   if (behavior.requiresMaterial && !input.materialId) throw new SessionError("Choose a material for this method.", 400);
 
   if (input.method === "smart_study") {

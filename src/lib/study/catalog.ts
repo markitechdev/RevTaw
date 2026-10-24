@@ -6,7 +6,7 @@ import type { SessionGoal } from "@/lib/supabase/database.types";
  * of this method actually does, which goals it fits, how long it should run
  * and whether it is implemented yet. Client-safe.
  */
-export type MethodBehaviour = {
+export type MethodBehavior = {
   howItHelps: string;
   bestUseCases: string;
   suggestedMinutes: number;
@@ -19,7 +19,7 @@ export type MethodBehaviour = {
   behavior: string;
 };
 
-export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
+export const METHOD_BEHAVIOR: Record<StudyMethodId, MethodBehavior> = {
   smart_study: {
     howItHelps: "The right mix of activities for today, chosen from what you keep getting wrong, what is fading and what is due.",
     bestUseCases: "Any day you have time to study but no plan.",
@@ -355,7 +355,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
   },
 };
 
-export const IMPLEMENTED_METHOD_IDS = STUDY_METHODS.filter((method) => METHOD_BEHAVIOUR[method.id].availableIn === "now").map((method) => method.id) as [
+export const IMPLEMENTED_METHOD_IDS = STUDY_METHODS.filter((method) => METHOD_BEHAVIOR[method.id].availableIn === "now").map((method) => method.id) as [
   StudyMethodId,
   ...StudyMethodId[],
 ];
@@ -440,8 +440,8 @@ export const SMART_METHOD_ID = "smart_study" as const;
 
 /** Builder recommendation: the implemented methods that fit a goal, best first. */
 export function recommendMethods(goal: SessionGoal, hasMaterial: boolean): BuilderMethodId[] {
-  const fits = BUILDER_METHOD_IDS.filter((id) => METHOD_BEHAVIOUR[id].goals.includes(goal) && (hasMaterial || !METHOD_BEHAVIOUR[id].requiresMaterial));
-  return fits.length ? [...fits] : [...BUILDER_METHOD_IDS.filter((id) => hasMaterial || !METHOD_BEHAVIOUR[id].requiresMaterial)];
+  const fits = BUILDER_METHOD_IDS.filter((id) => METHOD_BEHAVIOR[id].goals.includes(goal) && (hasMaterial || !METHOD_BEHAVIOR[id].requiresMaterial));
+  return fits.length ? [...fits] : [...BUILDER_METHOD_IDS.filter((id) => hasMaterial || !METHOD_BEHAVIOR[id].requiresMaterial)];
 }
 
 export function methodName(id: string): string {

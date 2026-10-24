@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { SECTION_TITLE } from "@/components/ui/typography";
 import { routes } from "@/lib/routes";
-import { isBuilderMethod, METHOD_BEHAVIOUR } from "@/lib/study/catalog";
+import { isBuilderMethod, METHOD_BEHAVIOR } from "@/lib/study/catalog";
 import { STUDY_METHODS } from "@/lib/study/methods";
 
 export const metadata: Metadata = {
@@ -26,8 +26,8 @@ function startHref(id: string): string | null {
 
 /** Study method engine (§15): every method with what it does, when to use it and a real Start button. */
 export default function MethodsPage() {
-  const available = STUDY_METHODS.filter((method) => METHOD_BEHAVIOUR[method.id].availableIn === "now");
-  const upcoming = STUDY_METHODS.filter((method) => METHOD_BEHAVIOUR[method.id].availableIn !== "now");
+  const available = STUDY_METHODS.filter((method) => METHOD_BEHAVIOR[method.id].availableIn === "now");
+  const upcoming = STUDY_METHODS.filter((method) => METHOD_BEHAVIOR[method.id].availableIn !== "now");
 
   return (
     <div className="flex flex-col gap-6">
@@ -48,7 +48,7 @@ export default function MethodsPage() {
         </h2>
         <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {available.map((method) => {
-            const behavior = METHOD_BEHAVIOUR[method.id];
+            const behavior = METHOD_BEHAVIOR[method.id];
             const href = startHref(method.id);
             return (
               <li key={method.id}>
@@ -100,7 +100,7 @@ export default function MethodsPage() {
           </h2>
           <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {upcoming.map((method) => {
-              const behavior = METHOD_BEHAVIOUR[method.id];
+              const behavior = METHOD_BEHAVIOR[method.id];
               return (
                 <li key={method.id} className="rounded-xl border border-dashed border-border p-4">
                   <div className="flex items-center justify-between gap-2">
