@@ -3,7 +3,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
-import { SaveIndicator, useMapSaver } from "@/components/study/mind-map-editor";
+import { SaveIndicator, UndoBar, useMapSaver, useUndoableRemoval } from "@/components/study/mind-map-editor";
 import { GraphView } from "@/components/study/visual-view";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,10 +24,19 @@ export function ConceptMapEditor({ mapId, title, initial }: { mapId: string; tit
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const saver = useMapSaver(mapId, "concept");
-
-  const commit = (next: ConceptMapData) => {
+  const apply = (next: ConceptMapData) => {
     setMap(next);
     saver.schedule(next);
+  };
+  const removals = useUndoableRemoval<ConceptMapData>(apply);
+
+  const commit = (next: ConceptMapData) => {
+    apply(next);
+    removals.forget();
+  };
+  const removeOne = (next: ConceptMapData, message: string) => {
+    apply(next);
+    removals.remember(map, message);
   };
 
   return (
@@ -35,6 +44,7 @@ export function ConceptMapEditor({ mapId, title, initial }: { mapId: string; tit
       <div className="flex justify-end">
         <SaveIndicator state={saver.state} />
       </div>
+      <UndoBar removal={removals.removal} onUndo={removals.undo} onDismiss={removals.forget} />
       <div className="rounded-lg border border-border bg-background p-2">
         <GraphView nodes={map.nodes.map((node) => node.label)} links={map.edges.map((edge) => ({ from: labelOf(map, edge.from), to: labelOf(map, edge.to), relation: RELATION_LABEL[edge.relation] }))} title={title} />
       </div>
@@ -77,7 +87,14 @@ export function ConceptMapEditor({ mapId, title, initial }: { mapId: string; tit
                     {node.label}
                   </button>
                 )}
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-danger" aria-label={`Remove ${node.label}`} disabled={map.nodes.length <= 1} onClick={() => commit(removeConcept(map, node.id))}>
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-danger" aria-label={`Remove ${node.label}`}
+                  disabled={map.nodes.length <= 1}
+                  onClick={() => {
+                    const next = removeConcept(map, node.id);
+                    const links = map.edges.length - next.edges.length;
+                    removeOne(next, links > 0 ? `Removed “${node.label}” and its ${links} relationship${links === 1 ? "" : "s"}.` : `Removed “${node.label}”.`);
+                  }}
+                >
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </li>
@@ -110,7 +127,7 @@ export function ConceptMapEditor({ mapId, title, initial }: { mapId: string; tit
                   <span className="font-medium">{labelOf(map, edge.from)}</span> <span className="text-primary">— {RELATION_LABEL[edge.relation]} →</span> <span className="font-medium">{labelOf(map, edge.to)}</span>
                   {edge.note && <span className="block text-xs text-muted-foreground">{edge.note}</span>}
                 </span>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-danger" aria-label={`Remove ${labelOf(map, edge.from)} ${RELATION_LABEL[edge.relation]} ${labelOf(map, edge.to)}`} onClick={() => commit(removeRelationship(map, edge.id))}>
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-danger" aria-label={`Remove ${labelOf(map, edge.from)} ${RELATION_LABEL[edge.relation]} ${labelOf(map, edge.to)}`} onClick={() => removeOne(removeRelationship(map, edge.id), "Removed the relationship.")}>
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </li>

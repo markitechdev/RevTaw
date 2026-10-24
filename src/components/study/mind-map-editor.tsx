@@ -1,7 +1,7 @@
 "use client";
 
-import { ChevronDown, ChevronRight, HelpCircle, Link2, Plus, Trash2, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { ChevronDown, ChevronRight, HelpCircle, Link2, Plus, Trash2, Undo2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,50 @@ export function useMapSaver(mapId: string, kind: "mind" | "concept") {
     }, 500);
   };
   return { state, schedule };
+}
+
+/**
+ * The last removal from a map, so one tap brings it back: a removed idea takes its branch with it, and a
+ * removed concept its relationships. Any other change to the map makes the removal final.
+ */
+export function useUndoableRemoval<T>(apply: (map: T) => void) {
+  const [removal, setRemoval] = useState<{ before: T; message: string } | null>(null);
+  return {
+    removal,
+    /** Records the map as it was before a removal (call before committing the removal). */
+    remember: (before: T, message: string) => setRemoval({ before, message }),
+    forget: () => setRemoval(null),
+    undo: () => {
+      if (!removal) return;
+      apply(removal.before);
+      setRemoval(null);
+    },
+  };
+}
+
+/** Says what was removed, with Undo; a polite live region, so the removal is announced too. */
+export function UndoBar({ removal, onUndo, onDismiss }: { removal: { message: string } | null; onUndo: () => void; onDismiss: () => void }) {
+  const undoButton = useRef<HTMLButtonElement>(null);
+  // The removed item's button is gone, so focus goes to Undo instead of the page.
+  useEffect(() => {
+    if (removal) undoButton.current?.focus();
+  }, [removal]);
+  return (
+    <div role="status" aria-live="polite" className={cn(removal && "flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/60 px-3 py-2 text-sm")}>
+      {removal && (
+        <>
+          <span className="min-w-0 flex-1">{removal.message}</span>
+          <Button ref={undoButton} type="button" size="sm" variant="secondary" onClick={onUndo}>
+            <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+            Undo
+          </Button>
+          <Button type="button" size="icon" variant="ghost" className="h-8 w-8" aria-label="Dismiss" onClick={onDismiss}>
+            <X className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </>
+      )}
+    </div>
+  );
 }
 
 export function SaveIndicator({ state }: { state: SaveState }) {
@@ -114,10 +158,21 @@ export function MindMapEditor({ mapId, initial, onQuiz, quizBusy = null }: { map
   const [target, setTarget] = useState("");
   const [linkLabel, setLinkLabel] = useState("");
   const saver = useMapSaver(mapId, "mind");
-
-  const commit = (next: MindMapData) => {
+  const apply = (next: MindMapData) => {
     setMap(next);
     saver.schedule(next);
+  };
+  const removals = useUndoableRemoval<MindMapData>(apply);
+
+  const commit = (next: MindMapData) => {
+    apply(next);
+    removals.forget();
+  };
+  const remove = (node: MindNode) => {
+    const next = removeNode(map, node.id);
+    const under = map.nodes.length - next.nodes.length - 1;
+    apply(next);
+    removals.remember(map, under > 0 ? `Removed “${node.label}” and ${under} idea${under === 1 ? "" : "s"} under it.` : `Removed “${node.label}”.`);
   };
   const startEdit = (node: MindNode) => {
     setEditing(node.id);
@@ -186,7 +241,7 @@ export function MindMapEditor({ mapId, initial, onQuiz, quizBusy = null }: { map
               </Button>
             )}
             {!isRoot && (
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-danger" aria-label={`Remove ${node.label}`} onClick={() => commit(removeNode(map, node.id))}>
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-danger" aria-label={`Remove ${node.label}`} onClick={() => remove(node)}>
                 <Trash2 className="h-4 w-4" aria-hidden="true" />
               </Button>
             )}
@@ -235,6 +290,7 @@ export function MindMapEditor({ mapId, initial, onQuiz, quizBusy = null }: { map
         </div>
         <SaveIndicator state={saver.state} />
       </div>
+      <UndoBar removal={removals.removal} onUndo={removals.undo} onDismiss={removals.forget} />
       {view === "outline" ? (
         <ul role="tree" aria-label="Mind map" className="flex flex-col gap-1">
           {renderNode(rootOf(map), 0)}
@@ -252,7 +308,17 @@ export function MindMapEditor({ mapId, initial, onQuiz, quizBusy = null }: { map
                   {map.nodes.find((node) => node.id === link.from)?.label} ↔ {map.nodes.find((node) => node.id === link.to)?.label}
                   {link.label ? <span className="text-muted-foreground"> ({link.label})</span> : null}
                 </span>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label="Remove connection" onClick={() => commit({ ...map, links: map.links.filter((entry) => entry.id !== link.id) })}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  aria-label="Remove connection"
+                  onClick={() => {
+                    apply({ ...map, links: map.links.filter((entry) => entry.id !== link.id) });
+                    removals.remember(map, "Removed the connection.");
+                  }}
+                >
                   <X className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </li>
