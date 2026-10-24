@@ -3,6 +3,7 @@ import "server-only";
 import { unstable_rethrow } from "next/navigation";
 import { cache } from "react";
 
+import { getAnswerCounts } from "@/lib/analytics/answers";
 import { ACHIEVEMENT_BY_KEY, longestStreak, newlyUnlocked, type AchievementDef, type GamificationStats } from "@/lib/gamification/achievements";
 import { awardXp } from "@/lib/gamification/service";
 import { levelFor, XP_RULES, type LevelInfo } from "@/lib/gamification/xp";
@@ -32,12 +33,9 @@ async function count(query: PromiseLike<{ count: number | null; error: { message
 export const getGamificationStats = cache(async (): Promise<GamificationStats> => {
   const supabase = await createClient();
   const activity = await getActivityStats();
-  const [sessions, questions, correctQuestions, items, correctItems, reviews, mastered, materials, { data: attempts }, goals, mnemonics] = await Promise.all([
+  const [sessions, answers, reviews, mastered, materials, { data: attempts }, goals, mnemonics] = await Promise.all([
     readPagesQuietly("gamification: sessions", (from, to) => supabase.from("study_sessions").select("method, focus_seconds, items_total, summary").eq("status", "completed").order("completed_at", { ascending: false }).order("id").range(from, to), 2000),
-    count(supabase.from("quiz_answers").select("id", { count: "exact", head: true })),
-    count(supabase.from("quiz_answers").select("id", { count: "exact", head: true }).eq("is_correct", true)),
-    count(supabase.from("study_session_items").select("id", { count: "exact", head: true }).not("answered_at", "is", null)),
-    count(supabase.from("study_session_items").select("id", { count: "exact", head: true }).eq("is_correct", true)),
+    getAnswerCounts(),
     count(supabase.from("flashcard_reviews").select("id", { count: "exact", head: true })),
     count(supabase.from("concept_mastery").select("concept_id", { count: "exact", head: true }).eq("status", "mastered")),
     count(supabase.from("materials").select("id", { count: "exact", head: true }).is("archived_at", null)),
@@ -64,8 +62,8 @@ export const getGamificationStats = cache(async (): Promise<GamificationStats> =
     sessionsCompleted: sessions.length,
     sessionsByMethod: byMethod,
     methodsUsed: Object.keys(byMethod).length,
-    questionsAnswered: questions + items,
-    correctAnswers: correctQuestions + correctItems,
+    questionsAnswered: answers.answered,
+    correctAnswers: answers.correct,
     flashcardsReviewed: reviews,
     currentStreak: activity.streakDays,
     longestStreak: Math.max(activity.streakDays, longestStreak(activity.activeDates)),

@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { listMastery, type MasteryView } from "@/lib/adaptive/engine";
+import { getAnswerCounts } from "@/lib/analytics/answers";
 import { addDays, dateIn } from "@/lib/planner/dates";
 import { plannerClock } from "@/lib/planner/service";
 import type { ConfidenceLevel, MasteryStatus, QuestionDifficulty } from "@/lib/supabase/database.types";
@@ -76,13 +77,14 @@ export const getAnalyticsOverview = cache(async (): Promise<AnalyticsOverview> =
   const start = addDays(today, -(ANALYTICS_DAYS - 1));
   const since = `${addDays(start, -1)}T00:00:00Z`;
   // Newest first, so a cap drops the oldest rows rather than whichever came back.
-  const [sessions, answers, items, reviews, { data: attempts }, mastery] = await Promise.all([
+  const [sessions, answers, items, reviews, { data: attempts }, mastery, counts] = await Promise.all([
     readPagesQuietly("analytics: sessions", (from, to) => supabase.from("study_sessions").select("started_at, completed_at, focus_seconds, status").gte("started_at", since).order("started_at", { ascending: false }).order("id").range(from, to), 2000),
     readPagesQuietly("analytics: answers", (from, to) => supabase.from("quiz_answers").select("answered_at, is_correct, confidence, question:quiz_questions!quiz_answers_question_fk(difficulty)").not("answered_at", "is", null).order("answered_at", { ascending: false }).order("id").range(from, to), 3000),
     readPagesQuietly("analytics: session items", (from, to) => supabase.from("study_session_items").select("answered_at, is_correct, confidence, format").not("answered_at", "is", null).order("answered_at", { ascending: false }).order("id").range(from, to), 3000),
     readPagesQuietly("analytics: reviews", (from, to) => supabase.from("flashcard_reviews").select("reviewed_at").gte("reviewed_at", since).order("reviewed_at", { ascending: false }).order("id").range(from, to), 5000),
     supabase.from("quiz_attempts").select("submitted_at, score, max_score, quiz:quizzes!quiz_attempts_quiz_fk(title)").eq("status", "submitted").gt("max_score", 0).order("submitted_at", { ascending: false }).limit(200),
     listMastery(),
+    getAnswerCounts(),
   ]);
 
   const day = (value: string) => dateIn(value, timezone);
@@ -109,12 +111,8 @@ export const getAnalyticsOverview = cache(async (): Promise<AnalyticsOverview> =
   }
   const difficulty = new Map<QuestionDifficulty, { answered: number; correct: number }>(DIFFICULTY_ORDER.map((level) => [level, { answered: 0, correct: 0 }]));
   const confidence = new Map<ConfidenceLevel, { answered: number; correct: number }>(CONFIDENCE_ORDER.map((level) => [level, { answered: 0, correct: 0 }]));
-  let questions = 0;
-  let correctAll = 0;
   const tally = (answeredAt: string | null, isCorrect: boolean | null, level: ConfidenceLevel | null, questionDifficulty: QuestionDifficulty | null) => {
     if (!answeredAt) return;
-    questions += 1;
-    if (isCorrect) correctAll += 1;
     bump(day(answeredAt), { answered: 1, correct: isCorrect ? 1 : 0 });
     if (questionDifficulty) {
       const entry = difficulty.get(questionDifficulty)!;
@@ -152,8 +150,9 @@ export const getAnalyticsOverview = cache(async (): Promise<AnalyticsOverview> =
     totals: {
       sessions: sessionsInWindow,
       focusMinutes: Math.round(points.reduce((sum, point) => sum + point.focusMinutes, 0)),
-      questions,
-      accuracy: accuracyOf(questions, correctAll),
+      // Every answer ever given, counted exactly (the difficulty and confidence breakdowns read the latest 3,000 of each kind).
+      questions: counts.answered,
+      accuracy: accuracyOf(counts.answered, counts.correct),
       averageScore,
       cards: points.reduce((sum, point) => sum + point.cards, 0),
     },
