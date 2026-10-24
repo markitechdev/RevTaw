@@ -5,6 +5,7 @@ import { isAiError } from "@/lib/ai/errors";
 import { checkVoiceBudget, consumeAiRequest, recordAiTokens, refundAiRequest } from "@/lib/ai/quota";
 import { track } from "@/lib/analytics/server";
 import { rateLimit } from "@/lib/rate-limit";
+import { readFormWithLimit } from "@/lib/server/read-body";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { countedVoiceSeconds, transcribeAudio, voiceCapabilities } from "@/lib/voice/server";
 
@@ -16,6 +17,9 @@ export const maxDuration = 60;
  * 180 KB); 1 MB leaves room for browsers that ignore the bitrate.
  */
 const MAX_BYTES = 1024 * 1024;
+/** Room for the multipart boundaries, headers and the language field around the clip. */
+const FORM_OVERHEAD_BYTES = 64 * 1024;
+const TOO_LONG = "That recording is too long. Keep voice questions under 30 seconds.";
 
 /** Audio Whisper accepts, by detected type (file-type reports WebM as video/webm). */
 const ACCEPTED: Record<string, string> = {
@@ -51,19 +55,18 @@ export async function POST(request: Request) {
   if (!limit.ok) {
     return NextResponse.json({ error: "That's a lot of voice messages. Please wait a little." }, { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } });
   }
-  const declared = Number(request.headers.get("content-length") ?? 0);
-  if (declared > MAX_BYTES + 64 * 1024) {
-    return NextResponse.json({ error: "That recording is too long. Keep voice questions under 30 seconds." }, { status: 413 });
+  // Counted while reading, so a body without (or with a false) Content-Length is never buffered past the limit.
+  const form = await readFormWithLimit(request, MAX_BYTES + FORM_OVERHEAD_BYTES);
+  if (form === null) {
+    return NextResponse.json({ error: TOO_LONG }, { status: 413 });
   }
-
-  const form = await request.formData().catch(() => null);
-  const clip = form?.get("audio");
-  const language = String(form?.get("language") ?? "").slice(0, 20) || null;
+  const clip = form === "invalid" ? null : form.get("audio");
+  const language = form === "invalid" ? null : String(form.get("language") ?? "").slice(0, 20) || null;
   if (!(clip instanceof Blob) || clip.size === 0) {
     return NextResponse.json({ error: "No recording was received." }, { status: 400 });
   }
   if (clip.size > MAX_BYTES) {
-    return NextResponse.json({ error: "That recording is too long. Keep voice questions under 30 seconds." }, { status: 413 });
+    return NextResponse.json({ error: TOO_LONG }, { status: 413 });
   }
   const bytes = new Uint8Array(await clip.arrayBuffer());
   const detected = await fileTypeFromBuffer(bytes);
