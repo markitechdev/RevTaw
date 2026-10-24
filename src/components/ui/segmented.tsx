@@ -47,7 +47,7 @@ export function Segmented<T extends string>({
               className={cn(
                 "relative flex cursor-pointer select-none items-center justify-center gap-1.5 rounded-lg font-medium transition-[background-color,color,box-shadow] duration-150",
                 "has-focus-visible:outline-2 has-focus-visible:outline-offset-1 has-focus-visible:outline-ring",
-                size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3 text-sm",
+                size === "sm" ? "h-7 px-2 text-xs" : "h-8 px-3 text-sm",
                 "pointer-coarse:h-11 pointer-coarse:min-w-11",
                 fill && "flex-1",
                 selected ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",

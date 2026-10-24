@@ -102,9 +102,10 @@ export function UserCard({
           </Link>
         </div>
       </div>
-      <div className="flex items-center justify-between gap-2">
-        <ThemeToggle />
-        <SignOutButton variant="ghost" size="sm" />
+      {/* One row on the 16 rem sidebar; with touch-sized segments, Sign out moves below instead of squeezing. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <ThemeToggle className="shrink-0" />
+        <SignOutButton variant="ghost" size="sm" className="whitespace-nowrap px-2" />
       </div>
     </div>
   );
