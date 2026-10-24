@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Field } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
 import { Button, buttonClasses } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -200,28 +201,26 @@ function PalaceCard({ palace, onEdit, lastUsedLabel }: { palace: PalaceSummary; 
       {error && <Alert tone="error">{error}</Alert>}
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
         <span>{lastUsedLabel}</span>
-        {confirming ? (
-          <span className="flex items-center gap-1.5">
-            <span className="text-foreground">Delete this palace?</span>
-            <Button type="button" size="sm" variant="danger" loading={pending} onClick={remove}>
-              Delete
-            </Button>
-            <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setConfirming(false)}>
-              Keep
-            </Button>
-          </span>
-        ) : (
-          <span className="flex items-center gap-1">
-            <Button type="button" size="sm" variant="ghost" onClick={onEdit} aria-label={`Edit the route of ${palace.title}`}>
-              <Pencil className="h-4 w-4" aria-hidden="true" />
-              Edit
-            </Button>
-            <Button type="button" size="sm" variant="ghost" onClick={() => setConfirming(true)} aria-label={`Delete ${palace.title}`}>
-              <Trash2 className="h-4 w-4" aria-hidden="true" />
-              Delete
-            </Button>
-          </span>
-        )}
+        <ConfirmDialog
+          open={confirming}
+          title="Delete this palace?"
+          description={`“${palace.title}” and its route are removed. Sessions you walked it in stay in your history.`}
+          confirmLabel="Delete palace"
+          pending={pending}
+          error={confirming ? error : null}
+          onConfirm={remove}
+          onCancel={() => setConfirming(false)}
+        />
+        <span className="flex items-center gap-1">
+          <Button type="button" size="sm" variant="ghost" onClick={onEdit} aria-label={`Edit the route of ${palace.title}`}>
+            <Pencil className="h-4 w-4" aria-hidden="true" />
+            Edit
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setConfirming(true)} aria-label={`Delete ${palace.title}`}>
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            Delete
+          </Button>
+        </span>
       </div>
     </li>
   );

@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { deleteQuizAction, renameQuizAction } from "@/lib/quizzes/actions";
@@ -108,20 +109,16 @@ export function QuizActions({ quizId, title, status }: { quizId: string; title: 
         </form>
       </Dialog>
 
-      <Dialog open={dialog === "delete"} onClose={() => !pending && setDialog(null)} title="Delete this quiz?" dismissible={!pending}>
-        <div className="flex flex-col gap-4">
-          <Alert tone="error">“{title}”, its questions and every attempt will be deleted permanently. Entries in your mistake notebook are kept.</Alert>
-          {error && <Alert tone="error">{error}</Alert>}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" disabled={pending} onClick={() => setDialog(null)}>
-              Cancel
-            </Button>
-            <Button type="button" variant="danger" loading={pending} onClick={remove}>
-              Delete permanently
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+      <ConfirmDialog
+        open={dialog === "delete"}
+        title="Delete this quiz?"
+        description={<>“{title}”, its questions and every attempt will be deleted permanently. Entries in your mistake notebook are kept.</>}
+        confirmLabel="Delete permanently"
+        pending={pending}
+        error={error}
+        onConfirm={remove}
+        onCancel={() => setDialog(null)}
+      />
     </>
   );
 }

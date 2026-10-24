@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { routes } from "@/lib/routes";
@@ -68,16 +69,16 @@ export function ConversationActions({ conversationId, title }: { conversationId:
           </div>
         </form>
       </Dialog>
-      <Dialog open={dialog === "delete"} onClose={() => !pending && setDialog(null)} title="Delete this conversation?" dismissible={!pending}>
-        <div className="flex flex-col gap-4">
-          <Alert tone="error">“{title}” and all of its messages will be deleted permanently. Notes and flashcards you saved from it are kept.</Alert>
-          {error && <Alert tone="error">{error}</Alert>}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" disabled={pending} onClick={() => setDialog(null)}>Cancel</Button>
-            <Button type="button" variant="danger" loading={pending} onClick={remove}>Delete permanently</Button>
-          </div>
-        </div>
-      </Dialog>
+      <ConfirmDialog
+        open={dialog === "delete"}
+        title="Delete this conversation?"
+        description={<>“{title}” and all of its messages will be deleted permanently. Notes and flashcards you saved from it are kept.</>}
+        confirmLabel="Delete permanently"
+        pending={pending}
+        error={error}
+        onConfirm={remove}
+        onCancel={() => setDialog(null)}
+      />
     </>
   );
 }

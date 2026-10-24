@@ -9,6 +9,7 @@ import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input, Textarea } from "@/components/ui/input";
@@ -186,34 +187,32 @@ function MnemonicCard({ mnemonic, onEdit }: { mnemonic: LibraryMnemonic; onEdit:
           )}{" "}
           · {mnemonic.practicedLabel}
         </span>
-        {confirming ? (
-          <span className="flex items-center gap-1.5">
-            <span className="text-foreground">Delete this mnemonic?</span>
-            <Button type="button" size="sm" variant="danger" loading={pending} onClick={() => run(() => deleteMnemonicAction({ id: mnemonic.id }))}>
-              Delete
-            </Button>
-            <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setConfirming(false)}>
-              Keep
-            </Button>
-          </span>
-        ) : (
-          <span className="flex items-center gap-1">
-            {mnemonic.material && mnemonic.items.length >= 2 && (
-              <Link href={`${routes.study}?method=mnemonics&material=${mnemonic.material.id}`} className={buttonClasses({ size: "sm", variant: "ghost" })}>
-                <Brain className="h-4 w-4" aria-hidden="true" />
-                Practice
-              </Link>
-            )}
-            <Button type="button" size="sm" variant="ghost" onClick={onEdit} aria-label={`Edit the mnemonic for ${mnemonic.target}`}>
-              <Pencil className="h-4 w-4" aria-hidden="true" />
-              Edit
-            </Button>
-            <Button type="button" size="sm" variant="ghost" onClick={() => setConfirming(true)} aria-label={`Delete the mnemonic for ${mnemonic.target}`}>
-              <Trash2 className="h-4 w-4" aria-hidden="true" />
-              Delete
-            </Button>
-          </span>
-        )}
+        <ConfirmDialog
+          open={confirming}
+          title="Delete this mnemonic?"
+          description={`The mnemonic for “${mnemonic.target}” is removed from your memory aids.`}
+          confirmLabel="Delete mnemonic"
+          pending={pending}
+          error={confirming ? error : null}
+          onConfirm={() => run(() => deleteMnemonicAction({ id: mnemonic.id }))}
+          onCancel={() => setConfirming(false)}
+        />
+        <span className="flex items-center gap-1">
+          {mnemonic.material && mnemonic.items.length >= 2 && (
+            <Link href={`${routes.study}?method=mnemonics&material=${mnemonic.material.id}`} className={buttonClasses({ size: "sm", variant: "ghost" })}>
+              <Brain className="h-4 w-4" aria-hidden="true" />
+              Practice
+            </Link>
+          )}
+          <Button type="button" size="sm" variant="ghost" onClick={onEdit} aria-label={`Edit the mnemonic for ${mnemonic.target}`}>
+            <Pencil className="h-4 w-4" aria-hidden="true" />
+            Edit
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setConfirming(true)} aria-label={`Delete the mnemonic for ${mnemonic.target}`}>
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            Delete
+          </Button>
+        </span>
       </div>
     </li>
   );

@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { deleteReviewerAction, renameReviewerAction } from "@/lib/reviewers/actions";
@@ -108,20 +109,16 @@ export function ReviewerActions({ reviewerId, title, status }: { reviewerId: str
         </form>
       </Dialog>
 
-      <Dialog open={dialog === "delete"} onClose={() => !pending && setDialog(null)} title="Delete this reviewer?" dismissible={!pending}>
-        <div className="flex flex-col gap-4">
-          <Alert tone="error">“{title}” and all of its sections, including your edits, will be deleted permanently.</Alert>
-          {error && <Alert tone="error">{error}</Alert>}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" disabled={pending} onClick={() => setDialog(null)}>
-              Cancel
-            </Button>
-            <Button type="button" variant="danger" loading={pending} onClick={remove}>
-              Delete permanently
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+      <ConfirmDialog
+        open={dialog === "delete"}
+        title="Delete this reviewer?"
+        description={<>“{title}” and all of its sections, including your edits, will be deleted permanently.</>}
+        confirmLabel="Delete permanently"
+        pending={pending}
+        error={error}
+        onConfirm={remove}
+        onCancel={() => setDialog(null)}
+      />
     </>
   );
 }
