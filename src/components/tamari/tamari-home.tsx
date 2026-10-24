@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { textLang } from "@/lib/voice/speech-text";
 
 const pixelButton =
-  "inline-flex h-8 cursor-pointer items-center justify-center border-2 border-foreground px-2.5 text-xs font-bold whitespace-nowrap shadow-[2px_2px_0_0_var(--foreground)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:cursor-wait disabled:opacity-70";
+  "inline-flex h-8 cursor-pointer items-center justify-center border-2 border-foreground px-2.5 text-xs font-bold whitespace-nowrap shadow-[2px_2px_0_0_var(--foreground)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:cursor-wait disabled:opacity-70 pointer-coarse:h-11 pointer-coarse:min-w-11";
 
 function rememberLater(today: string, id: string): void {
   try {
@@ -210,7 +210,7 @@ export function TamariHome({ line, today, pending = false, size, lgSize }: Props
               }}
               aria-label="Ask Tamari"
               title="Ask Tamari"
-              className="absolute top-0.5 right-0.5 inline-flex size-8 cursor-pointer items-center justify-center text-muted-foreground hover:text-foreground"
+              className="touch-target absolute top-0.5 right-0.5 inline-flex size-8 cursor-pointer items-center justify-center text-muted-foreground hover:text-foreground"
             >
               <MessageCircle className="h-4 w-4" aria-hidden="true" />
             </button>
