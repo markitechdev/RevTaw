@@ -185,7 +185,7 @@ export function TaskItem({
         )}
         {task.kind !== "plan" && (
           <>
-            <Button type="button" size="sm" variant="ghost" aria-label="Delete task" title="Delete" disabled={pending} onClick={() => setConfirmingDelete(true)}>
+            <Button type="button" size="sm" variant="danger-ghost" aria-label="Delete task" title="Delete" disabled={pending} onClick={() => setConfirmingDelete(true)}>
               <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
             <ConfirmDialog

@@ -244,7 +244,7 @@ export function RoutinesCard({ routines, materials }: { routines: RoutineItem[];
                   <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setEditing(routine)} aria-label={`Edit ${routine.title}`}>
                     <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
-                  <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setDeleting(routine)} aria-label={`Delete ${routine.title}`}>
+                  <Button type="button" size="sm" variant="danger-ghost" disabled={pending} onClick={() => setDeleting(routine)} aria-label={`Delete ${routine.title}`}>
                     <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
                 </div>

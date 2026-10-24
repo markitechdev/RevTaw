@@ -47,7 +47,7 @@ export function ExamDangerActions({ examId, archived }: { examId: string; archiv
         <Archive className="h-3.5 w-3.5" aria-hidden="true" />
         {archived ? "Unarchive" : "Archive"}
       </Button>
-      <Button type="button" size="sm" variant="ghost" onClick={() => setConfirm(true)}>
+      <Button type="button" size="sm" variant="danger-ghost" onClick={() => setConfirm(true)}>
         <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
         Delete
       </Button>

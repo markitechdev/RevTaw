@@ -202,6 +202,16 @@ function PalaceCard({ palace, onEdit, lastUsedLabel }: { palace: PalaceSummary; 
       {error && <Alert tone="error">{error}</Alert>}
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
         <span>{lastUsedLabel}</span>
+        <span className="flex items-center gap-1">
+          <Button type="button" size="sm" variant="ghost" onClick={onEdit} aria-label={`Edit the route of ${palace.title}`}>
+            <Pencil className="h-4 w-4" aria-hidden="true" />
+            Edit
+          </Button>
+          <Button type="button" size="sm" variant="danger-ghost" onClick={() => setConfirming(true)} aria-label={`Delete ${palace.title}`}>
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            Delete
+          </Button>
+        </span>
         <ConfirmDialog
           open={confirming}
           title="Delete this palace?"
@@ -212,16 +222,6 @@ function PalaceCard({ palace, onEdit, lastUsedLabel }: { palace: PalaceSummary; 
           onConfirm={remove}
           onCancel={() => setConfirming(false)}
         />
-        <span className="flex items-center gap-1">
-          <Button type="button" size="sm" variant="ghost" onClick={onEdit} aria-label={`Edit the route of ${palace.title}`}>
-            <Pencil className="h-4 w-4" aria-hidden="true" />
-            Edit
-          </Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => setConfirming(true)} aria-label={`Delete ${palace.title}`}>
-            <Trash2 className="h-4 w-4" aria-hidden="true" />
-            Delete
-          </Button>
-        </span>
       </div>
     </li>
   );

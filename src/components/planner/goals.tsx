@@ -181,7 +181,7 @@ export function GoalList({ goals, compact = false }: { goals: GoalProgress[]; co
                       {!(busy === `${item.goal.id}:done` && pending) && (item.goal.status === "completed" ? <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> : <Check className="h-3.5 w-3.5" aria-hidden="true" />)}
                     </Button>
                   )}
-                  <Button type="button" size="sm" variant="ghost" aria-label="Delete goal" title="Delete" disabled={pending} onClick={() => setDeleting(item)}>
+                  <Button type="button" size="sm" variant="danger-ghost" aria-label="Delete goal" title="Delete" disabled={pending} onClick={() => setDeleting(item)}>
                     <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
                 </div>

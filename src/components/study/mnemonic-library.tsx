@@ -188,16 +188,6 @@ function MnemonicCard({ mnemonic, onEdit }: { mnemonic: LibraryMnemonic; onEdit:
           )}{" "}
           · {mnemonic.practicedLabel}
         </span>
-        <ConfirmDialog
-          open={confirming}
-          title="Delete this mnemonic?"
-          description={`The mnemonic for “${mnemonic.target}” is removed from your memory aids.`}
-          confirmLabel="Delete mnemonic"
-          pending={pending}
-          error={confirming ? error : null}
-          onConfirm={() => run(() => deleteMnemonicAction({ id: mnemonic.id }))}
-          onCancel={() => setConfirming(false)}
-        />
         <span className="flex items-center gap-1">
           {mnemonic.material && mnemonic.items.length >= 2 && (
             <Link href={`${routes.study}?method=mnemonics&material=${mnemonic.material.id}`} className={buttonClasses({ size: "sm", variant: "ghost" })}>
@@ -209,11 +199,21 @@ function MnemonicCard({ mnemonic, onEdit }: { mnemonic: LibraryMnemonic; onEdit:
             <Pencil className="h-4 w-4" aria-hidden="true" />
             Edit
           </Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => setConfirming(true)} aria-label={`Delete the mnemonic for ${mnemonic.target}`}>
+          <Button type="button" size="sm" variant="danger-ghost" onClick={() => setConfirming(true)} aria-label={`Delete the mnemonic for ${mnemonic.target}`}>
             <Trash2 className="h-4 w-4" aria-hidden="true" />
             Delete
           </Button>
         </span>
+        <ConfirmDialog
+          open={confirming}
+          title="Delete this mnemonic?"
+          description={`The mnemonic for “${mnemonic.target}” is removed from your memory aids.`}
+          confirmLabel="Delete mnemonic"
+          pending={pending}
+          error={confirming ? error : null}
+          onConfirm={() => run(() => deleteMnemonicAction({ id: mnemonic.id }))}
+          onCancel={() => setConfirming(false)}
+        />
       </div>
     </li>
   );
