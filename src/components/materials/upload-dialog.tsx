@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Textarea } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { IDLE_STATE, type ActionState } from "@/lib/forms/action-state";
 import { createFileMaterialAction, createTextMaterialAction, discardUploadAction } from "@/lib/materials/actions";
 import {
@@ -56,35 +57,37 @@ export function UploadDialog({
       description="Bitaw mo na kay RevTaw. Upload notes and we'll help turn them into something you can actually study."
       className="max-w-xl"
     >
-      <div role="tablist" aria-label="Material type" className="mb-4 flex gap-1 rounded-lg bg-muted p-1">
-        {(
-          [
-            { id: "file", label: "Upload a file", icon: Upload },
-            { id: "text", label: "Paste notes", icon: FileText },
-          ] as const
-        ).map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            id={`${tabsId}-${id}`}
-            aria-selected={tab === id}
-            aria-controls={`${tabsId}-${id}-panel`}
-            disabled={busy}
-            onClick={() => setTab(id)}
-            className={cn(
-              "flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-              tab === id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-              "disabled:cursor-not-allowed disabled:opacity-60",
-            )}
-          >
-            <Icon className="h-4 w-4" aria-hidden="true" />
-            {label}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        label="How to add it"
+        name={`material-type-${tabsId}`}
+        value={tab}
+        onChange={setTab}
+        fill
+        disabled={busy}
+        className="mb-4"
+        options={[
+          {
+            value: "file",
+            label: (
+              <>
+                <Upload className="h-4 w-4" aria-hidden="true" />
+                Upload a file
+              </>
+            ),
+          },
+          {
+            value: "text",
+            label: (
+              <>
+                <FileText className="h-4 w-4" aria-hidden="true" />
+                Paste notes
+              </>
+            ),
+          },
+        ]}
+      />
 
-      <div role="tabpanel" id={`${tabsId}-${tab}-panel`} aria-labelledby={`${tabsId}-${tab}`}>
+      <div>
         {tab === "file" ? (
           <FileUploadPanel
             subjects={subjects}

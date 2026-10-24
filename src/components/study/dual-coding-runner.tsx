@@ -10,6 +10,7 @@ import { VisualView } from "@/components/study/visual-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
 import type { VisualCheck } from "@/lib/study/flows/visual";
 import { checkVisualAction } from "@/lib/study/method-actions";
@@ -273,20 +274,18 @@ export function DualCodingRunner({ session, methodName, parentSessionId = null, 
             {item.concept && <Badge tone="primary">{item.concept.name}</Badge>}
           </div>
           {mode === "study" && (
-            <div role="radiogroup" aria-label="View" className="inline-flex rounded-lg border border-border p-0.5 text-sm">
-              {(["text", "visual", "combined"] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  role="radio"
-                  aria-checked={view === option}
-                  onClick={() => setView(option)}
-                  className={cn("rounded-md px-3 py-1 capitalize", view === option ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              label="View"
+              name={`dual-view-${item.id}`}
+              value={view}
+              onChange={setView}
+              size="sm"
+              options={[
+                { value: "text", label: "Text" },
+                { value: "visual", label: "Visual" },
+                { value: "combined", label: "Combined" },
+              ]}
+            />
           )}
         </div>
         <h2 id="visual-title" className="text-lg font-medium leading-snug">

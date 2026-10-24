@@ -10,6 +10,7 @@ import { SessionHeader } from "@/components/study/session-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { storyResultOf, storyViewOf, type StoryResult, type StoryView } from "@/lib/study/memory-options";
 import { checkStoryRetellAction, saveItemDraftAction } from "@/lib/study/method-actions";
 import type { SessionDetail } from "@/lib/study/queries";
@@ -147,18 +148,6 @@ export function StoryRunner({ session, methodName, parentSessionId = null, paren
     setHighlighted([]);
   };
 
-  const layoutButton = (value: View, label: string) => (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={layout === value}
-      onClick={() => setLayout(value)}
-      className={cn("cursor-pointer rounded-md px-3 py-1.5 text-sm", layout === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}
-    >
-      {label}
-    </button>
-  );
-
   return (
     <div className="flex flex-col gap-4">
       <SessionHeader
@@ -190,11 +179,18 @@ export function StoryRunner({ session, methodName, parentSessionId = null, paren
           <>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm text-muted-foreground">Read the story with the notes it carries. Characters and scenes are invented; every numbered fact is the material&apos;s own.</p>
-              <div role="radiogroup" aria-label="View" className="flex rounded-lg border border-border p-0.5">
-                {layoutButton("side", "Side by side")}
-                {layoutButton("notes", "Original notes")}
-                {layoutButton("story", "Story version")}
-              </div>
+              <Segmented
+                label="View"
+                name={`story-view-${item.id}`}
+                value={layout}
+                onChange={setLayout}
+                size="sm"
+                options={[
+                  { value: "side", label: "Side by side" },
+                  { value: "notes", label: "Original notes" },
+                  { value: "story", label: "Story version" },
+                ]}
+              />
             </div>
             <div className={cn("grid gap-4", layout === "side" && "lg:grid-cols-2")}>
               {layout !== "story" && (

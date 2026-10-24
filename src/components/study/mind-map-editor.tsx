@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
 import { addChild, childrenOf, connectNodes, layoutMindMap, removeNode, renameNode, rootOf, toggleNode, type MindMapData, type MindNode } from "@/lib/study/maps";
 import { saveMapAction } from "@/lib/study/method-actions";
@@ -281,13 +282,17 @@ export function MindMapEditor({ mapId, initial, onQuiz, quizBusy = null }: { map
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div role="radiogroup" aria-label="Map view" className="inline-flex rounded-lg border border-border p-0.5 text-sm">
-          {(["outline", "map"] as const).map((option) => (
-            <button key={option} type="button" role="radio" aria-checked={view === option} onClick={() => setView(option)} className={cn("rounded-md px-3 py-1 capitalize", view === option ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}>
-              {option}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label="Map view"
+          name={`map-view-${mapId}`}
+          value={view}
+          onChange={setView}
+          size="sm"
+          options={[
+            { value: "outline", label: "Outline" },
+            { value: "map", label: "Map" },
+          ]}
+        />
         <SaveIndicator state={saver.state} />
       </div>
       <UndoBar removal={removals.removal} onUndo={removals.undo} onDismiss={removals.forget} />
