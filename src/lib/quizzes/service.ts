@@ -6,6 +6,7 @@ import { awardAttemptXp } from "@/lib/gamification/service";
 import { isAiError } from "@/lib/ai";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { claimForRetry, retryRefusal } from "@/lib/generation/retry";
+import { addMistake, removeQuizMistake } from "@/lib/mistakes/notebook";
 import { gradeObjective, gradeOpenAnswers, normalizeText, type GradeResult, type OpenAnswerItem } from "@/lib/quizzes/grade";
 import { generateQuiz } from "@/lib/quizzes/generate";
 import { answerSchema, parseQuizConfig, responseSchema } from "@/lib/quizzes/schemas";
@@ -24,7 +25,7 @@ import { seededRandom, shuffled } from "@/lib/random";
 import { friendlyGenerationFailure, loadMaterialContext } from "@/lib/reviewers/service";
 import type { ConfidenceLevel, Json, QuestionType, QuizMode } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
-import { clampText, clampTitle, titleWithSuffix } from "@/lib/text/clamp";
+import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 
@@ -365,25 +366,16 @@ async function recordMistake(
 ) {
   const options = question.options as unknown as QuestionOption[] | null;
   const answer = answerSchema.parse(question.answer) as QuestionAnswer;
-  // One entry per question per attempt (migration 0028): a repeat keeps the first.
-  const { error } = await supabase.from("mistakes").upsert(
-    {
-      user_id: attempt.user_id,
-      question_id: question.id,
-      attempt_id: attempt.id,
-      concept_id: question.concept_id,
-      material_id: attempt.material_id,
-      question_text: clampText(question.prompt, 4000),
-      student_answer: (() => {
-        const described = describeResponse(response, options);
-        return described === null || described === undefined ? null : clampText(described, 4000);
-      })(),
-      correct_answer: clampText(describeAnswer(answer, options), 4000),
-      explanation: question.explanation ? clampText(question.explanation, 4000) : null,
-    },
-    { onConflict: "attempt_id,question_id", ignoreDuplicates: true },
-  );
-  if (error) console.error("mistakes: save failed", error.message);
+  await addMistake(supabase, {
+    userId: attempt.user_id,
+    conceptId: question.concept_id,
+    materialId: attempt.material_id,
+    question: question.prompt,
+    studentAnswer: describeResponse(response, options) ?? null,
+    correctAnswer: describeAnswer(answer, options),
+    explanation: question.explanation,
+    quiz: { attemptId: attempt.id, questionId: question.id },
+  });
 }
 
 /** How long a submission may hold an attempt before another may take over (it was cut off). */
@@ -582,7 +574,7 @@ export async function selfGradeAnswer(answerId: string, verdict: "correct" | "pa
 
   const materialId = (attempt.quiz as unknown as { material_id: string } | null)?.material_id ?? null;
   if (isCorrect) {
-    await supabase.from("mistakes").delete().eq("attempt_id", attempt.id).eq("question_id", question.id);
+    await removeQuizMistake(supabase, { attemptId: attempt.id, questionId: question.id });
   } else {
     const response = stored.response ? responseSchema.parse(stored.response) : null;
     await recordMistake(supabase, { id: attempt.id, user_id: attempt.user_id, material_id: materialId }, question, response);

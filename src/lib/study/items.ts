@@ -2,6 +2,7 @@ import "server-only";
 
 import { refreshMastery } from "@/lib/adaptive/engine";
 import { ensureConcepts } from "@/lib/concepts/service";
+import { addMistake, resolveMistake } from "@/lib/mistakes/notebook";
 import { loadMaterialContext } from "@/lib/reviewers/service";
 import { createSession, loadSession, SessionError, type CreateSessionInput } from "@/lib/study/sessions";
 import type { ConfidenceLevel, Database, Json, MistakeType, SessionGoal, SessionItemKind, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
@@ -111,17 +112,17 @@ export async function settleAnsweredItem(supabase: Client, item: StudySessionIte
     .eq("id", session.id);
 
   if (result.isCorrect && result.retestedMistakeId) {
-    await supabase.from("mistakes").update({ resolved_at: now }).eq("id", result.retestedMistakeId);
+    await resolveMistake(supabase, result.retestedMistakeId);
   } else if (!result.isCorrect && result.mistake) {
-    await supabase.from("mistakes").insert({
-      user_id: session.user_id,
-      concept_id: item.concept_id,
-      material_id: item.material_id ?? session.material_id,
-      question_text: result.mistake.question.slice(0, 4000),
-      student_answer: result.response?.slice(0, 4000) || null,
-      correct_answer: result.mistake.correctAnswer.slice(0, 4000) || "(see the session)",
-      explanation: result.mistake.explanation.slice(0, 4000),
-      error_type: result.mistake.errorType ?? "unclassified",
+    await addMistake(supabase, {
+      userId: session.user_id,
+      conceptId: item.concept_id,
+      materialId: item.material_id ?? session.material_id,
+      question: result.mistake.question,
+      studentAnswer: result.response || null,
+      correctAnswer: result.mistake.correctAnswer,
+      explanation: result.mistake.explanation,
+      errorType: result.mistake.errorType,
     });
   }
   if (item.concept_id) await refreshMastery([item.concept_id]);
