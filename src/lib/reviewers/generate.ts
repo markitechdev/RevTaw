@@ -8,6 +8,7 @@ import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import { REVIEWER_KIND_BY_ID } from "@/lib/reviewers/kinds";
 import type { ReviewerKind } from "@/lib/supabase/database.types";
+import { modelTitle } from "@/lib/ai/fields";
 
 export const SECTION_CONTENT_MAX = 20_000;
 
@@ -17,7 +18,7 @@ const sectionSchema = z.object({
 });
 
 export const reviewerResponseSchema = z.object({
-  title: z.string().trim().min(1).max(160),
+  title: modelTitle(),
   sections: z.array(sectionSchema).min(1).max(24),
 });
 

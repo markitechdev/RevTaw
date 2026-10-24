@@ -6,6 +6,8 @@ import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
+import { modelTitle } from "@/lib/ai/fields";
+import { clampTitle } from "@/lib/text/clamp";
 
 const cardSchema = z.object({
   front: z.string().trim().min(1).max(2000),
@@ -16,7 +18,7 @@ const cardSchema = z.object({
 });
 
 export const flashcardResponseSchema = z.object({
-  title: z.string().trim().min(1).max(160),
+  title: modelTitle(),
   cards: z.array(cardSchema).min(1).max(80),
 });
 
@@ -105,7 +107,7 @@ ${transcript}
   });
 
   return {
-    title: result.data.title.slice(0, 160),
+    title: clampTitle(result.data.title),
     cards: finalizeCards(result.data.cards, options.count),
     provider: result.raw.provider,
     model: result.raw.model,

@@ -8,6 +8,7 @@ import { SessionError, sessionTitle } from "@/lib/study/sessions";
 import { gradeVisual, visualAsText, type VisualAnswer, type VisualTopic } from "@/lib/study/visuals";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
+import { titleWithSuffix } from "@/lib/text/clamp";
 
 /**
  * Dual coding (§16): every topic as text and as a visual, with Text / Visual /
@@ -31,7 +32,7 @@ async function visualSet(supabase: Client, userId: string, context: Awaited<Retu
   if (generated.topics.length === 0) throw new SessionError("No visuals could be drawn from this material.", 422);
   const { data: map, error } = await supabase
     .from("study_maps")
-    .insert({ user_id: userId, material_id: context.material.id, kind: "visual", title: `${context.material.title} — visuals`.slice(0, 160), data: { topics: generated.topics } as unknown as Json, provider: generated.provider, model: generated.model })
+    .insert({ user_id: userId, material_id: context.material.id, kind: "visual", title: titleWithSuffix(context.material.title, "visuals"), data: { topics: generated.topics } as unknown as Json, provider: generated.provider, model: generated.model })
     .select("id")
     .single();
   if (error || !map) throw new Error(`study_maps: insert failed: ${error?.message}`);

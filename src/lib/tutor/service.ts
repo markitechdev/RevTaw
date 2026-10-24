@@ -14,6 +14,7 @@ import { rankMaterialChunks } from "@/lib/search/hybrid";
 import { selectContext, type ContextChunk } from "@/lib/tutor/context";
 import { flashcardDraftSchema } from "@/lib/tutor/schemas";
 import { TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
+import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 
@@ -58,7 +59,7 @@ export async function createConversation(input: { materialId: string | null; mod
   }
   const { data, error } = await supabase
     .from("tutor_conversations")
-    .insert({ material_id: input.materialId, mode: input.mode, title: (title ?? "New conversation").slice(0, 160), session_id: input.sessionId ?? null })
+    .insert({ material_id: input.materialId, mode: input.mode, title: clampTitle(title ?? "New conversation"), session_id: input.sessionId ?? null })
     .select("id")
     .single();
   if (error || !data) throw new Error(`tutor_conversations: insert failed: ${error?.message}`);
@@ -272,7 +273,7 @@ export async function addMessageToNotes(messageId: string): Promise<{ reviewerId
     const { data: material } = await supabase.from("materials").select("title").eq("id", conversation.material_id).maybeSingle();
     const { data: created, error } = await supabase
       .from("reviewers")
-      .insert({ user_id: message.user_id, material_id: conversation.material_id, kind: "bullet_notes", title: `Tutor notes — ${material?.title ?? "material"}`.slice(0, 160), status: "ready", provider: "tutor" })
+      .insert({ user_id: message.user_id, material_id: conversation.material_id, kind: "bullet_notes", title: clampTitle(`Tutor notes — ${material?.title ?? "material"}`), status: "ready", provider: "tutor" })
       .select("id")
       .single();
     if (error || !created) throw new Error(`reviewers: insert failed: ${error?.message}`);
@@ -316,7 +317,7 @@ export async function createFlashcardFromMessage(messageId: string, draft: { fro
     const { data: material } = await supabase.from("materials").select("title").eq("id", conversation.material_id).maybeSingle();
     const { data: created, error } = await supabase
       .from("flashcard_decks")
-      .insert({ user_id: message.user_id, material_id: conversation.material_id, title: `Tutor cards — ${material?.title ?? "material"}`.slice(0, 160), status: "ready", provider: "tutor" })
+      .insert({ user_id: message.user_id, material_id: conversation.material_id, title: clampTitle(`Tutor cards — ${material?.title ?? "material"}`), status: "ready", provider: "tutor" })
       .select("id, card_count")
       .single();
     if (error || !created) throw new Error(`flashcard_decks: insert failed: ${error?.message}`);
@@ -374,10 +375,10 @@ export async function startTutorSession(userId: string, input: { method: keyof t
     materialId: input.materialId,
     goal: input.goal,
     plannedMinutes: input.plannedMinutes,
-    title: `${input.materialTitle} — ${SESSION_TITLE[mode]}`,
+    title: titleWithSuffix(input.materialTitle, SESSION_TITLE[mode]),
     state: { mode },
   });
-  const { id: conversationId } = await createConversation({ materialId: input.materialId, mode, sessionId, title: `${input.materialTitle} — ${mode === "socratic" ? "Socratic" : mode === "elaborative" ? "Why chain" : mode === "teach_back" ? "Teach-back" : "Self-explanation"} session` });
+  const { id: conversationId } = await createConversation({ materialId: input.materialId, mode, sessionId, title: titleWithSuffix(input.materialTitle, `${mode === "socratic" ? "Socratic" : mode === "elaborative" ? "Why chain" : mode === "teach_back" ? "Teach-back" : "Self-explanation"} session`) });
   await supabase.from("study_sessions").update({ state: { mode, conversationId } as Json }).eq("id", sessionId);
   // The tutor opens the session so the student is not staring at an empty box.
   const conversation = await loadConversation(supabase, conversationId);

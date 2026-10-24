@@ -6,6 +6,7 @@ import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { GROUNDING_RULE, studentLine, text } from "@/lib/study/prompts/shared";
+import { modelTitle } from "@/lib/ai/fields";
 
 /**
  * Prompts behind the memory techniques (spec §16). Memorable, but never at
@@ -79,7 +80,7 @@ export const storySetSchema = z.object({
   stories: z
     .array(
       z.object({
-        title: text(160),
+        title: modelTitle(),
         concept: text(120),
         facts: z.array(text(400)).min(2).max(10),
         paragraphs: z.array(z.object({ text: text(1500), facts: z.array(z.number().int()).max(10) })).min(1).max(8),

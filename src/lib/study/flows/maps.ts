@@ -10,6 +10,7 @@ import { generateConceptMap, generateMindMap } from "@/lib/study/prompts/maps";
 import { loadSession, SessionError, sessionTitle } from "@/lib/study/sessions";
 import type { Json, StudyMapKind, StudySession } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
+import { titleWithSuffix } from "@/lib/text/clamp";
 
 /**
  * Mind mapping and concept mapping (§16). Maps are saved in `study_maps` and
@@ -39,7 +40,7 @@ async function startMapSession(supabase: Client, userId: string, input: MapStart
     const generated = kind === "mind" ? await generateMindMap({ materialTitle: context.material.title, chunks: context.chunks, student: context.student }) : await generateConceptMap({ materialTitle: context.material.title, chunks: context.chunks, student: context.student });
     const { data: map, error } = await supabase
       .from("study_maps")
-      .insert({ user_id: userId, material_id: context.material.id, kind, title: `${context.material.title} — ${kind === "mind" ? "mind map" : "concept map"}`.slice(0, 160), data: generated.map as unknown as Json, provider: generated.provider, model: generated.model })
+      .insert({ user_id: userId, material_id: context.material.id, kind, title: titleWithSuffix(context.material.title, kind === "mind" ? "mind map" : "concept map"), data: generated.map as unknown as Json, provider: generated.provider, model: generated.model })
       .select("id")
       .single();
     if (error || !map) throw new Error(`study_maps: insert failed: ${error?.message}`);

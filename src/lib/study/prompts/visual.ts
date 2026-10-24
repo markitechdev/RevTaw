@@ -7,6 +7,7 @@ import { generateJson } from "@/lib/ai/json";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { GROUNDING_RULE, studentLine, text } from "@/lib/study/prompts/shared";
 import type { Visual, VisualTopic } from "@/lib/study/visuals";
+import { modelTitle } from "@/lib/ai/fields";
 
 /**
  * Dual coding (spec §16): the same content as text and as a visual —
@@ -70,7 +71,7 @@ export function tidyVisual(visual: Visual): Visual {
 
 export const visualSetSchema = z.object({
   topics: z
-    .array(z.object({ title: text(160), concept: text(120), text: text(1500), visual: visualSchema }))
+    .array(z.object({ title: modelTitle(), concept: text(120), text: text(1500), visual: visualSchema }))
     .min(1)
     .max(6),
 });

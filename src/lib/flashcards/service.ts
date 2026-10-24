@@ -9,6 +9,7 @@ import { claimForRetry, retryRefusal } from "@/lib/generation/retry";
 import { friendlyGenerationFailure, loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
 import type { FlashcardRating } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
+import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 
@@ -19,7 +20,7 @@ export async function createDeck(materialId: string, options: { count: number; f
   const context = await loadMaterialContext(supabase, materialId);
   const { data: deck, error } = await supabase
     .from("flashcard_decks")
-    .insert({ user_id: context.material.user_id, material_id: materialId, title: `${context.material.title} — Flashcards`, status: "generating" })
+    .insert({ user_id: context.material.user_id, material_id: materialId, title: titleWithSuffix(context.material.title, "Flashcards"), status: "generating" })
     .select("id")
     .single();
   if (error || !deck) throw new Error(`flashcard_decks: insert failed: ${error?.message}`);
@@ -72,7 +73,7 @@ async function populateDeck(
     const detail = notes.length ? notes.join(" ") : null;
     const { error: readyError } = await supabase
       .from("flashcard_decks")
-      .update({ title: result.title, status: "ready", status_detail: detail, provider: result.provider, model: result.model, card_count: result.cards.length })
+      .update({ title: clampTitle(result.title), status: "ready", status_detail: detail, provider: result.provider, model: result.model, card_count: result.cards.length })
       .eq("id", deckId);
     if (readyError) throw new Error(`flashcard_decks: ready update failed: ${readyError.message}`);
     return { status: "ready", detail };

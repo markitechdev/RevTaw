@@ -6,6 +6,7 @@ import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { GROUNDING_RULE, points, studentLine, text } from "@/lib/study/prompts/shared";
+import { modelTitle } from "@/lib/ai/fields";
 
 /**
  * Prompts behind scenario-based and case-based learning (spec §16): realistic
@@ -25,7 +26,7 @@ export const scenarioSetSchema = z.object({
     .array(
       z
         .object({
-          title: text(160),
+          title: modelTitle(),
           situation: text(2500),
           question: text(400),
           options: z.array(text(400)).min(3).max(5),
@@ -125,7 +126,7 @@ export const caseSetSchema = z.object({
   cases: z
     .array(
       z.object({
-        title: text(160),
+        title: modelTitle(),
         case_text: text(6000),
         task: text(400),
         model: z.object({

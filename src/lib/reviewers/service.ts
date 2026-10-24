@@ -7,6 +7,7 @@ import { generateReviewer, regenerateSection, type ReviewerSectionDraft } from "
 import { REVIEWER_KIND_BY_ID } from "@/lib/reviewers/kinds";
 import type { ReviewerKind } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
+import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 
@@ -81,7 +82,7 @@ export async function createReviewer(materialId: string, kind: ReviewerKind): Pr
       user_id: context.material.user_id,
       material_id: materialId,
       kind,
-      title: `${context.material.title} — ${info.name}`,
+      title: titleWithSuffix(context.material.title, info.name),
       status: "generating",
     })
     .select("id")
@@ -104,7 +105,7 @@ export async function createReviewer(materialId: string, kind: ReviewerKind): Pr
     const { error: readyError } = await supabase
       .from("reviewers")
       .update({
-        title: result.response.title.slice(0, 160),
+        title: clampTitle(result.response.title),
         status: "ready",
         status_detail: detail,
         provider: result.provider,
@@ -146,7 +147,7 @@ export async function retryReviewer(reviewerId: string): Promise<{ status: "read
     if (sectionsError) throw new Error(`reviewer_sections: insert failed: ${sectionsError.message}`);
     const { error: readyError } = await supabase
       .from("reviewers")
-      .update({ title: result.response.title.slice(0, 160), status: "ready", status_detail: null, provider: result.provider, model: result.model })
+      .update({ title: clampTitle(result.response.title), status: "ready", status_detail: null, provider: result.provider, model: result.model })
       .eq("id", reviewer.id);
     if (readyError) throw new Error(`reviewers: ready update failed: ${readyError.message}`);
     return { status: "ready", detail: null };

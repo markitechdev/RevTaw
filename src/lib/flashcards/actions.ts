@@ -9,6 +9,7 @@ import { routes } from "@/lib/routes";
 import { completeSession, createSession, SessionError, sessionTitle, suggestNext, type SessionSummary } from "@/lib/study/sessions";
 import { readPages } from "@/lib/supabase/paginate";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { titleWithSuffix } from "@/lib/text/clamp";
 
 export type FlashcardActionResult<T = undefined> = ({ ok: true } & (T extends undefined ? { data?: undefined } : { data: T })) | { ok: false; message: string };
 
@@ -41,7 +42,7 @@ export async function startReviewSessionAction(input: { deckId: string | null; m
       const { data: deck } = await supabase.from("flashcard_decks").select("id, title, material_id").eq("id", parsed.data.deckId).maybeSingle();
       if (!deck) return { ok: false, message: "Deck not found." };
       materialId = deck.material_id;
-      title = `${deck.title} — Review`;
+      title = titleWithSuffix(deck.title, "Review");
     }
     const { id } = await createSession(supabase, user.id, {
       method: parsed.data.deckId ? "flashcards" : "spaced_repetition",

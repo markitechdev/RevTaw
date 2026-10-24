@@ -7,6 +7,7 @@ import { generateJson } from "@/lib/ai/json";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
 import { points, studentLine, text } from "@/lib/study/prompts/shared";
+import { modelTitle } from "@/lib/ai/fields";
 
 /**
  * Prompts behind the Phase 4 study methods. Every prompt is grounded in the
@@ -286,7 +287,7 @@ export const chunkPlanSchema = z.object({
   chunks: z
     .array(
       z.object({
-        title: text(160),
+        title: modelTitle(),
         main_idea: text(600),
         details: z.array(z.string().trim().min(1).max(400)).max(8),
         mini_summary: text(600),

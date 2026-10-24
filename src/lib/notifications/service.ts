@@ -14,6 +14,7 @@ import { routes, sameSitePath } from "@/lib/routes";
 import { getActivityStats } from "@/lib/study/queries";
 import type { Notification, NotificationKind } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
+import { clampText, clampTitle } from "@/lib/text/clamp";
 
 /**
  * Internal notification/reminder feed (§35). Reminders are generated
@@ -29,7 +30,7 @@ export async function notify(input: NotificationInput): Promise<boolean> {
   const supabase = await createClient();
   const { error, data } = await supabase
     .from("notifications")
-    .upsert({ kind: input.kind, title: input.title.slice(0, 160), body: input.body?.slice(0, 600) ?? null, href: input.href ?? null, dedupe_key: input.dedupeKey.slice(0, 120) }, { onConflict: "user_id,dedupe_key", ignoreDuplicates: true })
+    .upsert({ kind: input.kind, title: clampTitle(input.title), body: input.body === undefined || input.body === null ? null : clampText(input.body, 600), href: input.href ?? null, dedupe_key: input.dedupeKey.slice(0, 120) }, { onConflict: "user_id,dedupe_key", ignoreDuplicates: true })
     .select("id");
   if (error) {
     console.error("notifications: insert failed", error.message);

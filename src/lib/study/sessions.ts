@@ -8,6 +8,7 @@ import { isPlanMethod, isTestMethod } from "@/lib/study/catalog";
 import { STUDY_METHOD_BY_ID, type StudyMethodId } from "@/lib/study/methods";
 import type { Json, SessionGoal, StudySession } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
+import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 
@@ -78,7 +79,7 @@ export async function createSession(supabase: Client, userId: string, input: Cre
       method: input.method,
       goal: input.goal,
       planned_minutes: input.plannedMinutes,
-      title: input.title.slice(0, 160),
+      title: clampTitle(input.title),
       state: (input.state ?? {}) as Json,
     })
     .select("id")
@@ -209,7 +210,7 @@ export async function completeSession(supabase: Client, sessionId: string, input
 
 export function sessionTitle(method: StudyMethodId, materialTitle: string | null): string {
   const name = STUDY_METHOD_BY_ID[method].name;
-  return materialTitle ? `${materialTitle} — ${name}` : name;
+  return materialTitle ? titleWithSuffix(materialTitle, name) : name;
 }
 
 /** Suggests the next activity from how the session went (§29). */

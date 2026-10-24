@@ -13,6 +13,7 @@ import { addDays, dateIn, daysBetween, DEFAULT_TIMEZONE, isValidTimezone } from 
 import { zonedInstant } from "@/lib/planner/time";
 import type { Database, QuestionDifficulty } from "@/lib/supabase/database.types";
 import { readPages, readPagesQuietly } from "@/lib/supabase/paginate";
+import { clampTitle } from "@/lib/text/clamp";
 
 /**
  * The learning engine's nightly run (research doc §8–§9), called by
@@ -159,7 +160,7 @@ async function boostExam(
   for (const [materialId, names] of byMaterial) {
     const shown = names.slice(0, 3).join(", ") + (names.length > 3 ? ` and ${names.length - 3} more` : "");
     const task = {
-      title: `${BOOSTER_TITLE}${exam.title}`.slice(0, 200),
+      title: clampTitle(`${BOOSTER_TITLE}${exam.title}`),
       reason: `${shown} would be under 90% recall by exam day. One review ${daysBefore} days before brings ${names.length === 1 ? "it" : "them"} back up.`,
       scheduled_for: boostOn,
       minutes: Math.min(20, 8 + 2 * names.length),

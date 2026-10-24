@@ -9,6 +9,8 @@ import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import { optionSchema } from "@/lib/quizzes/schemas";
 import { distributeQuestions, QUESTION_TYPE_BY_ID, QUESTION_TYPE_IDS, type QuizConfig } from "@/lib/quizzes/types";
 import type { QuestionDifficulty, QuestionType } from "@/lib/supabase/database.types";
+import { modelTitle } from "@/lib/ai/fields";
+import { clampTitle } from "@/lib/text/clamp";
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 
@@ -52,7 +54,7 @@ const generatedQuestionSchema = z.discriminatedUnion("type", [
 ]);
 
 export const quizResponseSchema = z.object({
-  title: text(160),
+  title: modelTitle(),
   questions: z.array(generatedQuestionSchema).min(1).max(60),
 });
 
@@ -226,7 +228,7 @@ ${transcript}
   });
 
   return {
-    title: result.data.title.slice(0, 160),
+    title: clampTitle(result.data.title),
     questions: finalizeQuestions(result.data.questions, config),
     provider: result.raw.provider,
     model: result.raw.model,

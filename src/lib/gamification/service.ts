@@ -7,6 +7,7 @@ import { routes } from "@/lib/routes";
 import { levelFor, XP_RULES, xpForAnswers, xpForSession } from "@/lib/gamification/xp";
 import type { XpSource } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
+import { clampText } from "@/lib/text/clamp";
 
 /**
  * Awarding XP (§31). Every award names its source, so awarding is idempotent
@@ -30,7 +31,7 @@ export async function awardXp(awards: XpAward[], supabase?: Client): Promise<num
     const { data, error } = await client
       .from("xp_events")
       .upsert(
-        rows.map((award) => ({ user_id: profile.id, source: award.source, source_key: award.sourceKey.slice(0, 160), points: Math.min(1000, Math.round(award.points)), label: award.label?.slice(0, 160) ?? null })),
+        rows.map((award) => ({ user_id: profile.id, source: award.source, source_key: award.sourceKey.slice(0, 160), points: Math.min(1000, Math.round(award.points)), label: award.label ? clampText(award.label, 160) : null })),
         { onConflict: "user_id,source_key", ignoreDuplicates: true },
       )
       .select("points");

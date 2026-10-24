@@ -10,7 +10,9 @@ import { methodNeedsMaterial } from "@/lib/planner/types";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { cancelTaskReminder, syncTaskReminder } from "@/lib/reminders/service";
 import type { PlanMode, StudyPlan, StudyTask } from "@/lib/supabase/database.types";
+import { readPages } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
+import { clampText, clampTitle } from "@/lib/text/clamp";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 
@@ -83,8 +85,14 @@ export async function createExam(raw: unknown): Promise<{ examId: string }> {
     .select("id")
     .single();
   if (error || !exam) throw new Error(`exams: insert failed: ${error?.message}`);
-  await syncExamMaterials(supabase, exam.id, input.materialIds);
-  await generatePlanForExam(exam.id, input.plan);
+  try {
+    await syncExamMaterials(supabase, exam.id, input.materialIds);
+    await generatePlanForExam(exam.id, input.plan);
+  } catch (planError) {
+    // No half-made exam without a plan: the student can simply try again.
+    await supabase.from("exams").delete().eq("id", exam.id);
+    throw planError;
+  }
   return { examId: exam.id };
 }
 
@@ -166,8 +174,8 @@ function taskRow(planId: string, examId: string, task: PlannedTask) {
     material_id: task.materialId,
     kind: "plan" as const,
     method: task.method,
-    title: task.title,
-    reason: task.reason,
+    title: clampTitle(task.title),
+    reason: clampText(task.reason, 400),
     scheduled_for: task.scheduledFor,
     position: task.position,
     minutes: task.minutes,
@@ -221,10 +229,19 @@ export async function generatePlanForExam(examId: string, settings: ExamFormValu
     .select("id")
     .single();
   if (error || !plan) throw new Error(`study_plans: upsert failed: ${error?.message}`);
-  await supabase.from("study_tasks").delete().eq("plan_id", plan.id).neq("status", "done");
+  // The new schedule goes in before the old one comes out, so a failed save never leaves the exam without tasks.
+  const previous = await readPages(
+    (from, to) => supabase.from("study_tasks").select("id").eq("plan_id", plan.id).neq("status", "done").order("id").range(from, to),
+    10_000,
+  );
   if (generated.tasks.length) {
     const { error: insertError } = await supabase.from("study_tasks").insert(generated.tasks.map((task) => taskRow(plan.id, examId, task)));
     if (insertError) throw new Error(`study_tasks: insert failed: ${insertError.message}`);
+  }
+  const previousIds = previous.map((row) => row.id);
+  for (let index = 0; index < previousIds.length; index += 200) {
+    const { error: deleteError } = await supabase.from("study_tasks").delete().in("id", previousIds.slice(index, index + 200));
+    if (deleteError) throw new Error(`study_tasks: removing the old schedule failed: ${deleteError.message}`);
   }
   return { planId: plan.id, tasks: generated.tasks.length, warnings: generated.warnings };
 }
@@ -305,8 +322,8 @@ export async function rebalancePlan(planId: string, options: { force?: boolean }
           material_id: material.id,
           kind: "plan",
           method: "active_recall",
-          title: `Extra recall: ${material.title}`,
-          reason: `Added by RevTaw: ${material.title} is at ${Math.round(material.mastery)}% mastery${material.weakConcepts.length ? ` (${material.weakConcepts.slice(0, 2).join(", ")})` : ""}.`,
+          title: clampTitle(`Extra recall: ${material.title}`),
+          reason: clampText(`Added by RevTaw: ${material.title} is at ${Math.round(material.mastery)}% mastery${material.weakConcepts.length ? ` (${material.weakConcepts.slice(0, 2).join(", ")})` : ""}.`, 400),
           scheduled_for: date,
           position: 40,
           minutes: 15,
@@ -477,8 +494,8 @@ export async function scheduleReviewCycle(materialId: string, from?: string): Pr
     .map((date, index) => ({
       kind: "review" as const,
       method: "review",
-      title: `Review: ${material.title}`,
-      reason: `Day ${[1, 3, 7, 14][dates.indexOf(date)]} review (1-3-7-14) of ${material.title}.`,
+      title: clampTitle(`Review: ${material.title}`),
+      reason: clampText(`Day ${[1, 3, 7, 14][dates.indexOf(date)]} review (1-3-7-14) of ${material.title}.`, 400),
       scheduled_for: date,
       minutes: 10,
       material_id: materialId,

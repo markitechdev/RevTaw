@@ -22,6 +22,7 @@ import {
 import { friendlyGenerationFailure, loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
 import type { ConfidenceLevel, Json, QuestionType, QuizMode } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
+import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 
@@ -55,7 +56,7 @@ export async function createQuiz(
     .insert({
       user_id: context.material.user_id,
       material_id: materialId,
-      title: `${context.material.title} — Quiz`,
+      title: titleWithSuffix(context.material.title, "Quiz"),
       config: config as unknown as Json,
       status: "generating",
     })
@@ -132,7 +133,7 @@ async function populateQuiz(
     const { error: readyError } = await supabase
       .from("quizzes")
       .update({
-        title: result.title,
+        title: clampTitle(result.title),
         status: "ready",
         status_detail: detail,
         provider: result.provider,
