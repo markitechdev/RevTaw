@@ -44,9 +44,9 @@ export async function quickSearch(raw: string): Promise<QuickResult[]> {
     supabase.from("reviewers").select("id, title, material:materials!reviewers_material_fk(title)").ilike("title", pattern).order("updated_at", { ascending: false }).limit(4),
     supabase.from("study_tasks").select("id, title, scheduled_for, exam_id").in("status", ["pending", "missed"]).ilike("title", pattern).order("scheduled_for").limit(4),
     supabase.from("exams").select("id, title, exam_date").is("archived_at", null).ilike("title", pattern).order("exam_date").limit(3),
-    supabase.from("quizzes").select("id, title").is("archived_at", null).ilike("title", pattern).order("updated_at", { ascending: false }).limit(3),
-    supabase.from("flashcard_decks").select("id, title, card_count").is("archived_at", null).ilike("title", pattern).order("updated_at", { ascending: false }).limit(3),
-    supabase.from("tutor_conversations").select("id, title").is("archived_at", null).ilike("title", pattern).order("updated_at", { ascending: false }).limit(3),
+    supabase.from("quizzes").select("id, title").ilike("title", pattern).order("updated_at", { ascending: false }).limit(3),
+    supabase.from("flashcard_decks").select("id, title, card_count").ilike("title", pattern).order("updated_at", { ascending: false }).limit(3),
+    supabase.from("tutor_conversations").select("id, title").ilike("title", pattern).order("updated_at", { ascending: false }).limit(3),
   ]);
 
   const titleOf = (value: unknown) => (value as { title?: string } | null)?.title ?? null;

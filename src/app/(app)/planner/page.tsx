@@ -52,7 +52,7 @@ export default async function PlannerPage({ searchParams }: PageProps<"/planner"
     syncNotifications(),
   ]);
   const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title, subject: material.subject?.name ?? null }));
-  const subjectOptions = subjects.filter((subject) => !subject.archived_at).map((subject) => ({ id: subject.id, name: subject.name }));
+  const subjectOptions = subjects.map((subject) => ({ id: subject.id, name: subject.name }));
   const activityOptions = { materials: readyMaterials, subjects: subjectOptions, today, timezone, defaultReminder: preferences.notifications.defaultReminder };
   // "May exam ako Friday" (asked of Tamari) opens the exam form with the day and the name filled in.
   const examDate = params.exam === "new" && typeof params.examDate === "string" && isIsoDate(params.examDate) && params.examDate >= today ? params.examDate : undefined;

@@ -21,7 +21,6 @@ export async function listConversations(filters: { materialId?: string; limit?: 
   let query = supabase
     .from("tutor_conversations")
     .select(CONVERSATION_COLUMNS)
-    .is("archived_at", null)
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(filters.limit ?? 50);
   if (filters.materialId) query = query.eq("material_id", filters.materialId);
@@ -42,7 +41,6 @@ export async function listConversationsPage(page: number, pageSize: number): Pro
       supabase
         .from("tutor_conversations")
         .select(head ? "id" : CONVERSATION_COLUMNS, { count: "exact", head })
-        .is("archived_at", null)
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .order("id"),
     page,
@@ -97,6 +95,6 @@ export const getConversation = cache(async (conversationId: string): Promise<Con
 
 export const countConversations = cache(async (): Promise<number> => {
   const supabase = await createClient();
-  const { count } = await supabase.from("tutor_conversations").select("id", { count: "exact", head: true }).is("archived_at", null);
+  const { count } = await supabase.from("tutor_conversations").select("id", { count: "exact", head: true });
   return count ?? 0;
 });

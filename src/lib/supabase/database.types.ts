@@ -137,7 +137,6 @@ type SubjectsRow = {
   user_id: string;
   name: string;
   color: string | null;
-  archived_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -148,7 +147,6 @@ type FoldersRow = {
   subject_id: string;
   name: string;
   position: number;
-  archived_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -232,7 +230,6 @@ type ReviewersRow = {
   provider: string | null;
   model: string | null;
   last_opened_at: string | null;
-  archived_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -262,7 +259,6 @@ type QuizzesRow = {
   provider: string | null;
   model: string | null;
   question_count: number;
-  archived_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -398,7 +394,6 @@ type FlashcardDecksRow = {
   provider: string | null;
   model: string | null;
   card_count: number;
-  archived_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -460,7 +455,6 @@ type TutorConversationsRow = {
   mode: TutorMode;
   message_count: number;
   last_message_at: string | null;
-  archived_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -668,7 +662,6 @@ type StudyGoalsRow = {
   period: GoalPeriod;
   target: number;
   material_id: string | null;
-  subject_id: string | null;
   title: string | null;
   due_date: string | null;
   status: GoalStatus;
@@ -1244,13 +1237,6 @@ export type Database = {
             columns: ["material_id", "user_id"];
             isOneToOne: false;
             referencedRelation: "materials";
-            referencedColumns: ["id", "user_id"];
-          },
-          {
-            foreignKeyName: "study_goals_subject_fk";
-            columns: ["subject_id", "user_id"];
-            isOneToOne: false;
-            referencedRelation: "subjects";
             referencedColumns: ["id", "user_id"];
           },
         ];

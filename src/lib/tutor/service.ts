@@ -74,7 +74,6 @@ export async function latestMaterialConversation(materialId: string): Promise<st
     .eq("material_id", materialId)
     .in("mode", ["tutor", "guided"])
     .is("session_id", null)
-    .is("archived_at", null)
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(1)
     .maybeSingle();
@@ -263,7 +262,7 @@ export async function addMessageToNotes(messageId: string): Promise<{ reviewerId
   const materialId = conversation.material_id;
   // The notes reviewer is the one Tamari made for this material (provider "tutor"), whatever the student renamed it to.
   const findNotes = () =>
-    supabase.from("reviewers").select("id").eq("material_id", materialId).eq("kind", "bullet_notes").eq("provider", "tutor").is("archived_at", null).order("created_at").order("id").limit(1).maybeSingle();
+    supabase.from("reviewers").select("id").eq("material_id", materialId).eq("kind", "bullet_notes").eq("provider", "tutor").order("created_at").order("id").limit(1).maybeSingle();
   const reviewer = await findOrCreateTutorRow(findNotes, async () => {
     const { data: material } = await supabase.from("materials").select("title").eq("id", materialId).maybeSingle();
     const { data: created, error } = await supabase
@@ -336,7 +335,7 @@ export async function createFlashcardFromMessage(messageId: string, draft: { fro
 
   const materialId = conversation.material_id;
   // The tutor deck is the one Tamari made for this material (provider "tutor"), whatever the student renamed it to.
-  const findDeck = () => supabase.from("flashcard_decks").select("id").eq("material_id", materialId).eq("provider", "tutor").is("archived_at", null).order("created_at").order("id").limit(1).maybeSingle();
+  const findDeck = () => supabase.from("flashcard_decks").select("id").eq("material_id", materialId).eq("provider", "tutor").order("created_at").order("id").limit(1).maybeSingle();
   const deck = await findOrCreateTutorRow(findDeck, async () => {
     const { data: material } = await supabase.from("materials").select("title").eq("id", materialId).maybeSingle();
     const { data: created, error } = await supabase

@@ -207,7 +207,6 @@ async function resolvePlacement(
       .from("subjects")
       .select("id")
       .ilike("name", name)
-      .is("archived_at", null)
       .maybeSingle();
     if (existing) {
       return { subjectId: existing.id, folderId: null };

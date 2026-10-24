@@ -25,7 +25,6 @@ export async function listReviewers(filters: { materialId?: string } = {}): Prom
   let query = supabase
     .from("reviewers")
     .select(LIST_COLUMNS)
-    .is("archived_at", null)
     .order("updated_at", { ascending: false })
     .limit(200);
   if (filters.materialId) query = query.eq("material_id", filters.materialId);
@@ -42,7 +41,7 @@ export async function listReviewersPage(page: number, pageSize: number): Promise
   const supabase = await createClient();
   const result = await fetchPage<ReviewerListItem>(
     "reviewers",
-    (head) => supabase.from("reviewers").select(head ? "id" : LIST_COLUMNS, { count: "exact", head }).is("archived_at", null).order("updated_at", { ascending: false }).order("id"),
+    (head) => supabase.from("reviewers").select(head ? "id" : LIST_COLUMNS, { count: "exact", head }).order("updated_at", { ascending: false }).order("id"),
     page,
     pageSize,
   );
@@ -81,7 +80,6 @@ export const countReviewers = cache(async (): Promise<number> => {
   const { count } = await supabase
     .from("reviewers")
     .select("id", { count: "exact", head: true })
-    .is("archived_at", null)
     .eq("status", "ready");
   return count ?? 0;
 });

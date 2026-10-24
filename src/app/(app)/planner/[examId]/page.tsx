@@ -45,7 +45,7 @@ export default async function ExamPlanPage({ params }: PageProps<"/planner/[exam
   const { today, timezone } = await plannerClock();
   const [materials, subjects, preferences] = await Promise.all([listMaterials(), listSubjects(), getPreferences()]);
   const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title, subject: material.subject?.name ?? null }));
-  const subjectOptions = subjects.filter((subject) => !subject.archived_at).map((subject) => ({ id: subject.id, name: subject.name }));
+  const subjectOptions = subjects.map((subject) => ({ id: subject.id, name: subject.name }));
   const activityOptions = { materials: readyMaterials, subjects: subjectOptions, today, timezone, defaultReminder: preferences.notifications.defaultReminder };
 
   const visible = exam.tasks.filter((task) => task.status !== "skipped" || task.scheduled_for >= today);

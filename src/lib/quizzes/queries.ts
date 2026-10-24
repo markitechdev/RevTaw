@@ -43,7 +43,7 @@ function toListItem(row: QuizRow): QuizListItem {
 /** A material's quizzes (its page lists them all; a material has a handful). */
 export async function listQuizzes(filters: { materialId?: string } = {}): Promise<QuizListItem[]> {
   const supabase = await createClient();
-  let query = supabase.from("quizzes").select(LIST_COLUMNS).is("archived_at", null).order("updated_at", { ascending: false }).limit(200);
+  let query = supabase.from("quizzes").select(LIST_COLUMNS).order("updated_at", { ascending: false }).limit(200);
   if (filters.materialId) query = query.eq("material_id", filters.materialId);
   const { data, error } = await query;
   if (error) {
@@ -58,7 +58,7 @@ export async function listQuizzesPage(page: number, pageSize: number): Promise<P
   const supabase = await createClient();
   const rows = await fetchPage<QuizRow>(
     "quizzes",
-    (head) => supabase.from("quizzes").select(head ? "id" : LIST_COLUMNS, { count: "exact", head }).is("archived_at", null).order("updated_at", { ascending: false }).order("id"),
+    (head) => supabase.from("quizzes").select(head ? "id" : LIST_COLUMNS, { count: "exact", head }).order("updated_at", { ascending: false }).order("id"),
     page,
     pageSize,
   );
@@ -67,7 +67,7 @@ export async function listQuizzesPage(page: number, pageSize: number): Promise<P
 
 export const countQuizzes = cache(async (): Promise<number> => {
   const supabase = await createClient();
-  const { count } = await supabase.from("quizzes").select("id", { count: "exact", head: true }).is("archived_at", null).eq("status", "ready");
+  const { count } = await supabase.from("quizzes").select("id", { count: "exact", head: true }).eq("status", "ready");
   return count ?? 0;
 });
 

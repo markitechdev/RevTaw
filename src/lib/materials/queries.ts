@@ -9,7 +9,7 @@ import type { Folder, Material, MaterialAnalysis, MaterialChunk, Subject } from 
 import { fetchPage } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
-export type SubjectWithFolders = Pick<Subject, "id" | "name" | "color" | "archived_at"> & {
+export type SubjectWithFolders = Pick<Subject, "id" | "name" | "color"> & {
   folders: Pick<Folder, "id" | "name" | "position">[];
   materialCount: number;
 };
@@ -46,13 +46,11 @@ export const listSubjects = cache(async (): Promise<SubjectWithFolders[]> => {
   const [{ data: subjects, error }, { data: folders }, { data: counts }] = await Promise.all([
     supabase
       .from("subjects")
-      .select("id, name, color, archived_at")
-      .is("archived_at", null)
+      .select("id, name, color")
       .order("name"),
     supabase
       .from("folders")
       .select("id, subject_id, name, position")
-      .is("archived_at", null)
       .order("position")
       .order("name"),
     supabase.from("materials").select("subject_id").is("archived_at", null),

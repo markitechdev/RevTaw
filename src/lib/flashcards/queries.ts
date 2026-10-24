@@ -45,7 +45,7 @@ async function withCardStats(supabase: Awaited<ReturnType<typeof createClient>>,
 /** Decks with what is due in each: a material's (its page lists them all), or every deck for Home's widget. */
 export async function listDecks(filters: { materialId?: string } = {}): Promise<DeckListItem[]> {
   const supabase = await createClient();
-  let query = supabase.from("flashcard_decks").select(DECK_COLUMNS).is("archived_at", null).order("updated_at", { ascending: false }).limit(200);
+  let query = supabase.from("flashcard_decks").select(DECK_COLUMNS).order("updated_at", { ascending: false }).limit(200);
   if (filters.materialId) query = query.eq("material_id", filters.materialId);
   const { data, error } = await query;
   if (error) {
@@ -60,7 +60,7 @@ export async function listDecksPage(page: number, pageSize: number): Promise<Pag
   const supabase = await createClient();
   const rows = await fetchPage<DeckRow>(
     "flashcard_decks",
-    (head) => supabase.from("flashcard_decks").select(head ? "id" : DECK_COLUMNS, { count: "exact", head }).is("archived_at", null).order("updated_at", { ascending: false }).order("id"),
+    (head) => supabase.from("flashcard_decks").select(head ? "id" : DECK_COLUMNS, { count: "exact", head }).order("updated_at", { ascending: false }).order("id"),
     page,
     pageSize,
   );
@@ -150,7 +150,7 @@ export async function getReviewQueue(options: { deckId?: string; mode: "due" | "
   const limit = options.limit ?? 100;
   let query = supabase
     .from("flashcards")
-    .select(`${CARD_COLUMNS}, deck:flashcard_decks!flashcards_deck_fk(id, title, archived_at)`)
+    .select(`${CARD_COLUMNS}, deck:flashcard_decks!flashcards_deck_fk(id, title)`)
     .eq("suspended", false)
     .order("due_at", { ascending: true })
     .limit(limit);
@@ -162,7 +162,7 @@ export async function getReviewQueue(options: { deckId?: string; mode: "due" | "
     console.error("flashcards: queue failed", error.message);
     return [];
   }
-  const cards = ((data ?? []) as unknown as Array<Omit<ReviewQueueCard, "waits"> & { deck: { archived_at: string | null } }>).filter((card) => !card.deck.archived_at);
+  const cards = (data ?? []) as unknown as Array<Omit<ReviewQueueCard, "waits">>;
   // Cards reviewed before FSRS have no state yet: their history gives it.
   const replay = cards.filter((card) => card.fsrs_stability === null && card.last_reviewed_at).map((card) => card.id);
   const history = new Map<string, Array<{ at: string; rating: FlashcardRating }>>();

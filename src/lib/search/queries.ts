@@ -81,14 +81,14 @@ async function searchMaterials(supabase: Client, query: string, terms: string[])
 
 async function searchReviewers(supabase: Client, query: string, terms: string[]): Promise<SearchHit[]> {
   const [{ data: byTitle }, { data: sections }] = await Promise.all([
-    supabase.from("reviewers").select("id, title, kind").is("archived_at", null).textSearch("title", query, { type: "websearch", config: "english" }).limit(PER_GROUP),
-    supabase.from("reviewer_sections").select("reviewer_id, heading, content, reviewer:reviewers!reviewer_sections_reviewer_fk(id, title, archived_at)").textSearch("search_text", query, { type: "websearch", config: "english" }).limit(PER_GROUP * 3),
+    supabase.from("reviewers").select("id, title, kind").textSearch("title", query, { type: "websearch", config: "english" }).limit(PER_GROUP),
+    supabase.from("reviewer_sections").select("reviewer_id, heading, content, reviewer:reviewers!reviewer_sections_reviewer_fk(id, title)").textSearch("search_text", query, { type: "websearch", config: "english" }).limit(PER_GROUP * 3),
   ]);
   const hits = new Map<string, SearchHit>();
   for (const reviewer of byTitle ?? []) hits.set(reviewer.id, { id: reviewer.id, title: reviewer.title, snippet: null, href: `${routes.notes}/${reviewer.id}`, context: "Matches the title" });
   for (const section of sections ?? []) {
-    const reviewer = section.reviewer as unknown as { id: string; title: string; archived_at: string | null } | null;
-    if (!reviewer || reviewer.archived_at || hits.has(reviewer.id)) continue;
+    const reviewer = section.reviewer as unknown as { id: string; title: string } | null;
+    if (!reviewer || hits.has(reviewer.id)) continue;
     hits.set(reviewer.id, { id: reviewer.id, title: reviewer.title, snippet: snippetOf(section.content, terms), href: `${routes.notes}/${reviewer.id}`, context: section.heading ? `In ${section.heading}` : null });
   }
   return [...hits.values()].slice(0, PER_GROUP);
@@ -116,12 +116,12 @@ async function searchTopics(supabase: Client, query: string): Promise<SearchHit[
 async function searchQuestions(supabase: Client, query: string, terms: string[]): Promise<SearchHit[]> {
   const { data } = await supabase
     .from("quiz_questions")
-    .select("id, prompt, quiz:quizzes!quiz_questions_quiz_fk(id, title, archived_at)")
+    .select("id, prompt, quiz:quizzes!quiz_questions_quiz_fk(id, title)")
     .textSearch("prompt", query, { type: "websearch", config: "english" })
     .limit(PER_GROUP);
   return (data ?? []).flatMap((question) => {
-    const quiz = question.quiz as unknown as { id: string; title: string; archived_at: string | null } | null;
-    if (!quiz || quiz.archived_at) return [];
+    const quiz = question.quiz as unknown as { id: string; title: string } | null;
+    if (!quiz) return [];
     return [{ id: question.id, title: snippetOf(question.prompt, terms, 140), snippet: null, href: `${routes.quiz}/${quiz.id}`, context: quiz.title }];
   });
 }
@@ -129,12 +129,12 @@ async function searchQuestions(supabase: Client, query: string, terms: string[])
 async function searchFlashcards(supabase: Client, query: string, terms: string[]): Promise<SearchHit[]> {
   const { data } = await supabase
     .from("flashcards")
-    .select("id, front, back, deck:flashcard_decks!flashcards_deck_fk(id, title, archived_at)")
+    .select("id, front, back, deck:flashcard_decks!flashcards_deck_fk(id, title)")
     .textSearch("search_text", query, { type: "websearch", config: "english" })
     .limit(PER_GROUP);
   return (data ?? []).flatMap((card) => {
-    const deck = card.deck as unknown as { id: string; title: string; archived_at: string | null } | null;
-    if (!deck || deck.archived_at) return [];
+    const deck = card.deck as unknown as { id: string; title: string } | null;
+    if (!deck) return [];
     return [{ id: card.id, title: card.front, snippet: snippetOf(card.back, terms, 120), href: `${routes.flashcards}/${deck.id}`, context: deck.title }];
   });
 }
