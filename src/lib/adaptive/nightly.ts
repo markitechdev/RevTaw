@@ -32,8 +32,8 @@ import { clampTitle } from "@/lib/text/clamp";
 type Client = SupabaseClient<Database>;
 
 const DAY_MS = 86_400_000;
-/** Supabase returns at most 1,000 rows per request by default: read in pages. */
-const PAGE = 1000;
+/** Exams in the booster window per run (read in pages: Supabase returns at most 1,000 rows a request). */
+const EXAMS_MAX = 20_000;
 const BOOSTER_TITLE = "Exam booster: ";
 
 export type NightlyRun = { buckets: number; boosters: number; cardsMoved: number; students: number; concepts: number; failed: number };
@@ -141,14 +141,20 @@ async function boostExam(
   const materialIds = (links ?? []).map((row) => row.material_id);
   if (materialIds.length === 0) return { boosters: 0, cardsMoved: 0 };
 
-  const { data: scoped } = await admin
-    .from("concept_mastery")
-    .select("concept_id, fsrs_stability, fsrs_difficulty, fsrs_state, fsrs_reps, fsrs_lapses, fsrs_last_review, next_review_at, concept:concepts!concept_mastery_concept_fk!inner(name, material_id)")
-    .eq("user_id", exam.user_id)
-    .gt("attempts", 0)
-    .in("concept.material_id", materialIds)
-    .limit(1000);
-  const fading = ((scoped ?? []) as unknown as ScopedConcept[])
+  const scoped = await readPagesQuietly(
+    "engine: booster concepts",
+    (from, to) =>
+      admin
+        .from("concept_mastery")
+        .select("concept_id, fsrs_stability, fsrs_difficulty, fsrs_state, fsrs_reps, fsrs_lapses, fsrs_last_review, next_review_at, concept:concepts!concept_mastery_concept_fk!inner(name, material_id)")
+        .eq("user_id", exam.user_id)
+        .gt("attempts", 0)
+        .in("concept.material_id", materialIds)
+        .order("concept_id")
+        .range(from, to),
+    5000,
+  );
+  const fading = (scoped as unknown as ScopedConcept[])
     .map((row) => ({ row, recall: recallAt(conceptSnapshot(row), examMorning) }))
     .filter((entry): entry is { row: ScopedConcept; recall: number } => entry.recall !== null && entry.recall < recallBelow && Boolean(entry.row.concept?.material_id))
     .sort((a, b) => a.recall - b.recall)
@@ -223,15 +229,20 @@ export async function boostExams(admin: Client, now: Date = new Date(), deadline
   // Exam dates are local dates: widen the window by a day on each side, then check per time zone.
   const from = new Date(now.getTime() - DAY_MS).toISOString().slice(0, 10);
   const to = new Date(now.getTime() + (ENGINE.booster.horizonDays + 1) * DAY_MS).toISOString().slice(0, 10);
-  const { data: exams, error } = await admin.from("exams").select("id, user_id, title, exam_date").is("archived_at", null).gte("exam_date", from).lte("exam_date", to).order("exam_date").limit(PAGE);
-  if (error) throw new Error(`engine: exams failed: ${error.message}`);
-  const userIds = [...new Set((exams ?? []).map((exam) => exam.user_id))];
+  // Every exam in the window (soonest first, so a run that runs out of time has boosted the most urgent).
+  const exams = await readPages(
+    (start, end) => admin.from("exams").select("id, user_id, title, exam_date").is("archived_at", null).gte("exam_date", from).lte("exam_date", to).order("exam_date").order("id").range(start, end),
+    EXAMS_MAX,
+  ).catch((error: unknown) => {
+    throw new Error(`engine: exams failed: ${error instanceof Error ? error.message : String(error)}`);
+  });
+  const userIds = [...new Set(exams.map((exam) => exam.user_id))];
   const zones = new Map<string, string>();
   for (const chunk of chunked(userIds)) {
     const { data: profiles } = await admin.from("profiles").select("id, timezone").in("id", chunk);
     for (const profile of profiles ?? []) zones.set(profile.id, isValidTimezone(profile.timezone) ? profile.timezone : DEFAULT_TIMEZONE);
   }
-  for (const exam of exams ?? []) {
+  for (const exam of exams) {
     if (Date.now() > deadline) break;
     try {
       const boosted = await boostExam(admin, exam, zones.get(exam.user_id) ?? DEFAULT_TIMEZONE, now);
@@ -245,11 +256,14 @@ export async function boostExams(admin: Client, now: Date = new Date(), deadline
   return result;
 }
 
-/** Students with mastery computed before the stale cutoff, oldest first. */
+/** More than one run's budget gets through; the rest are first in line the next night. */
+const STALE_STUDENTS_MAX = 5000;
+
+/** Students with practiced mastery computed before the stale cutoff, each once, the one waiting longest first (migration 0029). */
 async function staleStudents(admin: Client, now: Date): Promise<string[]> {
   const cutoff = new Date(now.getTime() - MASTERY_STALE_MS).toISOString();
-  const { data } = await admin.from("concept_mastery").select("user_id").gt("attempts", 0).lt("computed_at", cutoff).order("computed_at", { ascending: true }).limit(PAGE);
-  return [...new Set((data ?? []).map((row) => row.user_id))];
+  const rows = await readPages((from, to) => admin.rpc("stale_mastery_students", { cutoff, max_students: STALE_STUDENTS_MAX }).range(from, to), STALE_STUDENTS_MAX);
+  return rows.map((row) => row.user_id);
 }
 
 export async function runNightlyEngine(admin: Client, options: { now?: Date; budgetMs?: number } = {}): Promise<NightlyRun> {
