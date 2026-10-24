@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 
 import { getPublicEnv, getServerEnv } from "@/lib/env";
 import { getClientAddress } from "@/lib/rate-limit";
+import { SESSION_COOKIE_OPTIONS } from "@/lib/supabase/cookies";
 import type { Database } from "@/lib/supabase/database.types";
 import { forwardableAddress } from "@/lib/supabase/forwarding";
 
@@ -20,7 +21,7 @@ import { forwardableAddress } from "@/lib/supabase/forwarding";
  *
  * Only the `auth` API is returned: a client holding the secret key must never
  * be used for data queries. Session cookies are read and written exactly
- * like the regular server client's.
+ * like the regular server client's (SESSION_COOKIE_OPTIONS).
  */
 export async function createAuthClient() {
   const env = getPublicEnv();
@@ -32,6 +33,7 @@ export async function createAuthClient() {
     env.NEXT_PUBLIC_SUPABASE_URL,
     address && secret ? secret : env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
+      cookieOptions: SESSION_COOKIE_OPTIONS,
       cookies: {
         getAll() {
           return cookieStore.getAll();

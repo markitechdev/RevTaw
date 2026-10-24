@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { getPublicEnv, getServerEnv } from "@/lib/env";
+import { SESSION_COOKIE_OPTIONS } from "@/lib/supabase/cookies";
 import type { Database } from "@/lib/supabase/database.types";
 import { forwardableAddress } from "@/lib/supabase/forwarding";
 
@@ -40,6 +41,7 @@ export async function updateSession(
     address && secret ? secret : env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
       ...(address ? { global: { headers: { "sb-forwarded-for": address } } } : {}),
+      cookieOptions: SESSION_COOKIE_OPTIONS,
       cookies: {
         getAll() {
           return request.cookies.getAll();
