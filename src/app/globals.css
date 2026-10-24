@@ -364,6 +364,8 @@
     color: var(--foreground);
     font-feature-settings: "cv11", "ss01";
     text-rendering: optimizeLegibility;
+    /* A file name or link with no spaces breaks instead of pushing the page sideways on a phone. */
+    overflow-wrap: break-word;
   }
   /* Display type for page and section titles: the RevTaw voice. */
   h1,

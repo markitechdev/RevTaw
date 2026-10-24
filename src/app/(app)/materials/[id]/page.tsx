@@ -103,7 +103,7 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
           {material.subject ? material.subject.name : "All materials"}
         </Link>
         <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight">{material.title}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight wrap-anywhere">{material.title}</h1>
           <p className="text-sm text-muted-foreground">
             {material.subject ? material.subject.name : "No subject"}
             {material.folder ? ` · ${material.folder.name}` : ""}

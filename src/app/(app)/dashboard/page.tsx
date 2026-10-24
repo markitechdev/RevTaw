@@ -134,7 +134,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         header={
           <div className="min-w-0">
             <p className="text-sm font-medium text-muted-foreground">{longDate(clock.today)}</p>
-            <h1 className="mt-0.5 text-[1.75rem] font-bold leading-tight text-foreground sm:text-3xl">{greetingFor(clock.timezone, firstName)}</h1>
+            <h1 className="mt-0.5 text-[1.75rem] font-bold leading-tight text-foreground wrap-anywhere sm:text-3xl">{greetingFor(clock.timezone, firstName)}</h1>
             <p lang={line.lang} className="mt-1 text-sm text-muted-foreground">
               {line.text}
             </p>

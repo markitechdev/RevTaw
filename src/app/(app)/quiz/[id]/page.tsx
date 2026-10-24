@@ -49,12 +49,12 @@ export default async function QuizDetailPage({ params }: PageProps<"/quiz/[id]">
             <Badge tone="neutral">{quiz.config.difficulty === "mixed" ? "Mixed difficulty" : quiz.config.difficulty === "adaptive" ? "Adaptive difficulty" : DIFFICULTY_LABEL[quiz.config.difficulty]}</Badge>
             {quiz.status === "generating" && <Badge tone="neutral">Generating…</Badge>}
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">{quiz.title}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight wrap-anywhere">{quiz.title}</h1>
           <p className="text-sm text-muted-foreground">
             {quiz.material ? (
               <>
                 From{" "}
-                <Link href={`${routes.materials}/${quiz.material.id}`} className="font-medium text-foreground hover:underline">
+                <Link href={`${routes.materials}/${quiz.material.id}`} className="font-medium text-foreground wrap-anywhere hover:underline">
                   {quiz.material.title}
                 </Link>
                 {quiz.material.subject ? ` · ${quiz.material.subject.name}` : ""}

@@ -44,12 +44,12 @@ export default async function DeckPage({ params }: PageProps<"/flashcards/[deckI
             {deck.status === "ready" && <Badge tone={deck.dueCount > 0 ? "primary" : "success"}>{deck.dueCount > 0 ? `${deck.dueCount} due now` : "Nothing due"}</Badge>}
             {deck.status === "generating" && <Badge tone="neutral">Generating…</Badge>}
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">{deck.title}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight wrap-anywhere">{deck.title}</h1>
           <p className="text-sm text-muted-foreground">
             {deck.material ? (
               <>
                 From{" "}
-                <Link href={`${routes.materials}/${deck.material.id}`} className="font-medium text-foreground hover:underline">
+                <Link href={`${routes.materials}/${deck.material.id}`} className="font-medium text-foreground wrap-anywhere hover:underline">
                   {deck.material.title}
                 </Link>
                 {deck.material.subject ? ` · ${deck.material.subject.name}` : ""}

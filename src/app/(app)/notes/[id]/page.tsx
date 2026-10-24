@@ -46,12 +46,12 @@ export default async function ReviewerPage({ params }: PageProps<"/notes/[id]">)
             <Badge tone="primary">{kind.name}</Badge>
             {reviewer.status === "generating" && <Badge tone="neutral">Generating…</Badge>}
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">{reviewer.title}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight wrap-anywhere">{reviewer.title}</h1>
           <p className="text-sm text-muted-foreground">
             {reviewer.material ? (
               <>
                 From{" "}
-                <Link href={`${routes.materials}/${reviewer.material.id}`} className="font-medium text-foreground hover:underline">
+                <Link href={`${routes.materials}/${reviewer.material.id}`} className="font-medium text-foreground wrap-anywhere hover:underline">
                   {reviewer.material.title}
                 </Link>
                 {reviewer.material.subject ? ` · ${reviewer.material.subject.name}` : ""}
