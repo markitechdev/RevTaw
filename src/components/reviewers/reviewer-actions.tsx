@@ -52,6 +52,8 @@ export function ReviewerActions({ reviewerId, title, status }: { reviewerId: str
       const body = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
         setError(body.error ?? "The reviewer could not be regenerated.");
+        // 409: it finished (or is still running) since this page loaded; show where it is now.
+        if (response.status === 409) router.refresh();
         return;
       }
       router.refresh();

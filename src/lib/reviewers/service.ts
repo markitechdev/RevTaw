@@ -1,7 +1,7 @@
 import "server-only";
 
 import { isAiError } from "@/lib/ai";
-import { isStaleGeneration } from "@/lib/generation/stale";
+import { claimForRetry, retryRefusal } from "@/lib/generation/retry";
 import type { AnalysisChunkInput } from "@/lib/materials/analyze";
 import { generateReviewer, regenerateSection, type ReviewerSectionDraft } from "@/lib/reviewers/generate";
 import { REVIEWER_KIND_BY_ID } from "@/lib/reviewers/kinds";
@@ -126,11 +126,10 @@ export async function retryReviewer(reviewerId: string): Promise<{ status: "read
   const supabase = await createClient();
   const { data: reviewer } = await supabase.from("reviewers").select("id, user_id, material_id, kind, status, status_detail, updated_at").eq("id", reviewerId).maybeSingle();
   if (!reviewer) throw new ServiceError("Reviewer not found.", 404);
-  // A generation cut off by a timeout or a closed tab stays "generating"; past the limit it may be retried.
-  if (reviewer.status === "generating" && !isStaleGeneration(reviewer)) return { status: "failed", detail: "Still generating." };
 
   const context = await loadMaterialContext(supabase, reviewer.material_id);
-  await supabase.from("reviewers").update({ status: "generating", status_detail: null }).eq("id", reviewer.id);
+  // Only a failed reviewer (or one cut off while generating) is regenerated, by one request at a time.
+  if (!(await claimForRetry(supabase, "reviewers", reviewer.id))) throw new ServiceError(retryRefusal(reviewer.status, "reviewer"), 409);
 
   try {
     const result = await generateReviewer(context.material.title, context.chunks, reviewer.kind, context.student);

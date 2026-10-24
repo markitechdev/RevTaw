@@ -4,7 +4,7 @@ import { defaultDifficulty, difficultyTargets, refreshMastery, weakConceptNames 
 import { awardAttemptXp } from "@/lib/gamification/service";
 import { isAiError } from "@/lib/ai";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
-import { isStaleGeneration } from "@/lib/generation/stale";
+import { claimForRetry, retryRefusal } from "@/lib/generation/retry";
 import { gradeObjective, gradeOpenAnswers, normalizeText, type GradeResult, type OpenAnswerItem } from "@/lib/quizzes/grade";
 import { generateQuiz } from "@/lib/quizzes/generate";
 import { answerSchema, parseQuizConfig, responseSchema } from "@/lib/quizzes/schemas";
@@ -71,11 +71,10 @@ export async function retryQuiz(quizId: string): Promise<{ status: "ready" | "fa
   const supabase = await createClient();
   const { data: quiz } = await supabase.from("quizzes").select("id, material_id, config, status, status_detail, updated_at").eq("id", quizId).maybeSingle();
   if (!quiz) throw new ServiceError("Quiz not found.", 404);
-  // A generation cut off by a timeout or a closed tab stays "generating"; past the limit it may be retried.
-  if (quiz.status === "generating" && !isStaleGeneration(quiz)) return { status: "failed", detail: "Still generating." };
 
   const context = await loadMaterialContext(supabase, quiz.material_id);
-  await supabase.from("quizzes").update({ status: "generating", status_detail: null }).eq("id", quiz.id);
+  // Only a failed quiz (or one cut off while generating) is regenerated, by one request at a time.
+  if (!(await claimForRetry(supabase, "quizzes", quiz.id))) throw new ServiceError(retryRefusal(quiz.status, "quiz"), 409);
   await supabase.from("quiz_questions").delete().eq("quiz_id", quiz.id);
   return populateQuiz(supabase, quiz.id, context, parseQuizConfig(quiz.config));
 }

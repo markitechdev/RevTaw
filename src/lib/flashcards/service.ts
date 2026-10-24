@@ -5,7 +5,7 @@ import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { generateFlashcards } from "@/lib/flashcards/generate";
 import { describeWait } from "@/lib/engine/fsrs";
 import { currentSnapshot, ratingWaits, scheduleCard, scheduleColumns } from "@/lib/flashcards/scheduler";
-import { isStaleGeneration } from "@/lib/generation/stale";
+import { claimForRetry, retryRefusal } from "@/lib/generation/retry";
 import { friendlyGenerationFailure, loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
 import type { FlashcardRating } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -31,10 +31,9 @@ export async function retryDeck(deckId: string, options: { count: number; focus:
   const supabase = await createClient();
   const { data: deck } = await supabase.from("flashcard_decks").select("id, material_id, status, status_detail, updated_at").eq("id", deckId).maybeSingle();
   if (!deck) throw new ServiceError("Deck not found.", 404);
-  // A generation cut off by a timeout or a closed tab stays "generating"; past the limit it may be retried.
-  if (deck.status === "generating" && !isStaleGeneration(deck)) return { status: "failed", detail: "Still generating." };
   const context = await loadMaterialContext(supabase, deck.material_id);
-  await supabase.from("flashcard_decks").update({ status: "generating", status_detail: null }).eq("id", deck.id);
+  // Only a failed deck (or one cut off while generating) is regenerated, by one request at a time.
+  if (!(await claimForRetry(supabase, "flashcard_decks", deck.id))) throw new ServiceError(retryRefusal(deck.status, "deck"), 409);
   await supabase.from("flashcards").delete().eq("deck_id", deck.id);
   return populateDeck(supabase, deck.id, context, options);
 }
