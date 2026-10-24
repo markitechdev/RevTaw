@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
-import { Button } from "@/components/ui/button";
 import { ChipGroup } from "@/components/ui/chip-group";
 import { Segmented } from "@/components/ui/segmented";
-import { saveAnswerStyleAction, type SavePreferencesResult } from "@/lib/preferences/actions";
+import { saveAnswerStyleAction } from "@/lib/preferences/actions";
 import { EXPLANATION_DEPTHS, RESPONSE_STYLES, type AiPreferences, type ExplanationDepth, type ResponseStyle } from "@/lib/preferences/options";
+
+type AnswerStyle = { style: ResponseStyle; depth: ExplanationDepth };
 
 /**
  * How Tamari explains (UI phase §23–§25, §35): the tone and how deep
@@ -16,35 +17,32 @@ import { EXPLANATION_DEPTHS, RESPONSE_STYLES, type AiPreferences, type Explanati
  * always wins for that answer.
  */
 export function AiPreferencesForm({ initial }: { initial: AiPreferences }) {
-  const [style, setStyle] = useState<ResponseStyle>(initial.style);
-  const [depth, setDepth] = useState<ExplanationDepth>(initial.depth);
-  const [result, setResult] = useState<SavePreferencesResult | null>(null);
+  const [saved, setSaved] = useState<AnswerStyle>({ style: initial.style, depth: initial.depth });
+  const [shown, setShown] = useOptimistic(saved);
+  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const submit = () => {
-    setResult(null);
+  // Picks save as they are made, like Tamari's switches beside this card.
+  const save = (next: AnswerStyle) => {
+    setError(null);
     startTransition(async () => {
-      setResult(await saveAnswerStyleAction({ style, depth }));
+      setShown(next);
+      const result = await saveAnswerStyleAction(next);
+      if (result.ok) setSaved(next);
+      else setError(result.error);
     });
   };
 
   return (
-    <form
-      className="flex flex-col gap-8"
-      onSubmit={(event) => {
-        event.preventDefault();
-        submit();
-      }}
-    >
-      {result && !result.ok && <Alert tone="error">{result.error}</Alert>}
-      {result?.ok && <Alert tone="success">Saved. Tamari will answer this way from your next message.</Alert>}
+    <div className="flex flex-col gap-8">
+      {error && <Alert tone="error">{error}</Alert>}
 
       <ChipGroup
         type="single"
         name="style"
         legend="Response style"
-        value={style}
-        onChange={setStyle}
+        value={shown.style}
+        onChange={(style) => save({ ...shown, style })}
         options={RESPONSE_STYLES.map((item) => ({ value: item.id, label: item.label, hint: item.hint }))}
         look="card"
       />
@@ -54,18 +52,16 @@ export function AiPreferencesForm({ initial }: { initial: AiPreferences }) {
           label="Explanation depth"
           hideLabel={false}
           name="depth"
-          value={depth}
-          onChange={setDepth}
+          value={shown.depth}
+          onChange={(depth) => save({ ...shown, depth })}
           options={EXPLANATION_DEPTHS.map((item) => ({ value: item.id, label: item.label, title: item.hint }))}
         />
-        <p className="text-xs text-muted-foreground">{EXPLANATION_DEPTHS.find((item) => item.id === depth)?.hint}</p>
+        <p className="text-xs text-muted-foreground">{EXPLANATION_DEPTHS.find((item) => item.id === shown.depth)?.hint}</p>
       </div>
 
-      <div className="flex items-center gap-3 border-t border-border pt-5">
-        <Button type="submit" loading={pending}>
-          Save
-        </Button>
-      </div>
-    </form>
+      <p className="text-xs text-muted-foreground" role="status" aria-live="polite">
+        {pending ? "Saving…" : "Changes save automatically. Tamari answers this way from your next message."}
+      </p>
+    </div>
   );
 }
