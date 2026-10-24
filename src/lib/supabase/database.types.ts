@@ -299,6 +299,8 @@ type QuizAttemptsRow = {
   max_score: number | null;
   correct_count: number | null;
   question_count: number;
+  /** Set while a submission grades the attempt (0028). */
+  submit_started_at: string | null;
   created_at: string;
   updated_at: string;
 };

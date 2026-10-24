@@ -22,7 +22,7 @@ import {
 import { friendlyGenerationFailure, loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
 import type { ConfidenceLevel, Json, QuestionType, QuizMode } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
-import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
+import { clampText, clampTitle, titleWithSuffix } from "@/lib/text/clamp";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 
@@ -386,31 +386,65 @@ async function recordMistake(
 ) {
   const options = question.options as unknown as QuestionOption[] | null;
   const answer = answerSchema.parse(question.answer) as QuestionAnswer;
-  const { data: existing } = await supabase
-    .from("mistakes")
-    .select("id")
-    .eq("attempt_id", attempt.id)
-    .eq("question_id", question.id)
-    .maybeSingle();
-  if (existing) return;
-  await supabase.from("mistakes").insert({
-    user_id: attempt.user_id,
-    question_id: question.id,
-    attempt_id: attempt.id,
-    concept_id: question.concept_id,
-    material_id: attempt.material_id,
-    question_text: question.prompt.slice(0, 4000),
-    student_answer: describeResponse(response, options)?.slice(0, 4000) ?? null,
-    correct_answer: describeAnswer(answer, options).slice(0, 4000),
-    explanation: question.explanation?.slice(0, 4000) ?? null,
-  });
+  // One entry per question per attempt (migration 0028): a repeat keeps the first.
+  const { error } = await supabase.from("mistakes").upsert(
+    {
+      user_id: attempt.user_id,
+      question_id: question.id,
+      attempt_id: attempt.id,
+      concept_id: question.concept_id,
+      material_id: attempt.material_id,
+      question_text: clampText(question.prompt, 4000),
+      student_answer: (() => {
+        const described = describeResponse(response, options);
+        return described === null || described === undefined ? null : clampText(described, 4000);
+      })(),
+      correct_answer: clampText(describeAnswer(answer, options), 4000),
+      explanation: question.explanation ? clampText(question.explanation, 4000) : null,
+    },
+    { onConflict: "attempt_id,question_id", ignoreDuplicates: true },
+  );
+  if (error) console.error("mistakes: save failed", error.message);
+}
+
+/** How long a submission may hold an attempt before another may take over (it was cut off). */
+const SUBMIT_CLAIM_MS = 3 * 60_000;
+
+/** Takes the attempt for this submission; false while another one is grading it (or it is no longer open). */
+async function claimSubmission(supabase: Client, attemptId: string): Promise<boolean> {
+  const now = new Date();
+  const fresh = await supabase.from("quiz_attempts").update({ submit_started_at: now.toISOString() }).eq("id", attemptId).eq("status", "in_progress").is("submit_started_at", null).select("id");
+  if (fresh.error) throw new Error(`quiz_attempts: submit claim failed: ${fresh.error.message}`);
+  if (fresh.data?.length) return true;
+  const cutOff = await supabase
+    .from("quiz_attempts")
+    .update({ submit_started_at: now.toISOString() })
+    .eq("id", attemptId)
+    .eq("status", "in_progress")
+    .lt("submit_started_at", new Date(now.getTime() - SUBMIT_CLAIM_MS).toISOString())
+    .select("id");
+  if (cutOff.error) throw new Error(`quiz_attempts: submit claim failed: ${cutOff.error.message}`);
+  return Boolean(cutOff.data?.length);
+}
+
+/** Waits for the submission that holds the attempt; true once it is submitted. */
+async function waitForSubmission(supabase: Client, attemptId: string, waitMs: number): Promise<boolean> {
+  const until = Date.now() + waitMs;
+  while (Date.now() < until) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const { data } = await supabase.from("quiz_attempts").select("status").eq("id", attemptId).maybeSingle();
+    if (!data || data.status === "submitted") return true;
+  }
+  return false;
 }
 
 /**
  * Submits an attempt: grades what is still ungraded, stores the score and
- * files every incorrect answer in the mistake notebook. Safe to call twice.
+ * files every incorrect answer in the mistake notebook. Safe to call twice:
+ * one call grades, and a call made meanwhile (the deadline auto-submit, a
+ * reload, a second tab) waits up to `waitMs` for it instead of grading again.
  */
-export async function submitAttempt(attemptId: string): Promise<{ submitted: boolean; needsSelfCheck: number }> {
+export async function submitAttempt(attemptId: string, options: { waitMs?: number } = {}): Promise<{ submitted: boolean; needsSelfCheck: number }> {
   const supabase = await createClient();
   const { data: attempt } = await supabase
     .from("quiz_attempts")
@@ -419,7 +453,23 @@ export async function submitAttempt(attemptId: string): Promise<{ submitted: boo
     .maybeSingle();
   if (!attempt) throw new ServiceError("Attempt not found.", 404);
   if (attempt.status === "submitted") return { submitted: true, needsSelfCheck: 0 };
+  if (!(await claimSubmission(supabase, attempt.id))) {
+    if (await waitForSubmission(supabase, attempt.id, options.waitMs ?? 90_000)) return { submitted: true, needsSelfCheck: 0 };
+    throw new ServiceError("Your answers are still being submitted. Give it a moment, then reload the page.", 409);
+  }
+  try {
+    return await gradeAndSubmit(supabase, attempt);
+  } catch (error) {
+    // Let the next try take the attempt at once instead of waiting out the claim.
+    await supabase.from("quiz_attempts").update({ submit_started_at: null }).eq("id", attempt.id).eq("status", "in_progress");
+    throw error;
+  }
+}
 
+async function gradeAndSubmit(
+  supabase: Client,
+  attempt: { id: string; quiz_id: string; user_id: string; quiz: unknown },
+): Promise<{ submitted: boolean; needsSelfCheck: number }> {
   const [{ data: questionRows }, { data: answerRows }] = await Promise.all([
     supabase.from("quiz_questions").select("id, type, prompt, options, answer, explanation, concept_id, points").eq("quiz_id", attempt.quiz_id),
     supabase.from("quiz_answers").select("id, question_id, response, is_correct, score, feedback, graded_by").eq("attempt_id", attempt.id),
@@ -569,6 +619,12 @@ export async function selfGradeAnswer(answerId: string, verdict: "correct" | "pa
 /** Auto-submits an attempt whose time ran out while the student was away. */
 export async function expireIfNeeded(attempt: { id: string; status: string; started_at: string; time_limit_seconds: number | null }): Promise<boolean> {
   if (attempt.status !== "in_progress" || !isPastDeadline(attempt)) return false;
-  await submitAttempt(attempt.id);
+  // A page render waits less for a submission already under way; the runner submits again if it is still open.
+  try {
+    await submitAttempt(attempt.id, { waitMs: 25_000 });
+  } catch (error) {
+    if (error instanceof ServiceError && error.status === 409) return false;
+    throw error;
+  }
   return true;
 }
