@@ -12,6 +12,7 @@ import { getPublicSiteUrl, getServerEnv } from "@/lib/env";
 import { addDays, dateIn, isValidTimezone } from "@/lib/planner/dates";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
+import { readPages } from "@/lib/supabase/paginate";
 import { getCurrentUser } from "@/lib/supabase/server";
 
 /**
@@ -28,6 +29,8 @@ type Client = SupabaseClient<Database>;
 export const CALENDAR_TIMEZONE = "Asia/Manila";
 const DAYS_BACK = 14;
 const DAYS_AHEAD = 120;
+/** Activities read per run; past this the window is only partly read. */
+const MAX_TASKS = 2000;
 /** Only events RevTaw made; anything the student adds to this calendar stays. */
 const REVTAW_EVENT_ID = /^(ta|ea)[0-9a-f]{32}$/;
 
@@ -82,14 +85,21 @@ async function reconcileOnce(client: Client, userId: string): Promise<SyncOutcom
     const from = addDays(today, -DAYS_BACK);
     const to = addDays(today, DAYS_AHEAD);
     const [tasks, exams] = await Promise.all([
-      client.from("study_tasks").select("id, title, scheduled_for, starts_at, minutes, status, notes, reminder, reminder_minutes").eq("user_id", userId).gte("scheduled_for", from).lte("scheduled_for", to).in("status", ["pending", "done"]).limit(2000),
+      readPages(
+        (first, last) => client.from("study_tasks").select("id, title, scheduled_for, starts_at, minutes, status, notes, reminder, reminder_minutes").eq("user_id", userId).gte("scheduled_for", from).lte("scheduled_for", to).in("status", ["pending", "done"]).order("scheduled_for").order("id").range(first, last),
+        MAX_TASKS,
+      ).catch((error: unknown) => {
+        throw new Error(`calendar: planner query failed: ${error instanceof Error ? error.message : String(error)}`);
+      }),
       client.from("exams").select("id, title, exam_date, notes").eq("user_id", userId).is("archived_at", null).gte("exam_date", from).lte("exam_date", to).limit(300),
     ]);
-    if (tasks.error || exams.error) throw new Error(`calendar: planner query failed: ${tasks.error?.message ?? exams.error?.message}`);
+    if (exams.error) throw new Error(`calendar: planner query failed: ${exams.error.message}`);
+    // With the window only partly read, an activity's event may belong to one that was not read: keep those this run.
+    const allTasksRead = tasks.length < MAX_TASKS;
 
     const siteUrl = getPublicSiteUrl();
     const wanted = new Map<string, GoogleEvent>();
-    for (const task of tasks.data ?? []) wanted.set(taskEventId(task.id), taskEvent(task, { timeZone, siteUrl }));
+    for (const task of tasks) wanted.set(taskEventId(task.id), taskEvent(task, { timeZone, siteUrl }));
     for (const exam of exams.data ?? []) wanted.set(examEventId(exam.id), examEvent(exam, { siteUrl }));
 
     // A day of margin on both sides covers every time zone.
@@ -105,6 +115,7 @@ async function reconcileOnce(client: Client, userId: string): Promise<SyncOutcom
     }
     for (const id of existing.keys()) {
       if (wanted.has(id) || !REVTAW_EVENT_ID.test(id)) continue;
+      if (!allTasksRead && id.startsWith("ta")) continue;
       await deleteEvent(token, connection.calendar_id, id);
       outcome.removed += 1;
     }

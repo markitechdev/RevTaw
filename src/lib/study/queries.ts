@@ -6,6 +6,7 @@ import { addDays, dateIn } from "@/lib/planner/dates";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { parseSessionSummary, type SessionSummary } from "@/lib/study/sessions";
 import type { StudySession, StudySessionItem } from "@/lib/supabase/database.types";
+import { readPagesQuietly } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 export type SessionListItem = Pick<
@@ -123,10 +124,11 @@ export const getActivityStats = cache(async (): Promise<ActivityStats> => {
   const timezone = profile?.timezone ?? null;
   const dayKey = (value: string) => dateIn(value, timezone);
   const since = new Date(Date.now() - 90 * 86_400_000).toISOString();
-  const [{ data: sessions }, { data: attempts }, { data: reviews }] = await Promise.all([
-    supabase.from("study_sessions").select("started_at, completed_at, focus_seconds, status").gte("started_at", since).limit(1000),
-    supabase.from("quiz_attempts").select("started_at, submitted_at, time_limit_seconds").eq("status", "submitted").gte("started_at", since).limit(1000),
-    supabase.from("flashcard_reviews").select("reviewed_at").gte("reviewed_at", since).limit(2000),
+  // Newest first, so a cap drops the oldest days rather than whichever rows came back.
+  const [sessions, attempts, reviews] = await Promise.all([
+    readPagesQuietly("activity: sessions", (from, to) => supabase.from("study_sessions").select("started_at, completed_at, focus_seconds, status").gte("started_at", since).order("started_at", { ascending: false }).order("id").range(from, to), 1000),
+    readPagesQuietly("activity: attempts", (from, to) => supabase.from("quiz_attempts").select("started_at, submitted_at, time_limit_seconds").eq("status", "submitted").gte("started_at", since).order("started_at", { ascending: false }).order("id").range(from, to), 1000),
+    readPagesQuietly("activity: reviews", (from, to) => supabase.from("flashcard_reviews").select("reviewed_at").gte("reviewed_at", since).order("reviewed_at", { ascending: false }).order("id").range(from, to), 2000),
   ]);
 
   const now = new Date();
@@ -141,7 +143,7 @@ export const getActivityStats = cache(async (): Promise<ActivityStats> => {
   let focusWeek = 0;
   let completed = 0;
 
-  for (const session of sessions ?? []) {
+  for (const session of sessions) {
     const key = dayKey(session.started_at);
     if (session.status === "completed" || session.focus_seconds > 0) days.add(session.completed_at ? dayKey(session.completed_at) : key);
     if (session.status === "completed") completed += 1;
@@ -149,7 +151,7 @@ export const getActivityStats = cache(async (): Promise<ActivityStats> => {
     if (key >= weekStart) focusWeek += session.focus_seconds;
     addFocus(key, session.focus_seconds);
   }
-  for (const attempt of attempts ?? []) {
+  for (const attempt of attempts) {
     if (!attempt.submitted_at) continue;
     const key = dayKey(attempt.submitted_at);
     days.add(key);
@@ -161,7 +163,7 @@ export const getActivityStats = cache(async (): Promise<ActivityStats> => {
     if (key >= weekStart) focusWeek += seconds;
     addFocus(key, seconds);
   }
-  for (const review of reviews ?? []) days.add(dayKey(review.reviewed_at));
+  for (const review of reviews) days.add(dayKey(review.reviewed_at));
 
   // Count back from today (or yesterday, so an unfinished day does not break the streak).
   let streak = 0;

@@ -6,6 +6,7 @@ import { listMastery, type MasteryView } from "@/lib/adaptive/engine";
 import { addDays, dateIn } from "@/lib/planner/dates";
 import { plannerClock } from "@/lib/planner/service";
 import type { ConfidenceLevel, MasteryStatus, QuestionDifficulty } from "@/lib/supabase/database.types";
+import { readPagesQuietly } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -74,11 +75,12 @@ export const getAnalyticsOverview = cache(async (): Promise<AnalyticsOverview> =
   const { timezone, today } = await plannerClock();
   const start = addDays(today, -(ANALYTICS_DAYS - 1));
   const since = `${addDays(start, -1)}T00:00:00Z`;
-  const [{ data: sessions }, { data: answers }, { data: items }, { data: reviews }, { data: attempts }, mastery] = await Promise.all([
-    supabase.from("study_sessions").select("started_at, completed_at, focus_seconds, status").gte("started_at", since).limit(2000),
-    supabase.from("quiz_answers").select("answered_at, is_correct, confidence, question:quiz_questions!quiz_answers_question_fk(difficulty)").not("answered_at", "is", null).order("answered_at", { ascending: false }).limit(3000),
-    supabase.from("study_session_items").select("answered_at, is_correct, confidence, format").not("answered_at", "is", null).order("answered_at", { ascending: false }).limit(3000),
-    supabase.from("flashcard_reviews").select("reviewed_at").gte("reviewed_at", since).limit(5000),
+  // Newest first, so a cap drops the oldest rows rather than whichever came back.
+  const [sessions, answers, items, reviews, { data: attempts }, mastery] = await Promise.all([
+    readPagesQuietly("analytics: sessions", (from, to) => supabase.from("study_sessions").select("started_at, completed_at, focus_seconds, status").gte("started_at", since).order("started_at", { ascending: false }).order("id").range(from, to), 2000),
+    readPagesQuietly("analytics: answers", (from, to) => supabase.from("quiz_answers").select("answered_at, is_correct, confidence, question:quiz_questions!quiz_answers_question_fk(difficulty)").not("answered_at", "is", null).order("answered_at", { ascending: false }).order("id").range(from, to), 3000),
+    readPagesQuietly("analytics: session items", (from, to) => supabase.from("study_session_items").select("answered_at, is_correct, confidence, format").not("answered_at", "is", null).order("answered_at", { ascending: false }).order("id").range(from, to), 3000),
+    readPagesQuietly("analytics: reviews", (from, to) => supabase.from("flashcard_reviews").select("reviewed_at").gte("reviewed_at", since).order("reviewed_at", { ascending: false }).order("id").range(from, to), 5000),
     supabase.from("quiz_attempts").select("submitted_at, score, max_score, quiz:quizzes!quiz_attempts_quiz_fk(title)").eq("status", "submitted").gt("max_score", 0).order("submitted_at", { ascending: false }).limit(200),
     listMastery(),
   ]);
@@ -99,7 +101,7 @@ export const getAnalyticsOverview = cache(async (): Promise<AnalyticsOverview> =
   };
 
   let sessionsInWindow = 0;
-  for (const session of sessions ?? []) {
+  for (const session of sessions) {
     const date = day(session.completed_at ?? session.started_at);
     if (session.status === "completed") sessionsInWindow += 1;
     bump(date, { focusMinutes: session.focus_seconds / 60 });
@@ -124,9 +126,9 @@ export const getAnalyticsOverview = cache(async (): Promise<AnalyticsOverview> =
       if (isCorrect) entry.correct += 1;
     }
   };
-  for (const answer of answers ?? []) tally(answer.answered_at, answer.is_correct, answer.confidence, (answer.question as unknown as { difficulty: QuestionDifficulty } | null)?.difficulty ?? null);
-  for (const item of items ?? []) tally(item.answered_at, item.is_correct, item.confidence, item.format === "easy" || item.format === "medium" || item.format === "hard" ? item.format : null);
-  for (const review of reviews ?? []) bump(day(review.reviewed_at), { cards: 1 });
+  for (const answer of answers) tally(answer.answered_at, answer.is_correct, answer.confidence, (answer.question as unknown as { difficulty: QuestionDifficulty } | null)?.difficulty ?? null);
+  for (const item of items) tally(item.answered_at, item.is_correct, item.confidence, item.format === "easy" || item.format === "medium" || item.format === "hard" ? item.format : null);
+  for (const review of reviews) bump(day(review.reviewed_at), { cards: 1 });
 
   const scores = (attempts ?? [])
     .filter((attempt) => attempt.submitted_at && attempt.max_score)
@@ -147,11 +149,11 @@ export const getAnalyticsOverview = cache(async (): Promise<AnalyticsOverview> =
     days: [...days.values()].map((point) => ({ ...point, focusMinutes: Math.round(point.focusMinutes) })),
     totals: {
       sessions: sessionsInWindow,
-      focusMinutes: Math.round((sessions ?? []).reduce((sum, session) => sum + session.focus_seconds, 0) / 60),
+      focusMinutes: Math.round(sessions.reduce((sum, session) => sum + session.focus_seconds, 0) / 60),
       questions,
       accuracy: accuracyOf(questions, correctAll),
       averageScore,
-      cards: (reviews ?? []).length,
+      cards: reviews.length,
     },
     scores: scores.slice(0, 12).reverse(),
     byDifficulty: DIFFICULTY_ORDER.map((level) => ({ key: level, label: DIFFICULTY_LABEL[level], ...difficulty.get(level)!, accuracy: accuracyOf(difficulty.get(level)!.answered, difficulty.get(level)!.correct) })),

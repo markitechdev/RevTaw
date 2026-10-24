@@ -6,6 +6,7 @@ import { PlannerError, plannerClock } from "@/lib/planner/service";
 import { goalFormSchema } from "@/lib/planner/schemas";
 import { GOAL_KIND_BY_ID } from "@/lib/planner/types";
 import type { StudyGoalRow } from "@/lib/supabase/database.types";
+import { readPagesQuietly } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -74,11 +75,12 @@ export async function listGoalsWithProgress(): Promise<GoalProgress[]> {
   const needsActivity = rows.some((goal) => goal.kind !== "mastery" && goal.kind !== "finish_material");
   const earliest = addDays(weekStartOf(today), -7);
   const since = `${earliest}T00:00:00Z`;
-  const [{ data: sessions }, { data: reviews }, { data: answers }, { data: items }, mastery] = await Promise.all([
-    needsActivity ? supabase.from("study_sessions").select("started_at, completed_at, focus_seconds, status").gte("started_at", since).limit(1000) : Promise.resolve({ data: [] }),
-    needsActivity ? supabase.from("flashcard_reviews").select("reviewed_at").gte("reviewed_at", since).limit(2000) : Promise.resolve({ data: [] }),
-    needsActivity ? supabase.from("quiz_answers").select("answered_at").gte("answered_at", since).limit(2000) : Promise.resolve({ data: [] }),
-    needsActivity ? supabase.from("study_session_items").select("answered_at").gte("answered_at", since).not("answered_at", "is", null).limit(2000) : Promise.resolve({ data: [] }),
+  // Newest first, so a cap drops last week's rows before this week's.
+  const [sessions, reviews, answers, items, mastery] = await Promise.all([
+    needsActivity ? readPagesQuietly("goals: sessions", (from, to) => supabase.from("study_sessions").select("started_at, completed_at, focus_seconds, status").gte("started_at", since).order("started_at", { ascending: false }).order("id").range(from, to), 1000) : Promise.resolve([]),
+    needsActivity ? readPagesQuietly("goals: reviews", (from, to) => supabase.from("flashcard_reviews").select("reviewed_at").gte("reviewed_at", since).order("reviewed_at", { ascending: false }).order("id").range(from, to), 2000) : Promise.resolve([]),
+    needsActivity ? readPagesQuietly("goals: answers", (from, to) => supabase.from("quiz_answers").select("answered_at").gte("answered_at", since).order("answered_at", { ascending: false }).order("id").range(from, to), 2000) : Promise.resolve([]),
+    needsActivity ? readPagesQuietly("goals: session items", (from, to) => supabase.from("study_session_items").select("answered_at").gte("answered_at", since).not("answered_at", "is", null).order("answered_at", { ascending: false }).order("id").range(from, to), 2000) : Promise.resolve([]),
     rows.some((goal) => goal.kind === "mastery" || goal.kind === "finish_material") ? listMastery() : Promise.resolve([]),
   ]);
 
@@ -95,17 +97,17 @@ export async function listGoalsWithProgress(): Promise<GoalProgress[]> {
     let detail = "";
     switch (goal.kind) {
       case "focus_minutes": {
-        const seconds = (sessions ?? []).filter((session) => inRange(session.completed_at ?? session.started_at, start, end)).reduce((sum, session) => sum + session.focus_seconds, 0);
+        const seconds = sessions.filter((session) => inRange(session.completed_at ?? session.started_at, start, end)).reduce((sum, session) => sum + session.focus_seconds, 0);
         current = Math.round(seconds / 60);
         detail = `${current} of ${goal.target} min`;
         break;
       }
       case "flashcards_reviewed":
-        current = (reviews ?? []).filter((review) => inRange(review.reviewed_at, start, end)).length;
+        current = reviews.filter((review) => inRange(review.reviewed_at, start, end)).length;
         detail = `${current} of ${goal.target} cards`;
         break;
       case "questions_answered":
-        current = (answers ?? []).filter((answer) => inRange(answer.answered_at, start, end)).length + (items ?? []).filter((item) => inRange(item.answered_at, start, end)).length;
+        current = answers.filter((answer) => inRange(answer.answered_at, start, end)).length + items.filter((item) => inRange(item.answered_at, start, end)).length;
         detail = `${current} of ${goal.target} questions`;
         break;
       case "mastery": {

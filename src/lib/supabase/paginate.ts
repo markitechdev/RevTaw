@@ -1,17 +1,27 @@
 import "server-only";
 
+import { unstable_rethrow } from "next/navigation";
+
 import { pageOf, pageRange, type Page } from "@/lib/pagination";
 
-/** Supabase's Data API returns at most 1,000 rows per request (the project's "Max rows" setting). */
+/**
+ * Supabase's Data API returns at most 1,000 rows per request (the project's
+ * "Max rows" setting, 1,000 unless changed), whatever `.limit()` asks for.
+ * A short page is read as the end of the rows, so the setting must stay at
+ * 1,000 or above.
+ */
 export const API_PAGE = 1000;
+
+type RangeQuery<T> = (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
 
 /**
  * Reads a query past the 1,000-row cap, a page at a time, up to `maxRows`
  * (with a newest-first order, a cap keeps the latest rows). `build` makes a
  * fresh query for each range and must order by something stable (a unique
- * column last), or rows can repeat or go missing between pages.
+ * column last), or rows can repeat or go missing between pages. Up to 1,000
+ * rows this is one request, as before.
  */
-export async function readPages<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>, maxRows: number): Promise<T[]> {
+export async function readPages<T>(build: RangeQuery<T>, maxRows: number): Promise<T[]> {
   const rows: T[] = [];
   for (let from = 0; from < maxRows; from += API_PAGE) {
     const to = Math.min(maxRows, from + API_PAGE) - 1;
@@ -21,6 +31,21 @@ export async function readPages<T>(build: (from: number, to: number) => PromiseL
     if (!data || data.length < to - from + 1) break;
   }
   return rows;
+}
+
+/**
+ * `readPages` for figures a page can show without (streaks, charts, counts):
+ * a failed read is logged and gives no rows, as an ignored query error did,
+ * instead of failing the page.
+ */
+export async function readPagesQuietly<T>(label: string, build: RangeQuery<T>, maxRows: number): Promise<T[]> {
+  try {
+    return await readPages(build, maxRows);
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error(`${label}: read failed`, error instanceof Error ? error.message : error);
+    return [];
+  }
 }
 
 type ListResponse = { data: unknown; error: { message: string } | null; count: number | null; status: number };

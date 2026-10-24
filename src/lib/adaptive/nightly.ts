@@ -12,6 +12,7 @@ import { cardSnapshot } from "@/lib/flashcards/scheduler";
 import { addDays, dateIn, daysBetween, DEFAULT_TIMEZONE, isValidTimezone } from "@/lib/planner/dates";
 import { zonedInstant } from "@/lib/planner/time";
 import type { Database, QuestionDifficulty } from "@/lib/supabase/database.types";
+import { readPagesQuietly } from "@/lib/supabase/paginate";
 
 /**
  * The learning engine's nightly run (research doc §8–§9), called by
@@ -201,15 +202,21 @@ async function boostExam(
   // Flashcards from the exam's materials that would fade below 90% by exam morning come due on the booster day.
   const boostAt = zonedInstant(boostOn, "06:00", timeZone);
   const dueBy = boostAt < now ? now : boostAt;
-  const { data: cards } = await admin
-    .from("flashcards")
-    .select("id, due_at, repetitions, lapses, last_reviewed_at, fsrs_stability, fsrs_difficulty, fsrs_state, fsrs_learning_steps, fsrs_scheduled_days, deck:flashcard_decks!flashcards_deck_fk!inner(material_id)")
-    .eq("user_id", exam.user_id)
-    .eq("suspended", false)
-    .gt("due_at", dueBy.toISOString())
-    .in("deck.material_id", materialIds)
-    .limit(2000);
-  const moving = (cards ?? []).filter((card) => {
+  const cards = await readPagesQuietly(
+    "engine: booster cards",
+    (from, to) =>
+      admin
+        .from("flashcards")
+        .select("id, due_at, repetitions, lapses, last_reviewed_at, fsrs_stability, fsrs_difficulty, fsrs_state, fsrs_learning_steps, fsrs_scheduled_days, deck:flashcard_decks!flashcards_deck_fk!inner(material_id)")
+        .eq("user_id", exam.user_id)
+        .eq("suspended", false)
+        .gt("due_at", dueBy.toISOString())
+        .in("deck.material_id", materialIds)
+        .order("id")
+        .range(from, to),
+    2000,
+  );
+  const moving = cards.filter((card) => {
     const recall = recallAt(cardSnapshot(card), examMorning);
     return recall !== null && recall < recallBelow;
   });

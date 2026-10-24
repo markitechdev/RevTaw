@@ -8,6 +8,7 @@ import { addDays, daysBetween } from "@/lib/planner/dates";
 import { readinessScore } from "@/lib/planner/generate";
 import { plannerClock } from "@/lib/planner/service";
 import type { Exam, MaterialStatus, ReminderStatus, StudyPlan, StudyTask } from "@/lib/supabase/database.types";
+import { readPagesQuietly } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 export type TaskView = StudyTask & {
@@ -36,8 +37,9 @@ export type ExamSummary = Exam & {
 async function decorateExams(exams: Array<Exam & { subject: ExamSummary["subject"]; exam_materials: Array<{ position: number; material: { id: string; title: string; status: string } | null }>; plan: ExamSummary["plan"] | ExamSummary["plan"][] }>, today: string): Promise<ExamSummary[]> {
   if (exams.length === 0) return [];
   const supabase = await createClient();
-  const [{ data: tasks }, mastery] = await Promise.all([
-    supabase.from("study_tasks").select("exam_id, status").in("exam_id", exams.map((exam) => exam.id)).limit(5000),
+  const [tasks, mastery] = await Promise.all([
+    // Skipped tasks never count, so they are not read.
+    readPagesQuietly("study_tasks: exam progress", (from, to) => supabase.from("study_tasks").select("exam_id, status").in("exam_id", exams.map((exam) => exam.id)).neq("status", "skipped").order("id").range(from, to), 5000),
     listMastery(),
   ]);
   return exams.map((exam) => {
@@ -45,7 +47,7 @@ async function decorateExams(exams: Array<Exam & { subject: ExamSummary["subject
     const materialIds = new Set(materials.map((material) => material.id));
     const rows = mastery.filter((row) => row.concept?.material_id && materialIds.has(row.concept.material_id) && row.attempts > 0);
     const averageMastery = rows.length ? Math.round(rows.reduce((sum, row) => sum + Number(row.mastery), 0) / rows.length) : null;
-    const own = (tasks ?? []).filter((task) => task.exam_id === exam.id && task.status !== "skipped");
+    const own = tasks.filter((task) => task.exam_id === exam.id && task.status !== "skipped");
     const tasksDone = own.filter((task) => task.status === "done").length;
     const plan = Array.isArray(exam.plan) ? (exam.plan[0] ?? null) : exam.plan;
     return {

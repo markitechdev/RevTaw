@@ -10,6 +10,7 @@ import { inAppAllowed } from "@/lib/notifications/allowed";
 import { routes } from "@/lib/routes";
 import { getActivityStats } from "@/lib/study/queries";
 import type { Achievement, XpEvent } from "@/lib/supabase/database.types";
+import { readPagesQuietly } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -31,8 +32,8 @@ async function count(query: PromiseLike<{ count: number | null; error: { message
 export const getGamificationStats = cache(async (): Promise<GamificationStats> => {
   const supabase = await createClient();
   const activity = await getActivityStats();
-  const [{ data: sessions }, questions, correctQuestions, items, correctItems, reviews, mastered, materials, { data: attempts }, goals, mnemonics] = await Promise.all([
-    supabase.from("study_sessions").select("method, focus_seconds, items_total, summary").eq("status", "completed").limit(2000),
+  const [sessions, questions, correctQuestions, items, correctItems, reviews, mastered, materials, { data: attempts }, goals, mnemonics] = await Promise.all([
+    readPagesQuietly("gamification: sessions", (from, to) => supabase.from("study_sessions").select("method, focus_seconds, items_total, summary").eq("status", "completed").order("completed_at", { ascending: false }).order("id").range(from, to), 2000),
     count(supabase.from("quiz_answers").select("id", { count: "exact", head: true })),
     count(supabase.from("quiz_answers").select("id", { count: "exact", head: true }).eq("is_correct", true)),
     count(supabase.from("study_session_items").select("id", { count: "exact", head: true }).not("answered_at", "is", null)),
@@ -48,7 +49,7 @@ export const getGamificationStats = cache(async (): Promise<GamificationStats> =
   let focusSeconds = 0;
   let palaceWalks = 0;
   let improvements = 0;
-  for (const session of sessions ?? []) {
+  for (const session of sessions) {
     byMethod[session.method] = (byMethod[session.method] ?? 0) + 1;
     focusSeconds += session.focus_seconds;
     if (session.method === "memory_palace" && session.items_total > 0) palaceWalks += 1;
@@ -60,7 +61,7 @@ export const getGamificationStats = cache(async (): Promise<GamificationStats> =
     return percent === null ? top : Math.max(top ?? 0, percent);
   }, null);
   return {
-    sessionsCompleted: (sessions ?? []).length,
+    sessionsCompleted: sessions.length,
     sessionsByMethod: byMethod,
     methodsUsed: Object.keys(byMethod).length,
     questionsAnswered: questions + items,
@@ -81,7 +82,8 @@ export const getGamificationStats = cache(async (): Promise<GamificationStats> =
 
 async function awardActiveDays(supabase: Client, activeDates: string[]): Promise<void> {
   if (activeDates.length === 0) return;
-  const { data: existing } = await supabase.from("xp_events").select("source_key").eq("source", "streak_day").limit(1000);
+  // Only the window's days (activeDates is sorted and "streak_day:YYYY-MM-DD" keys sort by date), so a long history never crowds them out.
+  const { data: existing } = await supabase.from("xp_events").select("source_key").eq("source", "streak_day").gte("source_key", `streak_day:${activeDates[0]}`).limit(1000);
   const done = new Set((existing ?? []).map((row) => row.source_key));
   const missing = activeDates.filter((date) => !done.has(`streak_day:${date}`));
   await awardXp(

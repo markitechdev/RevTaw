@@ -5,7 +5,7 @@ import { cache } from "react";
 import { currentSnapshot, ratingWaits } from "@/lib/flashcards/scheduler";
 import { pageOf, type Page } from "@/lib/pagination";
 import type { Flashcard, FlashcardDeck, FlashcardRating } from "@/lib/supabase/database.types";
-import { fetchPage } from "@/lib/supabase/paginate";
+import { fetchPage, readPagesQuietly } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 type MaterialRef = { id: string; title: string; subject: { name: string } | null } | null;
@@ -23,13 +23,12 @@ async function dueAndBoxesByDeck(supabase: Awaited<ReturnType<typeof createClien
   const stats = new Map<string, { dueCount: number; boxes: number[] }>();
   if (deckIds.length === 0) return stats;
   const now = new Date().toISOString();
-  const { data } = await supabase.from("flashcards").select("deck_id, box, due_at, suspended").in("deck_id", deckIds).limit(5000);
-  for (const card of data ?? []) {
+  // Suspended cards count towards neither figure, so they are left out of the read.
+  const cards = await readPagesQuietly("flashcards: deck stats", (from, to) => supabase.from("flashcards").select("deck_id, box, due_at").in("deck_id", deckIds).eq("suspended", false).order("deck_id").order("position").range(from, to), 5000);
+  for (const card of cards) {
     const entry = stats.get(card.deck_id) ?? { dueCount: 0, boxes: [0, 0, 0, 0, 0] };
-    if (!card.suspended) {
-      if (card.due_at <= now) entry.dueCount += 1;
-      entry.boxes[Math.min(5, Math.max(1, card.box)) - 1] += 1;
-    }
+    if (card.due_at <= now) entry.dueCount += 1;
+    entry.boxes[Math.min(5, Math.max(1, card.box)) - 1] += 1;
     stats.set(card.deck_id, entry);
   }
   return stats;
@@ -167,8 +166,8 @@ export async function getReviewQueue(options: { deckId?: string; mode: "due" | "
   const replay = cards.filter((card) => card.fsrs_stability === null && card.last_reviewed_at).map((card) => card.id);
   const history = new Map<string, Array<{ at: string; rating: FlashcardRating }>>();
   if (replay.length > 0) {
-    const { data: reviews } = await supabase.from("flashcard_reviews").select("card_id, rating, reviewed_at").in("card_id", replay).order("reviewed_at", { ascending: true }).limit(5000);
-    for (const row of reviews ?? []) history.set(row.card_id, [...(history.get(row.card_id) ?? []), { at: row.reviewed_at, rating: row.rating }]);
+    const reviews = await readPagesQuietly("flashcards: replay history", (from, to) => supabase.from("flashcard_reviews").select("card_id, rating, reviewed_at").in("card_id", replay).order("reviewed_at", { ascending: true }).order("id").range(from, to), 5000);
+    for (const row of reviews) history.set(row.card_id, [...(history.get(row.card_id) ?? []), { at: row.reviewed_at, rating: row.rating }]);
   }
   const now = new Date();
   return cards.map((card) => ({ ...card, waits: ratingWaits(currentSnapshot(card, history.get(card.id) ?? []), now) }));
