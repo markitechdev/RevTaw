@@ -18,13 +18,14 @@ import { routes } from "@/lib/routes";
 import type { ActivityCategory } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 
+/** Category colors are identity, not status: their own tokens (globals.css), never success/warning/danger. */
 const CATEGORY_DOT: Record<ActivityCategory, string> = {
-  study: "bg-primary",
-  review: "bg-success",
-  assignment: "bg-warning",
-  project: "bg-info",
-  exam: "bg-danger",
-  class: "bg-foreground/60",
+  study: "bg-category-study",
+  review: "bg-category-review",
+  assignment: "bg-category-assignment",
+  project: "bg-category-project",
+  exam: "bg-category-exam",
+  class: "bg-category-class",
   other: "bg-muted-foreground",
 };
 
@@ -279,7 +280,7 @@ export function PlannerCalendar({ month, selected: initialSelected, today, tasks
             </Button>
           </div>
           {selectedExams.map((exam) => (
-            <Link key={exam.id} href={`${routes.planner}/${exam.id}`} className="flex items-center gap-2 rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm font-medium text-danger hover:underline">
+            <Link key={exam.id} href={`${routes.planner}/${exam.id}`} className="flex items-center gap-2 rounded-lg border border-border border-l-4 border-l-category-exam bg-card px-3 py-2 text-sm font-medium text-foreground hover:underline">
               <GraduationCap className="h-4 w-4 shrink-0" aria-hidden="true" />
               Exam: {exam.title}
               {exam.subject && <span className="font-normal">· {exam.subject}</span>}

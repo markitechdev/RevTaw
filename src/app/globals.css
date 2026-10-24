@@ -71,6 +71,18 @@
   --developing-foreground: #ffffff;
   --developing-soft: #fdf4ff;
 
+  /*
+   * Planner categories: identity, not status (an exam is not an error), so they never borrow the status
+   * colors. Categorical slots 1-6 in their validated order (adjacent CVD ΔE >= 8, normal-vision >= 15 on
+   * both surfaces); "Other" folds to gray. Labels carry the category too (the day list, the filter chips).
+   */
+  --category-study: #2a78d6;
+  --category-review: #eb6834;
+  --category-assignment: #1baf7a;
+  --category-project: #eda100;
+  --category-exam: #e87ba4;
+  --category-class: #008300;
+
   /* Elevation: borders do most of the work; shadows only lift what floats. */
   --shadow-color: 22 19 42;
   --elevation-sm: 0 1px 2px rgb(var(--shadow-color) / 0.06);
@@ -113,6 +125,13 @@
   --developing: #f472b6;
   --developing-foreground: #0b1220;
   --developing-soft: #3a1028;
+
+  --category-study: #3987e5;
+  --category-review: #d95926;
+  --category-assignment: #199e70;
+  --category-project: #c98500;
+  --category-exam: #d55181;
+  --category-class: #008300;
 
   --shadow-color: 0 0 0;
   --elevation-sm: 0 1px 2px rgb(var(--shadow-color) / 0.4);
@@ -259,6 +278,12 @@
   --color-developing: var(--developing);
   --color-developing-foreground: var(--developing-foreground);
   --color-developing-soft: var(--developing-soft);
+  --color-category-study: var(--category-study);
+  --color-category-review: var(--category-review);
+  --color-category-assignment: var(--category-assignment);
+  --color-category-project: var(--category-project);
+  --color-category-exam: var(--category-exam);
+  --color-category-class: var(--category-class);
 
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
