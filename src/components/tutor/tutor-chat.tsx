@@ -173,7 +173,7 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
           {session ? (
             sessionActive ? (
               <Button type="button" size="sm" onClick={endSession} loading={ending}>
-                {!ending && <Flag className="h-3.5 w-3.5" aria-hidden="true" />}
+                {!ending && <Flag className="h-4 w-4" aria-hidden="true" />}
                 End session &amp; get feedback
               </Button>
             ) : (

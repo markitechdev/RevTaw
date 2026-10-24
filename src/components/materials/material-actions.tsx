@@ -99,16 +99,16 @@ export function MaterialActions({
     <>
       <div className="flex flex-wrap gap-2" aria-label="Material actions">
         <Button type="button" variant="secondary" size="sm" onClick={() => open("rename")}>
-          <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+          <Pencil className="h-4 w-4" aria-hidden="true" />
           Rename
         </Button>
         <Button type="button" variant="secondary" size="sm" onClick={() => open("move")}>
-          <FolderInput className="h-3.5 w-3.5" aria-hidden="true" />
+          <FolderInput className="h-4 w-4" aria-hidden="true" />
           Move
         </Button>
         {state === "active" && (
           <Button type="button" variant="danger-ghost" size="sm" onClick={() => open("delete")}>
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
             Delete
           </Button>
         )}

@@ -234,7 +234,7 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
         <div className="flex items-center gap-3">
           {deadline && <QuizCountdown deadline={deadline} onExpire={expire} />}
           <Button type="button" size="sm" variant="secondary" onClick={finish} disabled={pending}>
-            <Flag className="h-3.5 w-3.5" aria-hidden="true" />
+            <Flag className="h-4 w-4" aria-hidden="true" />
             Finish quiz
           </Button>
         </div>

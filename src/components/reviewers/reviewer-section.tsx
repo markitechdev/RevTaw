@@ -106,11 +106,11 @@ export function ReviewerSectionView({ reviewerId, section }: { reviewerId: strin
               <span className="mr-1 text-xs text-muted-foreground">{edited ? "Edited" : "Regenerated"}</span>
             )}
             <Button type="button" variant="ghost" size="sm" onClick={() => setMode("edit")} aria-label={`Edit ${heading}`}>
-              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+              <Pencil className="h-4 w-4" aria-hidden="true" />
               Edit
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={() => setMode("regenerate")} aria-label={`Regenerate ${heading}`}>
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
               Regenerate
             </Button>
           </div>
@@ -152,7 +152,7 @@ export function ReviewerSectionView({ reviewerId, section }: { reviewerId: strin
               Cancel
             </Button>
             <Button type="button" size="sm" loading={pending} onClick={save}>
-              {!pending && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
+              {!pending && <Check className="h-4 w-4" aria-hidden="true" />}
               Save
             </Button>
           </div>

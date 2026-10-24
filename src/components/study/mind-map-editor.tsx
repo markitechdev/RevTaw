@@ -62,7 +62,7 @@ export function UndoBar({ removal, onUndo, onDismiss }: { removal: { message: st
         <>
           <span className="min-w-0 flex-1">{removal.message}</span>
           <Button ref={undoButton} type="button" size="sm" variant="secondary" onClick={onUndo}>
-            <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+            <Undo2 className="h-4 w-4" aria-hidden="true" />
             Undo
           </Button>
           <Button type="button" size="icon-sm" variant="ghost" aria-label="Dismiss" onClick={onDismiss}>

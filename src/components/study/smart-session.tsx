@@ -201,13 +201,13 @@ export function SmartSessionView({
                   <>
                     {(!strict || isNext) && (
                       <Button type="button" size="sm" variant={isNext ? "primary" : "secondary"} loading={busy === block.key && pending} onClick={() => start(block.key)} disabled={pending && busy !== block.key}>
-                        {!(busy === block.key && pending) && <Play className="h-3.5 w-3.5" aria-hidden="true" />}
+                        {!(busy === block.key && pending) && <Play className="h-4 w-4" aria-hidden="true" />}
                         {block.status === "in_progress" ? "Resume" : "Start"}
                       </Button>
                     )}
                     {block.status === "pending" && (!strict || (isNext && block.method !== "practice_testing")) && (
                       <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => skip(block.key)}>
-                        <SkipForward className="h-3.5 w-3.5" aria-hidden="true" />
+                        <SkipForward className="h-4 w-4" aria-hidden="true" />
                         Skip
                       </Button>
                     )}

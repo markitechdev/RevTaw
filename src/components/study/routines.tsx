@@ -238,14 +238,14 @@ export function RoutinesCard({ routines, materials }: { routines: RoutineItem[];
                 <p className="text-xs text-muted-foreground">{routine.blocks.map((block) => `${methodName(block.method)} ${block.minutes}′`).join(" → ")}</p>
                 <div className="flex flex-wrap gap-1.5">
                   <Button type="button" size="sm" loading={busy === `start:${routine.id}` && pending} disabled={pending && busy !== `start:${routine.id}`} onClick={() => start(routine)}>
-                    {!(busy === `start:${routine.id}` && pending) && <Play className="h-3.5 w-3.5" aria-hidden="true" />}
+                    {!(busy === `start:${routine.id}` && pending) && <Play className="h-4 w-4" aria-hidden="true" />}
                     Start
                   </Button>
                   <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setEditing(routine)} aria-label={`Edit ${routine.title}`}>
-                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
                   </Button>
                   <Button type="button" size="sm" variant="danger-ghost" disabled={pending} onClick={() => setDeleting(routine)} aria-label={`Delete ${routine.title}`}>
-                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </div>
               </li>

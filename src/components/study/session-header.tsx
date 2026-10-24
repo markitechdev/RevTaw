@@ -73,7 +73,7 @@ export function SessionHeader({
           </span>
           {onEnd && (
             <Button type="button" size="sm" variant="secondary" onClick={onEnd} loading={ending}>
-              {!ending && <Flag className="h-3.5 w-3.5" aria-hidden="true" />}
+              {!ending && <Flag className="h-4 w-4" aria-hidden="true" />}
               {endLabel}
             </Button>
           )}

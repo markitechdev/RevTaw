@@ -178,11 +178,11 @@ export function GoalList({ goals, compact = false }: { goals: GoalProgress[]; co
                 <div className="flex shrink-0 gap-1">
                   {item.goal.period === "once" && (
                     <Button type="button" size="sm" variant="ghost" aria-label={item.goal.status === "completed" ? "Reopen goal" : "Mark goal done"} title={item.goal.status === "completed" ? "Reopen" : "Mark done"} loading={busy === `${item.goal.id}:done` && pending} disabled={pending} onClick={() => run(`${item.goal.id}:done`, () => completeGoalAction(item.goal.id, item.goal.status !== "completed"))}>
-                      {!(busy === `${item.goal.id}:done` && pending) && (item.goal.status === "completed" ? <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> : <Check className="h-3.5 w-3.5" aria-hidden="true" />)}
+                      {!(busy === `${item.goal.id}:done` && pending) && (item.goal.status === "completed" ? <RotateCcw className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />)}
                     </Button>
                   )}
                   <Button type="button" size="sm" variant="danger-ghost" aria-label="Delete goal" title="Delete" disabled={pending} onClick={() => setDeleting(item)}>
-                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </div>
               )}

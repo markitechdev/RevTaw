@@ -29,7 +29,7 @@ export function AskWhyWrongButton({
 
   return (
     <Button type="button" size={size} variant="secondary" onClick={ask} aria-haspopup="dialog">
-      <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
+      <MessageCircle className="h-4 w-4" aria-hidden="true" />
       Ask Tamari why
     </Button>
   );

@@ -36,7 +36,7 @@ export function ReanalyzeButton({
   return (
     <div className="flex flex-col items-start gap-1">
       <Button type="button" variant="secondary" size="sm" loading={pending} onClick={run} {...props}>
-        {!pending && <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
+        {!pending && <RefreshCw className="h-4 w-4" aria-hidden="true" />}
         {pending ? "Analyzing…" : children}
       </Button>
       {error && (

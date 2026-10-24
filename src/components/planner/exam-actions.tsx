@@ -44,11 +44,11 @@ export function ExamDangerActions({ examId, archived }: { examId: string; archiv
   return (
     <>
       <Button type="button" size="sm" variant="ghost" onClick={archive} loading={pending}>
-        <Archive className="h-3.5 w-3.5" aria-hidden="true" />
+        <Archive className="h-4 w-4" aria-hidden="true" />
         {archived ? "Unarchive" : "Archive"}
       </Button>
       <Button type="button" size="sm" variant="danger-ghost" onClick={() => setConfirm(true)}>
-        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+        <Trash2 className="h-4 w-4" aria-hidden="true" />
         Delete
       </Button>
       <ConfirmDialog
@@ -159,11 +159,11 @@ export function PlanSettings({ planId, mode, availableDays, minutesPerDay }: { p
           Save & regenerate
         </Button>
         <Button type="button" size="sm" variant="secondary" onClick={regenerate} disabled={pending} loading={busy === "regenerate" && pending}>
-          {!(busy === "regenerate" && pending) && <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
+          {!(busy === "regenerate" && pending) && <RefreshCw className="h-4 w-4" aria-hidden="true" />}
           Regenerate
         </Button>
         <Button type="button" size="sm" variant="secondary" onClick={adjust} disabled={pending} loading={busy === "adjust" && pending}>
-          {!(busy === "adjust" && pending) && <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />}
+          {!(busy === "adjust" && pending) && <Wand2 className="h-4 w-4" aria-hidden="true" />}
           Adjust now
         </Button>
       </div>

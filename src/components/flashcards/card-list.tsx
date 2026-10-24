@@ -85,11 +85,11 @@ export function CardList({ cards, renderedAt }: { cards: CardView[]; /** Server 
                     {card.suspended ? "Resume card" : "Suspend card"}
                   </Button>
                   <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setEditing(null)}>
-                    <X className="h-3.5 w-3.5" aria-hidden="true" />
+                    <X className="h-4 w-4" aria-hidden="true" />
                     Cancel
                   </Button>
                   <Button type="button" size="sm" loading={pending} onClick={() => save(card)}>
-                    {!pending && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
+                    {!pending && <Check className="h-4 w-4" aria-hidden="true" />}
                     Save
                   </Button>
                 </div>
@@ -115,7 +115,7 @@ export function CardList({ cards, renderedAt }: { cards: CardView[]; /** Server 
                       <Star className={cn("h-4 w-4", card.favorite && "fill-warning text-warning")} aria-hidden="true" />
                     </button>
                     <Button type="button" variant="ghost" size="sm" onClick={() => startEdit(card)} aria-label={`Edit card ${card.position + 1}`}>
-                      <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                      <Pencil className="h-4 w-4" aria-hidden="true" />
                       Edit
                     </Button>
                   </span>

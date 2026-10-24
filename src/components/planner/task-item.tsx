@@ -159,34 +159,34 @@ export function TaskItem({
           <>
             {startable && (
               <Button type="button" size="sm" loading={busy === "start" && pending} disabled={pending && busy !== "start"} onClick={() => run("start", () => startTaskAction(task.id))}>
-                {!(busy === "start" && pending) && <Play className="h-3.5 w-3.5" aria-hidden="true" />}
+                {!(busy === "start" && pending) && <Play className="h-4 w-4" aria-hidden="true" />}
                 {task.session_id ? "Resume" : "Start"}
               </Button>
             )}
             <Button type="button" size="sm" variant="secondary" aria-label="Mark done" title="Mark done" loading={busy === "done" && pending} disabled={pending && busy !== "done"} onClick={() => run("done", () => completeTaskAction(task.id))}>
-              {!(busy === "done" && pending) && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
+              {!(busy === "done" && pending) && <Check className="h-4 w-4" aria-hidden="true" />}
               Done
             </Button>
             <Button type="button" size="sm" variant="ghost" aria-label="Skip task" title="Skip" loading={busy === "skip" && pending} disabled={pending && busy !== "skip"} onClick={() => run("skip", () => skipTaskAction(task.id))}>
-              {!(busy === "skip" && pending) && <SkipForward className="h-3.5 w-3.5" aria-hidden="true" />}
+              {!(busy === "skip" && pending) && <SkipForward className="h-4 w-4" aria-hidden="true" />}
             </Button>
           </>
         )}
         {(task.status === "done" || task.status === "skipped") && (
           <Button type="button" size="sm" variant="ghost" loading={busy === "reopen" && pending} disabled={pending && busy !== "reopen"} onClick={() => run("reopen", () => reopenTaskAction(task.id))}>
-            {!(busy === "reopen" && pending) && <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />}
+            {!(busy === "reopen" && pending) && <RotateCcw className="h-4 w-4" aria-hidden="true" />}
             Reopen
           </Button>
         )}
         {onEdit && task.kind === "custom" && (
           <Button type="button" size="sm" variant="ghost" aria-label={`Edit ${task.title}`} title="Edit" disabled={pending} onClick={() => onEdit(task)}>
-            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+            <Pencil className="h-4 w-4" aria-hidden="true" />
           </Button>
         )}
         {task.kind !== "plan" && (
           <>
             <Button type="button" size="sm" variant="danger-ghost" aria-label="Delete task" title="Delete" disabled={pending} onClick={() => setConfirmingDelete(true)}>
-              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
             </Button>
             <ConfirmDialog
               open={confirmingDelete}

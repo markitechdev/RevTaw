@@ -167,10 +167,10 @@ function ManageSubjectsDialog({
                           <>
                             <span className="flex-1 truncate">{folder.name}</span>
                             <Button type="button" size="icon-sm" variant="ghost" aria-label={`Rename ${folder.name}`} onClick={() => setEditing({ kind: "folder", id: folder.id, value: folder.name })}>
-                              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                              <Pencil className="h-4 w-4" aria-hidden="true" />
                             </Button>
                             <Button type="button" size="icon-sm" variant="danger-ghost" aria-label={`Delete ${folder.name}`} onClick={() => { setError(null); setConfirmDelete({ kind: "folder", id: folder.id, name: folder.name }); }}>
-                              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                              <Trash2 className="h-4 w-4" aria-hidden="true" />
                             </Button>
                           </>
                         )}

@@ -111,7 +111,7 @@ export function MaterialStatusBadge({
         </Badge>
         {status === "failed" && (
           <Button type="button" variant="secondary" size="sm" loading={retrying} onClick={retry}>
-            {!retrying && <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
+            {!retrying && <RefreshCw className="h-4 w-4" aria-hidden="true" />}
             Retry
           </Button>
         )}

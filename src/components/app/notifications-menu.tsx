@@ -82,7 +82,7 @@ export function NotificationsMenu({ notifications, unread }: { notifications: Be
             <p className="text-sm font-semibold">Notifications</p>
             {unread > 0 && (
               <Button type="button" size="sm" variant="ghost" loading={pending} onClick={markAll}>
-                {!pending && <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />}
+                {!pending && <CheckCheck className="h-4 w-4" aria-hidden="true" />}
                 Mark all read
               </Button>
             )}

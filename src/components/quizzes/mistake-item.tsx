@@ -86,7 +86,7 @@ export function MistakeItem({ mistake }: { mistake: MistakeListItem }) {
           <AskWhyWrongButton materialId={mistake.material.id} question={mistake.question_text} studentAnswer={mistake.student_answer} correctAnswer={mistake.correct_answer} />
         )}
         <Button type="button" size="sm" variant={resolved ? "ghost" : "secondary"} loading={pending} onClick={() => update({ resolved: !resolved })}>
-          {!pending && (resolved ? <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> : <Check className="h-3.5 w-3.5" aria-hidden="true" />)}
+          {!pending && (resolved ? <RotateCcw className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />)}
           {resolved ? "Reopen" : "Mark as learned"}
         </Button>
         </span>

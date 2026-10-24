@@ -65,17 +65,17 @@ export function QuizActions({ quizId, title, status }: { quizId: string; title: 
     <>
       <div className="flex flex-wrap gap-2">
         <Button type="button" variant="secondary" size="sm" onClick={() => { setDraft(title); setError(null); setDialog("rename"); }}>
-          <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+          <Pencil className="h-4 w-4" aria-hidden="true" />
           Rename
         </Button>
         {status === "failed" && (
           <Button type="button" variant="secondary" size="sm" loading={pending && dialog === null} onClick={retry}>
-            {!pending && <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
+            {!pending && <RefreshCw className="h-4 w-4" aria-hidden="true" />}
             Try again
           </Button>
         )}
         <Button type="button" variant="danger-ghost" size="sm" onClick={() => { setError(null); setDialog("delete"); }}>
-          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
           Delete
         </Button>
       </div>
