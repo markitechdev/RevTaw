@@ -10,6 +10,7 @@ import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
+import { ChipGroup } from "@/components/ui/chip-group";
 import { Textarea } from "@/components/ui/input";
 import { CONFIDENCE_LEVELS } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
@@ -212,26 +213,16 @@ export function RecallRunner({ session, methodName, parentSessionId = null, pare
                 onChange={(event) => setResponse(event.target.value)}
               />
             </div>
-            <div>
-              <p className="mb-1.5 text-xs font-medium text-muted-foreground">How sure are you?</p>
-              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Confidence">
-                {CONFIDENCE_LEVELS.map((level) => (
-                  <button
-                    key={level.id}
-                    type="button"
-                    disabled={pending}
-                    aria-pressed={confidence === level.id}
-                    onClick={() => setConfidence((value) => (value === level.id ? null : level.id))}
-                    className={cn(
-                      "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                      confidence === level.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted",
-                    )}
-                  >
-                    {level.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <ChipGroup
+              type="single"
+              size="sm"
+              name={`confidence-${item.id}`}
+              legend="How sure are you?"
+              value={confidence}
+              onChange={setConfidence}
+              disabled={pending}
+              options={CONFIDENCE_LEVELS.map((level) => ({ value: level.id, label: level.label }))}
+            />
             <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
               <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={reveal}>
                 I don&apos;t know — show me

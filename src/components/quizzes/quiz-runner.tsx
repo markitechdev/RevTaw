@@ -9,6 +9,7 @@ import { QuestionInput } from "@/components/quizzes/question-input";
 import { Alert } from "@/components/forms/form-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ChipGroup } from "@/components/ui/chip-group";
 import { Dialog } from "@/components/ui/dialog";
 import { answerQuestionAction, submitAttemptAction } from "@/lib/quizzes/actions";
 import type { AttemptRunnerView } from "@/lib/quizzes/queries";
@@ -263,27 +264,17 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
           </div>
 
           {view.quiz.config.askConfidence && (
-            <div className="mt-4">
-              <p className="mb-1.5 text-xs font-medium text-muted-foreground">How sure are you?</p>
-              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Confidence">
-                {CONFIDENCE_LEVELS.map((level) => (
-                  <button
-                    key={level.id}
-                    type="button"
-                    disabled={checked || pending}
-                    aria-pressed={confidence[question.id] === level.id}
-                    onClick={() => setConfidence((state) => ({ ...state, [question.id]: state[question.id] === level.id ? null : level.id }))}
-                    className={cn(
-                      "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                      confidence[question.id] === level.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted",
-                      "disabled:cursor-not-allowed disabled:opacity-60",
-                    )}
-                  >
-                    {level.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <ChipGroup
+              type="single"
+              size="sm"
+              name={`confidence-${question.id}`}
+              legend="How sure are you?"
+              className="mt-4"
+              value={confidence[question.id] ?? null}
+              onChange={(level) => setConfidence((state) => ({ ...state, [question.id]: level }))}
+              disabled={checked || pending}
+              options={CONFIDENCE_LEVELS.map((level) => ({ value: level.id, label: level.label }))}
+            />
           )}
 
           {error && (

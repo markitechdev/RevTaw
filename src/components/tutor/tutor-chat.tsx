@@ -10,12 +10,12 @@ import { MessageBubble, type MessageExtras } from "@/components/tutor/message-bu
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
 import { useStableCallback } from "@/lib/hooks/use-stable-callback";
 import { routes } from "@/lib/routes";
 import { addToNotesAction, completeTutorSessionAction, createFlashcardAction, setConversationModeAction } from "@/lib/tutor/actions";
 import type { ConversationDetail, MessageView } from "@/lib/tutor/queries";
 import { TUTOR_ACTIONS, TUTOR_MODE_BY_ID, type FollowUpId, type TutorActionId } from "@/lib/tutor/types";
-import { cn } from "@/lib/utils";
 
 const COMPOSER_ACTIONS: TutorActionId[] = ["explain", "beginner", "example", "analogy", "step_by_step", "quiz", "guide", "why_wrong", "simplify"];
 
@@ -182,19 +182,15 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
               </Link>
             )
           ) : (
-            <div className="flex rounded-lg border border-border p-0.5 text-xs" role="group" aria-label="Tutor mode">
-              {(["tutor", "guided"] as const).map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => toggleMode(item)}
-                  aria-pressed={mode === item}
-                  className={cn("rounded-md px-2.5 py-1 font-medium", mode === item ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted")}
-                >
-                  {TUTOR_MODE_BY_ID[item].label}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              label="Tutor mode"
+              size="sm"
+              name={`tutor-mode-${conversation.id}`}
+              // A conversation started as a study session keeps its own mode, and neither option is on.
+              value={mode as "tutor" | "guided"}
+              onChange={toggleMode}
+              options={(["tutor", "guided"] as const).map((item) => ({ value: item, label: TUTOR_MODE_BY_ID[item].label }))}
+            />
           )}
         </div>
       </div>
