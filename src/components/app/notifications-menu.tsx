@@ -3,7 +3,7 @@
 import { AlarmClock, Award, Bell, CalendarClock, CheckCheck, Flag, Flame, Layers, TrendingUp, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, type FocusEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { formatRelativeDate } from "@/components/materials/material-card";
@@ -30,14 +30,20 @@ export function NotificationsMenu({ notifications, unread }: { notifications: Be
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const panel = useRef<HTMLDivElement>(null);
+  const bell = useRef<HTMLButtonElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
+    // Focus moves into the panel, so a keyboard or screen-reader user lands on the notifications.
+    dialog.current?.focus();
     const onPointer = (event: MouseEvent) => {
       if (panel.current && !panel.current.contains(event.target as Node)) setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      bell.current?.focus();
     };
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -47,6 +53,12 @@ export function NotificationsMenu({ notifications, unread }: { notifications: Be
     };
   }, [open]);
 
+  /** Tabbing out of the panel closes it, like any menu. */
+  const onBlur = (event: FocusEvent<HTMLDivElement>) => {
+    const next = event.relatedTarget as Node | null;
+    if (next && panel.current && !panel.current.contains(next)) setOpen(false);
+  };
+
   const markAll = () =>
     startTransition(async () => {
       await markNotificationsReadAction("all");
@@ -54,8 +66,8 @@ export function NotificationsMenu({ notifications, unread }: { notifications: Be
     });
 
   return (
-    <div className="relative" ref={panel}>
-      <Button type="button" variant="ghost" size="icon" aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"} aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen((state) => !state)} className="relative h-9 w-9">
+    <div className="relative" ref={panel} onBlur={onBlur}>
+      <Button ref={bell} type="button" variant="ghost" size="icon" aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"} aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen((state) => !state)} className="relative h-9 w-9">
         <Bell className="h-4 w-4" aria-hidden="true" />
         {unread > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground" aria-hidden="true">
@@ -65,7 +77,7 @@ export function NotificationsMenu({ notifications, unread }: { notifications: Be
       </Button>
       {open && (
         // The phone header has the bell at the right edge, the sidebar near the left: the panel opens inward from each.
-        <div role="dialog" aria-label="Notifications" className="absolute right-0 top-full z-40 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-card p-2 shadow-xl lg:left-0 lg:right-auto">
+        <div ref={dialog} tabIndex={-1} role="dialog" aria-label="Notifications" className="absolute right-0 top-full z-40 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-card p-2 shadow-xl outline-none lg:left-0 lg:right-auto">
           <div className="flex items-center justify-between px-2 py-1">
             <p className="text-sm font-semibold">Notifications</p>
             {unread > 0 && (
