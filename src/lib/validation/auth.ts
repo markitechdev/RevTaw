@@ -69,11 +69,15 @@ export const displayNameSchema = z
     "Names cannot contain < or > characters.",
   );
 
+/** The sign-up agreement: the Terms of Use and the Privacy Notice (and, under 18, a parent's or guardian's). */
+export const AGREEMENT_REQUIRED = "To create an account, agree to the Terms of Use and the Privacy Notice.";
+
 export const registerSchema = z
   .object({
     displayName: displayNameSchema,
     email: emailSchema,
     password: passwordSchema,
+    agree: z.literal("yes", { message: AGREEMENT_REQUIRED }),
   })
   .refine(
     ({ email, password }) => {

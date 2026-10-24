@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { authErrorMessage } from "@/lib/auth/errors";
 import { clearPendingEmail, getPendingEmail, setPendingEmail } from "@/lib/auth/pending-email";
 import { getRecoveryState } from "@/lib/auth/recovery";
+import { LEGAL_VERSION } from "@/lib/legal";
 import { getSiteUrl } from "@/lib/env";
 import {
   errorState,
@@ -48,6 +49,7 @@ export async function registerAction(
   const values = {
     displayName: formString(formData, "displayName"),
     email: formString(formData, "email"),
+    agree: formString(formData, "agree"),
   };
 
   // Generous per-IP limit: whole classrooms often share one address.
@@ -79,7 +81,8 @@ export async function registerAction(
     email,
     password,
     options: {
-      data: { display_name: displayName },
+      // Which Terms and Privacy Notice the student (and, under 18, a parent or guardian) agreed to, and when.
+      data: { display_name: displayName, terms_version: LEGAL_VERSION, terms_accepted_at: new Date().toISOString() },
       emailRedirectTo: callbackUrl(`${routes.onboarding}?verified=1`),
     },
   });

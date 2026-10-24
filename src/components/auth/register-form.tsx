@@ -8,8 +8,10 @@ import { PasswordInput } from "@/components/forms/password-input";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { TurnstileField } from "@/components/forms/turnstile-field";
 import { Input } from "@/components/ui/input";
+import { TEXT_LINK } from "@/components/ui/text-link";
 import { registerAction } from "@/lib/auth/actions";
 import { IDLE_STATE } from "@/lib/forms/action-state";
+import { routes } from "@/lib/routes";
 import {
   DISPLAY_NAME_MAX_LENGTH,
   PASSWORD_MAX_LENGTH,
@@ -65,6 +67,41 @@ export function RegisterForm({ captchaSiteKey }: { captchaSiteKey?: string }) {
           required
         />
       </Field>
+
+      <div className="flex flex-col">
+        {/* The whole row is the label, so the text is part of the box's target; the links open in a new tab and keep the form. */}
+        <label htmlFor="agree" className="flex cursor-pointer items-start gap-2.5 text-sm text-foreground pointer-coarse:min-h-11">
+          <input
+            id="agree"
+            name="agree"
+            type="checkbox"
+            value="yes"
+            required
+            defaultChecked={state.values?.agree === "yes"}
+            aria-invalid={errors.agree ? true : undefined}
+            aria-describedby={errors.agree ? "agree-error" : undefined}
+            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-primary"
+          />
+          <span>
+            I agree to the{" "}
+            <a href={routes.terms} target="_blank" rel="noopener" className={TEXT_LINK}>
+              Terms of Use
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>{" "}
+            and the{" "}
+            <a href={routes.privacy} target="_blank" rel="noopener" className={TEXT_LINK}>
+              Privacy Notice
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>
+            . If I&apos;m under 18, my parent or guardian has read them and agrees too.
+          </span>
+        </label>
+        {errors.agree && (
+          <p id="agree-error" className="mt-1.5 text-sm text-danger">
+            {errors.agree}
+          </p>
+        )}
+      </div>
 
       <TurnstileField siteKey={captchaSiteKey} action="register" />
 
