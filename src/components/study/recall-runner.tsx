@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { ChipGroup } from "@/components/ui/chip-group";
 import { Textarea } from "@/components/ui/input";
+import { TINT } from "@/components/ui/tint";
 import { CONFIDENCE_LEVELS } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
 import { RETRIEVAL_FORMAT_LABEL, type RetrievalFormat } from "@/lib/study/formats";
@@ -238,9 +239,9 @@ export function RecallRunner({ session, methodName, parentSessionId = null, pare
             <div
               className={cn(
                 "rounded-lg border p-4 text-sm",
-                showing.comparison.verdict === "correct" && "border-success/40 bg-success-soft/60",
-                showing.comparison.verdict === "partial" && "border-warning/40 bg-warning-soft/50",
-                showing.comparison.verdict === "incorrect" && "border-danger/40 bg-danger-soft/60",
+                showing.comparison.verdict === "correct" && TINT.success,
+                showing.comparison.verdict === "partial" && TINT.warning,
+                showing.comparison.verdict === "incorrect" && TINT.danger,
               )}
               role="status"
             >

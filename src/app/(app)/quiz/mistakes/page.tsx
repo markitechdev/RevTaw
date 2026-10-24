@@ -9,6 +9,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
+import { TINT } from "@/components/ui/tint";
 import { LIST_PAGE_SIZE, parsePage, withPage } from "@/lib/pagination";
 import { listMistakesPage, listRepeatedMistakeConcepts } from "@/lib/quizzes/queries";
 import { routes } from "@/lib/routes";
@@ -61,7 +62,7 @@ export default async function MistakesPage({ searchParams }: PageProps<"/quiz/mi
       />
 
       {!showResolved && repeated.length > 0 && (
-        <div className="rounded-xl border border-warning/40 bg-warning-soft/40 p-4 text-sm">
+        <div className={`rounded-xl border p-4 text-sm ${TINT.warning}`}>
           <p className="font-medium">Repeated trouble spots</p>
           <p className="mt-1 text-muted-foreground">
             {repeated.map((entry) => `${entry.name} (${entry.count})`).join(" · ")}. Re-read their sections in the material before the next quiz.

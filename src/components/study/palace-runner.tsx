@@ -13,6 +13,7 @@ import { SessionHeader } from "@/components/study/session-header";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MARKED } from "@/components/ui/tint";
 import { routes } from "@/lib/routes";
 import { lociResultOf, lociViewOf, palaceStateOf, type LociResult, type PalaceInput, type PalaceSummary } from "@/lib/study/memory-options";
 import { answerLociAction, placeConceptsAction, startWalkAction } from "@/lib/study/method-actions";
@@ -68,7 +69,7 @@ function PalaceSetup({ session, methodName, palaces, parentSessionId = null, par
             {[...palaces, null].map((palace) => {
               const id = palace?.id ?? "new";
               return (
-                <label key={id} className={cn("flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm", choice === id ? "border-primary bg-primary-soft/40" : "border-border hover:bg-muted/60")}>
+                <label key={id} className={cn("flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm", choice === id ? MARKED : "border-border hover:bg-muted/60")}>
                   <input
                     type="radio"
                     name="palace"
@@ -267,7 +268,7 @@ function PalaceWalk({ session, methodName, parentSessionId = null, parentLabel }
                 aria-current={position === index ? "step" : undefined}
                 className={cn(
                   "flex items-center gap-1 rounded-full border px-2.5 py-1",
-                  position === index ? "border-primary bg-primary-soft/50 font-medium text-foreground" : "border-border text-muted-foreground",
+                  position === index ? `font-medium text-foreground ${MARKED}` : "border-border text-muted-foreground",
                   stopResult?.isCorrect && "border-success/40",
                   stopResult && !stopResult.isCorrect && "border-danger/40",
                 )}

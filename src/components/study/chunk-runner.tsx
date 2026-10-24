@@ -11,6 +11,7 @@ import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
+import { TINT } from "@/components/ui/tint";
 import { routes } from "@/lib/routes";
 import { answerRecallAction, completeSessionAction } from "@/lib/study/actions";
 import type { SessionDetail } from "@/lib/study/queries";
@@ -196,7 +197,7 @@ export function ChunkRunner({ session, methodName, parentSessionId = null, paren
               </>
             ) : (
               <>
-                <div className={cn("rounded-lg border p-4 text-sm", result.comparison.verdict === "correct" && "border-success/40 bg-success-soft/60", result.comparison.verdict === "partial" && "border-warning/40 bg-warning-soft/50", result.comparison.verdict === "incorrect" && "border-danger/40 bg-danger-soft/60")} role="status">
+                <div className={cn("rounded-lg border p-4 text-sm", result.comparison.verdict === "correct" && TINT.success, result.comparison.verdict === "partial" && TINT.warning, result.comparison.verdict === "incorrect" && TINT.danger)} role="status">
                   <p className="flex items-center gap-2 font-semibold">
                     {result.comparison.verdict === "correct" ? (
                       <>

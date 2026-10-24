@@ -10,6 +10,7 @@ import { RecallCard, RunnerSummary, useSessionCompletion, type RunnerProps } fro
 import { SessionHeader } from "@/components/study/session-header";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { TINT } from "@/components/ui/tint";
 import type { LinkQuestion, LinkResult, MapView } from "@/lib/study/flows/maps";
 import { CONCEPT_RELATIONS, RELATION_LABEL, type ConceptMapData, type ConceptRelation, type MindMapData, type MindNode } from "@/lib/study/maps";
 import { answerLinkAction, quizBranchAction, startLinkTestAction } from "@/lib/study/method-actions";
@@ -157,7 +158,7 @@ export function ConceptMapRunner({ session, methodName, map, parentSessionId = n
               {links.map((link) => {
                 const result = results[link.id];
                 return (
-                  <li key={link.id} className={cn("flex flex-col gap-2 rounded-lg border border-border p-3 text-sm", result && (result.isCorrect ? "border-success/50 bg-success-soft/40" : "border-danger/40 bg-danger-soft/40"))}>
+                  <li key={link.id} className={cn("flex flex-col gap-2 rounded-lg border border-border p-3 text-sm", result && (result.isCorrect ? TINT.success : TINT.danger))}>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{link.from}</span>
                       <Select aria-label={`Relationship from ${link.from} to ${link.to}`} value={choices[link.id] ?? ""} disabled={Boolean(result) || pending} onChange={(event) => setChoices((state) => ({ ...state, [link.id]: event.target.value as ConceptRelation }))} className="w-44">

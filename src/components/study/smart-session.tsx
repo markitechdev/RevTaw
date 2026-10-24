@@ -12,6 +12,7 @@ import { SessionSummaryCard } from "@/components/study/session-summary";
 import { TamariSays } from "@/components/tamari/tamari-says";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
+import { TINT } from "@/components/ui/tint";
 import type { SmartSessionView as SmartView } from "@/lib/adaptive/smart";
 import type { PreTestView } from "@/lib/study/flows/pretest";
 import { routes } from "@/lib/routes";
@@ -135,7 +136,7 @@ export function SmartSessionView({
       ) : tamari ? (
         <TamariSays text={tamari.intro} detail="Run the blocks in order — each one is a normal session with its own summary, and this page keeps the plan." />
       ) : (
-        <div className="rounded-xl border border-primary/30 bg-primary-soft/30 p-4 text-sm">
+        <div className={`rounded-xl border p-4 text-sm ${TINT.primary}`}>
           <p className="flex items-start gap-2">
             <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
             <span>

@@ -11,6 +11,7 @@ import { SessionHeader } from "@/components/study/session-header";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
+import { MARKED, TINT } from "@/components/ui/tint";
 import { routes } from "@/lib/routes";
 import { MNEMONIC_KIND_LABEL, mnemonicResultOf, mnemonicViewOf, type MnemonicItemView, type MnemonicPracticeResult } from "@/lib/study/memory-options";
 import { addOwnMnemonicAction, practiceMnemonicAction, saveItemDraftAction, saveMnemonicOptionAction } from "@/lib/study/method-actions";
@@ -204,7 +205,7 @@ export function MnemonicRunner({ session, methodName, parentSessionId = null, pa
               <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pick a memory device</legend>
               <div className="grid gap-3 sm:grid-cols-2">
                 {view.options.map((entry, position) => (
-                  <div key={`${position}-${entry.kind}`} className={cn("flex flex-col gap-2 rounded-lg border p-3 transition-colors", chosen === position ? "border-primary bg-primary-soft/40" : "border-border")}>
+                  <div key={`${position}-${entry.kind}`} className={cn("flex flex-col gap-2 rounded-lg border p-3 transition-colors", chosen === position ? MARKED : "border-border")}>
                     <label className="flex cursor-pointer items-start gap-2">
                       <input type="radio" name="mnemonic-option" value={position} checked={chosen === position} onChange={() => setChosen(position)} className="mt-1 h-4 w-4 accent-primary" />
                       <span className="flex min-w-0 flex-col gap-1">
@@ -259,7 +260,7 @@ export function MnemonicRunner({ session, methodName, parentSessionId = null, pa
 
         {!result && stage === "practice" && (
           <>
-            <div className="rounded-lg border border-primary/40 bg-primary-soft/30 p-3">
+            <div className={`rounded-lg border p-3 ${TINT.primary}`}>
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your cue · {MNEMONIC_KIND_LABEL[option.kind]}</p>
               <p className={cn("mt-1 whitespace-pre-wrap break-words", option.kind === "acronym" ? "text-xl font-semibold tracking-wider" : "text-[15px] font-medium")}>{option.content}</p>
             </div>
@@ -296,7 +297,7 @@ export function MnemonicRunner({ session, methodName, parentSessionId = null, pa
             </VerdictBox>
             <ol aria-label="Your recall, item by item" className="flex flex-col gap-1.5 text-sm">
               {view.items.map((entry, position) => (
-                <li key={`${position}-${entry}`} className={cn("flex items-start gap-2 rounded-lg border px-3 py-2", result.marks[position] ? "border-success/40 bg-success-soft/40" : "border-danger/40 bg-danger-soft/40")}>
+                <li key={`${position}-${entry}`} className={cn("flex items-start gap-2 rounded-lg border px-3 py-2", result.marks[position] ? TINT.success : TINT.danger)}>
                   {result.marks[position] ? <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" /> : <CircleX className="mt-0.5 h-4 w-4 shrink-0 text-danger" aria-hidden="true" />}
                   <span className="min-w-0 flex-1">
                     {position + 1}. {entry}

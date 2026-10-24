@@ -1,6 +1,7 @@
 import { TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { TINT } from "@/components/ui/tint";
 import { cn } from "@/lib/utils";
 
 /** Calm, specific error message with an optional retry or escape action. */
@@ -19,7 +20,7 @@ export function ErrorState({
     <div
       role="alert"
       className={cn(
-        "flex flex-col items-center gap-3 rounded-xl border border-danger/30 bg-danger-soft/60 px-6 py-10 text-center",
+        `flex flex-col items-center gap-3 rounded-xl border px-6 py-10 text-center ${TINT.danger}`,
         className,
       )}
     >

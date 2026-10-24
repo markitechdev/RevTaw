@@ -9,6 +9,7 @@ import { Alert } from "@/components/forms/form-alert";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
+import { TINT } from "@/components/ui/tint";
 import { finishReviewSessionAction, reviewCardAction, startReviewSessionAction, toggleFavoriteAction } from "@/lib/flashcards/actions";
 import type { ReviewQueueCard } from "@/lib/flashcards/queries";
 import { BOX_LABELS, RATING_LABELS, REPEAT_WITHIN_MINUTES } from "@/lib/flashcards/labels";
@@ -337,7 +338,7 @@ export function FlashcardReview({
           onClick={() => setFlipped((value) => !value)}
           className={cn(
             "flex min-h-64 w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border bg-card p-8 text-center shadow-sm transition-colors",
-            flipped ? "border-primary/50 bg-primary-soft/30" : "border-border hover:border-primary/40",
+            flipped ? TINT.primary : "border-border hover:border-primary/40",
           )}
         >
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{flipped ? "Answer" : "Question"}</span>
@@ -372,10 +373,10 @@ export function FlashcardReview({
                 onClick={() => rate(rating)}
                 className={cn(
                   "flex flex-col items-center gap-0.5 rounded-xl border px-3 py-3 text-sm font-medium transition-colors disabled:opacity-60",
-                  rating === "again" && "border-danger/40 bg-danger-soft/50 text-danger hover:bg-danger-soft",
-                  rating === "hard" && "border-warning/40 bg-warning-soft/50 text-warning hover:bg-warning-soft",
-                  rating === "good" && "border-primary/40 bg-primary-soft/60 text-primary hover:bg-primary-soft",
-                  rating === "easy" && "border-success/40 bg-success-soft/50 text-success hover:bg-success-soft",
+                  rating === "again" && `text-danger hover:bg-danger-soft ${TINT.danger}`,
+                  rating === "hard" && `text-warning hover:bg-warning-soft ${TINT.warning}`,
+                  rating === "good" && `text-primary hover:bg-primary-soft ${TINT.primary}`,
+                  rating === "easy" && `text-success hover:bg-success-soft ${TINT.success}`,
                 )}
               >
                 <span>

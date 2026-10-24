@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { TINT } from "@/components/ui/tint";
 import { cn } from "@/lib/utils";
 
 /**
@@ -9,7 +10,7 @@ import { cn } from "@/lib/utils";
  */
 export function TamariSays({ text, detail, children, className }: { text: string; detail?: ReactNode; children?: ReactNode; className?: string }) {
   return (
-    <div className={cn("rounded-2xl border border-primary/30 bg-primary-soft/40 p-4 sm:p-5", className)}>
+    <div className={cn(`rounded-2xl border p-4 sm:p-5 ${TINT.primary}`, className)}>
       <p className="font-display tracking-display text-base leading-snug font-semibold text-foreground sm:text-lg">
         <span className="sr-only">Tamari says: </span>
         {text}

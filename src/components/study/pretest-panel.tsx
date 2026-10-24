@@ -1,5 +1,6 @@
 import { ArrowRight, ClipboardCheck, Eye, TrendingDown, TrendingUp } from "lucide-react";
 
+import { TINT } from "@/components/ui/tint";
 import { cn } from "@/lib/utils";
 
 /**
@@ -75,7 +76,7 @@ export function PreTestPanel({ pretest, posttest, changes }: { pretest: { preSco
   }
   const improvement = posttest ? posttest.postScore - pretest.preScore : null;
   return (
-    <section aria-labelledby="pretest-heading" className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-primary-soft/20 p-4 text-sm">
+    <section aria-labelledby="pretest-heading" className={`flex flex-col gap-3 rounded-xl border p-4 text-sm ${TINT.primary}`}>
       <h2 id="pretest-heading" className="flex items-center gap-2 font-medium">
         <Eye className="h-4 w-4 text-primary" aria-hidden="true" />
         {posttest ? "Before and after" : "What to pay attention to"}

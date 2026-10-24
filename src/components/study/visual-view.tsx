@@ -1,5 +1,6 @@
 import { ArrowDown } from "lucide-react";
 
+import { TINT } from "@/components/ui/tint";
 import type { Visual } from "@/lib/study/visuals";
 import { cn } from "@/lib/utils";
 
@@ -124,7 +125,7 @@ export function VisualView({ visual, title, className }: { visual: Visual; title
         <ol className={cn("flex flex-col items-stretch gap-1", className)} aria-label={`${title} (flowchart)`}>
           {visual.steps.map((step, index) => (
             <li key={`${index}-${step.label}`} className="flex flex-col items-center gap-1">
-              <div className="w-full rounded-lg border border-primary/40 bg-primary-soft/30 px-3 py-2 text-sm">
+              <div className={`w-full rounded-lg border px-3 py-2 text-sm ${TINT.primary}`}>
                 <p className="font-medium">
                   <span className="text-primary">{index + 1}.</span> {step.label}
                 </p>

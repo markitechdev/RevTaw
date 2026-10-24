@@ -2,6 +2,7 @@ import { CalendarClock, CircleCheck, CircleX, Clock, Sparkles, TrendingDown, Tre
 import type { ReactNode } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TINT } from "@/components/ui/tint";
 import type { SessionSummary } from "@/lib/study/sessions";
 import { cn } from "@/lib/utils";
 
@@ -102,7 +103,7 @@ export function SessionSummaryCard({
           </p>
         )}
 
-        <div className="flex flex-col gap-2 rounded-lg border border-primary/30 bg-primary-soft/40 p-4 text-sm">
+        <div className={`flex flex-col gap-2 rounded-lg border p-4 text-sm ${TINT.primary}`}>
           <p className="flex items-start gap-2">
             <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
             <span>

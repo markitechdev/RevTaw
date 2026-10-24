@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { TINT } from "@/components/ui/tint";
 import { selfGradeAction } from "@/lib/quizzes/actions";
 
 /** Lets the student check an open answer the AI could not grade. */
@@ -25,7 +26,7 @@ export function SelfGradeControls({ answerId, quizId, attemptId, points }: { ans
   };
 
   return (
-    <div className="mt-3 rounded-lg border border-warning/40 bg-warning-soft/50 p-3 text-sm">
+    <div className={`mt-3 rounded-lg border p-3 text-sm ${TINT.warning}`}>
       <p className="font-medium">Check this one yourself</p>
       <p className="mt-0.5 text-muted-foreground">The AI grader was unavailable. Compare your answer with the model answer above and mark it.</p>
       <div className="mt-2 flex flex-wrap gap-2">

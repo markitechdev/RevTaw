@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
+import { MARKED, TINT } from "@/components/ui/tint";
 import { storyResultOf, storyViewOf, type StoryResult, type StoryView } from "@/lib/study/memory-options";
 import { checkStoryRetellAction, saveItemDraftAction } from "@/lib/study/method-actions";
 import type { SessionDetail } from "@/lib/study/queries";
@@ -37,9 +38,9 @@ function OriginalNotes({ view, result, highlighted, onHover }: { view: StoryView
             onMouseLeave={onHover ? () => onHover([]) : undefined}
             className={cn(
               "flex items-start gap-2 rounded-lg border px-3 py-2 transition-colors",
-              recalled === null && (highlighted.includes(number) ? "border-primary bg-primary-soft/40" : "border-border"),
-              recalled === true && "border-success/40 bg-success-soft/40",
-              recalled === false && "border-danger/40 bg-danger-soft/40",
+              recalled === null && (highlighted.includes(number) ? MARKED : "border-border"),
+              recalled === true && TINT.success,
+              recalled === false && TINT.danger,
             )}
           >
             {recalled === true ? <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" /> : recalled === false ? <CircleX className="mt-0.5 h-4 w-4 shrink-0 text-danger" aria-hidden="true" /> : <span className="w-5 shrink-0 font-semibold tabular-nums text-primary">{number}.</span>}
@@ -76,7 +77,7 @@ function StoryVersion({ view, highlighted, onHover }: { view: StoryView; highlig
         </p>
       ))}
       {view.accuracyNote && (
-        <p className="rounded-lg border border-warning/40 bg-warning-soft/40 px-3 py-2 text-sm">
+        <p className={`rounded-lg border px-3 py-2 text-sm ${TINT.warning}`}>
           <span className="font-medium">What the story simplifies: </span>
           {view.accuracyNote}
         </p>

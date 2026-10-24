@@ -5,6 +5,7 @@ import { ReanalyzeButton } from "@/components/materials/reanalyze-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TINT } from "@/components/ui/tint";
 import { CONCEPT_CATEGORY_LABEL, type ConceptCategory } from "@/lib/materials/analysis-schema";
 import type { MaterialAnalysisView } from "@/lib/materials/queries";
 import { formatSessionMinutes } from "@/lib/profile/options";
@@ -65,7 +66,7 @@ export function MaterialOverview({
 
   return (
     <div className="flex flex-col gap-4">
-      <Card className="border-primary/30 bg-primary-soft/40">
+      <Card className={TINT.primary}>
         <CardContent className="flex flex-col gap-4">
           <p className="text-[15px] leading-relaxed text-foreground">{analysis.summary}</p>
           <div className="flex flex-wrap items-center gap-2">

@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChipGroup } from "@/components/ui/chip-group";
 import { Dialog } from "@/components/ui/dialog";
+import { TINT } from "@/components/ui/tint";
 import { answerQuestionAction, submitAttemptAction } from "@/lib/quizzes/actions";
 import type { AttemptRunnerView } from "@/lib/quizzes/queries";
 import type { AnswerFeedback } from "@/lib/quizzes/service";
@@ -287,8 +288,8 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
             <div
               className={cn(
                 "mt-4 rounded-lg border p-4 text-sm",
-                currentFeedback.isCorrect === true && "border-success/40 bg-success-soft/60",
-                currentFeedback.isCorrect === false && "border-danger/40 bg-danger-soft/60",
+                currentFeedback.isCorrect === true && TINT.success,
+                currentFeedback.isCorrect === false && TINT.danger,
                 currentFeedback.isCorrect === null && "border-border bg-muted/60",
               )}
               role="status"

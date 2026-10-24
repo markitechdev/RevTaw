@@ -8,6 +8,7 @@ import { Markdown } from "@/components/content/markdown";
 import { Alert } from "@/components/forms/form-alert";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
+import { TINT } from "@/components/ui/tint";
 import { SECTION_TITLE } from "@/components/ui/typography";
 import { updateReviewerSectionAction } from "@/lib/reviewers/actions";
 import { cn } from "@/lib/utils";
@@ -163,7 +164,7 @@ export function ReviewerSectionView({ reviewerId, section }: { reviewerId: strin
 
       {mode === "regenerate" && (
         <form
-          className="mt-4 flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary-soft/40 p-3"
+          className={`mt-4 flex flex-col gap-3 rounded-lg border p-3 ${TINT.primary}`}
           onSubmit={(event) => {
             event.preventDefault();
             regenerate();

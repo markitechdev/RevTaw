@@ -11,6 +11,7 @@ import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
+import { TINT } from "@/components/ui/tint";
 import { routes } from "@/lib/routes";
 import { compareBlurtAction, completeSessionAction } from "@/lib/study/actions";
 import type { BlurtResult } from "@/lib/study/advanced";
@@ -155,7 +156,7 @@ export function BlurtingRunner({ session, methodName, parentSessionId = null, pa
         <p className="text-sm text-muted-foreground">Write everything you remember about this section — definitions, steps, examples, numbers. Order and polish do not matter; coverage does.</p>
 
         {latest && (
-          <div className={cn("rounded-lg border p-4 text-sm", latest.score >= 70 ? "border-success/40 bg-success-soft/50" : "border-warning/40 bg-warning-soft/40")} role="status">
+          <div className={cn("rounded-lg border p-4 text-sm", latest.score >= 70 ? TINT.success : TINT.warning)} role="status">
             <p className="font-semibold">
               Attempt {latest.round}: {Math.round(latest.score)}% remembered
             </p>

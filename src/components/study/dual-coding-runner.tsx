@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
+import { TINT } from "@/components/ui/tint";
 import type { VisualCheck } from "@/lib/study/flows/visual";
 import { checkVisualAction } from "@/lib/study/method-actions";
 import type { SessionDetail } from "@/lib/study/queries";
@@ -38,7 +39,7 @@ function OrderExercise({ labels, order, onChange, marks }: { labels: string[]; o
   return (
     <ol className="flex flex-col gap-2">
       {order.map((original, position) => (
-        <li key={original} className={cn("flex items-center gap-2 rounded-lg border border-border bg-background p-2 text-sm", marks && (marks[position] ? "border-success/50 bg-success-soft/40" : "border-danger/40 bg-danger-soft/40"))}>
+        <li key={original} className={cn("flex items-center gap-2 rounded-lg border border-border bg-background p-2 text-sm", marks && (marks[position] ? TINT.success : TINT.danger))}>
           <span className="w-6 text-center text-muted-foreground">{position + 1}.</span>
           <span className="min-w-0 flex-1">{labels[original]}</span>
           {!marks && (
@@ -134,7 +135,7 @@ function Exercise({ item, visual, answer, onAnswer, marks }: { item: Item; visua
           {pairs.map((pair) => {
             const markIndex = hierarchyPairs(visual).findIndex((entry) => entry.label === pair.label);
             return (
-              <li key={pair.label} className={cn("flex flex-wrap items-center gap-2 rounded-lg border border-border p-2", marks && (marks[markIndex] ? "border-success/50 bg-success-soft/40" : "border-danger/40 bg-danger-soft/40"))}>
+              <li key={pair.label} className={cn("flex flex-wrap items-center gap-2 rounded-lg border border-border p-2", marks && (marks[markIndex] ? TINT.success : TINT.danger))}>
                 <span className="min-w-0 flex-1 font-medium">{pair.label}</span>
                 <span className="text-muted-foreground">belongs to</span>
                 <Select
@@ -168,7 +169,7 @@ function Exercise({ item, visual, answer, onAnswer, marks }: { item: Item; visua
       return (
         <ul className="flex flex-col gap-2 text-sm">
           {visual.links.map((link, index) => (
-            <li key={`${index}-${link.from}`} className={cn("flex flex-wrap items-center gap-2 rounded-lg border border-border p-2", marks && (marks[index] ? "border-success/50 bg-success-soft/40" : "border-danger/40 bg-danger-soft/40"))}>
+            <li key={`${index}-${link.from}`} className={cn("flex flex-wrap items-center gap-2 rounded-lg border border-border p-2", marks && (marks[index] ? TINT.success : TINT.danger))}>
               <span className="font-medium">{link.from}</span>
               <Select
                 aria-label={`Relationship from ${link.from} to ${link.to}`}

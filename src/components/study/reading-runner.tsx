@@ -11,6 +11,7 @@ import { SessionHeader } from "@/components/study/session-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
+import { TINT } from "@/components/ui/tint";
 import { answerRecallAction } from "@/lib/study/actions";
 import type { BlurtComparison } from "@/lib/study/ai";
 import { advanceReadingAction, markSectionReadAction, submitReadingSummaryAction } from "@/lib/study/method-actions";
@@ -33,7 +34,7 @@ function Stepper({ method, stage }: { method: ReadingMethod; stage: ReadingStage
             aria-current={index === current ? "step" : undefined}
             className={cn(
               "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium",
-              index < current && "border-success/40 bg-success-soft/60 text-success",
+              index < current && `text-success ${TINT.success}`,
               index === current && "border-primary bg-primary-soft text-primary",
               index > current && "border-border text-muted-foreground",
             )}

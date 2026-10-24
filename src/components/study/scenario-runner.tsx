@@ -9,6 +9,7 @@ import { SessionHeader } from "@/components/study/session-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
+import { MARKED, TINT } from "@/components/ui/tint";
 import type { ScenarioResult, ScenarioView } from "@/lib/study/flows/applied";
 import { evaluateScenarioAction, saveItemDraftAction } from "@/lib/study/method-actions";
 import type { SessionDetail } from "@/lib/study/queries";
@@ -125,9 +126,9 @@ export function ScenarioRunner({ session, methodName, parentSessionId = null, pa
                 key={`${optionIndex}-${option}`}
                 className={cn(
                   "flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 text-sm transition-colors hover:bg-muted/60",
-                  isChosen && !result && "border-primary bg-primary-soft/40",
-                  result && isBest && "border-success/50 bg-success-soft/50",
-                  result && isChosen && !isBest && "border-danger/40 bg-danger-soft/50",
+                  isChosen && !result && MARKED,
+                  result && isBest && TINT.success,
+                  result && isChosen && !isBest && TINT.danger,
                 )}
               >
                 <input

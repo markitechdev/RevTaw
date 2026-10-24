@@ -11,6 +11,7 @@ import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
+import { TINT } from "@/components/ui/tint";
 import { routes } from "@/lib/routes";
 import { analyzeFeynmanAction, completeSessionAction } from "@/lib/study/actions";
 import type { SessionDetail } from "@/lib/study/queries";
@@ -158,7 +159,7 @@ export function FeynmanRunner({ session, methodName, parentSessionId = null, par
         </p>
 
         {latest && (
-          <div className={cn("rounded-lg border p-4 text-sm", latest.score >= 70 ? "border-success/40 bg-success-soft/50" : "border-warning/40 bg-warning-soft/40")} role="status">
+          <div className={cn("rounded-lg border p-4 text-sm", latest.score >= 70 ? TINT.success : TINT.warning)} role="status">
             <p className="font-semibold">
               Attempt {latest.round}: {Math.round(latest.score)}%
             </p>

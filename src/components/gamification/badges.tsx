@@ -5,6 +5,7 @@ import { BADGE_ICONS } from "@/components/gamification/badge-icons";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TINT } from "@/components/ui/tint";
 import { ACHIEVEMENT_GROUP_LABEL, type AchievementDef, type AchievementGroup } from "@/lib/gamification/achievements";
 import { formatXp, type LevelInfo } from "@/lib/gamification/xp";
 import { routes } from "@/lib/routes";
@@ -78,7 +79,7 @@ export function BadgeTile({ view }: { view: BadgeView }) {
   const target = achievement.target ?? 1;
   const percent = Math.min(100, Math.round((Math.min(progress, target) / target) * 100));
   return (
-    <li className={cn("flex gap-3 rounded-xl border p-3", unlockedAt ? "border-primary/40 bg-primary-soft/30" : "border-border bg-card")} aria-label={`${achievement.title}: ${unlockedAt ? "unlocked" : "locked"}`}>
+    <li className={cn("flex gap-3 rounded-xl border p-3", unlockedAt ? TINT.primary : "border-border bg-card")} aria-label={`${achievement.title}: ${unlockedAt ? "unlocked" : "locked"}`}>
       <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", unlockedAt ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")} aria-hidden="true">
         {unlockedAt ? <Icon className="h-5 w-5" /> : <Lock className="h-4 w-4" />}
       </span>

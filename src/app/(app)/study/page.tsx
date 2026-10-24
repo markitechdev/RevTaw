@@ -12,6 +12,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { TINT } from "@/components/ui/tint";
 import { countDueCards } from "@/lib/flashcards/queries";
 import { listMaterials } from "@/lib/materials/queries";
 import { getPreferences } from "@/lib/preferences/queries";
@@ -60,7 +61,7 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
       />
 
       {inProgress.length > 0 && (
-        <Card className="border-primary/30 bg-primary-soft/30">
+        <Card className={TINT.primary}>
           <CardHeader>
             <CardTitle>Continue where you left off</CardTitle>
             <CardDescription>Sessions in progress keep their place.</CardDescription>

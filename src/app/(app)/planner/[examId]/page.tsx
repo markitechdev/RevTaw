@@ -14,6 +14,7 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { BackLink } from "@/components/ui/page-header";
+import { TINT } from "@/components/ui/tint";
 import { SECTION_TITLE } from "@/components/ui/typography";
 import { listMaterials, listSubjects } from "@/lib/materials/queries";
 import { formatDate, WEEKDAY_LONG, weekdayOf } from "@/lib/planner/dates";
@@ -134,7 +135,7 @@ export default async function ExamPlanPage({ params }: PageProps<"/planner/[exam
           ) : (
             <div className="flex flex-col gap-4">
               {futureDays.map(([date, tasks]) => (
-                <section key={date} aria-label={formatDate(date, today)} className={date === today ? "rounded-xl border border-primary/40 bg-primary-soft/20 p-3" : ""}>
+                <section key={date} aria-label={formatDate(date, today)} className={date === today ? `rounded-xl border p-3 ${TINT.primary}` : ""}>
                   <h3 className="mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {date === today ? "Today" : WEEKDAY_LONG[weekdayOf(date)]} · {formatDate(date, today)}
                     {date === exam.exam_date && <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-warning">Exam day</span>}
