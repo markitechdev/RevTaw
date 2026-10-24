@@ -93,9 +93,12 @@ export const syncNotifications = cache(async (): Promise<number> => {
   }
 });
 
-export const listNotifications = cache(async (limit = 12): Promise<Notification[]> => {
+/** What the bell shows of a notification (it goes to the browser on every page). */
+export type BellNotification = Pick<Notification, "id" | "kind" | "title" | "body" | "href" | "read_at" | "created_at">;
+
+export const listNotifications = cache(async (limit = 12): Promise<BellNotification[]> => {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(limit);
+  const { data, error } = await supabase.from("notifications").select("id, kind, title, body, href, read_at, created_at").order("created_at", { ascending: false }).limit(limit);
   if (error) {
     console.error("notifications: list failed", error.message);
     return [];

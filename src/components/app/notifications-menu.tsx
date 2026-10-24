@@ -8,7 +8,8 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { formatRelativeDate } from "@/components/materials/material-card";
 import { markNotificationsReadAction } from "@/lib/notifications/actions";
-import type { Notification, NotificationKind } from "@/lib/supabase/database.types";
+import type { BellNotification } from "@/lib/notifications/service";
+import type { NotificationKind } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<NotificationKind, typeof Bell> = {
@@ -24,7 +25,7 @@ const ICONS: Record<NotificationKind, typeof Bell> = {
 };
 
 /** Bell + panel for the internal reminder feed (§35). Rows come from the server; reading marks them. */
-export function NotificationsMenu({ notifications, unread, align = "left" }: { notifications: Notification[]; unread: number; align?: "left" | "right" }) {
+export function NotificationsMenu({ notifications, unread, align = "left" }: { notifications: BellNotification[]; unread: number; align?: "left" | "right" }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
