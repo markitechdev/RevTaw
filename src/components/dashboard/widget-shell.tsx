@@ -29,7 +29,7 @@ export function WidgetHeading({ id, icon: Icon, title, action }: { id?: string; 
 
 export function WidgetPanel({ children, className, labelledBy }: { children: ReactNode; className?: string; labelledBy?: string }) {
   return (
-    <section aria-labelledby={labelledBy} className={cn("flex h-full flex-col gap-4 rounded-2xl border border-border bg-card p-5", className)}>
+    <section aria-labelledby={labelledBy} className={cn("flex h-full flex-col gap-4 rounded-xl border border-border bg-card p-5", className)}>
       {children}
     </section>
   );
@@ -71,7 +71,7 @@ export function WidgetSkeleton({ variant }: { variant: "hero" | "panel" | "tile"
     );
   }
   return (
-    <div className={cn("flex h-full flex-col gap-3 rounded-2xl border border-border bg-card p-5", variant === "hero" ? "min-h-[11rem]" : variant === "list" ? "min-h-[13rem]" : "min-h-[14rem]")} aria-hidden="true">
+    <div className={cn("flex h-full flex-col gap-3 rounded-xl border border-border bg-card p-5", variant === "hero" ? "min-h-[11rem]" : variant === "list" ? "min-h-[13rem]" : "min-h-[14rem]")} aria-hidden="true">
       <Skeleton className="h-4 w-32" />
       <Skeleton className={cn(variant === "hero" ? "h-8 w-2/3" : "h-5 w-3/4")} />
       <Skeleton className="h-3 w-1/2" />
@@ -90,7 +90,7 @@ export function WidgetSkeleton({ variant }: { variant: "hero" | "panel" | "tile"
  */
 export function HeroSkeleton({ tamari }: { tamari?: ReactNode }) {
   return (
-    <div className="@container relative h-full min-h-[11rem] rounded-2xl border border-border bg-card">
+    <div className="@container relative h-full min-h-[11rem] rounded-xl border border-border bg-card">
       <div className="flex h-full flex-col gap-4 p-4 sm:p-5 @2xl:flex-row @2xl:items-end @2xl:justify-between @2xl:gap-6 @2xl:p-6 @2xl:pr-16">
         <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-center gap-y-3 has-[[data-tamari-stage]]:gap-x-4 @2xl:gap-y-1.5 @2xl:has-[[data-tamari-stage]]:gap-x-5">
           <div className="@2xl:row-span-2">{tamari}</div>

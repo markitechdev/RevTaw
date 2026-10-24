@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, useTransition, type FocusEvent } from "rea
 
 import { Button } from "@/components/ui/button";
 import { formatRelativeDate } from "@/components/materials/material-card";
+import { POPOVER } from "@/components/ui/surface";
 import { markNotificationsReadAction } from "@/lib/notifications/actions";
 import type { BellNotification } from "@/lib/notifications/service";
 import type { NotificationKind } from "@/lib/supabase/database.types";
@@ -77,7 +78,7 @@ export function NotificationsMenu({ notifications, unread }: { notifications: Be
       </Button>
       {open && (
         // The phone header has the bell at the right edge, the sidebar near the left: the panel opens inward from each.
-        <div ref={dialog} tabIndex={-1} role="dialog" aria-label="Notifications" className="absolute right-0 top-full z-40 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-card p-2 shadow-xl outline-none lg:left-0 lg:right-auto">
+        <div ref={dialog} tabIndex={-1} role="dialog" aria-label="Notifications" className={cn(POPOVER, "absolute right-0 top-full z-40 mt-2 w-80 max-w-[calc(100vw-2rem)] p-2 outline-none lg:left-0 lg:right-auto")}>
           <div className="flex items-center justify-between px-2 py-1">
             <p className="text-sm font-semibold">Notifications</p>
             {unread > 0 && (

@@ -200,7 +200,7 @@ export function PomodoroRunner({ session, methodName, parentSessionId = null, pa
       />
       {error && <Alert tone="error">{error}</Alert>}
 
-      <section className="mx-auto flex w-full max-w-xl flex-col items-center gap-5 rounded-2xl border border-border bg-card p-8 text-center" aria-live="polite">
+      <section className="mx-auto flex w-full max-w-xl flex-col items-center gap-5 rounded-xl border border-border bg-card p-8 text-center" aria-live="polite">
         <p className={cn("text-xs font-semibold uppercase tracking-widest", activePhase === "work" ? "text-primary" : "text-success")}>
           {phaseLabel}
           {timer.phase === "paused" ? " · paused" : ""}

@@ -4,6 +4,7 @@ import { Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { openAssistant } from "@/components/assistant/assistant-provider";
+import { POPOVER } from "@/components/ui/surface";
 import { HIGHLIGHT_ACTIONS, type TutorActionId } from "@/lib/tutor/types";
 import { cn } from "@/lib/utils";
 
@@ -106,7 +107,7 @@ export function HighlightToolbar({ materialId, children }: { materialId: string;
             usingToolbar.current = false;
           }}
         >
-          <div className="flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-1 rounded-xl border border-border bg-card p-1.5 shadow-lg">
+          <div className={cn(POPOVER, "flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-1 p-1.5")}>
             <span className="flex items-center gap-1 px-1.5 text-2xs font-semibold uppercase tracking-wide text-primary">
               <Sparkles className="h-3 w-3" aria-hidden="true" />
               Ask

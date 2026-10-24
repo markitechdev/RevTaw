@@ -4,6 +4,7 @@ import { Download, FileText, Printer } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { POPOVER } from "@/components/ui/surface";
 import { cn } from "@/lib/utils";
 
 /**
@@ -64,7 +65,7 @@ export function ExportMenu({ target, label = "Export", size = "sm", variant = "s
         {label}
       </Button>
       {open && (
-        <div id={`${id}-menu`} className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-lg border border-border bg-card p-1 shadow-lg">
+        <div id={`${id}-menu`} className={cn(POPOVER, "absolute right-0 z-20 mt-1 w-56 overflow-hidden p-1")}>
           {items.map((item) => (
             <a
               key={item.label}

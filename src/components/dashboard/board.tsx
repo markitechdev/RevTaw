@@ -99,7 +99,7 @@ export function DashboardBoard({ layout, header, stage, widgets }: { layout: Das
           {(stats.length > 0 || lists.length > 0) && (
             <section aria-label="At a glance" className="flex flex-col gap-4">
               {stats.length > 0 && (
-                <div className={cn("grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border", STAT_COLUMNS[Math.min(stats.length, 4)])}>
+                <div className={cn("grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border", STAT_COLUMNS[Math.min(stats.length, 4)])}>
                   {stats.map((id, index) => (
                     <div key={id} className={cn("min-w-0", index === stats.length - 1 && stats.length % 2 === 1 && "col-span-2 lg:col-span-1")}>
                       {node(id)}

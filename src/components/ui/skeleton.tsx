@@ -83,7 +83,7 @@ export function CardGridSkeleton({ cards = 6 }: { cards?: number }) {
 /** A panel with a heading, a line under it and a few rows (planner panels, study tools, settings sections). */
 export function PanelSkeleton({ rows = 3, className }: { rows?: number; className?: string }) {
   return (
-    <div className={cn("flex flex-col gap-4 rounded-2xl border border-border bg-card p-5", className)} aria-hidden="true">
+    <div className={cn("flex flex-col gap-4 rounded-xl border border-border bg-card p-5", className)} aria-hidden="true">
       <div className="flex flex-col gap-2">
         <Skeleton className="h-5 w-40" />
         <Skeleton className="h-3 w-64 max-w-full" />
@@ -179,7 +179,7 @@ export function PlannerPageSkeleton() {
     <LoadingRegion>
       <HeaderSkeleton actions={2} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5" aria-hidden="true">
+        <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5" aria-hidden="true">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-3 w-48" />
           <Skeleton className="h-2 w-full rounded-full" />
@@ -222,7 +222,7 @@ export function ProgressPageSkeleton() {
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2" aria-hidden="true">
         {Array.from({ length: 2 }).map((_, index) => (
-          <div key={index} className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5">
+          <div key={index} className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
             <Skeleton className="h-5 w-40" />
             <Skeleton className="h-40 w-full rounded-lg" />
           </div>
@@ -239,7 +239,7 @@ export function StudyPageSkeleton() {
       <HeaderSkeleton actions={2} />
       <PanelSkeleton rows={2} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-5 rounded-2xl border border-border bg-card p-5" aria-hidden="true">
+        <div className="flex flex-col gap-5 rounded-xl border border-border bg-card p-5" aria-hidden="true">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-3 w-72 max-w-full" />
           <Skeleton className="h-4 w-40" />
@@ -265,7 +265,7 @@ export function StudyPageSkeleton() {
 /** A settings section: its card with a few fields. */
 export function SettingsPageSkeleton({ fields = 3 }: { fields?: number }) {
   return (
-    <LoadingRegion className="rounded-2xl border border-border bg-card p-6">
+    <LoadingRegion className="rounded-xl border border-border bg-card p-6">
       <div className="flex flex-col gap-2" aria-hidden="true">
         <Skeleton className="h-5 w-36" />
         <Skeleton className="h-3 w-80 max-w-full" />

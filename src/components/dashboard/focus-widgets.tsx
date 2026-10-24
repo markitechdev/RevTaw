@@ -131,7 +131,7 @@ function keepNumberWords(text: string): string {
  */
 function HeroFrame({ tamari, eyebrow, title, details, actions }: { tamari?: ReactNode; eyebrow: string; title: string; details: ReactNode; actions: ReactNode }) {
   return (
-    <section aria-labelledby="w-continue" className="@container relative z-10 h-full rounded-2xl border border-border bg-card">
+    <section aria-labelledby="w-continue" className="@container relative z-10 h-full rounded-xl border border-border bg-card">
       {/* Decoration: lined paper fading in from the right, and a bookmark ribbon. */}
       <span aria-hidden="true" className="paper-lines pointer-events-none absolute inset-y-0 right-0 hidden w-1/2 rounded-r-2xl [mask-image:linear-gradient(to_left,black,transparent)] @2xl:block" />
       <span aria-hidden="true" className="absolute top-0 right-5 h-9 w-4.5 bg-primary [clip-path:polygon(0_0,100%_0,100%_100%,50%_76%,0_100%)] sm:right-6 sm:h-10 sm:w-5" />
@@ -171,7 +171,7 @@ export async function RecommendationWidget() {
   const top = materialCount > 0 ? recommendations[0] : undefined;
 
   return (
-    <section aria-labelledby="w-recommendation" className="@container flex h-full flex-col gap-3 rounded-2xl border border-primary/20 bg-primary-soft p-5">
+    <section aria-labelledby="w-recommendation" className="@container flex h-full flex-col gap-3 rounded-xl border border-primary/20 bg-primary-soft p-5">
       <h2 id="w-recommendation" className="flex items-center gap-2 text-xs font-semibold uppercase tracking-label text-primary">
         <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
         RevTaw recommends
@@ -271,7 +271,7 @@ export async function DueTodayWidget({ planning }: { planning: Promise<unknown> 
   const visible = rows.slice(0, 6);
 
   return (
-    <section aria-labelledby="w-due" className="@container flex h-full flex-col gap-3 rounded-2xl border border-border bg-card p-5">
+    <section aria-labelledby="w-due" className="@container flex h-full flex-col gap-3 rounded-xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h2 id="w-due" className="flex items-center gap-2 text-xs font-semibold uppercase tracking-label text-primary">
           <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
