@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SkipLink } from "@/components/app/skip-link";
 import { Logo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { buttonClasses } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { BRAND } from "@/lib/brand";
 export default function MarketingLayout({ children }: LayoutProps<"/"> ) {
   return (
     <div className="flex min-h-full flex-col">
+      <SkipLink />
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <Logo />
@@ -27,7 +29,9 @@ export default function MarketingLayout({ children }: LayoutProps<"/"> ) {
         </div>
       </header>
 
-      <main className="flex-1">{children}</main>
+      <main id="main-content" tabIndex={-1} className="flex-1 outline-none">
+        {children}
+      </main>
 
       <footer className="border-t border-border">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-start justify-between gap-4 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:px-6">

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { SkipLink } from "@/components/app/skip-link";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Logo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -15,6 +16,7 @@ export default async function OnboardingLayout({ children }: LayoutProps<"/"> ) 
 
   return (
     <div className="flex min-h-full flex-col">
+      <SkipLink />
       <header className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-4 sm:px-6">
         <Logo />
         <div className="flex items-center gap-2">
@@ -22,7 +24,9 @@ export default async function OnboardingLayout({ children }: LayoutProps<"/"> ) 
           <SignOutButton variant="ghost" size="sm" />
         </div>
       </header>
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 pb-16 pt-4 sm:px-6">{children}</main>
+      <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-3xl flex-1 px-4 pb-16 pt-4 outline-none sm:px-6">
+        {children}
+      </main>
     </div>
   );
 }

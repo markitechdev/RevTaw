@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { CommandMenuIconButton, CommandMenuLauncher, CommandMenuTrigger } from "@/components/app/command-menu-launcher";
 import { MobileNav } from "@/components/app/mobile-nav";
 import { AccountNav, SidebarNav } from "@/components/app/sidebar-nav";
+import { SkipLink } from "@/components/app/skip-link";
 import { UserCard } from "@/components/app/user-card";
 import { Logo } from "@/components/brand/logo";
 import type { Standing } from "@/lib/gamification/standing";
@@ -35,12 +36,7 @@ export function AppShell({
 
   return (
     <div className="min-h-full">
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-card focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow"
-      >
-        Skip to content
-      </a>
+      <SkipLink />
 
       <aside aria-label="Sidebar" className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-card lg:flex">
         <div className="flex h-16 items-center justify-between gap-2 px-5">
