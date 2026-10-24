@@ -95,7 +95,7 @@ export function MethodExplorer() {
       </fieldset>
       <div className="rounded-2xl border border-border bg-card p-5 sm:p-6" aria-live="polite">
         <div key={method.id} className="animate-fade-up">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">{method.name}</p>
+          <p className="text-2xs font-semibold uppercase tracking-wider text-primary">{method.name}</p>
           <p className="mt-2 font-display tracking-display text-xl font-semibold leading-snug">{method.change}</p>
           <p className="mt-3 flex gap-2 text-sm text-muted-foreground">
             <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />

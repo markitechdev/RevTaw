@@ -8,9 +8,10 @@ import { extendTailwindMerge } from "tailwind-merge";
 const twMerge = extendTailwindMerge({
   extend: {
     theme: {
-      text: ["title"],
+      text: ["title", "reading", "2xs", "3xs"],
       font: ["display"],
-      tracking: ["display"],
+      tracking: ["display", "label"],
+      leading: ["display"],
       shadow: ["pop"],
       ease: ["pop"],
       animate: ["fade-up", "rise", "pop-in", "sheet-up", "panel-in", "caret", "float"],

@@ -84,7 +84,7 @@ function FlashcardDemo() {
           aria-hidden={flipped}
           className="paper-lines absolute inset-0 flex flex-col justify-between rounded-2xl border border-border bg-card p-5 shadow-md [backface-visibility:hidden]"
         >
-          <span className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className="flex items-center justify-between text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
             <span>Biology · Card 3 of 12</span>
             <span className="rounded-full bg-highlight px-2 py-0.5 text-highlight-foreground">Box 2</span>
           </span>
@@ -95,7 +95,7 @@ function FlashcardDemo() {
           aria-hidden={!flipped}
           className="absolute inset-0 flex flex-col justify-between rounded-2xl border border-primary/40 bg-primary-soft p-5 shadow-md [backface-visibility:hidden] [transform:rotateY(180deg)]"
         >
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">Answer</span>
+          <span className="text-2xs font-semibold uppercase tracking-wider text-primary">Answer</span>
           <span className="font-display tracking-display text-xl font-semibold leading-snug text-foreground">Red and blue light — it reflects green, which is why leaves look green.</span>
           <span className="text-xs text-primary">How well did you know it? Again · Hard · Good · Easy</span>
         </span>
@@ -115,7 +115,7 @@ function QuizDemo() {
   const choice = OPTIONS.find((option) => option.id === picked) ?? null;
   return (
     <div className="flex h-full flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-md sm:rotate-[1deg]">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Quiz · Question 4</p>
+      <p className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Quiz · Question 4</p>
       <p id="demo-question" className="text-sm font-semibold leading-snug text-foreground">
         Which stage of photosynthesis makes glucose?
       </p>
@@ -193,8 +193,8 @@ function MasteryDemo() {
   return (
     <div ref={ref} className="flex h-full flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-md sm:-rotate-[1deg]">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Mastery</p>
-        <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-warning">
+        <p className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Mastery</p>
+        <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-2xs font-semibold text-warning">
           <Flame className="h-3 w-3" aria-hidden="true" />5-day streak
         </span>
       </div>

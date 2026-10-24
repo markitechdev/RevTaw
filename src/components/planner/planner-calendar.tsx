@@ -191,7 +191,7 @@ export function PlannerCalendar({ month, selected: initialSelected, today, tasks
             <thead>
               <tr>
                 {WEEKDAY_SHORT.map((day, index) => (
-                  <th key={day} scope="col" abbr={WEEKDAY_LONG[index]} className="pb-1 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <th key={day} scope="col" abbr={WEEKDAY_LONG[index]} className="pb-1 text-center text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                     <span aria-hidden="true" className="sm:hidden">
                       {day.slice(0, 1)}
                     </span>
@@ -248,7 +248,7 @@ export function PlannerCalendar({ month, selected: initialSelected, today, tasks
                           </span>
                           <span className="hidden min-w-0 flex-col gap-0.5 sm:flex">
                             {previews.slice(0, 3).map((item) => (
-                              <span key={item.key} className={cn("flex min-w-0 items-center gap-1 text-[11px] leading-tight text-foreground", item.done && "text-muted-foreground line-through")}>
+                              <span key={item.key} className={cn("flex min-w-0 items-center gap-1 text-2xs leading-tight text-foreground", item.done && "text-muted-foreground line-through")}>
                                 <span aria-hidden="true" className={cn("h-1.5 w-1.5 shrink-0 rounded-full", item.dot)} />
                                 <span className="truncate">
                                   {item.time && <span className="tabular-nums text-muted-foreground">{formatClock(item.time).replace(":00", "").replace(" ", "").toLowerCase()} </span>}
@@ -256,7 +256,7 @@ export function PlannerCalendar({ month, selected: initialSelected, today, tasks
                                 </span>
                               </span>
                             ))}
-                            {previews.length > 3 && <span className="text-[11px] font-medium text-muted-foreground">+{previews.length - 3} more</span>}
+                            {previews.length > 3 && <span className="text-2xs font-medium text-muted-foreground">+{previews.length - 3} more</span>}
                           </span>
                           {/* The rest of the titles still reach screen readers on phones. */}
                           <span className="sr-only sm:hidden">{previews.map((item) => item.label).join(", ")}</span>

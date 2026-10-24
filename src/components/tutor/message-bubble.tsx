@@ -50,7 +50,7 @@ export const MessageBubble = memo(function MessageBubble({
               <span className="line-clamp-4">{message.selection}</span>
             </blockquote>
           )}
-          {message.action && <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide">{TUTOR_ACTION_BY_ID[message.action as TutorActionId]?.label ?? message.action}</span>}
+          {message.action && <span className="mb-1 block text-2xs font-semibold uppercase tracking-wide">{TUTOR_ACTION_BY_ID[message.action as TutorActionId]?.label ?? message.action}</span>}
           <p lang={textLang(message.content)} className="whitespace-pre-wrap">
             {message.content}
           </p>

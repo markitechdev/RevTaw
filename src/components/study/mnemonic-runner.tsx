@@ -210,7 +210,7 @@ export function MnemonicRunner({ session, methodName, parentSessionId = null, pa
                       <input type="radio" name="mnemonic-option" value={position} checked={chosen === position} onChange={() => setChosen(position)} className="mt-1 h-4 w-4 accent-primary" />
                       <span className="flex min-w-0 flex-col gap-1">
                         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{MNEMONIC_KIND_LABEL[entry.kind]}</span>
-                        <span className={cn("whitespace-pre-wrap break-words", entry.kind === "acronym" ? "text-xl font-semibold tracking-wider" : "text-[15px] font-medium")}>{entry.content}</span>
+                        <span className={cn("whitespace-pre-wrap break-words", entry.kind === "acronym" ? "text-xl font-semibold tracking-wider" : "text-reading font-medium")}>{entry.content}</span>
                       </span>
                     </label>
                     {entry.explanation && (
@@ -262,7 +262,7 @@ export function MnemonicRunner({ session, methodName, parentSessionId = null, pa
           <>
             <div className={`rounded-lg border p-3 ${TINT.primary}`}>
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your cue · {MNEMONIC_KIND_LABEL[option.kind]}</p>
-              <p className={cn("mt-1 whitespace-pre-wrap break-words", option.kind === "acronym" ? "text-xl font-semibold tracking-wider" : "text-[15px] font-medium")}>{option.content}</p>
+              <p className={cn("mt-1 whitespace-pre-wrap break-words", option.kind === "acronym" ? "text-xl font-semibold tracking-wider" : "text-reading font-medium")}>{option.content}</p>
             </div>
             <Field id="mnemonic-answer" label={`Write the ${view.items.length} items from memory${view.ordered && view.items.length > 1 ? ", in order" : ""}`} hint="One item per line. Use the cue, not the list.">
               <Textarea

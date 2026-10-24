@@ -70,7 +70,7 @@ export function NotificationsMenu({ notifications, unread }: { notifications: Be
       <Button ref={bell} type="button" variant="ghost" size="icon-sm" aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"} aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen((state) => !state)} className="relative">
         <Bell className="h-4 w-4" aria-hidden="true" />
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground" aria-hidden="true">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-3xs font-semibold text-primary-foreground" aria-hidden="true">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
@@ -101,7 +101,7 @@ export function NotificationsMenu({ notifications, unread }: { notifications: Be
                     <span className="min-w-0">
                       <span className={cn("block text-sm", !item.read_at && "font-medium")}>{item.title}</span>
                       {item.body && <span className="block text-xs text-muted-foreground">{item.body}</span>}
-                      <span className="block text-[11px] text-muted-foreground" suppressHydrationWarning>
+                      <span className="block text-2xs text-muted-foreground" suppressHydrationWarning>
                         {formatRelativeDate(item.created_at)}
                       </span>
                     </span>

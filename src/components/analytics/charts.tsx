@@ -108,7 +108,7 @@ export function DailyColumns({
           return (
             <g key={tick}>
               <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} className="stroke-border" strokeWidth={1} />
-              <text x={padding.left - 6} y={y + 3} textAnchor="end" className="fill-muted-foreground text-[10px]">
+              <text x={padding.left - 6} y={y + 3} textAnchor="end" className="fill-muted-foreground text-3xs">
                 {Number.isInteger(tick) ? tick : tick.toFixed(1)}
               </text>
             </g>
@@ -147,7 +147,7 @@ export function DailyColumns({
         })}
         {points.map((point, index) =>
           index % 7 === points.length % 7 || index === points.length - 1 ? (
-            <text key={`label-${point.date}`} x={padding.left + index * slot + slot / 2} y={height - 8} textAnchor="middle" className="fill-muted-foreground text-[10px]">
+            <text key={`label-${point.date}`} x={padding.left + index * slot + slot / 2} y={height - 8} textAnchor="middle" className="fill-muted-foreground text-3xs">
               {shortDate(point.date)}
             </text>
           ) : null,
@@ -234,7 +234,7 @@ export function ScoreColumns({ title, scores, className }: { title: string; scor
           return (
             <g key={tick}>
               <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} className="stroke-border" strokeWidth={1} />
-              <text x={padding.left - 6} y={y + 3} textAnchor="end" className="fill-muted-foreground text-[10px]">
+              <text x={padding.left - 6} y={y + 3} textAnchor="end" className="fill-muted-foreground text-3xs">
                 {tick}%
               </text>
             </g>
@@ -249,7 +249,7 @@ export function ScoreColumns({ title, scores, className }: { title: string; scor
               <rect x={padding.left + index * slot} y={padding.top} width={slot} height={innerHeight} fill="transparent" />
               <rect x={x} y={padding.top + innerHeight - barHeight} width={barWidth} height={Math.max(1, barHeight)} rx={Math.min(4, barWidth / 2)} className={cn(last || active === index ? "fill-primary" : "fill-primary/35")} />
               {last && (
-                <text x={x + barWidth / 2} y={padding.top + innerHeight - barHeight - 4} textAnchor="middle" className="fill-foreground text-[10px] font-medium">
+                <text x={x + barWidth / 2} y={padding.top + innerHeight - barHeight - 4} textAnchor="middle" className="fill-foreground text-3xs font-medium">
                   {score.percent}%
                 </text>
               )}

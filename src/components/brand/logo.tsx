@@ -46,7 +46,7 @@ export function Logo({
           {BRAND.name}
         </span>
         {withTagline && (
-          <span lang="fil" className="mt-0.5 text-[11px] font-medium text-muted-foreground">
+          <span lang="fil" className="mt-0.5 text-2xs font-medium text-muted-foreground">
             {BRAND.motto}
           </span>
         )}

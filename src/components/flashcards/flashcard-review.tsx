@@ -374,7 +374,7 @@ export function FlashcardReview({
                 )}
               >
                 <span>
-                  <kbd className="mr-1 rounded border border-current/30 px-1 text-[10px]">{index + 1}</kbd>
+                  <kbd className="mr-1 rounded border border-current/30 px-1 text-3xs">{index + 1}</kbd>
                   {RATING_LABELS[rating].label}
                 </span>
                 <span className="text-xs font-normal opacity-80">{card.waits[rating]}</span>

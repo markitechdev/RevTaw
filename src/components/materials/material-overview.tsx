@@ -68,7 +68,7 @@ export function MaterialOverview({
     <div className="flex flex-col gap-4">
       <Card className={TINT.primary}>
         <CardContent className="flex flex-col gap-4">
-          <p className="text-[15px] leading-relaxed text-foreground">{analysis.summary}</p>
+          <p className="text-reading text-foreground">{analysis.summary}</p>
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone="primary">
               <Gauge className="h-3 w-3" aria-hidden="true" />

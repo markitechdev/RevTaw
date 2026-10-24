@@ -108,7 +108,7 @@ function MapCanvas({ map, onToggle }: { map: MindMapData; onToggle: (id: string)
             <g key={link.id}>
               <path d={`M ${x1} ${from.y} Q ${(x1 + x2) / 2 + 60} ${(from.y + to.y) / 2}, ${x2} ${to.y}`} className="fill-none stroke-primary" strokeWidth={1.2} strokeDasharray="5 4" />
               {link.label && (
-                <text x={(x1 + x2) / 2 + 34} y={(from.y + to.y) / 2} className="fill-primary text-[11px]">
+                <text x={(x1 + x2) / 2 + 34} y={(from.y + to.y) / 2} className="fill-primary text-2xs">
                   {link.label}
                 </text>
               )}
@@ -129,11 +129,11 @@ function MapCanvas({ map, onToggle }: { map: MindMapData; onToggle: (id: string)
               className={hasChildren ? "cursor-pointer" : undefined}
             >
               <rect x={entry.x} y={entry.y - 16} width={boxWidth} height={32} rx={10} className={cn(entry.depth === 0 ? "fill-primary" : entry.depth === 1 ? "fill-primary-soft stroke-primary" : "fill-card stroke-border")} strokeWidth={1.2} />
-              <text x={entry.x + 10} y={entry.y + 4} className={cn("text-[12px]", entry.depth === 0 ? "fill-primary-foreground font-medium" : "fill-foreground")}>
+              <text x={entry.x + 10} y={entry.y + 4} className={cn("text-xs", entry.depth === 0 ? "fill-primary-foreground font-medium" : "fill-foreground")}>
                 {text}
               </text>
               {entry.hiddenChildren > 0 && (
-                <text x={entry.x + boxWidth - 8} y={entry.y + 4} textAnchor="end" className="fill-muted-foreground text-[11px]">
+                <text x={entry.x + boxWidth - 8} y={entry.y + 4} textAnchor="end" className="fill-muted-foreground text-2xs">
                   +{entry.hiddenChildren}
                 </text>
               )}

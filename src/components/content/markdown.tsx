@@ -106,7 +106,7 @@ export function renderInline(text: string): ReactNode {
 export function Markdown({ source, className, lang }: { source: string; className?: string; lang?: string }) {
   const blocks = parseMarkdown(source);
   return (
-    <div lang={lang} className={cn("flex flex-col gap-3 text-[15px] leading-relaxed text-foreground/90", className)}>
+    <div lang={lang} className={cn("flex flex-col gap-3 text-reading text-foreground/90", className)}>
       {blocks.map((block, index) => {
         switch (block.type) {
           case "heading": {

@@ -136,7 +136,7 @@ export function BoxBar({ boxes, compact = false }: { boxes: number[]; compact?: 
   const total = boxes.reduce((sum, count) => sum + count, 0);
   const tones = ["bg-danger", "bg-warning", "bg-muted-foreground/60", "bg-primary", "bg-success"];
   return (
-    <div className={cn("flex flex-col gap-1", compact ? "text-[11px]" : "text-xs")}>
+    <div className={cn("flex flex-col gap-1", compact ? "text-2xs" : "text-xs")}>
       <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted" role="img" aria-label={boxes.map((count, index) => `${BOX_LABELS[index + 1]}: ${count}`).join(", ")}>
         {boxes.map((count, index) =>
           count > 0 ? <div key={index} className={cn("h-full", tones[index])} style={{ width: `${(count / Math.max(1, total)) * 100}%` }} /> : null,

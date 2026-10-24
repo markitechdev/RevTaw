@@ -113,7 +113,7 @@ export function HowItWorks() {
 }
 
 function PreviewLabel({ children }: { children: ReactNode }) {
-  return <p className="mb-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{children}</p>;
+  return <p className="mb-4 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">{children}</p>;
 }
 
 function UploadPreview() {
@@ -162,7 +162,7 @@ function StudyPreview() {
               <span className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                 {method.name}
                 {method.recommended && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-highlight px-2 py-0.5 text-[11px] font-semibold text-highlight-foreground">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-highlight px-2 py-0.5 text-2xs font-semibold text-highlight-foreground">
                     <Sparkles className="h-3 w-3" aria-hidden="true" />
                     Picked for you
                   </span>
@@ -216,7 +216,7 @@ function MasterPreview() {
       <div aria-hidden="true" className={cn(SHEET_COLUMNS, "px-2 pb-1.5")}>
         <span className="col-start-2 flex gap-1.5">
           {ANSWER_LEVELS.map((level) => (
-            <span key={level} className="w-5 text-center text-[11px] font-semibold tabular-nums text-primary">
+            <span key={level} className="w-5 text-center text-2xs font-semibold tabular-nums text-primary">
               {level}
             </span>
           ))}

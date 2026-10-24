@@ -58,7 +58,7 @@ export function GraphView({ nodes, links, title }: { nodes: string[]; links: Arr
           <g key={`${link.from}-${link.to}-${index}`}>
             <line x1={start.x} y1={start.y} x2={end.x} y2={end.y} className="stroke-muted-foreground" strokeWidth={1.5} markerEnd="url(#graph-arrow)" />
             <rect x={middle.x - link.relation.length * 3.4 - 6} y={middle.y - 10} width={link.relation.length * 6.8 + 12} height={20} rx={10} className="fill-background stroke-border" />
-            <text x={middle.x} y={middle.y + 4} textAnchor="middle" className="fill-primary text-[11px] font-medium">
+            <text x={middle.x} y={middle.y + 4} textAnchor="middle" className="fill-primary text-2xs font-medium">
               {link.relation}
             </text>
           </g>
@@ -70,7 +70,7 @@ export function GraphView({ nodes, links, title }: { nodes: string[]; links: Arr
         return (
           <g key={node}>
             <rect x={point.x - 58} y={point.y - 12 - lines.length * 7} width={116} height={24 + lines.length * 14 - 10} rx={10} className="fill-card stroke-primary" strokeWidth={1.5} />
-            <text x={point.x} y={point.y - (lines.length - 1) * 7 + 4} textAnchor="middle" className="fill-foreground text-[12px]">
+            <text x={point.x} y={point.y - (lines.length - 1) * 7 + 4} textAnchor="middle" className="fill-foreground text-xs">
               {lines.map((line, index) => (
                 <tspan key={index} x={point.x} dy={index === 0 ? 0 : 14}>
                   {line}
@@ -163,7 +163,7 @@ export function VisualView({ visual, title, className }: { visual: Visual; title
                     {child.children.map((grandchild) => (
                       <li key={grandchild.label} className="relative">
                         <span className="absolute -left-4 top-3 h-0.5 w-3 bg-border" aria-hidden="true" />
-                        <p className="inline-block rounded-lg bg-muted/60 px-2.5 py-1 text-[13px]">{grandchild.label}</p>
+                        <p className="inline-block rounded-lg bg-muted/60 px-2.5 py-1 text-xs">{grandchild.label}</p>
                       </li>
                     ))}
                   </ul>

@@ -154,7 +154,7 @@ export function ChunkRunner({ session, methodName, parentSessionId = null, paren
           <div className="flex flex-col gap-4">
             <div className="rounded-lg bg-primary-soft/40 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">Main idea</p>
-              <p className="mt-1 text-[15px] leading-relaxed">{chunk.main_idea}</p>
+              <p className="mt-1 text-reading">{chunk.main_idea}</p>
             </div>
             {chunk.details.length > 0 && (
               <div>

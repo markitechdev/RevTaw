@@ -66,7 +66,7 @@ function Panel({ title, icon: Icon, intro, children }: { title: string; icon: ty
 
 function SectionText({ text }: { text: string }) {
   return (
-    <div className="flex flex-col gap-2 text-[15px] leading-relaxed">
+    <div className="flex flex-col gap-2 text-reading">
       {text.split(/\n{2,}|\n(?=[A-Z])/).map((paragraph, index) => (
         <p key={index} className="whitespace-pre-wrap">
           {paragraph}
@@ -119,7 +119,7 @@ function AnswerStep({ items, label, onDone, doneLabel, sections }: { items: Item
           {index + 1} of {items.length}
         </span>
       </div>
-      <p id="reading-prompt" className="text-[15px] font-medium">
+      <p id="reading-prompt" className="text-reading font-medium">
         {item.prompt}
       </p>
       {!result ? (

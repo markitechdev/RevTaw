@@ -56,7 +56,7 @@ function OriginalNotes({ view, result, highlighted, onHover }: { view: StoryView
 /** The story version; each paragraph names the facts it carries. */
 function StoryVersion({ view, highlighted, onHover }: { view: StoryView; highlighted: number[]; onHover?: (facts: number[]) => void }) {
   return (
-    <div className="flex flex-col gap-3 text-[15px] leading-relaxed">
+    <div className="flex flex-col gap-3 text-reading">
       {view.paragraphs.map((paragraph, index) => (
         <p
           key={index}
@@ -68,7 +68,7 @@ function StoryVersion({ view, highlighted, onHover }: { view: StoryView; highlig
           {paragraph.facts.length > 0 && (
             <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">
               {paragraph.facts.map((fact) => (
-                <span key={fact} className="rounded-full border border-primary/40 px-1.5 text-[10px] font-semibold text-primary" aria-label={`carries fact ${fact}`}>
+                <span key={fact} className="rounded-full border border-primary/40 px-1.5 text-3xs font-semibold text-primary" aria-label={`carries fact ${fact}`}>
                   {fact}
                 </span>
               ))}

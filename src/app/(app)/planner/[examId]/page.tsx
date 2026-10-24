@@ -138,7 +138,7 @@ export default async function ExamPlanPage({ params }: PageProps<"/planner/[exam
                 <section key={date} aria-label={formatDate(date, today)} className={date === today ? `rounded-xl border p-3 ${TINT.primary}` : ""}>
                   <h3 className="mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {date === today ? "Today" : WEEKDAY_LONG[weekdayOf(date)]} · {formatDate(date, today)}
-                    {date === exam.exam_date && <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-warning">Exam day</span>}
+                    {date === exam.exam_date && <span className="rounded-full bg-warning-soft px-2 py-0.5 text-2xs font-medium normal-case tracking-normal text-warning">Exam day</span>}
                     <span className="font-normal normal-case tracking-normal">· {tasks.filter((task) => task.status !== "skipped").reduce((sum, task) => sum + task.minutes, 0)} min</span>
                   </h3>
                   <ul className="flex flex-col gap-2">

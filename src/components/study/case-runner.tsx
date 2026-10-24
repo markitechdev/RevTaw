@@ -134,7 +134,7 @@ export function CaseRunner({ session, methodName, parentSessionId = null, parent
           <h2 id="case-title" className="font-display tracking-display text-lg font-medium leading-snug">
             {view.title}
           </h2>
-          <div className="flex flex-col gap-3 text-[15px] leading-relaxed">
+          <div className="flex flex-col gap-3 text-reading">
             {view.text.split(/\n{2,}/).map((paragraph, paragraphIndex) => (
               <p key={paragraphIndex} className="whitespace-pre-wrap">
                 {paragraph}

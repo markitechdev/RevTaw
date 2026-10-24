@@ -107,7 +107,7 @@ export function HighlightToolbar({ materialId, children }: { materialId: string;
           }}
         >
           <div className="flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-1 rounded-xl border border-border bg-card p-1.5 shadow-lg">
-            <span className="flex items-center gap-1 px-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
+            <span className="flex items-center gap-1 px-1.5 text-2xs font-semibold uppercase tracking-wide text-primary">
               <Sparkles className="h-3 w-3" aria-hidden="true" />
               Ask
             </span>

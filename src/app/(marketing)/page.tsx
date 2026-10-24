@@ -37,7 +37,7 @@ export default function LandingPage() {
                 Created by <span className="text-foreground">{BRAND.creator}</span>
               </span>
             </p>
-            <h1 className="mt-5 font-display text-[clamp(2.4rem,6.2vw,4.25rem)] font-extrabold leading-[1.04] tracking-tight text-foreground">
+            <h1 className="mt-5 font-display text-[clamp(2.4rem,6.2vw,4.25rem)] font-extrabold leading-display tracking-tight text-foreground">
               <TypingHeadline phrases={HEADLINE} langs={["fil", undefined]} />
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
@@ -125,7 +125,7 @@ export default function LandingPage() {
           <svg aria-hidden="true" className="pointer-events-none absolute -right-10 -top-10 hidden h-64 w-64 opacity-15 sm:block" viewBox="0 0 40 40" fill="none">
             <path d="M20 4v8M20 28v8M4 20h8M28 20h8M8.7 8.7l5.6 5.6M25.7 25.7l5.6 5.6M8.7 31.3l5.6-5.6M25.7 14.3l5.6-5.6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
           </svg>
-          <p lang="fil" className="font-display text-4xl font-extrabold leading-[1.04] tracking-tight sm:text-6xl">
+          <p lang="fil" className="font-display text-4xl font-extrabold leading-display tracking-tight sm:text-6xl">
             Ano&nbsp;G ayaw <span className="whitespace-nowrap">mag-aral?</span>
             <span className="relative mt-2 block w-fit">
               Aray mo.

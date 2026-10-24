@@ -112,7 +112,7 @@ export function ScenarioRunner({ session, methodName, parentSessionId = null, pa
         <h2 id="scenario-title" className="font-display tracking-display text-lg font-medium leading-snug">
           {view.title}
         </h2>
-        <p className="whitespace-pre-wrap rounded-lg bg-muted/60 p-3 text-[15px] leading-relaxed">{view.situation}</p>
+        <p className="whitespace-pre-wrap rounded-lg bg-muted/60 p-3 text-reading">{view.situation}</p>
 
         <fieldset disabled={pending || Boolean(result)} className="flex flex-col gap-2">
           <legend id="scenario-question" className="mb-1 font-medium">

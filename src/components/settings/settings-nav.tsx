@@ -36,7 +36,7 @@ export function SettingsNav() {
       <div className="flex gap-1 border-b border-border px-1 sm:flex-col sm:gap-4 sm:border-b-0 sm:border-r sm:pr-4">
         {GROUPS.map((group) => (
           <div key={group.label} className="flex gap-1 sm:flex-col">
-            <p className="hidden px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground sm:block">{group.label}</p>
+            <p className="hidden px-3 pb-1 text-2xs font-semibold uppercase tracking-label text-muted-foreground sm:block">{group.label}</p>
             <ul className="flex gap-1 sm:flex-col">
               {group.items.map((item) => {
                 const active = pathname === item.href || pathname.startsWith(`${item.href}/`);

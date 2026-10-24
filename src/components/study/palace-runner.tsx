@@ -161,7 +161,7 @@ function PalacePlacements({ session, methodName, parentSessionId = null, parentL
         <ol aria-label="The placements along your route" className="relative flex flex-col gap-3 border-l-2 border-primary/40 pl-5">
           {state.placements.map((placement) => (
             <li key={placement.stop} className="relative flex flex-col gap-1 rounded-lg border border-border p-3 text-sm">
-              <span className="absolute -left-[1.95rem] top-3 flex h-5 w-5 items-center justify-center rounded-full border-2 border-primary bg-card text-[10px] font-semibold text-primary" aria-hidden="true">
+              <span className="absolute -left-[1.95rem] top-3 flex h-5 w-5 items-center justify-center rounded-full border-2 border-primary bg-card text-3xs font-semibold text-primary" aria-hidden="true">
                 {placement.stop}
               </span>
               <p className="flex flex-wrap items-center gap-x-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

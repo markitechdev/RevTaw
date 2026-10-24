@@ -69,7 +69,7 @@ export function MaterialContent({ chunks }: { chunks: MaterialChunkView[] }) {
                 {[page, `${chunk.char_count.toLocaleString("en-US")} characters`].filter(Boolean).join(" · ")}
               </span>
             </div>
-            <div className="flex flex-col gap-3 text-[15px] leading-relaxed text-foreground/90">
+            <div className="flex flex-col gap-3 text-reading text-foreground/90">
               {chunk.content
                 .split(/\n{2,}/)
                 .filter((paragraph, index) => !(index === 0 && chunk.heading && paragraph.trim() === chunk.heading))

@@ -153,7 +153,7 @@ export function ProblemRunner({ session, methodName, parentSessionId = null, par
               <ListOrdered className="h-5 w-5 text-primary" aria-hidden="true" />
               Worked example
             </h2>
-            <p className="whitespace-pre-wrap rounded-lg bg-muted/60 p-3 text-[15px] leading-relaxed">{worked.problem}</p>
+            <p className="whitespace-pre-wrap rounded-lg bg-muted/60 p-3 text-reading">{worked.problem}</p>
             <StepList steps={workedSteps.slice(0, shownSteps)} />
             {allShown ? (
               <>
@@ -186,7 +186,7 @@ export function ProblemRunner({ session, methodName, parentSessionId = null, par
               <PencilLine className="h-5 w-5 text-primary" aria-hidden="true" />
               {worked ? "Your turn: a similar problem" : faded ? (faded.givenSteps.length ? "Complete the solution" : "Solve it on your own") : "Problem"}
             </h2>
-            <p id="problem-prompt" className="whitespace-pre-wrap rounded-lg bg-muted/60 p-3 text-[15px] leading-relaxed">
+            <p id="problem-prompt" className="whitespace-pre-wrap rounded-lg bg-muted/60 p-3 text-reading">
               {item.prompt}
             </p>
             {faded && faded.givenSteps.length > 0 && !result && (

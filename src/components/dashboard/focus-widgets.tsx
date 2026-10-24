@@ -154,7 +154,7 @@ function HeroFrame({ tamari, eyebrow, title, details, actions }: { tamari?: Reac
 
 function HeroEyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <h2 id="w-continue" className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+    <h2 id="w-continue" className="text-xs font-semibold uppercase tracking-label text-primary">
       {children}
     </h2>
   );
@@ -172,7 +172,7 @@ export async function RecommendationWidget() {
 
   return (
     <section aria-labelledby="w-recommendation" className="@container flex h-full flex-col gap-3 rounded-2xl border border-primary/20 bg-primary-soft p-5">
-      <h2 id="w-recommendation" className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+      <h2 id="w-recommendation" className="flex items-center gap-2 text-xs font-semibold uppercase tracking-label text-primary">
         <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
         RevTaw recommends
       </h2>
@@ -273,7 +273,7 @@ export async function DueTodayWidget({ planning }: { planning: Promise<unknown> 
   return (
     <section aria-labelledby="w-due" className="@container flex h-full flex-col gap-3 rounded-2xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <h2 id="w-due" className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+        <h2 id="w-due" className="flex items-center gap-2 text-xs font-semibold uppercase tracking-label text-primary">
           <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
           Due today
         </h2>

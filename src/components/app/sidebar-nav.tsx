@@ -50,7 +50,7 @@ export function SidebarNav({ pinned, onNavigate, className }: { pinned: readonly
         const labelId = `${baseId}-${group.id}`;
         return (
           <div key={group.id}>
-            <p id={labelId} className={cn("px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground", group.id === "main" && "sr-only")}>
+            <p id={labelId} className={cn("px-3 pb-1 text-2xs font-semibold uppercase tracking-label text-muted-foreground", group.id === "main" && "sr-only")}>
               {group.label}
             </p>
             <ul aria-labelledby={labelId} className="flex flex-col gap-0.5">
@@ -70,7 +70,7 @@ export function SidebarNav({ pinned, onNavigate, className }: { pinned: readonly
           aria-expanded={moreOpen}
           aria-controls={`${baseId}-more`}
           onClick={() => setToggled(!moreOpen)}
-          className="flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-1.5 text-2xs font-semibold uppercase tracking-label text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <span className="flex items-center gap-2">
             More tools

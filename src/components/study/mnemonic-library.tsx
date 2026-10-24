@@ -166,7 +166,7 @@ function MnemonicCard({ mnemonic, onEdit }: { mnemonic: LibraryMnemonic; onEdit:
         <h3 id={`mnemonic-${mnemonic.id}`} className="text-sm font-medium text-muted-foreground">
           {mnemonic.target}
         </h3>
-        <p className={cn("whitespace-pre-wrap break-words", mnemonic.kind === "acronym" ? "text-xl font-semibold tracking-wider" : "text-[15px] font-medium")}>{mnemonic.content}</p>
+        <p className={cn("whitespace-pre-wrap break-words", mnemonic.kind === "acronym" ? "text-xl font-semibold tracking-wider" : "text-reading font-medium")}>{mnemonic.content}</p>
         {mnemonic.explanation && <p className="text-sm text-muted-foreground">{mnemonic.explanation}</p>}
       </div>
       {mnemonic.items.length > 0 && (

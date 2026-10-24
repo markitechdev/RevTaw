@@ -296,7 +296,7 @@ export function DualCodingRunner({ session, methodName, parentSessionId = null, 
         {mode === "study" ? (
           <>
             <div className={cn("grid gap-4", view === "combined" && "lg:grid-cols-2")}>
-              {view !== "visual" && <p className="text-[15px] leading-relaxed">{topic.text}</p>}
+              {view !== "visual" && <p className="text-reading">{topic.text}</p>}
               {view !== "text" && <VisualView visual={topic.visual} title={topic.title} />}
             </div>
             <div className="flex justify-end border-t border-border pt-4">

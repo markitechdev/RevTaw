@@ -270,7 +270,7 @@ export function CommandMenu({ openRequested = false, onReady }: { openRequested?
           <div id={listId} role="listbox" aria-label="Results" tabIndex={-1} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
             {groups.map((group) => (
               <div key={group.id} role="presentation" className="pb-1">
-                <div id={`${baseId}-${group.id}`} aria-hidden="true" className="px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                <div id={`${baseId}-${group.id}`} aria-hidden="true" className="px-2 pb-1 pt-2 text-2xs font-semibold uppercase tracking-label text-muted-foreground">
                   {group.label}
                 </div>
                 <div role="group" aria-labelledby={`${baseId}-${group.id}`}>
@@ -313,7 +313,7 @@ export function CommandMenu({ openRequested = false, onReady }: { openRequested?
             )}
           </div>
 
-          <div className="hidden items-center gap-4 border-t border-border px-4 py-2 text-[11px] text-muted-foreground sm:flex" aria-hidden="true">
+          <div className="hidden items-center gap-4 border-t border-border px-4 py-2 text-2xs text-muted-foreground sm:flex" aria-hidden="true">
             <span className="flex items-center gap-1">
               <Kbd>↑</Kbd>
               <Kbd>↓</Kbd> move

@@ -45,7 +45,7 @@ export function MobileNav({ userCard, pinned }: { userCard: ReactNode; pinned: r
                 <Link
                   href={tab.href}
                   aria-current={current ? "page" : undefined}
-                  className={cn("flex h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium", current ? "text-primary" : "text-muted-foreground")}
+                  className={cn("flex h-14 flex-col items-center justify-center gap-1 text-2xs font-medium", current ? "text-primary" : "text-muted-foreground")}
                 >
                   <span className={cn("flex h-7 w-12 items-center justify-center rounded-full transition-colors", current && "bg-primary-soft")}>
                     <Icon className="h-5 w-5" aria-hidden="true" />
@@ -60,7 +60,7 @@ export function MobileNav({ userCard, pinned }: { userCard: ReactNode; pinned: r
               type="button"
               onClick={open}
               aria-haspopup="dialog"
-              className={cn("flex h-14 w-full cursor-pointer flex-col items-center justify-center gap-1 text-[11px] font-medium", elsewhere ? "text-primary" : "text-muted-foreground")}
+              className={cn("flex h-14 w-full cursor-pointer flex-col items-center justify-center gap-1 text-2xs font-medium", elsewhere ? "text-primary" : "text-muted-foreground")}
             >
               <span className={cn("flex h-7 w-12 items-center justify-center rounded-full", elsewhere && "bg-primary-soft")}>
                 <Menu className="h-5 w-5" aria-hidden="true" />

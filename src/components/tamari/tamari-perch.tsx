@@ -75,7 +75,7 @@ export function TamariPerch({ state = "idle", size, lgSize, className, disclosur
           <span
             aria-hidden="true"
             className={cn(
-              "absolute -top-0.5 right-0 grid size-[1.125rem] place-items-center border-2 border-foreground bg-primary text-[0.6875rem] leading-none font-black text-primary-foreground shadow-[2px_2px_0_0_var(--foreground)]",
+              "absolute -top-0.5 right-0 grid size-[1.125rem] place-items-center border-2 border-foreground bg-primary text-2xs leading-none font-black text-primary-foreground shadow-[2px_2px_0_0_var(--foreground)]",
               tamari.animate && "tamari-note",
             )}
           >
