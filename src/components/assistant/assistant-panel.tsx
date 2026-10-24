@@ -20,14 +20,14 @@ import { saveResponseLanguageAction } from "@/lib/preferences/actions";
 import type { ResponseLanguage } from "@/lib/preferences/options";
 import { routes } from "@/lib/routes";
 import { parseTamariCommand, spokenDay, type TamariCommand } from "@/lib/tamari/commands";
-import { commandLines, hereLine, tamariLanguage, tamariStatus, transcribingLine } from "@/lib/tamari/lines";
+import { commandLines, hereLine, tamariLang, tamariLanguage, tamariStatus, transcribingLine } from "@/lib/tamari/lines";
 import { TAMARI_TAGLINE, type TamariState } from "@/lib/tamari/states";
 import { addToNotesAction, createFlashcardAction } from "@/lib/tutor/actions";
 import type { MessageView } from "@/lib/tutor/queries";
 import { TUTOR_ACTION_BY_ID, type FollowUpId, type TutorActionId } from "@/lib/tutor/types";
 import { cn } from "@/lib/utils";
 import { confirmationAnswer, routeVoiceCommand } from "@/lib/voice/intents";
-import { listeningLanguage, speakableText, speakingLanguage } from "@/lib/voice/speech-text";
+import { listeningLanguage, speakableText, speakingLanguage, textLang } from "@/lib/voice/speech-text";
 
 type ConversationInfo = { id: string; title: string; material: { id: string; title: string } | null };
 type HistoryItem = { id: string; title: string; detail: string };
@@ -809,7 +809,7 @@ export default function AssistantPanel() {
           <h2 id={titleId} className="font-display text-base leading-tight font-semibold">
             {view === "history" ? "Your chats" : "Ask Tamari"}
           </h2>
-          <p className={cn("text-xs leading-snug", tamariState === "idle" || view === "history" ? "text-muted-foreground" : "font-medium text-primary")}>
+          <p lang={view !== "history" && tamariState !== "idle" ? tamariLang(lang) : undefined} className={cn("text-xs leading-snug", tamariState === "idle" || view === "history" ? "text-muted-foreground" : "font-medium text-primary")}>
             {view === "history" ? "Pick one to keep going" : tamariState === "idle" ? TAMARI_TAGLINE : tamariStatus(tamariState, lang)}
           </p>
         </div>
@@ -939,7 +939,7 @@ export default function AssistantPanel() {
                 {!languageAsked && (
                   <div role="group" aria-labelledby={languageId} className="flex w-full flex-col gap-2 rounded-xl bg-muted/60 p-3 text-left">
                     <p id={languageId} className="text-sm font-medium text-foreground">
-                      Anong language gusto mong gamitin natin?
+                      <span lang="fil">Anong language gusto mong gamitin natin?</span>
                       <span className="block text-xs font-normal text-muted-foreground">Which language should I answer in?</span>
                     </p>
                     <div className="flex flex-wrap gap-1.5">
@@ -973,7 +973,7 @@ export default function AssistantPanel() {
                   <i />
                   <i />
                 </span>
-                {tamariStatus("thinking", lang)}
+                <span lang={tamariLang(lang)}>{tamariStatus("thinking", lang)}</span>
               </div>
             )}
           </div>
@@ -1004,7 +1004,9 @@ export default function AssistantPanel() {
             )}
             {pendingMove && (
               <div role="group" aria-label="Move the task" className="flex flex-col gap-2 rounded-xl border border-primary/30 bg-primary-soft p-3">
-                <p className="text-sm font-medium text-foreground">{commandLines.moveAsk(lang, pendingMove.title, spokenDay(pendingMove.date))}</p>
+                <p lang={tamariLang(lang)} className="text-sm font-medium text-foreground">
+                  {commandLines.moveAsk(lang, pendingMove.title, spokenDay(pendingMove.date))}
+                </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <Button type="button" size="sm" loading={moving} onClick={confirmMove}>
                     Move to {spokenDay(pendingMove.date).split(",")[0]}
@@ -1017,7 +1019,7 @@ export default function AssistantPanel() {
               </div>
             )}
             {notice && (
-              <p role="status" className="text-xs text-muted-foreground">
+              <p role="status" lang={textLang(notice)} className="text-xs text-muted-foreground">
                 {notice}
               </p>
             )}
@@ -1117,13 +1119,13 @@ export default function AssistantPanel() {
             {voice.status === "listening" && (
               <p role="status" className="flex items-center gap-2 text-xs font-medium text-primary">
                 <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-                {tamariStatus("listening", lang)} Ask a question, or say “open the planner”.
+                <span lang={tamariLang(lang)}>{tamariStatus("listening", lang)}</span> Ask a question, or say “open the planner”.
               </p>
             )}
             {voice.status === "transcribing" && (
               <p role="status" className="flex items-center gap-2 text-xs font-medium text-primary">
                 <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-                {transcribingLine(lang)}
+                <span lang={tamariLang(lang)}>{transcribingLine(lang)}</span>
               </p>
             )}
             {voice.status === "speaking" && (

@@ -32,8 +32,13 @@ const NOTICES: Record<string, string> = {
   welcome: "You're all set. Upload your first material and RevTaw turns it into reviewers, quizzes and flashcards.",
 };
 
-/** A short line under the greeting; changes daily, Filipino now and then (UI phase §3). */
-const LINES = ["Bitaw na. Let's review.", "Small steps, every day.", "Kaya 'yan — one session at a time.", "Review a little now, remember a lot later."];
+/** A short line under the greeting; changes daily, Filipino now and then (UI phase §3), marked so screen readers say it right. */
+const LINES: ReadonlyArray<{ text: string; lang?: "fil" }> = [
+  { text: "Bitaw na. Let's review.", lang: "fil" },
+  { text: "Small steps, every day." },
+  { text: "Kaya 'yan — one session at a time.", lang: "fil" },
+  { text: "Review a little now, remember a lot later." },
+];
 
 function greetingFor(timezone: string | null, name: string | undefined): string {
   const hour = hourIn(new Date(), timezone);
@@ -130,7 +135,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           <div className="min-w-0">
             <p className="text-sm font-medium text-muted-foreground">{longDate(clock.today)}</p>
             <h1 className="mt-0.5 text-[1.75rem] font-bold leading-tight text-foreground sm:text-3xl">{greetingFor(clock.timezone, firstName)}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{line}</p>
+            <p lang={line.lang} className="mt-1 text-sm text-muted-foreground">
+              {line.text}
+            </p>
           </div>
         }
       />

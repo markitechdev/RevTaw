@@ -33,7 +33,9 @@ export default function MarketingLayout({ children }: LayoutProps<"/"> ) {
         <div className="mx-auto flex w-full max-w-6xl flex-col items-start justify-between gap-4 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:px-6">
           <div>
             <p className="font-semibold text-foreground">{BRAND.name}</p>
-            <p>{BRAND.motto} {BRAND.tagline}</p>
+            <p>
+              <span lang="fil">{BRAND.motto}</span> {BRAND.tagline}
+            </p>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/login" className="hover:text-foreground">Sign in</Link>

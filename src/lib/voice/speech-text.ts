@@ -71,6 +71,11 @@ export function looksFilipino(text: string): boolean {
   return hits >= 2 && hits / words.length >= 0.08;
 }
 
+/** The `lang` attribute for a text RevTaw shows: "fil" when it reads as Filipino or Taglish, so screen readers use a Filipino voice. */
+export function textLang(text: string | null | undefined): "fil" | undefined {
+  return text && looksFilipino(text) ? "fil" : undefined;
+}
+
 function normalizeTag(tag: string | null | undefined): string {
   const value = (tag ?? "").trim();
   if (!value) return "en-US";

@@ -54,7 +54,11 @@ export function UploadDialog({
       onClose={onClose}
       dismissible={!busy}
       title="Add study material"
-      description="Bitaw mo na kay RevTaw. Upload notes and we'll help turn them into something you can actually study."
+      description={
+        <>
+          <span lang="fil">Bitaw mo na kay RevTaw.</span> Upload notes and we&apos;ll help turn them into something you can actually study.
+        </>
+      }
       className="max-w-xl"
     >
       <Segmented

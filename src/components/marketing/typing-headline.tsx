@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 const CARET = "relative ml-[0.04em] inline-block h-0 w-[0.07em] align-baseline";
 const CARET_BAR = "absolute -bottom-[0.14em] left-0 h-[0.9em] w-full rounded-full";
 
-export function TypingHeadline({ phrases, className }: { phrases: readonly string[]; className?: string }) {
+export function TypingHeadline({ phrases, langs = [], className }: { phrases: readonly string[]; /** Each phrase's language, when it is not the page's (the Filipino motto). */ langs?: ReadonlyArray<string | undefined>; className?: string }) {
   const reduced = useReducedMotion();
   const [text, setText] = useState(phrases[0]);
   const [typing, setTyping] = useState(false);
@@ -93,7 +93,14 @@ export function TypingHeadline({ phrases, className }: { phrases: readonly strin
 
   return (
     <span ref={containerRef} className={cn("relative block", className)}>
-      <span className="sr-only">{phrases.join(" ")}</span>
+      <span className="sr-only">
+        {phrases.map((phrase, index) => (
+          <span key={phrase} lang={langs[index]}>
+            {index > 0 ? " " : ""}
+            {phrase}
+          </span>
+        ))}
+      </span>
       {/* Reduced motion: both lines, chosen by CSS so the first paint is already right. */}
       <span aria-hidden="true" className="hidden flex-col motion-reduce:flex [[data-motion=reduce]_&]:flex">
         {phrases.map((phrase, index) => (

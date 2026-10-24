@@ -16,6 +16,11 @@ export function tamariLanguage(language: ResponseLanguage): TamariLanguage {
   return "taglish";
 }
 
+/** The `lang` attribute for Tamari's own lines: Filipino and Taglish read best with a Filipino voice. */
+export function tamariLang(language: TamariLanguage): "fil" | undefined {
+  return language === "en" ? undefined : "fil";
+}
+
 /** Methods Tamari can start straight from a line (no builder in between). */
 export type TamariSessionMethod = "active_recall" | "feynman" | "practice_testing" | "error_review" | "rapid_review";
 

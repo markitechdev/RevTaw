@@ -14,6 +14,7 @@ import { routes } from "@/lib/routes";
 import type { MessageView } from "@/lib/tutor/queries";
 import { FOLLOW_UPS, GROUNDING_LABEL, TUTOR_ACTION_BY_ID, type FollowUpId, type TutorActionId } from "@/lib/tutor/types";
 import { cn } from "@/lib/utils";
+import { textLang } from "@/lib/voice/speech-text";
 
 export type MessageExtras = { notesReviewerId?: string; flashcardDeckId?: string; busy?: FollowUpId | null };
 
@@ -50,7 +51,9 @@ export const MessageBubble = memo(function MessageBubble({
             </blockquote>
           )}
           {message.action && <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide">{TUTOR_ACTION_BY_ID[message.action as TutorActionId]?.label ?? message.action}</span>}
-          <p className="whitespace-pre-wrap">{message.content}</p>
+          <p lang={textLang(message.content)} className="whitespace-pre-wrap">
+            {message.content}
+          </p>
         </div>
       </div>
     );
@@ -68,7 +71,7 @@ export const MessageBubble = memo(function MessageBubble({
             {GROUNDING_LABEL[grounding]}
           </Badge>
         </div>
-        <Markdown source={message.content} className="text-sm" />
+        <Markdown source={message.content} lang={textLang(message.content)} className="text-sm" />
         {message.visual && (
           <div className="rounded-lg border border-border bg-background p-3">
             <VisualView visual={message.visual} title="Visual" />
@@ -77,7 +80,9 @@ export const MessageBubble = memo(function MessageBubble({
         {message.additional_explanation && (
           <div className="rounded-lg border border-dashed border-border bg-muted/50 px-3 py-2 text-xs">
             <p className="font-semibold uppercase tracking-wide text-muted-foreground">Additional explanation (general knowledge)</p>
-            <p className="mt-1 text-foreground/90">{message.additional_explanation}</p>
+            <p lang={textLang(message.additional_explanation)} className="mt-1 text-foreground/90">
+              {message.additional_explanation}
+            </p>
           </div>
         )}
         {message.sources.length > 0 && (

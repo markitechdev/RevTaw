@@ -7,8 +7,9 @@ import { useAssistant, useTamari } from "@/components/assistant/assistant-provid
 import { TamariPerch } from "@/components/tamari/tamari-perch";
 import { useTamariMove } from "@/components/tamari/use-tamari-move";
 import { formatLater, LATER_COOKIE, laterLabel, OFFER_MINUTES, offerLine, parseLater } from "@/lib/tamari/coach";
-import type { TamariBubble, TamariMove } from "@/lib/tamari/lines";
+import { tamariLang, type TamariBubble, type TamariMove } from "@/lib/tamari/lines";
 import { cn } from "@/lib/utils";
+import { textLang } from "@/lib/voice/speech-text";
 
 const pixelButton =
   "inline-flex h-8 cursor-pointer items-center justify-center border-2 border-foreground px-2.5 text-xs font-bold whitespace-nowrap shadow-[2px_2px_0_0_var(--foreground)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:cursor-wait disabled:opacity-70";
@@ -155,7 +156,7 @@ export function TamariHome({ line, today, pending = false, size, lgSize }: Props
     <div ref={root} className={wrap} data-tamari-stage="" aria-busy={pending || undefined}>
       <TamariPerch state={shown?.state ?? "idle"} size={size} lgSize={lgSize} disclosure={{ expanded: open, controls: bubbleId, onToggle: toggle }} noteId={note ? noteId : undefined} />
       {note && (
-        <span id={noteId} className="sr-only">
+        <span id={noteId} lang={textLang(shown.text)} className="sr-only">
           {shown.text}
         </span>
       )}
@@ -170,7 +171,7 @@ export function TamariHome({ line, today, pending = false, size, lgSize }: Props
           <span aria-hidden="true" className="absolute top-8 -left-[1rem] block size-1 bg-foreground sm:top-[calc(50%+0.5rem)]" />
           <p className="pr-6 text-[0.8125rem] leading-snug font-semibold">
             <span className="sr-only">Tamari says: </span>
-            {shown ? shown.text : offerLine(lang)}
+            <span lang={shown ? textLang(shown.text) : tamariLang(lang)}>{shown ? shown.text : offerLine(lang)}</span>
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {shown ? (
