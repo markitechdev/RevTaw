@@ -100,10 +100,11 @@ export const getAnalyticsOverview = cache(async (): Promise<AnalyticsOverview> =
     point.cards += patch.cards ?? 0;
   };
 
+  // The reads start a day early (time zones ahead of UTC); only the window's own days count.
   let sessionsInWindow = 0;
   for (const session of sessions) {
     const date = day(session.completed_at ?? session.started_at);
-    if (session.status === "completed") sessionsInWindow += 1;
+    if (session.status === "completed" && days.has(date)) sessionsInWindow += 1;
     bump(date, { focusMinutes: session.focus_seconds / 60 });
   }
   const difficulty = new Map<QuestionDifficulty, { answered: number; correct: number }>(DIFFICULTY_ORDER.map((level) => [level, { answered: 0, correct: 0 }]));
@@ -144,16 +145,17 @@ export const getAnalyticsOverview = cache(async (): Promise<AnalyticsOverview> =
   const retrievalValues = practiced.map((row) => Number(row.retrieval_strength));
   const fading = practiced.filter((row) => row.next_review_at && row.next_review_at <= new Date().toISOString()).length;
 
+  const points = [...days.values()];
   return {
     today,
-    days: [...days.values()].map((point) => ({ ...point, focusMinutes: Math.round(point.focusMinutes) })),
+    days: points.map((point) => ({ ...point, focusMinutes: Math.round(point.focusMinutes) })),
     totals: {
       sessions: sessionsInWindow,
-      focusMinutes: Math.round(sessions.reduce((sum, session) => sum + session.focus_seconds, 0) / 60),
+      focusMinutes: Math.round(points.reduce((sum, point) => sum + point.focusMinutes, 0)),
       questions,
       accuracy: accuracyOf(questions, correctAll),
       averageScore,
-      cards: reviews.length,
+      cards: points.reduce((sum, point) => sum + point.cards, 0),
     },
     scores: scores.slice(0, 12).reverse(),
     byDifficulty: DIFFICULTY_ORDER.map((level) => ({ key: level, label: DIFFICULTY_LABEL[level], ...difficulty.get(level)!, accuracy: accuracyOf(difficulty.get(level)!.answered, difficulty.get(level)!.correct) })),
