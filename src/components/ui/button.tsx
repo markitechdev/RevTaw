@@ -12,7 +12,8 @@ const VARIANTS: Record<ButtonVariant, string> = {
   soft: "bg-primary-soft text-primary hover:bg-primary-soft/70 ring-1 ring-inset ring-primary/15",
   ghost: "text-foreground hover:bg-muted",
   danger: "bg-danger text-danger-foreground hover:bg-danger/90 shadow-sm",
-  link: "text-primary underline-offset-4 hover:underline px-0 h-auto",
+  /** Text that acts: underlined at rest like any link in text, with no button box (sizes set only its text size). */
+  link: "touch-target relative text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary",
 };
 
 /** On touch screens every size is at least 44 px tall (and icon buttons 44 px wide), a fingertip's target. */
@@ -22,6 +23,16 @@ const SIZES: Record<ButtonSize, string> = {
   lg: "h-12 px-6 text-base gap-2",
   icon: "h-10 w-10 pointer-coarse:h-11 pointer-coarse:w-11",
 };
+
+/** The link variant takes a size's text size only: no height or padding, so it sits in a sentence. */
+const LINK_SIZES: Record<ButtonSize, string> = {
+  sm: "text-sm gap-1.5",
+  md: "text-sm gap-2",
+  lg: "text-base gap-2",
+  icon: "",
+};
+
+const sizeClasses = (variant: ButtonVariant, size: ButtonSize) => (variant === "link" ? LINK_SIZES[size] : SIZES[size]);
 
 /** Shared by <Button> and buttonClasses(): a small press-down on click, motion on transform only. */
 const BASE =
@@ -49,7 +60,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         BASE,
         "disabled:cursor-not-allowed disabled:opacity-60 disabled:active:translate-y-0",
         VARIANTS[variant],
-        SIZES[size],
+        sizeClasses(variant, size),
         className,
       )}
       {...props}
@@ -70,7 +81,7 @@ export function buttonClasses({
   return cn(
     BASE,
     VARIANTS[variant],
-    SIZES[size],
+    sizeClasses(variant, size),
     className,
   );
 }
