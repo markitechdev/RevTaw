@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
 import { Button, type ButtonProps } from "@/components/ui/button";
+import { ChipGroup } from "@/components/ui/chip-group";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { startAttemptAction } from "@/lib/quizzes/actions";
@@ -60,27 +61,20 @@ export function StartAttemptButton({
           }}
         >
           {error && <Alert tone="error">{error}</Alert>}
-          <fieldset disabled={pending}>
-            <legend className="mb-1.5 text-sm font-medium">Mode</legend>
-            <div className="flex flex-col gap-2">
-              <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border p-2.5 text-sm has-checked:border-primary has-checked:bg-primary-soft">
-                <input type="radio" name="attempt-mode" value="practice" checked={mode === "practice"} onChange={() => setMode("practice")} className="mt-0.5 h-4 w-4 accent-primary" />
-                <span className="flex flex-col">
-                  <span className="font-medium">Practice</span>
-                  <span className="text-xs text-muted-foreground">
-                    {config.feedback === "immediate" ? "Check each answer as you go." : "Feedback after you finish."} Timer optional.
-                  </span>
-                </span>
-              </label>
-              <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border p-2.5 text-sm has-checked:border-primary has-checked:bg-primary-soft">
-                <input type="radio" name="attempt-mode" value="exam" checked={mode === "exam"} onChange={() => setMode("exam")} className="mt-0.5 h-4 w-4 accent-primary" />
-                <span className="flex flex-col">
-                  <span className="font-medium">Exam simulation</span>
-                  <span className="text-xs text-muted-foreground">Timed and shuffled, no hints or explanations until you submit. Submits itself when time runs out.</span>
-                </span>
-              </label>
-            </div>
-          </fieldset>
+          <ChipGroup
+            type="single"
+            look="card"
+            columns={1}
+            name="attempt-mode"
+            legend="Mode"
+            value={mode}
+            onChange={setMode}
+            disabled={pending}
+            options={[
+              { value: "practice", label: "Practice", hint: `${config.feedback === "immediate" ? "Check each answer as you go." : "Feedback after you finish."} Timer optional.` },
+              { value: "exam", label: "Exam simulation", hint: "Timed and shuffled, no hints or explanations until you submit. Submits itself when time runs out." },
+            ]}
+          />
           <Field
             id="attempt-minutes"
             label="Time limit (minutes)"

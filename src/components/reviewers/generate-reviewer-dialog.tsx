@@ -7,11 +7,11 @@ import { useState, useTransition } from "react";
 import { useTamariActivity } from "@/components/assistant/assistant-provider";
 import { Alert } from "@/components/forms/form-alert";
 import { Button, type ButtonProps } from "@/components/ui/button";
+import { ChipGroup } from "@/components/ui/chip-group";
 import { Dialog } from "@/components/ui/dialog";
 import { REVIEWER_KINDS } from "@/lib/reviewers/kinds";
 import { routes } from "@/lib/routes";
 import type { ReviewerKind } from "@/lib/supabase/database.types";
-import { cn } from "@/lib/utils";
 
 /** Starts generating a reviewer and opens it; shared by the material page dialog and the Reviewer tool. */
 export function useCreateReviewer() {
@@ -43,27 +43,18 @@ export function useCreateReviewer() {
 /** The reviewer formats as radio cards (spec §21). */
 export function ReviewerKindPicker({ value, onChange, disabled = false, legend = "Reviewer format", hideLegend = true }: { value: ReviewerKind; onChange: (kind: ReviewerKind) => void; disabled?: boolean; legend?: string; hideLegend?: boolean }) {
   return (
-    <fieldset disabled={disabled}>
-      <legend className={hideLegend ? "sr-only" : "mb-2 text-sm font-semibold text-foreground"}>{legend}</legend>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {REVIEWER_KINDS.map((item) => (
-          <label
-            key={item.id}
-            className={cn(
-              "flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-card p-3 text-sm transition-colors",
-              "hover:bg-muted/60 has-checked:border-primary has-checked:bg-primary-soft",
-              "has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
-            )}
-          >
-            <input type="radio" name="reviewer-kind" value={item.id} checked={value === item.id} onChange={() => onChange(item.id)} className="mt-0.5 h-4 w-4 shrink-0 accent-primary" />
-            <span className="flex min-w-0 flex-col">
-              <span className="font-medium text-foreground">{item.name}</span>
-              <span className="text-xs text-muted-foreground">{item.description}</span>
-            </span>
-          </label>
-        ))}
-      </div>
-    </fieldset>
+    <ChipGroup
+      type="single"
+      look="card"
+      columns={2}
+      name="reviewer-kind"
+      legend={legend}
+      hideLegend={hideLegend}
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      options={REVIEWER_KINDS.map((item) => ({ value: item.id, label: item.name, hint: item.description }))}
+    />
   );
 }
 

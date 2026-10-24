@@ -238,18 +238,7 @@ export function ExamDialogButton({
                 <Input aria-label="Custom minutes per day" type="number" min={5} max={480} value={minutes} onChange={(event) => setMinutes(Number(event.target.value) || 5)} className="max-w-24" />
               </div>
               <div>
-                <p className="mb-1.5 text-xs font-medium text-muted-foreground">Plan style</p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {PLAN_MODES.map((item) => (
-                    <label key={item.id} className="flex cursor-pointer items-start gap-2 rounded-lg border border-border p-2.5 text-sm has-checked:border-primary has-checked:bg-primary-soft">
-                      <input type="radio" name="exam-mode" value={item.id} checked={mode === item.id} onChange={() => setMode(item.id)} className="mt-0.5 h-4 w-4 accent-primary" />
-                      <span className="flex flex-col">
-                        <span className="font-medium">{item.label}</span>
-                        <span className="text-xs text-muted-foreground">{item.hint}</span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                <ChipGroup type="single" look="card" columns={2} name="exam-mode" legend="Plan style" value={mode} onChange={setMode} options={PLAN_MODES.map((item) => ({ value: item.id, label: item.label, hint: item.hint }))} />
                 {mode === "cram" && <p className="mt-2 text-xs text-warning">Cram Mode makes the most of limited time; it is not a substitute for regular spaced study.</p>}
               </div>
             </div>

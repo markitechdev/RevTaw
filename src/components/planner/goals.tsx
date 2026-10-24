@@ -8,6 +8,7 @@ import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ChipGroup } from "@/components/ui/chip-group";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -73,20 +74,17 @@ export function NewGoalButton({ materials, today, size = "sm", variant = "second
           }}
         >
           {error && <Alert tone="error">{error}</Alert>}
-          <fieldset disabled={pending}>
-            <legend className="mb-1.5 text-sm font-medium">Goal type</legend>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {GOAL_KINDS.map((item) => (
-                <label key={item.id} className={cn("flex cursor-pointer items-start gap-2 rounded-lg border border-border p-2.5 text-sm has-checked:border-primary has-checked:bg-primary-soft", item.needsMaterial && materials.length === 0 && "cursor-not-allowed opacity-60")}>
-                  <input type="radio" name="goal-kind" value={item.id} checked={kind === item.id} disabled={item.needsMaterial && materials.length === 0} onChange={() => chooseKind(item.id)} className="mt-0.5 h-4 w-4 accent-primary" />
-                  <span className="flex flex-col">
-                    <span className="font-medium">{item.label}</span>
-                    <span className="text-xs text-muted-foreground">{item.hint}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <ChipGroup
+            type="single"
+            look="card"
+            columns={2}
+            name="goal-kind"
+            legend="Goal type"
+            value={kind}
+            onChange={chooseKind}
+            disabled={pending}
+            options={GOAL_KINDS.map((item) => ({ value: item.id, label: item.label, hint: item.hint, disabled: item.needsMaterial && materials.length === 0 }))}
+          />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {kind !== "finish_material" && (
               <Field id="goal-target" label={`Target${meta.unit ? ` (${meta.unit})` : ""}`} required>

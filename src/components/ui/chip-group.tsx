@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import { useId, type ReactNode } from "react";
 
 import { CHOICE_INPUT } from "@/components/ui/choice-input";
+import { OptionCard } from "@/components/ui/option-card";
 import { cn } from "@/lib/utils";
 
 export type ChipOption<T extends string> = {
@@ -22,10 +23,14 @@ type Common<T extends string> = {
   name: string;
   options: ReadonlyArray<ChipOption<T>>;
   className?: string;
-  /** "chip" for short labels, "card" for options with a hint line. */
+  /** "chip" for short labels, "card" for options with a hint line (the shared OptionCard). */
   look?: "chip" | "card";
+  /** Columns of cards at full width: 1 in a narrow dialog, 2 in most dialogs, 3 on a page. */
+  columns?: 1 | 2 | 3;
   /** "sm" makes chips compact (filters above a list or calendar). */
   size?: "sm" | "md";
+  /** The whole group, while its form is busy. */
+  disabled?: boolean;
 };
 
 type MultipleProps<T extends string> = Common<T> & {
@@ -47,7 +52,7 @@ type SingleProps<T extends string> = Common<T> & {
  * a check mark).
  */
 export function ChipGroup<T extends string>(props: MultipleProps<T> | SingleProps<T>) {
-  const { legend, hideLegend = false, description, name, options, className, look = "chip", size = "md" } = props;
+  const { legend, hideLegend = false, description, name, options, className, look = "chip", columns = 3, size = "md", disabled = false } = props;
   const small = size === "sm" && look === "chip";
   const descriptionId = useId();
   const isSelected = (value: T) => (props.type === "multiple" ? props.value.includes(value) : props.value === value);
@@ -61,27 +66,42 @@ export function ChipGroup<T extends string>(props: MultipleProps<T> | SingleProp
   };
 
   return (
-    <fieldset className={cn("flex min-w-0 flex-col gap-2", className)} aria-describedby={description ? descriptionId : undefined}>
+    <fieldset disabled={disabled} className={cn("flex min-w-0 flex-col gap-2", className)} aria-describedby={description ? descriptionId : undefined}>
       <legend className={cn("mb-2 text-sm font-medium text-foreground", hideLegend && "sr-only")}>{legend}</legend>
       {description && (
         <p id={descriptionId} className="-mt-1 text-xs text-muted-foreground">
           {description}
         </p>
       )}
-      <div className={cn(look === "card" ? "grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3" : small ? "flex flex-wrap gap-1.5" : "flex flex-wrap gap-2")}>
+      <div className={cn(look === "card" ? cn("grid grid-cols-1 gap-2", columns >= 2 && "sm:grid-cols-2", columns === 3 && "lg:grid-cols-3") : small ? "flex flex-wrap gap-1.5" : "flex flex-wrap gap-2")}>
         {options.map((option) => {
           const selected = isSelected(option.value);
+          if (look === "card") {
+            return (
+              <OptionCard
+                key={option.value}
+                type={props.type === "multiple" ? "checkbox" : "radio"}
+                name={name}
+                value={option.value}
+                checked={selected}
+                disabled={option.disabled}
+                onChange={() => toggle(option.value)}
+                label={option.label}
+                hint={option.hint}
+              />
+            );
+          }
           return (
             <label
               key={option.value}
               className={cn(
                 "group relative flex cursor-pointer select-none items-start gap-2 border text-sm transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-[0.98]",
                 "has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
-                look === "card" ? "rounded-xl px-3 py-2.5" : small ? "items-center gap-1.5 rounded-full px-2.5 py-1 text-xs" : "rounded-full px-3.5 py-1.5",
+                small ? "items-center gap-1.5 rounded-full px-2.5 py-1 text-xs" : "rounded-full px-3.5 py-1.5",
                 // A fingertip's target on touch screens.
-                look !== "card" && "pointer-coarse:min-h-11 pointer-coarse:items-center",
+                "pointer-coarse:min-h-11 pointer-coarse:items-center",
                 selected ? "border-primary bg-primary-soft text-primary" : "border-border bg-card text-foreground hover:border-input",
-                option.disabled && "cursor-not-allowed opacity-50 active:scale-100",
+                "has-disabled:cursor-not-allowed has-disabled:opacity-60 has-disabled:active:scale-100",
               )}
             >
               <input
@@ -97,8 +117,7 @@ export function ChipGroup<T extends string>(props: MultipleProps<T> | SingleProp
                 aria-hidden="true"
                 className={cn(
                   "flex shrink-0 items-center justify-center border transition-colors",
-                  small ? "h-3.5 w-3.5" : "mt-0.5 h-4 w-4",
-                  look !== "card" && "pointer-coarse:mt-0",
+                  small ? "h-3.5 w-3.5" : "mt-0.5 h-4 w-4 pointer-coarse:mt-0",
                   props.type === "multiple" ? "rounded-[5px]" : "rounded-full",
                   selected ? "border-primary bg-primary text-primary-foreground" : "border-input bg-card",
                 )}

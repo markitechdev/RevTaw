@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
 import { Button, type ButtonProps } from "@/components/ui/button";
+import { ChipGroup } from "@/components/ui/chip-group";
 import { Dialog } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -76,20 +77,17 @@ export function NewConversationButton({
               </Select>
             </Field>
           )}
-          <fieldset disabled={pending}>
-            <legend className="mb-1.5 text-sm font-medium">How should the tutor respond?</legend>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {(["tutor", "guided"] as const).map((item) => (
-                <label key={item} className="flex cursor-pointer items-start gap-2 rounded-lg border border-border p-2.5 text-sm has-checked:border-primary has-checked:bg-primary-soft">
-                  <input type="radio" name="tutor-mode" value={item} checked={mode === item} onChange={() => setMode(item)} className="mt-0.5 h-4 w-4 accent-primary" />
-                  <span className="flex flex-col">
-                    <span className="font-medium">{TUTOR_MODE_BY_ID[item].label}</span>
-                    <span className="text-xs text-muted-foreground">{TUTOR_MODE_BY_ID[item].description}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <ChipGroup
+            type="single"
+            look="card"
+            columns={2}
+            name="tutor-mode"
+            legend="How should the tutor respond?"
+            value={mode}
+            onChange={setMode}
+            disabled={pending}
+            options={(["tutor", "guided"] as const).map((item) => ({ value: item, label: TUTOR_MODE_BY_ID[item].label, hint: TUTOR_MODE_BY_ID[item].description }))}
+          />
           <Field id="tutor-question" label="First question (optional)">
             <Textarea {...fieldA11y("tutor-question")} rows={3} maxLength={6000} value={question} disabled={pending} placeholder="e.g. Explain the Calvin cycle like I'm a beginner" onChange={(event) => setQuestion(event.target.value)} />
           </Field>

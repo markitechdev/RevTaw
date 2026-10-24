@@ -6,10 +6,12 @@ import { useId, useMemo, useState, useTransition } from "react";
 
 import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChipGroup } from "@/components/ui/chip-group";
 import { Input } from "@/components/ui/input";
+import { OptionCard } from "@/components/ui/option-card";
 import { SearchInput } from "@/components/ui/search-input";
 import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
@@ -188,34 +190,41 @@ export function SessionBuilder({
     const isRecommended = recommended.slice(0, 4).includes(id);
     const isPreferred = preferredMethods.includes(id);
     return (
-      <label
+      <OptionCard
         key={id}
-        className={cn(
-          "flex cursor-pointer items-start gap-2 rounded-lg border border-border p-3 text-sm has-checked:border-primary has-checked:bg-primary-soft",
-          "has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
-          disabled && "cursor-not-allowed opacity-60",
-        )}
-      >
-        <input type="radio" name="session-method" value={id} checked={method === id} disabled={disabled} onChange={() => chooseMethod(id)} className="mt-0.5 h-4 w-4 accent-primary" />
-        <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="flex flex-wrap items-center gap-1.5 font-medium">
+        name="session-method"
+        value={id}
+        checked={method === id}
+        disabled={disabled}
+        onChange={() => chooseMethod(id)}
+        label={
+          <span className="flex flex-wrap items-center gap-1.5">
             {info.name}
-            {isRecommended && <span className="rounded-full border border-primary/40 bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary">Recommended</span>}
+            {/* Ringed: on a picked (tinted) card a plain tinted badge would disappear. */}
+            {isRecommended && (
+              <Badge tone="primary" className="ring-1 ring-inset ring-primary/40">
+                Recommended
+              </Badge>
+            )}
             {isPreferred && (
-              <span className="inline-flex items-center gap-0.5 rounded-full bg-highlight px-2 py-0.5 text-[11px] font-medium text-highlight-foreground">
+              <Badge tone="highlight">
                 <Star className="h-3 w-3" aria-hidden="true" />
                 Your pick
-              </span>
+              </Badge>
             )}
           </span>
-          <span className="text-xs text-muted-foreground">{info.summary}</span>
-          {disabled && (
-            <span className="text-xs text-muted-foreground">
-              {id === "error_review" ? "No open mistakes to retest yet." : id === "spaced_repetition" ? "No flashcards are due right now." : id === "interleaving" ? "Needs at least two processed materials." : "Needs a processed material."}
-            </span>
-          )}
-        </span>
-      </label>
+        }
+        hint={
+          <>
+            {info.summary}
+            {disabled && (
+              <span className="block">
+                {id === "error_review" ? "No open mistakes to retest yet." : id === "spaced_repetition" ? "No flashcards are due right now." : id === "interleaving" ? "Needs at least two processed materials." : "Needs a processed material."}
+              </span>
+            )}
+          </>
+        }
+      />
     );
   };
 

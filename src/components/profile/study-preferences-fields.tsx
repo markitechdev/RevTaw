@@ -11,6 +11,7 @@ import {
   SESSION_PRESETS,
   STUDY_GOALS,
 } from "@/lib/profile/options";
+import { OptionCard } from "@/components/ui/option-card";
 import { cn } from "@/lib/utils";
 
 export type StudyPreferenceDefaults = {
@@ -49,48 +50,6 @@ export function ChoiceGroup({
   );
 }
 
-export function ChoiceCard({
-  name,
-  value,
-  label,
-  hint,
-  defaultChecked,
-  onChange,
-  compact,
-}: {
-  name: string;
-  value: string;
-  label: string;
-  hint?: string;
-  defaultChecked?: boolean;
-  onChange?: () => void;
-  compact?: boolean;
-}) {
-  return (
-    <label
-      className={cn(
-        "flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-card text-sm transition-colors",
-        "hover:bg-muted/60 has-checked:border-primary has-checked:bg-primary-soft",
-        "has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
-        compact ? "px-3 py-2" : "p-3",
-      )}
-    >
-      <input
-        type="radio"
-        name={name}
-        value={value}
-        defaultChecked={defaultChecked}
-        onChange={onChange}
-        className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
-      />
-      <span className="flex min-w-0 flex-col">
-        <span className="font-medium text-foreground">{label}</span>
-        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
-      </span>
-    </label>
-  );
-}
-
 export function StudyPreferencesFields({
   defaults,
   errors = {},
@@ -125,13 +84,12 @@ export function StudyPreferencesFields({
         className="grid grid-cols-1 gap-2 sm:grid-cols-2"
       >
         {EDUCATION_LEVELS.map((item) => (
-          <ChoiceCard
+          <OptionCard
             key={item.value}
             name="educationLevel"
             value={item.value}
             label={item.label}
             defaultChecked={educationLevel === item.value}
-            compact
           />
         ))}
       </ChoiceGroup>
@@ -143,7 +101,7 @@ export function StudyPreferencesFields({
         className="grid grid-cols-1 gap-2 sm:grid-cols-2"
       >
         {STUDY_GOALS.map((item) => (
-          <ChoiceCard
+          <OptionCard
             key={item.value}
             name="mainGoal"
             value={item.value}
@@ -162,23 +120,21 @@ export function StudyPreferencesFields({
       >
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
           {SESSION_PRESETS.map((minutes) => (
-            <ChoiceCard
+            <OptionCard
               key={minutes}
               name="sessionChoice"
               value={String(minutes)}
               label={`${minutes} min`}
               defaultChecked={sessionChoice === String(minutes)}
               onChange={() => setSessionChoice(String(minutes))}
-              compact
             />
           ))}
-          <ChoiceCard
+          <OptionCard
             name="sessionChoice"
             value={SESSION_CUSTOM}
             label="Custom"
             defaultChecked={sessionChoice === SESSION_CUSTOM}
             onChange={() => setSessionChoice(SESSION_CUSTOM)}
-            compact
           />
         </div>
 
