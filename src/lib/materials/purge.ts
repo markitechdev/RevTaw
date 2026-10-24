@@ -22,12 +22,25 @@ import { createClient } from "@/lib/supabase/server";
  */
 
 type Client = SupabaseClient<Database>;
-type Candidate = { id: string; storage_path: string | null; purged_at: string | null };
+type Candidate = { id: string; user_id: string; storage_path: string | null; purged_at: string | null };
+
+/**
+ * The object key a material may own: `<user>/<material>/<file>`, never
+ * outside its own folder. Students can write their own rows through the Data
+ * API and the archive job runs with the secret key (no Storage rules), so a
+ * path pointing anywhere else is never deleted.
+ */
+export function ownedObjectKey(row: { id: string; user_id: string; storage_path: string | null }): string | null {
+  const key = row.storage_path;
+  if (!key || !key.startsWith(`${row.user_id}/${row.id}/`)) return null;
+  if (/[\\\u0000-\u001f\u007f]/.test(key) || key.split("/").some((segment) => segment === "." || segment === "..")) return null;
+  return key;
+}
 
 /** Purges the given archived materials; returns how many were finished. Never throws. */
 export async function purgeMaterials(client: Client, candidates: Candidate[]): Promise<number> {
   if (candidates.length === 0) return 0;
-  const claimed: Array<{ id: string; storage_path: string | null }> = candidates.filter((row) => row.purged_at);
+  const claimed: Array<{ id: string; user_id: string; storage_path: string | null }> = candidates.filter((row) => row.purged_at);
   const fresh = candidates.filter((row) => !row.purged_at).map((row) => row.id);
   if (fresh.length > 0) {
     const { data, error } = await client
@@ -36,15 +49,21 @@ export async function purgeMaterials(client: Client, candidates: Candidate[]): P
       .in("id", fresh)
       .not("archived_at", "is", null)
       .is("purged_at", null)
-      .select("id, storage_path");
+      .select("id, user_id, storage_path");
     if (error) console.error("materials: purge claim failed", error.message);
     claimed.push(...(data ?? []));
   }
   if (claimed.length === 0) return 0;
 
   const ids = claimed.map((row) => row.id);
+  const keys: string[] = [];
+  for (const row of claimed) {
+    const key = ownedObjectKey(row);
+    if (key) keys.push(key);
+    else if (row.storage_path) console.warn(`materials: purge skipped a storage path outside material ${row.id}'s folder`);
+  }
   try {
-    await removeMaterialObjects(client, claimed.map((row) => row.storage_path ?? ""));
+    await removeMaterialObjects(client, keys);
   } catch (error) {
     console.error("materials: purge storage cleanup failed", error);
     return 0;
@@ -77,7 +96,7 @@ export async function purgeExpiredMaterials(client: Client, options: { userId?: 
   const cutoff = archiveCutoff(options.now).toISOString();
   let query = client
     .from("materials")
-    .select("id, storage_path, purged_at")
+    .select("id, user_id, storage_path, purged_at")
     .not("archived_at", "is", null)
     .or(`and(purged_at.is.null,archived_at.lte."${cutoff}"),and(purged_at.not.is.null,storage_path.not.is.null)`)
     .order("archived_at")

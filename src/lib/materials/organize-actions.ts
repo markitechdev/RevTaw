@@ -154,7 +154,7 @@ export async function purgeMaterialAction(materialId: string): Promise<OrganizeR
   const supabase = await createClient();
   const { data: material } = await supabase
     .from("materials")
-    .select("id, storage_path, archived_at, purged_at")
+    .select("id, user_id, storage_path, archived_at, purged_at")
     .eq("id", parsed.data.materialId)
     .maybeSingle();
   if (!material) return { ok: false, message: "This material no longer exists." };
