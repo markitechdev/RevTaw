@@ -8,7 +8,7 @@ import { getPreferences } from "@/lib/preferences/queries";
 import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = {
-  title: "Dashboard",
+  title: "Home page",
 };
 
 export default async function DashboardSettingsPage() {
@@ -16,7 +16,7 @@ export default async function DashboardSettingsPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Dashboard</CardTitle>
+        <CardTitle>Home page</CardTitle>
         <CardDescription>
           Pick the widgets on your{" "}
           <Link href={routes.dashboard} className={TEXT_LINK}>

@@ -222,7 +222,7 @@ export async function evaluateProblemItem(input: { itemId: string; work: string;
     ).evaluation;
   } catch (error) {
     if (!isAiError(error)) throw error;
-    evaluation = { verdict: "partial", score: 50, final_answer_correct: false, correct_steps: [], errors: [], error_type: "unclassified", feedback: "The AI checker is unavailable, so compare your working with the solution yourself." };
+    evaluation = { verdict: "partial", score: 50, final_answer_correct: false, correct_steps: [], errors: [], error_type: "unclassified", feedback: "Tamari can't check this right now, so compare your working with the solution yourself." };
   }
   const isCorrect = evaluation.score >= 60;
   const recorded = await recordItemResult(supabase, item, session, {

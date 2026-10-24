@@ -90,7 +90,7 @@ export async function saveDashboardAction(input: unknown): Promise<SavePreferenc
   return result;
 }
 
-/** Which tools are pinned to the navigation (the rest stay in More Tools). */
+/** Which tools are pinned to the navigation (the rest stay in More tools). */
 export async function saveToolsAction(input: unknown): Promise<SavePreferencesResult> {
   const parsed = toolsInput.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);

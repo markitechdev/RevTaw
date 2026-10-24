@@ -72,10 +72,10 @@ export const FOLLOW_UP_IDS = FOLLOW_UPS.map((item) => item.id) as [FollowUpId, .
 export const TUTOR_MODES: ReadonlyArray<{ id: TutorMode; label: string; description: string }> = [
   { id: "tutor", label: "Direct answers", description: "Shortest clear answer first, then options to go deeper." },
   { id: "guided", label: "Guide me", description: "Hints and leading questions instead of the answer." },
-  { id: "socratic", label: "Socratic questioning", description: "The tutor answers with questions that test your reasoning." },
+  { id: "socratic", label: "Socratic questioning", description: "Tamari answers with questions that test your reasoning." },
   { id: "elaborative", label: "Elaborative interrogation", description: "Why and how chains until the cause is clear." },
-  { id: "self_explanation", label: "Self-explanation", description: "You explain each step of a solution; the tutor checks the reasoning." },
-  { id: "teach_back", label: "Teach-back", description: "The AI is the learner: you teach, it asks when something is unclear." },
+  { id: "self_explanation", label: "Self-explanation", description: "You explain each step of a solution; Tamari checks the reasoning." },
+  { id: "teach_back", label: "Teach-back", description: "Tamari plays the learner: you teach, and Tamari asks when something is unclear." },
 ];
 
 export const TUTOR_MODE_BY_ID: Record<TutorMode, { id: TutorMode; label: string; description: string }> = Object.fromEntries(TUTOR_MODES.map((mode) => [mode.id, mode])) as Record<

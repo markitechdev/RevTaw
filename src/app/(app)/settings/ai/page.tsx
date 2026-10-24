@@ -25,7 +25,7 @@ export default async function AiSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>How Tamari explains</CardTitle>
-          <CardDescription>The tone and how deep explanations go, for Tamari and the AI Tutor. Asking for something else in a message always wins for that answer.</CardDescription>
+          <CardDescription>The tone and how deep Tamari&apos;s explanations go, in the panel and on Ask Tamari. Asking for something else in a message always wins for that answer.</CardDescription>
         </CardHeader>
         <CardContent>
           <AiPreferencesForm initial={preferences.ai} />

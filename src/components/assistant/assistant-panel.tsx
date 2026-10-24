@@ -872,7 +872,7 @@ export default function AssistantPanel() {
           </div>
           <div className="border-t border-border px-4 py-3">
             <Link href={routes.tutor} onClick={hide} className={cn("text-sm", TEXT_LINK)}>
-              Open the AI Tutor for every chat and study mode
+              Open Ask Tamari for every chat and study mode
             </Link>
           </div>
         </div>

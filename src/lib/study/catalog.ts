@@ -234,7 +234,7 @@ export const METHOD_BEHAVIOR: Record<StudyMethodId, MethodBehavior> = {
     goals: ["understand", "master_topic"],
     requiresMaterial: true,
     availableIn: "now",
-    behavior: "The AI plays a curious beginner: it asks you to teach a concept, interrupts with the questions a learner would ask whenever something is unclear or skipped, and the session ends with a teaching score, strengths, missing concepts and one suggested improvement.",
+    behavior: "Tamari plays a curious beginner: it asks you to teach a concept, interrupts with the questions a learner would ask whenever something is unclear or skipped, and the session ends with a teaching score, strengths, missing concepts and one suggested improvement.",
   },
   cumulative_review: {
     howItHelps: "Mixing old lessons back in keeps them from fading while you learn the new ones.",

@@ -21,7 +21,7 @@ export default function NotFound() {
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             <Link href={routes.dashboard} className={buttonClasses({ size: "sm" })}>
-              Go to dashboard
+              Go to Home
             </Link>
             <Link href={routes.home} className={buttonClasses({ variant: "secondary", size: "sm" })}>
               Back to home

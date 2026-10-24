@@ -60,6 +60,6 @@ export async function quickSearch(raw: string): Promise<QuickResult[]> {
   for (const row of exams.data ?? []) results.push({ type: "exam", id: row.id, title: row.title, subtitle: `Exam on ${row.exam_date}`, href: `${routes.planner}/${row.id}` });
   for (const row of quizzes.data ?? []) results.push({ type: "quiz", id: row.id, title: row.title, subtitle: "Quiz", href: `${routes.quiz}/${row.id}` });
   for (const row of decks.data ?? []) results.push({ type: "deck", id: row.id, title: row.title, subtitle: `${row.card_count} card${row.card_count === 1 ? "" : "s"}`, href: `${routes.flashcards}/${row.id}` });
-  for (const row of conversations.data ?? []) results.push({ type: "conversation", id: row.id, title: row.title, subtitle: "AI Tutor conversation", href: `${routes.tutor}/${row.id}` });
+  for (const row of conversations.data ?? []) results.push({ type: "conversation", id: row.id, title: row.title, subtitle: "Chat with Tamari", href: `${routes.tutor}/${row.id}` });
   return results;
 }

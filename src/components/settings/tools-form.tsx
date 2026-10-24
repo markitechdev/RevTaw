@@ -12,7 +12,7 @@ import { DEFAULT_PINNED_TOOLS, TOOL_IDS, type ToolId } from "@/lib/preferences/o
 
 /**
  * My RevTaw Tools (UI phase §9): choose which tools sit in the navigation.
- * Unpinned tools are never gone — they stay one click away under More Tools
+ * Unpinned tools are never gone — they stay one click away under More tools
  * and in the command menu.
  */
 export function ToolsForm({ pinned }: { pinned: ToolId[] }) {
@@ -75,7 +75,7 @@ export function ToolsForm({ pinned }: { pinned: ToolId[] }) {
           Reset to default
         </Button>
         <span className="text-xs text-muted-foreground" role="status" aria-live="polite">
-          {pending ? "Saving…" : "Changes save automatically. Tools you turn off stay under More Tools."}
+          {pending ? "Saving…" : "Changes save automatically. Tools you turn off stay under More tools."}
         </span>
       </div>
     </div>

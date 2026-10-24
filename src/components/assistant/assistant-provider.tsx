@@ -34,7 +34,7 @@ export function openAssistant(request: AssistantRequest = {}): void {
   window.dispatchEvent(new CustomEvent<AssistantRequest>(ASSISTANT_EVENT, { detail: request }));
 }
 
-/** How the chat button behaves on a page: everywhere, desktop only (pages with bottom actions on phones), or not at all (a quiz in progress, the AI Tutor itself). */
+/** How the chat button behaves on a page: everywhere, desktop only (pages with bottom actions on phones), or not at all (a quiz in progress, Ask Tamari itself). */
 export type LauncherMode = "visible" | "desktop" | "hidden";
 /** What the current page told Tamari. `ref` is null on pages that only change the floating button. */
 export type RegisteredPage = { ref: PageContextRef | null; label: string; materialId: string | null; launcher: LauncherMode; suggestions: string[] };
@@ -404,7 +404,7 @@ export function AssistantPage({
   return null;
 }
 
-/** A page without context of its own that still changes the chat button (the AI Tutor, a quiz in progress). */
+/** A page without context of its own that still changes the chat button (Ask Tamari, a quiz in progress). */
 export function AssistantLauncher({ mode }: { mode: LauncherMode }) {
   const assistant = useContext(AssistantContext);
   const register = assistant?.register;

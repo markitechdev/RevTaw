@@ -33,7 +33,7 @@ export async function listConversations(filters: { materialId?: string; limit?: 
   return (data ?? []) as unknown as ConversationListItem[];
 }
 
-/** One page of the AI Tutor page, latest message first (the id breaks ties, so pages never overlap). */
+/** One page of the Ask Tamari page, latest message first (the id breaks ties, so pages never overlap). */
 export async function listConversationsPage(page: number, pageSize: number): Promise<Page<ConversationListItem>> {
   const supabase = await createClient();
   return fetchPage<ConversationListItem>(

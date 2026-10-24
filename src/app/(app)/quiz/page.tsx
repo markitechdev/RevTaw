@@ -19,7 +19,7 @@ import { QUESTION_TYPE_BY_ID, QUIZ_MODE_LABEL } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = {
-  title: "Quiz",
+  title: "Quizzes",
 };
 
 export default async function QuizPage({ searchParams }: PageProps<"/quiz">) {

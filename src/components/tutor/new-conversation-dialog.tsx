@@ -54,7 +54,7 @@ export function NewConversationButton({
         <MessageCircle className="h-4 w-4" aria-hidden="true" />
         {children}
       </Button>
-      <Dialog open={open} onClose={() => !pending && setOpen(false)} dismissible={!pending} title="Ask the tutor" description="Pick a material so answers stay grounded in it and cite their sources.">
+      <Dialog open={open} onClose={() => !pending && setOpen(false)} dismissible={!pending} title="Ask Tamari" description="Pick a material so answers stay grounded in it and cite their sources.">
         <form
           className="flex flex-col gap-4"
           noValidate
@@ -82,7 +82,7 @@ export function NewConversationButton({
             look="card"
             columns={2}
             name="tutor-mode"
-            legend="How should the tutor respond?"
+            legend="How should Tamari respond?"
             value={mode}
             onChange={setMode}
             disabled={pending}
@@ -94,7 +94,7 @@ export function NewConversationButton({
           {pending && (
             <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
               <Sparkles className="h-4 w-4 animate-pulse text-primary" aria-hidden="true" />
-              {question.trim() ? "Asking the tutor…" : "Opening the conversation…"}
+              {question.trim() ? "Asking Tamari…" : "Opening the conversation…"}
             </p>
           )}
           <div className="flex justify-end gap-2 border-t border-border pt-4">

@@ -22,14 +22,14 @@ export default function AppError({
   return (
     <ErrorState
       title="This page could not be loaded"
-      description="Nothing you did caused this. Try again, or head back to the dashboard."
+      description="Nothing you did caused this. Try again, or head back to Home."
       action={
         <>
           <Button type="button" variant="secondary" size="sm" onClick={reset}>
             Try again
           </Button>
           <Link href={routes.dashboard} className={buttonClasses({ variant: "ghost", size: "sm" })}>
-            Go to dashboard
+            Go to Home
           </Link>
         </>
       }

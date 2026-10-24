@@ -324,7 +324,7 @@ export async function compareBlurtItem(input: { itemId: string; text: string; re
     comparison = (await compareBlurt({ materialTitle: session.title, topic: item.prompt, source: item.model_answer ?? "", keyPoints: Array.isArray(item.key_points) ? (item.key_points as string[]) : [], studentText: input.text, attempt: round })).comparison;
   } catch (error) {
     if (!isAiError(error)) throw error;
-    comparison = { remembered: [], missing: [], incorrect: [], forgotten_important: [], score: 50, feedback: "The AI checker is unavailable; compare your text with the source yourself." };
+    comparison = { remembered: [], missing: [], incorrect: [], forgotten_important: [], score: 50, feedback: "Tamari can't check this right now, so compare your text with the source yourself." };
   }
   // A near-complete first blurt needs no retry; otherwise the student gets one more go.
   const final = round >= BLURT_MAX_ROUNDS || comparison.score >= 90;
@@ -437,7 +437,7 @@ export async function evaluateQuestionItem(input: { sessionId: string; question:
     evaluation = (await evaluateStudentQuestion({ materialTitle: context.material.title, chunks: context.chunks, question: input.question, expectedAnswer: input.expectedAnswer })).evaluation;
   } catch (error) {
     if (!isAiError(error)) throw error;
-    evaluation = { relevance: 50, clarity: 50, accuracy: 50, difficulty: "medium", overall: 50, feedback: "The AI coach is unavailable; the question was saved without a rating.", improved_question: input.question, model_answer: input.expectedAnswer ?? "", concept: "general" };
+    evaluation = { relevance: 50, clarity: 50, accuracy: 50, difficulty: "medium", overall: 50, feedback: "Tamari can't rate this right now; the question was saved without a rating.", improved_question: input.question, model_answer: input.expectedAnswer ?? "", concept: "general" };
   }
   const concepts = await conceptsFor(supabase, session.user_id, context, [evaluation.concept]);
   const { count } = await supabase.from("study_session_items").select("id", { count: "exact", head: true }).eq("session_id", session.id);

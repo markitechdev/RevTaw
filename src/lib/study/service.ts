@@ -422,7 +422,7 @@ export async function answerRecallItem(input: { itemId: string; response: string
       correct_points: [],
       missing_points: [],
       incorrect_points: [],
-      feedback: "The AI checker is unavailable, so compare your answer with the model answer yourself.",
+      feedback: "Tamari can't check this right now, so compare your answer with the model answer yourself.",
     };
   }
   const isCorrect = comparison.score >= 60;
@@ -493,7 +493,7 @@ export async function analyzeFeynmanItem(input: { itemId: string; explanation: s
       missing_concepts: [],
       incorrect_ideas: [],
       unnecessary_complexity: [],
-      feedback: "The AI coach is unavailable; compare your explanation with the ideal one yourself.",
+      feedback: "Tamari can't check this right now, so compare your explanation with the ideal one yourself.",
       improve_prompt: "Re-read the source and add anything you skipped.",
     };
   }

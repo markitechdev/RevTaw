@@ -18,7 +18,7 @@ const GROUPS = [
     label: "Preferences",
     items: [
       { href: routes.settingsAppearance, label: "Appearance" },
-      { href: routes.settingsDashboard, label: "Dashboard" },
+      { href: routes.settingsDashboard, label: "Home page" },
       { href: routes.settingsTools, label: "RevTaw tools" },
       { href: routes.settingsAi, label: "Tamari & AI" },
       { href: routes.settingsPreferences, label: "Study" },

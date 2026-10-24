@@ -17,7 +17,7 @@ import { listReviewersPage } from "@/lib/reviewers/queries";
 import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = {
-  title: "Notes",
+  title: "Reviewers",
 };
 
 export default async function NotesPage({ searchParams }: PageProps<"/notes">) {
@@ -32,7 +32,7 @@ export default async function NotesPage({ searchParams }: PageProps<"/notes">) {
     <div className="flex flex-col gap-6">
       {notice && <Alert tone="success">{notice}</Alert>}
       <PageHeader
-        title="Notes"
+        title="Reviewers"
         description="Reviewers generated from your materials. Every section is editable, and any section can be regenerated without touching the rest."
         actions={
           <Link href={routes.notesNew} className={buttonClasses({ size: "sm" })}>

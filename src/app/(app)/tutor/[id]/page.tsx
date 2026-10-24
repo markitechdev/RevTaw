@@ -9,7 +9,7 @@ import { getConversation } from "@/lib/tutor/queries";
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const conversation = await getConversation(id);
-  return { title: conversation?.title ?? "AI Tutor" };
+  return { title: conversation?.title ?? "Ask Tamari" };
 }
 
 export default async function ConversationPage({ params }: PageProps<"/tutor/[id]">) {

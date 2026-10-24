@@ -12,7 +12,7 @@ import { isBuilderMethod, METHOD_BEHAVIOR } from "@/lib/study/catalog";
 import { STUDY_METHODS } from "@/lib/study/methods";
 
 export const metadata: Metadata = {
-  title: "Study Methods",
+  title: "Study methods",
 };
 
 function startHref(id: string): string | null {

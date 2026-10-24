@@ -36,7 +36,7 @@ export default async function ReviewerPage({ params }: PageProps<"/notes/[id]">)
       <TrackReviewerOpen reviewerId={reviewer.id} />
 
       <DetailHeader
-        back={{ href: routes.notes, label: "Notes" }}
+        back={{ href: routes.notes, label: "Reviewers" }}
         badges={
           <>
             <Badge tone="primary">{kind.name}</Badge>

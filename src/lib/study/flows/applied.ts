@@ -127,7 +127,7 @@ export async function evaluateScenarioItem(input: { itemId: string; choice: numb
     ).evaluation;
   } catch (error) {
     if (!isAiError(error)) throw error;
-    evaluation = { justification_score: 50, strengths: [], gaps: [], feedback: "The AI checker is unavailable, so compare your reasoning with the rationale yourself." };
+    evaluation = { justification_score: 50, strengths: [], gaps: [], feedback: "Tamari can't check this right now, so compare your reasoning with the rationale yourself." };
   }
   const score = scenarioScore(correctChoice, evaluation.justification_score);
   const isCorrect = correctChoice && evaluation.justification_score >= 40;
@@ -208,8 +208,8 @@ export async function evaluateCaseItem(input: { itemId: string; answer: CaseAnsw
     evaluation = (await evaluateCaseAnalysis({ materialTitle: session.title, caseText: view.text, model, answer })).evaluation;
   } catch (error) {
     if (!isAiError(error)) throw error;
-    const neutral = { score: 50, feedback: "Not checked — the AI examiner is unavailable." };
-    evaluation = { fields: { problem: neutral, evidence: neutral, solutions: neutral, best_solution: neutral, justification: neutral }, overall: 50, strengths: [], gaps: [], feedback: "The AI examiner is unavailable, so compare your analysis with the expert one yourself." };
+    const neutral = { score: 50, feedback: "Not checked — Tamari can't check this right now." };
+    evaluation = { fields: { problem: neutral, evidence: neutral, solutions: neutral, best_solution: neutral, justification: neutral }, overall: 50, strengths: [], gaps: [], feedback: "Tamari can't check this right now, so compare your analysis with the expert one yourself." };
   }
   const isCorrect = evaluation.overall >= 60;
   await recordItemResult(supabase, item, session, {

@@ -886,7 +886,7 @@ export function tutorEvaluationHeuristically(prompt: string) {
     score,
     strengths: substantive.length ? [`Gave ${substantive.length} reasoned answer${substantive.length === 1 ? "" : "s"} in your own words.`] : [],
     missing_concepts: substantive.length < turns.length ? ["Some replies were too short to show reasoning."] : [],
-    suggestion: score >= 70 ? "Strong reasoning — try a practice test on this material next." : "Answer each question with a reason, not just a word; the tutor can only help with what you explain.",
+    suggestion: score >= 70 ? "Strong reasoning — try a practice test on this material next." : "Answer each question with a reason, not just a word; Tamari can only help with what you explain.",
     concepts_covered: concepts,
   };
 }

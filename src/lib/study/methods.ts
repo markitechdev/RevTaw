@@ -72,7 +72,7 @@ export const STUDY_METHODS: ReadonlyArray<StudyMethod> = [
   { id: "error_review", name: "Error Review", summary: "Revisit and retest past mistakes.", bestFor: "Breaking repeated errors" },
   { id: "rapid_review", name: "Rapid Review", summary: "Short sessions on the highest-value points.", bestFor: "Very little time before a test" },
   { id: "smart_study", name: "Tamari's Study Plan", summary: "Tamari plans the blocks from your mastery, mistakes, due reviews and next exam. Ako na bahala.", bestFor: "When you do not want to choose a method" },
-  { id: "teach_back", name: "Teach-Back", summary: "You teach; the AI learner asks whenever something is unclear.", bestFor: "Proving you can explain a topic end to end" },
+  { id: "teach_back", name: "Teach-Back", summary: "You teach; Tamari plays the learner and asks whenever something is unclear.", bestFor: "Proving you can explain a topic end to end" },
   { id: "cumulative_review", name: "Cumulative Review", summary: "Mostly current material, with older lessons mixed back in.", bestFor: "Keeping earlier chapters alive" },
   { id: "mixed_practice", name: "Mixed Practice", summary: "Unpredictable question formats in one test.", bestFor: "Exams that mix formats" },
   { id: "exam_simulation", name: "Exam Simulation", summary: "Timed, shuffled, no hints, auto-submitted.", bestFor: "The final rehearsal" },

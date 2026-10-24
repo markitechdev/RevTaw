@@ -11,7 +11,7 @@ import { listMaterials } from "@/lib/materials/queries";
 import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = {
-  title: "Create a reviewer",
+  title: "New reviewer",
 };
 
 export default async function NewReviewerPage({ searchParams }: PageProps<"/notes/new">) {
@@ -21,7 +21,7 @@ export default async function NewReviewerPage({ searchParams }: PageProps<"/note
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader back={{ href: routes.notes, label: "Notes" }} title="Create a reviewer" description="Turn one of your materials into study notes: a complete reviewer, a summary, Cornell notes, a cheat sheet and more." />
+      <PageHeader back={{ href: routes.notes, label: "Reviewers" }} title="New reviewer" description="Turn one of your materials into study notes: a complete reviewer, a summary, Cornell notes, a cheat sheet and more." />
       {materials.length === 0 ? (
         <EmptyState
           icon={ScrollText}

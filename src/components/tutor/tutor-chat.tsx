@@ -75,7 +75,7 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
       if (!response.ok || !body.reply || !body.assistantMessageId) {
         setMessages((state) => state.filter((message) => message.id !== optimistic.id));
         setDraft(content);
-        setError(body.error ?? "The tutor could not reply.");
+        setError(body.error ?? "Tamari could not reply.");
         return;
       }
       const reply = body.reply as unknown as { answer: string; grounding: MessageView["grounding"]; sources: MessageView["sources"]; additional_explanation: string | null; follow_ups: FollowUpId[]; flashcard: MessageView["flashcard"]; visual?: MessageView["visual"] };
@@ -153,7 +153,7 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
   return (
     <div className="flex min-h-[70vh] flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <BackLink href={session ? routes.study : routes.tutor} label={session ? "Study" : "AI Tutor"} />
+        <BackLink href={session ? routes.study : routes.tutor} label={session ? "Study" : "Ask Tamari"} />
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
           <div className="flex min-w-0 flex-col gap-1">
             <h1 className="truncate font-display text-base font-medium tracking-display">{conversation.title}</h1>
@@ -255,12 +255,12 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
           <div className="flex items-end gap-2">
             <Textarea
               ref={textarea}
-              aria-label="Message the tutor"
+              aria-label="Message Tamari"
               rows={2}
               maxLength={6000}
               value={draft}
               disabled={sending}
-              placeholder={mode === "guided" ? "Tell the tutor what you are stuck on…" : "Ask a question, or pick an action above…"}
+              placeholder={mode === "guided" ? "Tell Tamari what you are stuck on…" : "Ask a question, or pick an action above…"}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {

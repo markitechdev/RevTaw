@@ -31,7 +31,7 @@ function NavLink({ item, active, onNavigate, compact = false }: { item: NavItem;
 
 /**
  * The app navigation (UI phase §9, §12): Home and the pinned tools in Main,
- * Create and Learn, then More Tools with everything else and a shortcut to
+ * Create and Learn, then More tools with everything else and a shortcut to
  * choose what is pinned. Used by the sidebar and the phone menu.
  */
 export function SidebarNav({ pinned, onNavigate, className }: { pinned: readonly ToolId[]; onNavigate?: () => void; className?: string }) {

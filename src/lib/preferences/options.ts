@@ -91,7 +91,7 @@ export function normalizeDashboard(value: { order?: readonly unknown[]; hidden?:
 /* ------------------------------------------------------------------ */
 
 /**
- * Tools a student can pin to the navigation or leave in More Tools (§9, §12).
+ * Tools a student can pin to the navigation or leave in More tools (§9, §12).
  * Home and Settings are always there and are not listed. The labels, icons
  * and links live in src/components/app/nav-items.ts.
  */

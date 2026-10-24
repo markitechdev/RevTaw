@@ -62,7 +62,7 @@ export function StudyTools({
             <NewQuizButton materialId={materialId} disabled={!ready} size="sm" variant="secondary" />
             <NewDeckButton materialId={materialId} disabled={!ready} size="sm" variant="secondary" />
             <NewConversationButton materialId={materialId} disabled={!ready} size="sm" variant="secondary">
-              Ask the tutor
+              Ask Tamari
             </NewConversationButton>
             <ScheduleReviewsButton materialId={materialId} scheduled={scheduledReviews} disabled={!ready} size="sm" variant="secondary" />
           </div>

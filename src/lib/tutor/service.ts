@@ -247,7 +247,7 @@ export async function addMessageToNotes(messageId: string): Promise<{ reviewerId
     .select("id, user_id, content, role, conversation:tutor_conversations!tutor_messages_conversation_fk(id, material_id, title)")
     .eq("id", messageId)
     .maybeSingle();
-  if (!message || message.role !== "assistant") throw new ServiceError("Only tutor answers can be added to notes.", 400);
+  if (!message || message.role !== "assistant") throw new ServiceError("Only Tamari's answers can be added to notes.", 400);
   const conversation = message.conversation as unknown as { id: string; material_id: string | null; title: string } | null;
   if (!conversation?.material_id) throw new ServiceError("Notes need a material. Start the conversation from a material to save answers.", 400);
 
@@ -269,13 +269,13 @@ export async function addMessageToNotes(messageId: string): Promise<{ reviewerId
     const { data: material } = await supabase.from("materials").select("title").eq("id", materialId).maybeSingle();
     const { data: created, error } = await supabase
       .from("reviewers")
-      .insert({ user_id: message.user_id, material_id: materialId, kind: "bullet_notes", title: clampTitle(`Tutor notes — ${material?.title ?? "material"}`), status: "ready", provider: "tutor" })
+      .insert({ user_id: message.user_id, material_id: materialId, kind: "bullet_notes", title: clampTitle(`Tamari's notes — ${material?.title ?? "material"}`), status: "ready", provider: "tutor" })
       .select("id")
       .single();
     if (error || !created) throw new Error(`reviewers: insert failed: ${error?.message}`);
     return created;
   }, (id) => supabase.from("reviewers").delete().eq("id", id));
-  const heading = (previous?.selection ?? previous?.content ?? "Tutor answer").replace(/\s+/g, " ").slice(0, 200);
+  const heading = (previous?.selection ?? previous?.content ?? "Tamari's answer").replace(/\s+/g, " ").slice(0, 200);
   await insertAtEnd(
     () => supabase.from("reviewer_sections").select("position").eq("reviewer_id", reviewer.id).order("position", { ascending: false }).limit(1).maybeSingle(),
     (position) => supabase.from("reviewer_sections").insert({ reviewer_id: reviewer.id, user_id: message.user_id, position, heading, content: message.content.slice(0, 20000) }),
@@ -342,7 +342,7 @@ export async function createFlashcardFromMessage(messageId: string, draft: { fro
     const { data: material } = await supabase.from("materials").select("title").eq("id", materialId).maybeSingle();
     const { data: created, error } = await supabase
       .from("flashcard_decks")
-      .insert({ user_id: message.user_id, material_id: materialId, title: clampTitle(`Tutor cards — ${material?.title ?? "material"}`), status: "ready", provider: "tutor" })
+      .insert({ user_id: message.user_id, material_id: materialId, title: clampTitle(`Tamari's cards — ${material?.title ?? "material"}`), status: "ready", provider: "tutor" })
       .select("id")
       .single();
     if (error || !created) throw new Error(`flashcard_decks: insert failed: ${error?.message}`);
@@ -426,14 +426,14 @@ export async function completeTutorSession(sessionId: string): Promise<SessionSu
   const history = (rows ?? []).map((row) => ({ role: row.role as "user" | "assistant", content: row.content }));
   const studentTurns = history.filter((turn) => turn.role === "user").length;
 
-  let evaluation = { score: 0, strengths: [] as string[], missing_concepts: [] as string[], suggestion: "Answer the tutor's questions in your own words next time; the evaluation needs your reasoning.", concepts_covered: [] as string[] };
+  let evaluation = { score: 0, strengths: [] as string[], missing_concepts: [] as string[], suggestion: "Answer Tamari's questions in your own words next time; the evaluation needs your reasoning.", concepts_covered: [] as string[] };
   if (studentTurns > 0) {
     try {
       const { data: material } = session.material_id ? await supabase.from("materials").select("title").eq("id", session.material_id).maybeSingle() : { data: null };
       evaluation = (await evaluateTutorSession({ mode: state.mode ?? "socratic", materialTitle: material?.title ?? null, history })).evaluation;
     } catch (error) {
       if (!isAiError(error)) throw error;
-      evaluation.suggestion = "The AI coach was unavailable for the evaluation; re-read the conversation and note what you could not answer.";
+      evaluation.suggestion = "Tamari couldn't evaluate this session; re-read the conversation and note what you could not answer.";
     }
   }
   const accuracyItems = Math.max(studentTurns, 1);

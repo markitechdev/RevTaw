@@ -197,7 +197,7 @@ export async function submitReadingSummary(input: { sessionId: string; summary: 
     comparison = (await compareBlurt({ materialTitle: session.title, topic: "the whole reading", source, keyPoints, studentText: input.summary, attempt: 2 })).comparison;
   } catch (error) {
     if (!isAiError(error)) throw error;
-    comparison = { remembered: [], missing: [], incorrect: [], forgotten_important: [], score: 50, feedback: "The AI checker is unavailable, so compare your summary with the sections yourself." };
+    comparison = { remembered: [], missing: [], incorrect: [], forgotten_important: [], score: 50, feedback: "Tamari can't check this right now, so compare your summary with the sections yourself." };
   }
   const position = await nextPosition(supabase, session.id);
   const { data: inserted, error } = await supabase

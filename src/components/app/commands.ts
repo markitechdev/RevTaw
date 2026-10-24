@@ -83,7 +83,7 @@ const METHODS: Command[] = BUILDER_METHOD_IDS.map((id) => ({
 const SETTINGS: Command[] = [
   { id: "settings-profile", label: "Profile settings", keywords: "name", href: routes.settingsProfile },
   { id: "settings-study", label: "Study preferences", keywords: "level goal session length minutes methods time zone", href: routes.settingsPreferences },
-  { id: "settings-dashboard", label: "Customize dashboard", keywords: "widgets home layout", href: routes.settingsDashboard },
+  { id: "settings-dashboard", label: "Customize Home", keywords: "widgets home dashboard layout", href: routes.settingsDashboard },
   { id: "settings-tools", label: "Customize RevTaw tools", keywords: "navigation sidebar pin more tools", href: routes.settingsTools },
   { id: "settings-account", label: "Account settings", keywords: "password delete sign out", href: routes.settingsAccount },
 ].map((item) => ({ ...item, icon: SETTINGS_ITEM.icon, hint: "Settings" }));

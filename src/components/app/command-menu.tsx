@@ -20,7 +20,7 @@ type Group = { id: string; label: string; options: Option[] };
 const RESULT_GROUPS: ReadonlyArray<{ label: string; types: QuickResultType[] }> = [
   { label: "Materials", types: ["material"] },
   { label: "Topics", types: ["topic"] },
-  { label: "Notes", types: ["note"] },
+  { label: "Reviewers", types: ["note"] },
   { label: "Planner", types: ["exam", "task"] },
   { label: "Quizzes", types: ["quiz"] },
   { label: "Flashcards", types: ["deck"] },

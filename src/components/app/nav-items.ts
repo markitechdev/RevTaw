@@ -23,7 +23,7 @@ import { routes } from "@/lib/routes";
 
 /**
  * Navigation (UI phase §9, §12): Home, then the student's pinned tools in
- * three groups — Main, Create, Learn — and everything else under More Tools.
+ * three groups — Main, Create, Learn — and everything else under More tools.
  * Client-safe; icons are resolved in client components.
  */
 
@@ -34,7 +34,7 @@ export type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
-  /** One line for More Tools, the tools settings page and the command menu. */
+  /** One line for More tools, the tools settings page and the command menu. */
   description: string;
   group: NavGroup;
 };
@@ -46,17 +46,17 @@ export const TOOLS: Record<ToolId, NavItem> = {
   study: { id: "study", href: routes.study, label: "Study", icon: BookOpenCheck, description: "Start a session with any study method.", group: "main" },
   materials: { id: "materials", href: routes.materials, label: "Materials", icon: FolderOpen, description: "Your files and notes, by subject and folder.", group: "main" },
   planner: { id: "planner", href: routes.planner, label: "Planner", icon: CalendarDays, description: "Exams, study plans, tasks and goals.", group: "main" },
-  quiz: { id: "quiz", href: routes.quiz, label: "Quiz", icon: ListChecks, description: "Generate quizzes and practice tests.", group: "create" },
+  quiz: { id: "quiz", href: routes.quiz, label: "Quizzes", icon: ListChecks, description: "Generate quizzes and practice tests.", group: "create" },
   flashcards: { id: "flashcards", href: routes.flashcards, label: "Flashcards", icon: Layers, description: "Decks with spaced repetition.", group: "create" },
-  reviewer: { id: "reviewer", href: routes.notesNew, label: "Reviewer", icon: ScrollText, description: "Turn a material into a reviewer, summary or cheat sheet.", group: "create" },
-  notes: { id: "notes", href: routes.notes, label: "Notes", icon: NotebookPen, description: "Your reviewers and saved notes.", group: "create" },
-  methods: { id: "methods", href: routes.methods, label: "Study Methods", icon: Lightbulb, description: "Every method, what it is for and when to use it.", group: "learn" },
+  reviewer: { id: "reviewer", href: routes.notesNew, label: "New reviewer", icon: ScrollText, description: "Turn a material into a reviewer, summary or cheat sheet.", group: "create" },
+  notes: { id: "notes", href: routes.notes, label: "Reviewers", icon: NotebookPen, description: "Your reviewers, and the answers you saved from Tamari.", group: "create" },
+  methods: { id: "methods", href: routes.methods, label: "Study methods", icon: Lightbulb, description: "Every method, what it is for and when to use it.", group: "learn" },
   progress: { id: "progress", href: routes.progress, label: "Progress", icon: TrendingUp, description: "Mastery, analytics and weak topics.", group: "learn" },
-  tutor: { id: "tutor", href: routes.tutor, label: "AI Tutor", icon: MessageSquare, description: "Long conversations about a material, in tutor modes.", group: "learn" },
-  mistakes: { id: "mistakes", href: routes.mistakes, label: "Mistake Notebook", icon: TriangleAlert, description: "Every wrong answer, waiting for a retest.", group: "learn" },
-  memory: { id: "memory", href: routes.memoryAids, label: "Memory Aids", icon: Brain, description: "Mnemonics, memory palaces and stories.", group: "learn" },
-  map: { id: "map", href: routes.studyMap, label: "Study Map", icon: Network, description: "How your concepts connect, colored by mastery.", group: "learn" },
-  achievements: { id: "achievements", href: routes.achievements, label: "Badges", icon: Award, description: "Levels, XP and badges.", group: "learn" },
+  tutor: { id: "tutor", href: routes.tutor, label: "Ask Tamari", icon: MessageSquare, description: "Longer chats with Tamari about a material, in any tutor mode.", group: "learn" },
+  mistakes: { id: "mistakes", href: routes.mistakes, label: "Mistake notebook", icon: TriangleAlert, description: "Every wrong answer, waiting for a retest.", group: "learn" },
+  memory: { id: "memory", href: routes.memoryAids, label: "Memory aids", icon: Brain, description: "Mnemonics, memory palaces and stories.", group: "learn" },
+  map: { id: "map", href: routes.studyMap, label: "Mastery map", icon: Network, description: "How your concepts connect, colored by mastery.", group: "learn" },
+  achievements: { id: "achievements", href: routes.achievements, label: "Badges and XP", icon: Award, description: "Levels, XP and badges.", group: "learn" },
 };
 
 export const NAV_GROUPS: ReadonlyArray<{ id: NavGroup; label: string }> = [
@@ -67,11 +67,11 @@ export const NAV_GROUPS: ReadonlyArray<{ id: NavGroup; label: string }> = [
 
 export type NavLayout = {
   groups: Array<{ id: NavGroup; label: string; items: NavItem[] }>;
-  /** Tools that are not pinned: shown under More Tools. */
+  /** Tools that are not pinned: shown under More tools. */
   more: NavItem[];
 };
 
-/** Pinned tools in their groups (Home first), the rest under More Tools. */
+/** Pinned tools in their groups (Home first), the rest under More tools. */
 export function navLayout(pinned: readonly ToolId[]): NavLayout {
   const shown = new Set(pinned);
   const groups = NAV_GROUPS.map((group) => ({
@@ -95,8 +95,8 @@ export function isActivePath(pathname: string, href: string): boolean {
 
 /**
  * The one item to highlight: the longest href that contains the current path,
- * so /quiz/mistakes lights up Mistake Notebook when it is in the list, and
- * Quiz when it is not.
+ * so /quiz/mistakes lights up Mistake notebook when it is in the list, and
+ * Quizzes when it is not.
  */
 export function activeHref(pathname: string, items: readonly NavItem[]): string | null {
   let best: string | null = null;

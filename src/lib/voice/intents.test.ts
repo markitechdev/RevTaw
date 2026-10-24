@@ -80,10 +80,10 @@ describe("talking to Tamari", () => {
   });
 
   it("finds an item by name, and keeps plain lists as lists", () => {
-    expect(routeVoiceCommand("Tamari, open my Calculus reviewer")).toEqual({ kind: "find", query: "calculus", type: "note", href: "/notes", label: "Notes" });
+    expect(routeVoiceCommand("Tamari, open my Calculus reviewer")).toEqual({ kind: "find", query: "calculus", type: "note", href: "/notes", label: "Reviewers" });
     expect(routeVoiceCommand("buksan ang biology quiz")).toMatchObject({ kind: "find", query: "biology", type: "quiz" });
     expect(routeVoiceCommand("open the reviewer about binary trees")).toMatchObject({ kind: "find", query: "binary trees", type: "note" });
-    expect(routeVoiceCommand("open my notes")).toEqual({ kind: "navigate", href: "/notes", label: "Notes" });
+    expect(routeVoiceCommand("open my notes")).toEqual({ kind: "navigate", href: "/notes", label: "Reviewers" });
     expect(routeVoiceCommand("open study methods")).toMatchObject({ kind: "navigate", href: "/methods" });
   });
 

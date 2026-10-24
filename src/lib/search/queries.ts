@@ -149,7 +149,7 @@ async function searchConversations(supabase: Client, query: string, terms: strin
   for (const message of messages ?? []) {
     const conversation = message.conversation as unknown as { id: string; title: string } | null;
     if (!conversation || hits.has(conversation.id)) continue;
-    hits.set(conversation.id, { id: conversation.id, title: conversation.title, snippet: snippetOf(message.content, terms), href: `${routes.tutor}/${conversation.id}`, context: message.role === "assistant" ? "Tutor said" : "You asked" });
+    hits.set(conversation.id, { id: conversation.id, title: conversation.title, snippet: snippetOf(message.content, terms), href: `${routes.tutor}/${conversation.id}`, context: message.role === "assistant" ? "Tamari said" : "You asked" });
   }
   return [...hits.values()].slice(0, PER_GROUP);
 }

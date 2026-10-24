@@ -120,7 +120,7 @@ export function TamariPreferencesForm({ initial, ai }: { initial: AssistantPrefe
           type="single"
           name="language"
           legend="Response language"
-          description="How Tamari answers you, here and in the AI Tutor. Auto answers in the language you write in, Taglish included. Generated quizzes, flashcards and reviewers keep your material's language."
+          description="How Tamari answers you, in the panel and on Ask Tamari. Auto answers in the language you write in, Taglish included. Generated quizzes, flashcards and reviewers keep your material's language."
           value={language}
           onChange={(value) => {
             setLanguage(value);

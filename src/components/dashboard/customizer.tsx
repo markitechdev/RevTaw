@@ -12,7 +12,7 @@ import { WIDGET_BY_ID, type DashboardPreferences } from "@/lib/preferences/optio
 import { cn } from "@/lib/utils";
 
 const GROUPS: ReadonlyArray<{ id: WidgetGroup; label: string; description: string }> = [
-  { id: "focus", label: "Main", description: "The top of your dashboard. The first one shows large." },
+  { id: "focus", label: "Main", description: "The top of your Home page. The first one shows large." },
   { id: "numbers", label: "At a glance", description: "Small numbers, side by side in one strip." },
   { id: "lists", label: "Lists", description: "Short lists at the bottom." },
 ];

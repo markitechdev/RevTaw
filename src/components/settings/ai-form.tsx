@@ -11,7 +11,7 @@ import { EXPLANATION_DEPTHS, RESPONSE_STYLES, type AiPreferences, type Explanati
 
 /**
  * How Tamari explains (UI phase §23–§25, §35): the tone and how deep
- * explanations go, for Tamari and the AI Tutor. The response language lives
+ * explanations go, for Tamari in the panel and on Ask Tamari. The response language lives
  * with Tamari's settings. A direct request in a message ("explain it simply")
  * always wins for that answer.
  */

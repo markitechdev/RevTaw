@@ -55,7 +55,7 @@ export function HeaderSkeleton({ actions = 1, lines = 2, back = false, eyebrow =
   );
 }
 
-/** A card in the three-column grids (Materials, Notes, Quiz, Flashcards, AI Tutor). */
+/** A card in the three-column grids (Materials, Reviewers, Quizzes, Flashcards, Ask Tamari). */
 export function CardSkeleton({ className }: { className?: string }) {
   return (
     <div className={cn("flex h-40 flex-col gap-3 rounded-xl border border-border bg-card p-4", className)} aria-hidden="true">

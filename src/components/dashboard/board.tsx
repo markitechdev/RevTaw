@@ -62,7 +62,7 @@ export function DashboardBoard({ layout, header, stage, widgets }: { layout: Das
             {header}
           </div>
         </div>
-        <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label="Customize dashboard" title="Customize dashboard" className="-mr-2 shrink-0">
+        <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-label="Customize Home" title="Customize Home" className="-mr-2 shrink-0">
           <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
           <span className="hidden sm:inline">Customize</span>
         </Button>
@@ -71,7 +71,7 @@ export function DashboardBoard({ layout, header, stage, widgets }: { layout: Das
       {visible.length === 0 ? (
         <EmptyState
           icon={LayoutGrid}
-          title="Your dashboard is empty"
+          title="Your Home page is empty"
           description="Every widget is hidden. Turn a few back on, or start over with the default layout."
           action={
             <>
@@ -124,7 +124,7 @@ export function DashboardBoard({ layout, header, stage, widgets }: { layout: Das
       <Sheet
         open={open}
         onClose={() => setOpen(false)}
-        title="Customize your dashboard"
+        title="Customize your Home page"
         description="Show what helps you, hide what doesn't. Saved to your account."
         footer={
           <>

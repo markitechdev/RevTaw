@@ -14,7 +14,7 @@ export default async function ToolsSettingsPage() {
     <Card>
       <CardHeader>
         <CardTitle>My RevTaw tools</CardTitle>
-        <CardDescription>Pin the tools you use to the navigation. The rest wait under More Tools, and the command menu (Ctrl K) reaches all of them.</CardDescription>
+        <CardDescription>Pin the tools you use to the navigation. The rest wait under More tools, and the command menu (Ctrl K) reaches all of them.</CardDescription>
       </CardHeader>
       <CardContent>
         <ToolsForm pinned={preferences.tools.pinned} />

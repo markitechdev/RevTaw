@@ -76,6 +76,6 @@ export async function POST(request: Request, context: RouteContext<"/api/tutor/c
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     console.error("tutor: send message failed", error);
-    return NextResponse.json({ error: "The tutor could not reply. Please try again." }, { status: 500 });
+    return NextResponse.json({ error: "Tamari could not reply. Please try again." }, { status: 500 });
   }
 }

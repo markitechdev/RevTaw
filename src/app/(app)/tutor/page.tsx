@@ -20,7 +20,7 @@ import { listConversationsPage } from "@/lib/tutor/queries";
 import { TUTOR_MODE_BY_ID } from "@/lib/tutor/types";
 
 export const metadata: Metadata = {
-  title: "AI Tutor",
+  title: "Ask Tamari",
 };
 
 export default async function TutorPage({ searchParams }: PageProps<"/tutor">) {
@@ -34,11 +34,11 @@ export default async function TutorPage({ searchParams }: PageProps<"/tutor">) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* The AI Tutor is the full-page version of Tamari's chat. */}
+      {/* Ask Tamari is the full-page version of Tamari's chat. */}
       <AssistantLauncher mode="hidden" />
       {notice && <Alert tone="success">{notice}</Alert>}
       <PageHeader
-        title="AI Tutor"
+        title="Ask Tamari"
         description="Ask about your materials and get answers that say which passage they come from. Highlight text in any material to ask about just that part."
         actions={<NewConversationButton materials={readyMaterials} size="sm" />}
       />
@@ -49,10 +49,10 @@ export default async function TutorPage({ searchParams }: PageProps<"/tutor">) {
           title="No conversations yet"
           description={
             readyMaterials.length === 0
-              ? "The tutor works best with a processed material to ground its answers. You can still ask general questions."
+              ? "Tamari works best with a processed material to ground its answers. You can still ask general questions."
               : "Start with a material: explain, simplify, example, analogy, quiz me, or guide me without the answer."
           }
-          action={<NewConversationButton materials={readyMaterials} size="sm">Ask the tutor</NewConversationButton>}
+          action={<NewConversationButton materials={readyMaterials} size="sm">Ask Tamari</NewConversationButton>}
         />
       ) : (
         <>
