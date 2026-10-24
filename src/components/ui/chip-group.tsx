@@ -3,6 +3,7 @@
 import { Check } from "lucide-react";
 import { useId, type ReactNode } from "react";
 
+import { CHOICE_INPUT } from "@/components/ui/choice-input";
 import { cn } from "@/lib/utils";
 
 export type ChipOption<T extends string> = {
@@ -90,7 +91,7 @@ export function ChipGroup<T extends string>(props: MultipleProps<T> | SingleProp
                 checked={selected}
                 disabled={option.disabled}
                 onChange={() => toggle(option.value)}
-                className="sr-only"
+                className={CHOICE_INPUT}
               />
               <span
                 aria-hidden="true"

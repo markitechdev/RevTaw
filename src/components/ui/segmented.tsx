@@ -2,6 +2,7 @@
 
 import { type ReactNode } from "react";
 
+import { CHOICE_INPUT } from "@/components/ui/choice-input";
 import { cn } from "@/lib/utils";
 
 /**
@@ -44,7 +45,7 @@ export function Segmented<T extends string>({
               key={option.value}
               title={option.title}
               className={cn(
-                "flex cursor-pointer select-none items-center justify-center gap-1.5 rounded-lg font-medium transition-[background-color,color,box-shadow] duration-150",
+                "relative flex cursor-pointer select-none items-center justify-center gap-1.5 rounded-lg font-medium transition-[background-color,color,box-shadow] duration-150",
                 "has-focus-visible:outline-2 has-focus-visible:outline-offset-1 has-focus-visible:outline-ring",
                 size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3 text-sm",
                 "pointer-coarse:h-11 pointer-coarse:min-w-11",
@@ -53,7 +54,7 @@ export function Segmented<T extends string>({
                 disabled && "cursor-not-allowed opacity-60",
               )}
             >
-              <input type="radio" name={name} value={option.value} checked={selected} onChange={() => onChange(option.value)} className="sr-only" />
+              <input type="radio" name={name} value={option.value} checked={selected} onChange={() => onChange(option.value)} className={CHOICE_INPUT} />
               {option.label}
             </label>
           );

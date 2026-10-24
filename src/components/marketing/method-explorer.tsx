@@ -3,6 +3,7 @@
 import { ArrowRight } from "lucide-react";
 import { useState } from "react";
 
+import { CHOICE_INPUT } from "@/components/ui/choice-input";
 import { cn } from "@/lib/utils";
 
 const METHODS = [
@@ -79,12 +80,12 @@ export function MethodExplorer() {
               <label
                 key={item.id}
                 className={cn(
-                  "cursor-pointer select-none rounded-full border px-4 py-2 text-sm font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]",
+                  "relative cursor-pointer select-none rounded-full border px-4 py-2 text-sm font-medium transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]",
                   "has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
                   active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:border-input",
                 )}
               >
-                <input type="radio" name="landing-method" value={item.id} checked={active} onChange={() => setSelected(item.id)} className="sr-only" />
+                <input type="radio" name="landing-method" value={item.id} checked={active} onChange={() => setSelected(item.id)} className={CHOICE_INPUT} />
                 {item.name}
               </label>
             );

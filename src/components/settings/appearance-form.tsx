@@ -6,6 +6,7 @@ import { useId, useRef, useState } from "react";
 import { Alert } from "@/components/forms/form-alert";
 import { useAppearance } from "@/components/theme/appearance-root";
 import { useTheme, type Theme } from "@/components/theme/theme-provider";
+import { CHOICE_INPUT } from "@/components/ui/choice-input";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { Switch } from "@/components/ui/switch";
@@ -89,12 +90,12 @@ export function AppearanceForm() {
               <label
                 key={preset.id}
                 className={cn(
-                  "flex cursor-pointer items-center gap-3 rounded-xl border p-2.5 pr-3 text-sm font-medium transition-[border-color,background-color] duration-150",
+                  "relative flex cursor-pointer items-center gap-3 rounded-xl border p-2.5 pr-3 text-sm font-medium transition-[border-color,background-color] duration-150",
                   "has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
                   selected ? "border-primary bg-primary-soft text-foreground" : "border-border bg-card text-foreground hover:border-input",
                 )}
               >
-                <input type="radio" name="accent" value={preset.id} checked={selected} onChange={() => void commit({ ...appearance, accent: preset.id })} className="sr-only" />
+                <input type="radio" name="accent" value={preset.id} checked={selected} onChange={() => void commit({ ...appearance, accent: preset.id })} className={CHOICE_INPUT} />
                 <Swatch accent={preset.id} />
                 <span className="min-w-0 flex-1 leading-tight">{preset.label}</span>
                 {selected && <Check className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />}
@@ -103,12 +104,12 @@ export function AppearanceForm() {
           })}
           <label
             className={cn(
-              "flex cursor-pointer items-center gap-3 rounded-xl border p-2.5 pr-3 text-sm font-medium transition-[border-color,background-color] duration-150",
+              "relative flex cursor-pointer items-center gap-3 rounded-xl border p-2.5 pr-3 text-sm font-medium transition-[border-color,background-color] duration-150",
               "has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
               isCustom ? "border-primary bg-primary-soft text-foreground" : "border-border bg-card text-foreground hover:border-input",
             )}
           >
-            <input type="radio" name="accent" value="custom" checked={isCustom} onChange={() => pickCustom(draft, { immediate: true })} className="sr-only" />
+            <input type="radio" name="accent" value="custom" checked={isCustom} onChange={() => pickCustom(draft, { immediate: true })} className={CHOICE_INPUT} />
             <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[conic-gradient(from_90deg,#e11d48,#f59e0b,#16a34a,#0ea5e9,#7c3aed,#e11d48)] shadow-sm ring-2 ring-card">
               <Sparkles className="h-4 w-4 text-white drop-shadow" />
             </span>
