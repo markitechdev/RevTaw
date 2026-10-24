@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { authErrorMessage } from "@/lib/auth/errors";
+import { revokeCalendarGrant } from "@/lib/calendar/sync";
 import {
   errorState,
   formString,
@@ -12,7 +13,7 @@ import {
 } from "@/lib/forms/action-state";
 import { aiInput, DEFAULT_AI } from "@/lib/preferences/schema";
 import { describeRetry, getClientAddress, rateLimit } from "@/lib/rate-limit";
-import { removeMaterialObjects } from "@/lib/materials/storage";
+import { listUserObjectPaths, removeMaterialObjects } from "@/lib/materials/storage";
 import { routes } from "@/lib/routes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { EducationLevel, StudyGoal } from "@/lib/supabase/database.types";
@@ -240,19 +241,18 @@ export async function deleteAccountAction(
     });
   }
 
-  // Storage objects are not covered by database cascades: remove every file
-  // the student uploaded before the rows that reference them disappear.
-  const supabase = await createClient();
-  const { data: materials } = await supabase.from("materials").select("storage_path");
-  const paths = (materials ?? []).map((row) => row.storage_path).filter((path): path is string => Boolean(path));
-  if (paths.length > 0) {
-    try {
-      await removeMaterialObjects(supabase, paths);
-    } catch (storageError) {
-      console.error("account: storage cleanup failed", storageError);
-      return errorState("We could not remove your uploaded files. Please try again.");
-    }
+  // Storage objects are not covered by database cascades: remove everything
+  // in the student's folder (every page of it, with or without a material
+  // row) before the rows that reference it disappear.
+  try {
+    await removeMaterialObjects(admin, await listUserObjectPaths(admin, user.id));
+  } catch (storageError) {
+    console.error("account: storage cleanup failed", storageError instanceof Error ? storageError.message : storageError);
+    return errorState("We could not remove your uploaded files. Please try again.");
   }
+
+  // Google keeps RevTaw's calendar access until it is revoked; the stored token goes with the account.
+  await revokeCalendarGrant(admin, user.id);
 
   // Deleting the auth user cascades to the profile and, through foreign keys,
   // to every other row the student owns.
@@ -262,6 +262,7 @@ export async function deleteAccountAction(
     return errorState("We could not delete your account. Please try again.");
   }
 
+  const supabase = await createClient();
   await supabase.auth.signOut();
   redirect(`${routes.login}?notice=account-deleted`);
 }

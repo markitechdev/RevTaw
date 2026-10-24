@@ -2,10 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
-import { decryptToken } from "@/lib/calendar/crypto";
-import { calendarConfigured, revokeToken } from "@/lib/calendar/google";
-import { forgetCalendarToken, reconcileCalendar } from "@/lib/calendar/sync";
-import { getServerEnv } from "@/lib/env";
+import { calendarConfigured } from "@/lib/calendar/google";
+import { reconcileCalendar, revokeCalendarGrant } from "@/lib/calendar/sync";
 import { rateLimit } from "@/lib/rate-limit";
 import { routes } from "@/lib/routes";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -40,18 +38,8 @@ export async function disconnectCalendarAction(): Promise<CalendarActionResult> 
   if (!user) return { ok: false, message: "Please sign in again." };
   const admin = createAdminClient();
   if (!admin) return { ok: false, message: "Google Calendar is not set up on this server." };
-  const { data: connection } = await admin.from("calendar_connections").select("refresh_token").eq("user_id", user.id).maybeSingle();
-  const key = getServerEnv().CALENDAR_TOKEN_KEY;
-  if (connection?.refresh_token && key) {
-    try {
-      await revokeToken(decryptToken(connection.refresh_token, user.id, key));
-    } catch (error) {
-      console.warn("calendar: could not read the token to revoke it", error instanceof Error ? error.message : error);
-    }
-  }
-  const { error } = await admin.from("calendar_connections").delete().eq("user_id", user.id);
-  forgetCalendarToken(user.id);
+  const removed = await revokeCalendarGrant(admin, user.id);
   revalidatePath(routes.settingsNotifications);
-  if (error) return { ok: false, message: "RevTaw couldn't disconnect Google Calendar. Try again." };
+  if (!removed) return { ok: false, message: "RevTaw couldn't disconnect Google Calendar. Try again." };
   return { ok: true, message: "Google Calendar is disconnected. The RevTaw Study calendar stays in your Google account until you delete it there." };
 }

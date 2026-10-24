@@ -7,7 +7,7 @@ import { after } from "next/server";
 
 import { decryptToken } from "@/lib/calendar/crypto";
 import { examEvent, examEventId, taskEvent, taskEventId } from "@/lib/calendar/events";
-import { CalendarApiError, CalendarAuthError, calendarConfigured, deleteEvent, listEvents, putEvent, refreshAccessToken, type GoogleEvent } from "@/lib/calendar/google";
+import { CalendarApiError, CalendarAuthError, calendarConfigured, deleteEvent, listEvents, putEvent, refreshAccessToken, revokeToken, type GoogleEvent } from "@/lib/calendar/google";
 import { getPublicSiteUrl, getServerEnv } from "@/lib/env";
 import { addDays, dateIn, isValidTimezone } from "@/lib/planner/dates";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -63,6 +63,28 @@ async function accessToken(userId: string, sealedRefreshToken: string): Promise<
 
 export function forgetCalendarToken(userId: string): void {
   tokens.delete(userId);
+}
+
+/**
+ * Revokes RevTaw's Google Calendar access for a student and forgets the stored
+ * token: Settings → Disconnect, and account deletion. Revoking at Google is
+ * best effort; the token is removed on RevTaw's side either way. Returns
+ * whether the stored connection was removed.
+ */
+export async function revokeCalendarGrant(client: Client, userId: string): Promise<boolean> {
+  const { data: connection } = await client.from("calendar_connections").select("refresh_token").eq("user_id", userId).maybeSingle();
+  const key = getServerEnv().CALENDAR_TOKEN_KEY;
+  if (connection?.refresh_token && key) {
+    try {
+      await revokeToken(decryptToken(connection.refresh_token, userId, key));
+    } catch (error) {
+      console.warn("calendar: could not read the token to revoke it", error instanceof Error ? error.message : error);
+    }
+  }
+  const { error } = await client.from("calendar_connections").delete().eq("user_id", userId);
+  forgetCalendarToken(userId);
+  if (error) console.error("calendar: could not remove the connection", error.message);
+  return !error;
 }
 
 function friendly(error: unknown): string {

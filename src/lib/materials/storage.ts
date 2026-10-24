@@ -47,13 +47,52 @@ export async function uploadMaterialBytes(
   }
 }
 
+/** Storage removes at most this many objects per request. */
+const REMOVE_BATCH = 500;
+
 export async function removeMaterialObjects(client: Client, paths: string[]): Promise<void> {
   const unique = [...new Set(paths.filter(Boolean))];
-  if (unique.length === 0) return;
-  const { error } = await client.storage.from(STORAGE_BUCKET).remove(unique);
-  if (error) {
-    throw new Error(`storage remove failed: ${error.message}`);
+  for (let index = 0; index < unique.length; index += REMOVE_BATCH) {
+    const { error } = await client.storage.from(STORAGE_BUCKET).remove(unique.slice(index, index + REMOVE_BATCH));
+    if (error) {
+      throw new Error(`storage remove failed: ${error.message}`);
+    }
   }
+}
+
+const LIST_PAGE = 1000;
+const LIST_CONCURRENCY = 8;
+
+/**
+ * Every object under a student's folder, whatever rows point at it. Storage
+ * lists one folder level at a time (subfolders come back without an id), a
+ * page at a time; RevTaw's keys are <user>/<material>/<file>, and a few more
+ * levels are followed in case.
+ */
+export async function listUserObjectPaths(client: Client, userId: string): Promise<string[]> {
+  const files: string[] = [];
+  let folders = [userId];
+  for (let depth = 0; depth < 4 && folders.length > 0; depth += 1) {
+    const subfolders: string[] = [];
+    for (let index = 0; index < folders.length; index += LIST_CONCURRENCY) {
+      await Promise.all(
+        folders.slice(index, index + LIST_CONCURRENCY).map(async (folder) => {
+          for (let offset = 0; ; offset += LIST_PAGE) {
+            const { data, error } = await client.storage
+              .from(STORAGE_BUCKET)
+              .list(folder, { limit: LIST_PAGE, offset, sortBy: { column: "name", order: "asc" } });
+            if (error) throw new Error(`storage list failed: ${error.message}`);
+            for (const entry of data ?? []) {
+              (entry.id ? files : subfolders).push(`${folder}/${entry.name}`);
+            }
+            if (!data || data.length < LIST_PAGE) break;
+          }
+        }),
+      );
+    }
+    folders = subfolders;
+  }
+  return files;
 }
 
 /** Returns a short-lived upload URL the browser can PUT the file to directly. */
