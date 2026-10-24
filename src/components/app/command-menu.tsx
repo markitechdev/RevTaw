@@ -70,6 +70,8 @@ export function CommandMenu({ openRequested = false, onReady }: { openRequested?
   const inputRef = useRef<HTMLInputElement>(null);
   const timer = useRef<number | undefined>(undefined);
   const request = useRef<AbortController | null>(null);
+  /** Answers already fetched while the menu is open (backspacing to an earlier query asks nothing); cleared each time it opens. */
+  const answers = useRef(new Map<string, QuickResult[]>());
   const returnFocus = useRef<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -82,6 +84,7 @@ export function CommandMenu({ openRequested = false, onReady }: { openRequested?
     const dialog = dialogRef.current;
     if (!dialog || dialog.open) return;
     returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    answers.current.clear();
     setQuery("");
     setRemote(null);
     setLoading(false);
@@ -125,6 +128,12 @@ export function CommandMenu({ openRequested = false, onReady }: { openRequested?
       setLoading(false);
       return;
     }
+    const known = answers.current.get(trimmed);
+    if (known) {
+      setRemote({ query: trimmed, results: known });
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     timer.current = window.setTimeout(async () => {
       const controller = new AbortController();
@@ -132,6 +141,10 @@ export function CommandMenu({ openRequested = false, onReady }: { openRequested?
       try {
         const response = await fetch(`/api/search/quick?q=${encodeURIComponent(trimmed)}`, { signal: controller.signal, headers: { accept: "application/json" } });
         const body = (await response.json().catch(() => ({}))) as { results?: QuickResult[] };
+        if (response.ok && Array.isArray(body.results)) {
+          if (answers.current.size >= 40) answers.current.delete(answers.current.keys().next().value!);
+          answers.current.set(trimmed, body.results);
+        }
         if (!controller.signal.aborted) setRemote({ query: trimmed, results: response.ok ? (body.results ?? []) : [] });
       } catch {
         // Aborted by the next keystroke, or offline: the commands still work.
