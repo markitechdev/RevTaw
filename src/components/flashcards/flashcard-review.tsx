@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Lightbulb, RotateCcw, Star } from "lucide-react";
+import { Layers, Lightbulb, RotateCcw, Star } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
@@ -9,6 +9,8 @@ import { Alert } from "@/components/forms/form-alert";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { BackLink } from "@/components/ui/page-header";
 import { TINT } from "@/components/ui/tint";
 import { finishReviewSessionAction, reviewCardAction, startReviewSessionAction, toggleFavoriteAction } from "@/lib/flashcards/actions";
 import type { ReviewQueueCard } from "@/lib/flashcards/queries";
@@ -225,10 +227,7 @@ export function FlashcardReview({
     return (
       <div className="flex flex-col gap-4">
         <h1 className="sr-only">{title}</h1>
-        <Link href={backHref} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          {backLabel}
-        </Link>
+        <BackLink href={backHref} label={backLabel} />
         <SessionSummaryCard
           title="Review complete"
           summary={summary}
@@ -253,28 +252,26 @@ export function FlashcardReview({
     return (
       <div className="flex flex-col gap-4">
         <h1 className="sr-only">{title}</h1>
-        <Link href={backHref} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          {backLabel}
-        </Link>
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-10 text-center">
-          <div>
-            <p className="font-medium">{mode === "due" ? "Nothing is due right now" : mode === "favorites" ? "No favorite cards yet" : "This deck has no cards"}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {mode === "due"
-                ? deckId
-                  ? "Spaced repetition only shows cards when it is time. Study the whole deck if you want extra practice."
-                  : "Spaced repetition only shows cards when it is time. Pick a deck to study it all for extra practice."
-                : "Mark cards with the star while reviewing to collect them here."}
-            </p>
-          </div>
-          {/* Somewhere to go instead of a dead end. */}
-          {mode !== "all" && (
-            <Link href={deckId ? `${routes.flashcards}/${deckId}/review?mode=all` : routes.flashcards} className={buttonClasses({ size: "sm" })}>
-              {deckId ? "Study all cards" : "Pick a deck"}
-            </Link>
-          )}
-        </div>
+        <BackLink href={backHref} label={backLabel} />
+        <EmptyState
+          icon={mode === "favorites" ? Star : Layers}
+          title={mode === "due" ? "Nothing is due right now" : mode === "favorites" ? "No favorite cards yet" : "This deck has no cards"}
+          description={
+            mode === "due"
+              ? deckId
+                ? "Spaced repetition only shows cards when it is time. Study the whole deck if you want extra practice."
+                : "Spaced repetition only shows cards when it is time. Pick a deck to study it all for extra practice."
+              : "Mark cards with the star while reviewing to collect them here."
+          }
+          // Somewhere to go instead of a dead end.
+          action={
+            mode !== "all" && (
+              <Link href={deckId ? `${routes.flashcards}/${deckId}/review?mode=all` : routes.flashcards} className={buttonClasses({ size: "sm" })}>
+                {deckId ? "Study all cards" : "Pick a deck"}
+              </Link>
+            )
+          }
+        />
       </div>
     );
   }
@@ -294,10 +291,7 @@ export function FlashcardReview({
     <div className="flex flex-col gap-4">
       <h1 className="sr-only">{title}</h1>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link href={backHref} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2" })}>
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          {backLabel}
-        </Link>
+        <BackLink href={backHref} label={backLabel} />
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <span>
             {reviewedCount} / {total} reviewed

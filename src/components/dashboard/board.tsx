@@ -7,6 +7,7 @@ import { DashboardCustomizer } from "@/components/dashboard/customizer";
 import { WidgetSkeleton } from "@/components/dashboard/widget-shell";
 import { Alert } from "@/components/forms/form-alert";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Sheet } from "@/components/ui/sheet";
 import { saveDashboardAction } from "@/lib/preferences/actions";
 import { defaultDashboard, widgetGroup } from "@/lib/preferences/dashboard-layout";
@@ -68,19 +69,21 @@ export function DashboardBoard({ layout, header, stage, widgets }: { layout: Das
       </div>
 
       {visible.length === 0 ? (
-        <div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-border p-8">
-          <LayoutGrid className="h-6 w-6 text-primary" aria-hidden="true" />
-          <p className="font-display tracking-display text-lg font-semibold">Your dashboard is empty.</p>
-          <p className="text-sm text-muted-foreground">Every widget is hidden. Turn a few back on, or start over with the default layout.</p>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" onClick={() => setOpen(true)}>
-              Choose widgets
-            </Button>
-            <Button type="button" size="sm" variant="secondary" onClick={() => change(defaultDashboard())}>
-              Reset to default
-            </Button>
-          </div>
-        </div>
+        <EmptyState
+          icon={LayoutGrid}
+          title="Your dashboard is empty"
+          description="Every widget is hidden. Turn a few back on, or start over with the default layout."
+          action={
+            <>
+              <Button type="button" size="sm" onClick={() => setOpen(true)}>
+                Choose widgets
+              </Button>
+              <Button type="button" size="sm" variant="secondary" onClick={() => change(defaultDashboard())}>
+                Reset to default
+              </Button>
+            </>
+          }
+        />
       ) : (
         <>
           {focus.length > 0 && (

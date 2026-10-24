@@ -1,11 +1,11 @@
 "use client";
 
-import { ArrowLeft, Clock, Flag } from "lucide-react";
-import Link from "next/link";
+import { Clock, Flag } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonClasses } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { BackLink } from "@/components/ui/page-header";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -51,10 +51,7 @@ export function SessionHeader({
 
   return (
     <div className="flex flex-col gap-3">
-      <Link href={routes.study} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Study
-      </Link>
+      <BackLink href={routes.study} label="Study" />
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Badge tone="primary">{methodName}</Badge>

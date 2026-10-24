@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, BookOpen, Flag, SendHorizontal, Sparkles } from "lucide-react";
+import { BookOpen, Flag, SendHorizontal, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -9,7 +9,9 @@ import { Alert } from "@/components/forms/form-alert";
 import { MessageBubble, type MessageExtras } from "@/components/tutor/message-bubble";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Textarea } from "@/components/ui/input";
+import { BackLink } from "@/components/ui/page-header";
 import { Segmented } from "@/components/ui/segmented";
 import { useStableCallback } from "@/lib/hooks/use-stable-callback";
 import { routes } from "@/lib/routes";
@@ -151,10 +153,7 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
   return (
     <div className="flex min-h-[70vh] flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <Link href={session ? routes.study : routes.tutor} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          {session ? "Study" : "AI Tutor"}
-        </Link>
+        <BackLink href={session ? routes.study : routes.tutor} label={session ? "Study" : "AI Tutor"} />
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
           <div className="flex min-w-0 flex-col gap-1">
             <h1 className="truncate font-display text-base font-medium tracking-display">{conversation.title}</h1>
@@ -197,11 +196,11 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
 
       <div className="flex flex-1 flex-col gap-4" aria-live="polite">
         {messages.length === 0 && (
-          <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">
-            <Sparkles className="mx-auto mb-2 h-5 w-5 text-primary" aria-hidden="true" />
-            Ask anything about {conversation.material ? "this material" : "your studies"} — explain, simplify, give an example, quiz me, or guide me without the answer.
-            {conversation.material && " Answers cite the passages they come from."}
-          </div>
+          <EmptyState
+            icon={Sparkles}
+            title={`Ask anything about ${conversation.material ? "this material" : "your studies"}`}
+            description={`Explain, simplify, give an example, quiz me, or guide me without the answer.${conversation.material ? " Answers cite the passages they come from." : ""}`}
+          />
         )}
         {messages.map((message) => (
           <MessageBubble
