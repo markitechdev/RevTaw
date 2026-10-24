@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 
 import { isAuthOnlyPath, isProtectedPath, routes } from "@/lib/routes";
-import { buildContentSecurityPolicy, generateNonce } from "@/lib/security/csp";
+import { buildContentSecurityPolicy, generateNonce, hasOwnContentSecurityPolicy } from "@/lib/security/csp";
 import { redirectWithSession, updateSession } from "@/lib/supabase/proxy";
 
 /**
@@ -38,7 +38,10 @@ export async function proxy(request: NextRequest) {
     outgoing = redirectWithSession(request, response, routes.dashboard);
   }
 
-  outgoing.headers.set("Content-Security-Policy", csp);
+  // A response header set here wins over the route's own, so routes with a stricter policy are skipped.
+  if (!hasOwnContentSecurityPolicy(pathname)) {
+    outgoing.headers.set("Content-Security-Policy", csp);
+  }
   return outgoing;
 }
 

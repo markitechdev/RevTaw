@@ -50,6 +50,12 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: securityHeaders,
       },
+      {
+        // A text material's original opens in a sandboxed frame inside RevTaw, so this route
+        // may be framed by RevTaw itself (its own CSP says frame-ancestors 'self'). Later rules win.
+        source: "/api/materials/:id/file",
+        headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }],
+      },
     ];
   },
   async redirects() {

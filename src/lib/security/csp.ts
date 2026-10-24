@@ -51,6 +51,18 @@ function supabaseConnectOrigins(url: string | undefined): { http?: string; ws?: 
   }
 }
 
+/**
+ * The policy for a material's original file: whatever renders it (the
+ * browser's PDF viewer, an image, a text file in RevTaw's sandboxed frame)
+ * runs with nothing else allowed, and only RevTaw itself may frame it.
+ */
+export const FILE_RESPONSE_CSP = "sandbox; default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'self'";
+
+/** Routes that send their own Content-Security-Policy, which the proxy must not replace with the page policy. */
+export function hasOwnContentSecurityPolicy(pathname: string): boolean {
+  return /^\/api\/materials\/[^/]+\/file\/?$/.test(pathname);
+}
+
 export function generateNonce(): string {
   return Buffer.from(crypto.randomUUID()).toString("base64");
 }

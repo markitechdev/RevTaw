@@ -4,6 +4,7 @@ import { z } from "zod";
 import { STORAGE_BUCKET } from "@/lib/materials/constants";
 import { safeFilename } from "@/lib/materials/storage";
 import { rateLimit } from "@/lib/rate-limit";
+import { FILE_RESPONSE_CSP } from "@/lib/security/csp";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 const paramsSchema = z.object({ id: z.uuid() });
@@ -76,8 +77,8 @@ export async function GET(_request: Request, context: RouteContext<"/api/materia
       "content-disposition": `${inline ? "inline" : "attachment"}; filename="${filename}"`,
       "cache-control": "private, no-store",
       "x-content-type-options": "nosniff",
-      // Isolate anything that renders in the browser (e.g. PDF viewer scripts).
-      "content-security-policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'",
+      // Isolates whatever renders the file; src/proxy.ts leaves this route's policy in place.
+      "content-security-policy": FILE_RESPONSE_CSP,
     },
   });
 }
