@@ -1,8 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { getPublicEnv } from "@/lib/env";
+import { getPublicEnv, getServerEnv } from "@/lib/env";
 import type { Database } from "@/lib/supabase/database.types";
+import { forwardableAddress } from "@/lib/supabase/forwarding";
 
 export type SessionResult = {
   response: NextResponse;
@@ -26,14 +27,19 @@ export async function updateSession(
   requestHeaders: Headers = new Headers(request.headers),
 ): Promise<SessionResult> {
   const env = getPublicEnv();
+  // Token refreshes count against Supabase's per-IP limit: forward the student's address (see auth-client.ts).
+  // This client is only used for the session below, never for data.
+  const secret = getServerEnv().SUPABASE_SECRET_KEY;
+  const address = secret ? forwardableAddress(request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip")) : null;
 
   const nextResponse = () => NextResponse.next({ request: { headers: requestHeaders } });
   let response = nextResponse();
 
   const supabase = createServerClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    address && secret ? secret : env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
+      ...(address ? { global: { headers: { "sb-forwarded-for": address } } } : {}),
       cookies: {
         getAll() {
           return request.cookies.getAll();

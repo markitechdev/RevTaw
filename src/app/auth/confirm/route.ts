@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getSiteUrl } from "@/lib/env";
 import { routes, safeNextPath } from "@/lib/routes";
-import { createClient } from "@/lib/supabase/server";
+import { createAuthClient } from "@/lib/supabase/auth-client";
 
 const OTP_TYPES: ReadonlySet<EmailOtpType> = new Set([
   "signup",
@@ -38,8 +38,8 @@ export async function GET(request: NextRequest) {
 
   const next = safeNextPath(searchParams.get("next"), DEFAULT_NEXT[type] ?? routes.dashboard);
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
+  const auth = await createAuthClient();
+  const { error } = await auth.verifyOtp({ type, token_hash: tokenHash });
 
   if (error) {
     const failure =

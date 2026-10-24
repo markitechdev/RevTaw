@@ -16,6 +16,7 @@ import { removeMaterialObjects } from "@/lib/materials/storage";
 import { routes } from "@/lib/routes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { EducationLevel, StudyGoal } from "@/lib/supabase/database.types";
+import { createAuthClient } from "@/lib/supabase/auth-client";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { changePasswordSchema, fieldErrorsFrom } from "@/lib/validation/auth";
 import {
@@ -174,10 +175,10 @@ export async function changePasswordAction(
     });
   }
 
-  const supabase = await createClient();
+  const auth = await createAuthClient();
 
   // Re-authenticate with the current password before allowing the change.
-  const { error: reauthError } = await supabase.auth.signInWithPassword({
+  const { error: reauthError } = await auth.signInWithPassword({
     email: user.email,
     password: parsed.data.currentPassword,
   });
@@ -187,12 +188,12 @@ export async function changePasswordAction(
     });
   }
 
-  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+  const { error } = await auth.updateUser({ password: parsed.data.password });
   if (error) {
     return errorState(authErrorMessage(error));
   }
 
-  await supabase.auth.signOut({ scope: "others" });
+  await auth.signOut({ scope: "others" });
   return successState("Your password has been changed. Other devices have been signed out.");
 }
 
@@ -228,8 +229,8 @@ export async function deleteAccountAction(
     );
   }
 
-  const supabase = await createClient();
-  const { error: reauthError } = await supabase.auth.signInWithPassword({
+  const auth = await createAuthClient();
+  const { error: reauthError } = await auth.signInWithPassword({
     email: user.email,
     password: parsed.data.password,
   });
@@ -241,6 +242,7 @@ export async function deleteAccountAction(
 
   // Storage objects are not covered by database cascades: remove every file
   // the student uploaded before the rows that reference them disappear.
+  const supabase = await createClient();
   const { data: materials } = await supabase.from("materials").select("storage_path");
   const paths = (materials ?? []).map((row) => row.storage_path).filter((path): path is string => Boolean(path));
   if (paths.length > 0) {

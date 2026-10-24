@@ -14,6 +14,7 @@ import {
 } from "@/lib/forms/action-state";
 import { describeRetry, getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { routes, safeNextPath } from "@/lib/routes";
+import { createAuthClient } from "@/lib/supabase/auth-client";
 import { createClient } from "@/lib/supabase/server";
 import {
   emailSchema,
@@ -62,8 +63,8 @@ export async function registerAction(
   }
 
   const { displayName, email, password } = parsed.data;
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({
+  const auth = await createAuthClient();
+  const { data, error } = await auth.signUp({
     email,
     password,
     options: {
@@ -120,8 +121,8 @@ export async function loginAction(
     );
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const auth = await createAuthClient();
+  const { error } = await auth.signInWithPassword({ email, password });
 
   if (error?.code === "email_not_confirmed") {
     await setPendingEmail(email);
@@ -163,8 +164,8 @@ export async function forgotPasswordAction(
   }
 
   const { email } = parsed.data;
-  const supabase = await createClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+  const auth = await createAuthClient();
+  const { error } = await auth.resetPasswordForEmail(email, {
     redirectTo: callbackUrl(routes.resetPassword),
   });
 
@@ -199,14 +200,14 @@ export async function resetPasswordAction(
     });
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+  const auth = await createAuthClient();
+  const { error } = await auth.updateUser({ password: parsed.data.password });
   if (error) {
     return errorState(authErrorMessage(error));
   }
 
   // Invalidate every other session that may have been using the old password.
-  await supabase.auth.signOut({ scope: "others" });
+  await auth.signOut({ scope: "others" });
 
   redirect(`${routes.dashboard}?notice=password-updated`);
 }
@@ -236,8 +237,8 @@ export async function resendVerificationAction(
     return errorState("We just sent an email to that address. Please wait a minute before trying again.");
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.resend({
+  const auth = await createAuthClient();
+  const { error } = await auth.resend({
     type: "signup",
     email,
     options: { emailRedirectTo: callbackUrl(`${routes.onboarding}?verified=1`) },

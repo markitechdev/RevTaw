@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getSiteUrl } from "@/lib/env";
 import { routes, safeNextPath } from "@/lib/routes";
-import { createClient } from "@/lib/supabase/server";
+import { createAuthClient } from "@/lib/supabase/auth-client";
 
 /**
  * Completes PKCE email flows (sign-up confirmation, password recovery, email
@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(failure, origin));
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  const auth = await createAuthClient();
+  const { error } = await auth.exchangeCodeForSession(code);
 
   if (error) {
     return NextResponse.redirect(new URL(failure, origin));
