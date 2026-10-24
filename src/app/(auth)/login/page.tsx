@@ -9,6 +9,7 @@ import { turnstileSiteKey } from "@/lib/security/turnstile";
 
 export const metadata: Metadata = {
   title: "Sign in",
+  alternates: { canonical: routes.login },
 };
 
 const NOTICES: Record<string, { tone: "error" | "success" | "info"; message: string }> = {

@@ -9,6 +9,7 @@ import { turnstileSiteKey } from "@/lib/security/turnstile";
 
 export const metadata: Metadata = {
   title: "Create account",
+  alternates: { canonical: routes.register },
 };
 
 export default async function RegisterPage() {

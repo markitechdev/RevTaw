@@ -2,16 +2,28 @@ import type { Metadata, Viewport } from "next";
 import { cookies, headers } from "next/headers";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "@/components/theme/theme-provider";
 import { BRAND } from "@/lib/brand";
+import { getSiteUrl } from "@/lib/env";
 import { APPEARANCE_COOKIE, decodeAppearance, themeColorAttributes } from "@/lib/theme/appearance";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  // Absolute addresses for the share image and canonical links: the production address (NEXT_PUBLIC_SITE_URL).
+  metadataBase: new URL(getSiteUrl()),
   title: {
     default: `${BRAND.name} — ${BRAND.tagline}`,
     template: `%s · ${BRAND.name}`,
   },
   description: BRAND.description,
   applicationName: BRAND.name,
+  // The preview a link gets on Messenger, Facebook, X and in chats; the image is app/opengraph-image.png.
+  openGraph: {
+    type: "website",
+    siteName: BRAND.name,
+    locale: "en_PH",
+    title: `${BRAND.name} — ${BRAND.motto} ${BRAND.tagline}`,
+    description: BRAND.description,
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = {

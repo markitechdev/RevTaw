@@ -9,6 +9,7 @@ import { routes } from "@/lib/routes";
 export const metadata: Metadata = {
   title: "Your privacy, in plain words",
   description: `RevTaw's Privacy Notice for students under 18, in plain words.`,
+  alternates: { canonical: routes.privacyStudents },
 };
 
 const SECTIONS = {

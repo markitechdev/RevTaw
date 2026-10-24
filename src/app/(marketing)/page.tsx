@@ -1,4 +1,5 @@
 import { ArrowRight, BookOpenCheck, Brain, CalendarCheck, FileUp, Gauge, Lightbulb, Lock, Smartphone, Target } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Doodles } from "@/components/marketing/doodles";
@@ -10,6 +11,11 @@ import { StudyDesk } from "@/components/marketing/study-desk";
 import { TypingHeadline } from "@/components/marketing/typing-headline";
 import { buttonClasses } from "@/components/ui/button";
 import { BRAND } from "@/lib/brand";
+import { routes } from "@/lib/routes";
+
+export const metadata: Metadata = {
+  alternates: { canonical: routes.home },
+};
 
 const CAPABILITIES = [
   { icon: FileUp, title: "Upload anything", body: "PDFs, Word files, photos of the board, or notes you paste in." },

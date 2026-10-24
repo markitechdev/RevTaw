@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 export const metadata: Metadata = {
   title: "Privacy Notice",
   description: "What personal information RevTaw collects, why, who helps process it, how long it is kept, and your rights under the Philippine Data Privacy Act.",
+  alternates: { canonical: routes.privacy },
 };
 
 const SECTIONS = {

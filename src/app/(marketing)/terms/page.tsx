@@ -9,6 +9,7 @@ import { routes } from "@/lib/routes";
 export const metadata: Metadata = {
   title: "Terms of Use",
   description: "The rules for using RevTaw: who can use it, your account and materials, AI-made content, fair use, and what happens if something goes wrong.",
+  alternates: { canonical: routes.terms },
 };
 
 const SECTIONS = {
