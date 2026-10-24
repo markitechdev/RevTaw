@@ -40,7 +40,13 @@ export async function awardXp(awards: XpAward[], supabase?: Client): Promise<num
       return 0;
     }
     const added = (data ?? []).reduce((sum, row) => sum + row.points, 0);
-    if (added > 0) await announceLevelUp(client, profile.xp, profile.xp + added);
+    if (added > 0) {
+      // The total after this award, read back (the trigger has added it): another award at the same moment is in it
+      // too, so the one that carries the total over a level line always announces it.
+      const { data: fresh } = await client.from("profiles").select("xp").eq("id", profile.id).maybeSingle();
+      const after = Math.max(fresh?.xp ?? 0, profile.xp + added);
+      await announceLevelUp(client, after - added, after);
+    }
     return added;
   } catch (error) {
     unstable_rethrow(error);
