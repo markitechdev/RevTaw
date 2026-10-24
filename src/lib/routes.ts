@@ -75,29 +75,34 @@ export function isAuthOnlyPath(pathname: string): boolean {
 const NEXT_BASE = "https://revtaw.invalid";
 
 /**
- * Validates a `next` redirect target supplied through the URL. Only same-site
- * absolute paths are accepted, which prevents open-redirect abuse.
+ * A same-site path, or null. Only absolute paths on this site are accepted,
+ * which prevents open-redirect abuse and links to other sites or schemes.
  *
  * Browsers and `new URL()` drop tabs and line breaks and read `\` as `/`, so
  * `/\t/evil.example` would become `//evil.example`: those characters are
  * rejected outright, and the value is then resolved against a fixed origin
  * that it must not leave.
  */
-export function safeNextPath(
-  value: string | null | undefined,
-  fallback: string = routes.dashboard,
-): string {
-  if (!value || value.length > 2048) return fallback;
-  if (/[\u0000-\u001f\u007f\\]/.test(value)) return fallback;
-  if (!value.startsWith("/") || value.startsWith("//")) return fallback;
+export function sameSitePath(value: string | null | undefined): string | null {
+  if (!value || value.length > 2048) return null;
+  if (/[\u0000-\u001f\u007f\\]/.test(value)) return null;
+  if (!value.startsWith("/") || value.startsWith("//")) return null;
   let url: URL;
   try {
     url = new URL(value, NEXT_BASE);
   } catch {
-    return fallback;
+    return null;
   }
-  if (url.origin !== NEXT_BASE) return fallback;
+  if (url.origin !== NEXT_BASE) return null;
   const path = `${url.pathname}${url.search}${url.hash}`;
   // Dot segments can collapse into a protocol-relative path ("/..//host").
-  return path.startsWith("//") ? fallback : path;
+  return path.startsWith("//") ? null : path;
+}
+
+/** Validates a `next` redirect target supplied through the URL (see `sameSitePath`). */
+export function safeNextPath(
+  value: string | null | undefined,
+  fallback: string = routes.dashboard,
+): string {
+  return sameSitePath(value) ?? fallback;
 }

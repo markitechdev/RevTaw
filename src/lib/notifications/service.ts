@@ -10,7 +10,7 @@ import { listGoalsWithProgress } from "@/lib/planner/goals";
 import { getDueToday, listExams } from "@/lib/planner/queries";
 import { plannerClock } from "@/lib/planner/service";
 import { deliverDueReminders } from "@/lib/reminders/service";
-import { routes } from "@/lib/routes";
+import { routes, sameSitePath } from "@/lib/routes";
 import { getActivityStats } from "@/lib/study/queries";
 import type { Notification, NotificationKind } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -103,7 +103,8 @@ export const listNotifications = cache(async (limit = 12): Promise<BellNotificat
     console.error("notifications: list failed", error.message);
     return [];
   }
-  return data ?? [];
+  // Students can write their own notification rows directly: only links within RevTaw are kept.
+  return (data ?? []).map((row) => ({ ...row, href: sameSitePath(row.href) }));
 });
 
 export const countUnreadNotifications = cache(async (): Promise<number> => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { routes, safeNextPath } from "@/lib/routes";
+import { routes, safeNextPath, sameSitePath } from "@/lib/routes";
 
 const SITE = "https://revtaw.com";
 
@@ -56,5 +56,18 @@ describe("safeNextPath", () => {
 
   it("rejects absurdly long values", () => {
     expect(safeNextPath(`/${"a".repeat(3000)}`)).toBe(routes.dashboard);
+  });
+});
+
+describe("sameSitePath", () => {
+  it("keeps paths within RevTaw and drops everything else", () => {
+    expect(sameSitePath("/planner?date=2026-10-24#today")).toBe("/planner?date=2026-10-24#today");
+    expect(sameSitePath("https://evil.example/phish")).toBeNull();
+    expect(sameSitePath("javascript:alert(1)")).toBeNull();
+    expect(sameSitePath("//evil.example")).toBeNull();
+    expect(sameSitePath("/\t/evil.example")).toBeNull();
+    expect(sameSitePath("/..//evil.example")).toBeNull();
+    expect(sameSitePath("planner")).toBeNull();
+    expect(sameSitePath(null)).toBeNull();
   });
 });
