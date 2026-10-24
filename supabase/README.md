@@ -52,6 +52,7 @@ supabase db push
 | `0023_material_archive.sql` | the Archive: `material_status` gains `deleted`; `materials.purged_at` (the file, text and analysis deleted permanently 30 days after Delete; the row stays for what was made from it) with a check that a deleted file stays archived; materials archived before get the full 30 days |
 | `0024_performance_indexes.sql` | indexes for the per-student reads that scanned every student's rows and for the foreign keys that are cleared or followed when their parent goes, two for the night run, and six duplicates of unique indexes dropped (indexes only; no data changes) |
 | `0032_drop_unused_columns.sql` | drops columns nothing wrote: `archived_at` on `subjects`, `folders`, `reviewers`, `quizzes`, `flashcard_decks` and `tutor_conversations` (only materials and exams are archived) and `study_goals.subject_id`; their list indexes are rebuilt without it. It stops and changes nothing if one of those columns holds a value |
+| `0033_job_runs.sql` | `job_runs`: when each scheduled job (reminders, digest, embeddings, calendar, engine, archive) last finished, last succeeded and its last error; written by the jobs with the secret key and read by `/api/health`; students cannot read it |
 
 Migrations are additive. Never edit an applied migration; add a new numbered
 file instead.

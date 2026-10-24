@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { withJobRecord } from "@/lib/jobs/runs";
 import { runDailyDigest } from "@/lib/notifications/digest";
 import { isEmailConfigured } from "@/lib/notifications/email-config";
 import { cronSecret, hasCronSecret } from "@/lib/server/cron-auth";
@@ -28,7 +29,7 @@ async function run(request: Request) {
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: "SUPABASE_SECRET_KEY is not set." }, { status: 503 });
   try {
-    return NextResponse.json(await runDailyDigest(admin), { headers: { "cache-control": "no-store" } });
+    return NextResponse.json(await withJobRecord(admin, "digest", () => runDailyDigest(admin)), { headers: { "cache-control": "no-store" } });
   } catch (error) {
     console.error("digest: run failed", error);
     return NextResponse.json({ error: "The digest run failed." }, { status: 500 });

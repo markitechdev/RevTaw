@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { withJobRecord } from "@/lib/jobs/runs";
 import { purgeExpiredMaterials } from "@/lib/materials/purge";
 import { cronSecret, hasCronSecret } from "@/lib/server/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -29,18 +30,21 @@ async function run(request: Request) {
   if (!admin) return NextResponse.json({ error: "SUPABASE_SECRET_KEY is not set." }, { status: 503 });
 
   const started = Date.now();
-  let purged = 0;
-  let remaining = false;
   try {
-    while (Date.now() - started < BUDGET_MS) {
-      const batch = await purgeExpiredMaterials(admin, { limit: BATCH });
-      purged += batch;
-      // A short batch means nothing is left; a full one may have more behind it. A batch that
-      // finished nothing (storage or database refused) stops the run until the next call.
-      remaining = batch === BATCH;
-      if (!remaining) break;
-    }
-    return NextResponse.json({ purged, remaining }, { headers: { "cache-control": "no-store" } });
+    const outcome = await withJobRecord(admin, "archive", async () => {
+      let purged = 0;
+      let remaining = false;
+      while (Date.now() - started < BUDGET_MS) {
+        const batch = await purgeExpiredMaterials(admin, { limit: BATCH });
+        purged += batch;
+        // A short batch means nothing is left; a full one may have more behind it. A batch that
+        // finished nothing (storage or database refused) stops the run until the next call.
+        remaining = batch === BATCH;
+        if (!remaining) break;
+      }
+      return { purged, remaining };
+    });
+    return NextResponse.json(outcome, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     console.error("archive: purge run failed", error);
     return NextResponse.json({ error: "The archive run failed." }, { status: 500 });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { withJobRecord } from "@/lib/jobs/runs";
 import { embeddingsConfigured } from "@/lib/ai/embeddings";
 import { embedMissingChunks } from "@/lib/search/hybrid";
 import { cronSecret, hasCronSecret } from "@/lib/server/cron-auth";
@@ -31,7 +32,7 @@ async function run(request: Request) {
   if (!admin) return NextResponse.json({ error: "SUPABASE_SECRET_KEY is not set." }, { status: 503 });
 
   try {
-    const outcome = await embedMissingChunks(admin, { budgetMs: 45_000, maxChunks: 600 });
+    const outcome = await withJobRecord(admin, "embeddings", () => embedMissingChunks(admin, { budgetMs: 45_000, maxChunks: 600 }));
     return NextResponse.json(outcome, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     console.error("embeddings: backfill run failed", error);

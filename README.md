@@ -71,6 +71,14 @@ adds function instances under load, so there is no CDN, compression or load
 balancer to set up. Keep Supabase's Data API **Max rows** at 1,000 or more
 (the default): long reads go 1,000 rows at a time.
 
+For monitoring, point a free uptime monitor (UptimeRobot, Better Stack and the
+like) at `/api/health`: it answers 200 while RevTaw and its database respond
+and 503 when the database does not. A second monitor on `/api/health?jobs=1`
+also gets 503 when a scheduled job set up on the server (reminders, digest,
+embeddings, calendar, engine, archive) is late, failing or has never run, so a
+scheduler that stopped calling is noticed the same day (migration 0033 keeps
+each job's last run). Errors and slow requests are in Vercel's Logs.
+
 ## What works today
 
 - Accounts, onboarding and settings (Phase 1)

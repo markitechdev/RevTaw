@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { withJobRecord } from "@/lib/jobs/runs";
 import { runNightlyEngine } from "@/lib/adaptive/nightly";
 import { cronSecret, hasCronSecret } from "@/lib/server/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -24,7 +25,7 @@ async function run(request: Request) {
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: "SUPABASE_SECRET_KEY is not set." }, { status: 503 });
   try {
-    return NextResponse.json(await runNightlyEngine(admin, { budgetMs: 50_000 }), { headers: { "cache-control": "no-store" } });
+    return NextResponse.json(await withJobRecord(admin, "engine", () => runNightlyEngine(admin, { budgetMs: 50_000 })), { headers: { "cache-control": "no-store" } });
   } catch (error) {
     console.error("engine: nightly run failed", error);
     return NextResponse.json({ error: "The nightly engine run failed." }, { status: 500 });

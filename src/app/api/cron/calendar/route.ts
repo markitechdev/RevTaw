@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { withJobRecord } from "@/lib/jobs/runs";
 import { calendarConfigured } from "@/lib/calendar/google";
 import { reconcileAllCalendars } from "@/lib/calendar/sync";
 import { cronSecret, hasCronSecret } from "@/lib/server/cron-auth";
@@ -21,7 +22,7 @@ async function run(request: Request) {
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: "SUPABASE_SECRET_KEY is not set." }, { status: 503 });
   try {
-    return NextResponse.json(await reconcileAllCalendars(admin), { headers: { "cache-control": "no-store" } });
+    return NextResponse.json(await withJobRecord(admin, "calendar", () => reconcileAllCalendars(admin)), { headers: { "cache-control": "no-store" } });
   } catch (error) {
     console.error("calendar: hourly sync failed", error);
     return NextResponse.json({ error: "The calendar run failed." }, { status: 500 });

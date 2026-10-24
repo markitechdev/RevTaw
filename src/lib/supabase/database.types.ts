@@ -527,6 +527,13 @@ type ItemBucketsRow = {
 };
 
 /** Shared rate-limit counters (0026); written only through rate_limit_hit() with the secret key. */
+type JobRunsRow = {
+  job: string;
+  last_finished_at: string | null;
+  last_ok_at: string | null;
+  last_error: string | null;
+};
+
 type RateLimitsRow = {
   key: string;
   hits: number;
@@ -1334,6 +1341,12 @@ export type Database = {
         Row: RateLimitsRow;
         Insert: Writable<RateLimitsRow, "key" | "expires_at">;
         Update: Partial<RateLimitsRow>;
+        Relationships: [];
+      };
+      job_runs: {
+        Row: JobRunsRow;
+        Insert: Writable<JobRunsRow, "job">;
+        Update: Partial<JobRunsRow>;
         Relationships: [];
       };
       achievements: {

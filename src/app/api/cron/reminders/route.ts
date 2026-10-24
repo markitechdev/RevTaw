@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { withJobRecord } from "@/lib/jobs/runs";
 import { processDueReminders, schedulerConfigured } from "@/lib/reminders/service";
 import { cronSecret, hasCronSecret } from "@/lib/server/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -25,7 +26,7 @@ async function run(request: Request) {
   const admin = createAdminClient();
   if (!admin) return NextResponse.json({ error: "SUPABASE_SECRET_KEY is not set." }, { status: 503 });
   try {
-    const result = await processDueReminders(admin);
+    const result = await withJobRecord(admin, "reminders", () => processDueReminders(admin));
     return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     console.error("reminders: scheduler run failed", error);
