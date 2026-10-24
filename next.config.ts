@@ -34,8 +34,15 @@ const nextConfig: NextConfig = {
   cacheComponents: false,
   poweredByHeader: false,
   // Document parsers ship their own workers/native bindings; keep them out of
-  // the bundler and load them from node_modules at runtime.
+  // the bundler and load them from node_modules at runtime. The extraction
+  // child (src/lib/materials/extract-sandbox.ts) imports them there;
+  // src/lib/materials/parser-modules.ts keeps them in the deployment.
   serverExternalPackages: ["pdf-parse", "@napi-rs/canvas", "mammoth", "word-extractor", "@react-pdf/renderer"],
+  // pdf.js loads its worker through a computed path that tracing cannot see.
+  outputFileTracingIncludes: {
+    "/api/materials/\\[id\\]/process": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
+    "/api/materials/\\[id\\]/analyze": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
+  },
   turbopack: {
     rules: {
       "*.css": {

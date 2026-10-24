@@ -8,7 +8,7 @@ import { analyzeMaterial, type AnalysisChunkInput } from "@/lib/materials/analyz
 import { chunkSections, countWords } from "@/lib/materials/chunk";
 import { MAX_FILE_BYTES } from "@/lib/materials/constants";
 import { detectMaterialType } from "@/lib/materials/detect";
-import { ExtractionError, extractText } from "@/lib/materials/extract";
+import { ExtractionError, extractText, type ExtractionResult } from "@/lib/materials/extract";
 import { downloadMaterialBytes } from "@/lib/materials/storage";
 import { embedMaterialQuietly } from "@/lib/search/hybrid";
 import type { Material, MaterialStatus } from "@/lib/supabase/database.types";
@@ -111,9 +111,10 @@ export async function processMaterial(
 
     // Embedding runs beside the analysis; if it fails, search uses words until the backfill job catches up.
     const [analysisDetail] = await Promise.all([runAnalysis(supabase, material, chunks), embedMaterialQuietly(supabase, material.id)]);
-    await setStatus(supabase, material.id, "ready", analysisDetail);
+    const detail = [analysisDetail, extraction.truncated ? truncationNote(extraction) : null].filter(Boolean).join(" ") || null;
+    await setStatus(supabase, material.id, "ready", detail);
     track(material.user_id, "material_processed", { source: material.source, status: "ready", method: extraction.method, chunks: chunks.length });
-    return { status: "ready", detail: analysisDetail };
+    return { status: "ready", detail };
   } catch (error) {
     const detail = friendlyFailure(error);
     console.error(`materials: processing ${material.id} failed`, error);
@@ -236,6 +237,13 @@ function isRecentlyInFlight(material: Material): boolean {
   if (material.status !== "extracting" && material.status !== "analyzing") return false;
   if (!material.last_processed_at) return false;
   return Date.now() - new Date(material.last_processed_at).getTime() < IN_FLIGHT_GRACE_MS;
+}
+
+/** Tells the student that a very long file was only read in part (EXTRACTION_LIMITS). */
+function truncationNote(extraction: ExtractionResult): string {
+  const lastPage = extraction.sections.at(-1)?.page;
+  if (lastPage && extraction.pageCount) return `RevTaw read the first ${lastPage} of ${extraction.pageCount} pages; split the file to study the rest.`;
+  return "RevTaw read the first part of this file; split it to study the rest.";
 }
 
 function friendlyFailure(error: unknown): string {
