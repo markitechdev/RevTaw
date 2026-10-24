@@ -35,7 +35,9 @@ describe("planner dates", () => {
     const instant = new Date("2026-10-20T20:30:00Z");
     expect(dateIn(instant, "UTC")).toBe("2026-10-20");
     expect(dateIn(instant, "Asia/Manila")).toBe("2026-10-21");
-    expect(dateIn(instant, "not/a-zone")).toBe("2026-10-20");
+    // An unknown zone counts as RevTaw's home zone (Manila).
+    expect(dateIn(instant, "not/a-zone")).toBe("2026-10-21");
+    expect(dateIn(instant, null)).toBe("2026-10-21");
     expect(hourIn(instant, "Asia/Manila")).toBe(4);
     expect(isValidTimezone("Europe/Berlin")).toBe(true);
     expect(isValidTimezone("Mars/Olympus")).toBe(false);

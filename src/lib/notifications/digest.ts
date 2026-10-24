@@ -6,7 +6,7 @@ import { getPublicSiteUrl } from "@/lib/env";
 import { sendEmail } from "@/lib/notifications/email";
 import { isEmailConfigured } from "@/lib/notifications/email-config";
 import { unsubscribeHeaders, unsubscribeUrl } from "@/lib/notifications/unsubscribe";
-import { addDays, dateIn, daysBetween, formatDate, hourIn, isValidTimezone } from "@/lib/planner/dates";
+import { addDays, dateIn, daysBetween, DEFAULT_TIMEZONE, formatDate, hourIn, isValidTimezone } from "@/lib/planner/dates";
 import { formatClock, zonedInstant } from "@/lib/planner/time";
 import { parsePreferences } from "@/lib/preferences/schema";
 import { escapeHtml } from "@/lib/reminders/message";
@@ -25,7 +25,6 @@ import { readPages } from "@/lib/supabase/paginate";
 
 type Client = SupabaseClient<Database>;
 
-export const DIGEST_TIMEZONE = "Asia/Manila";
 const FIRST_HOUR = 6;
 const LAST_HOUR = 11;
 const MAX_ATTEMPTS = 3;
@@ -164,7 +163,7 @@ export async function runDailyDigest(client: Client, options: { now?: Date; budg
     if (Date.now() > deadline) break;
     if (!parsePreferences(profile.preferences ?? {}).notifications.digest) continue;
     run.checked += 1;
-    const timeZone = isValidTimezone(profile.timezone) ? profile.timezone : DIGEST_TIMEZONE;
+    const timeZone = isValidTimezone(profile.timezone) ? profile.timezone : DEFAULT_TIMEZONE;
     const hour = hourIn(now, timeZone);
     if (hour < FIRST_HOUR || hour >= LAST_HOUR) {
       run.notDue += 1;

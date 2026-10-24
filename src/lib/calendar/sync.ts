@@ -9,7 +9,7 @@ import { decryptToken } from "@/lib/calendar/crypto";
 import { examEvent, examEventId, taskEvent, taskEventId } from "@/lib/calendar/events";
 import { CalendarApiError, CalendarAuthError, calendarConfigured, deleteEvent, listEvents, putEvent, refreshAccessToken, revokeToken, type GoogleEvent } from "@/lib/calendar/google";
 import { getPublicSiteUrl, getServerEnv } from "@/lib/env";
-import { addDays, dateIn, isValidTimezone } from "@/lib/planner/dates";
+import { addDays, dateIn, DEFAULT_TIMEZONE, isValidTimezone } from "@/lib/planner/dates";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import { readPages } from "@/lib/supabase/paginate";
@@ -26,7 +26,6 @@ import { getCurrentUser } from "@/lib/supabase/server";
 
 type Client = SupabaseClient<Database>;
 
-export const CALENDAR_TIMEZONE = "Asia/Manila";
 const DAYS_BACK = 14;
 const DAYS_AHEAD = 120;
 /** Activities read per run; past this the window is only partly read. */
@@ -102,7 +101,7 @@ async function reconcileOnce(client: Client, userId: string): Promise<SyncOutcom
   try {
     const token = await accessToken(userId, connection.refresh_token);
     const { data: profile } = await client.from("profiles").select("timezone").eq("id", userId).maybeSingle();
-    const timeZone = isValidTimezone(profile?.timezone) ? profile.timezone : CALENDAR_TIMEZONE;
+    const timeZone = isValidTimezone(profile?.timezone) ? profile.timezone : DEFAULT_TIMEZONE;
     const today = dateIn(new Date(), timeZone);
     const from = addDays(today, -DAYS_BACK);
     const to = addDays(today, DAYS_AHEAD);

@@ -5,6 +5,8 @@ import { after } from "next/server";
 import { AiError, isAiError } from "@/lib/ai/errors";
 import type { AiGenerateOptions, AiGenerateResult, AiProvider, AiUsage } from "@/lib/ai/types";
 import { getServerEnv } from "@/lib/env";
+import { addDays, DEFAULT_TIMEZONE, todayIn } from "@/lib/planner/dates";
+import { zonedInstant } from "@/lib/planner/time";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AiUsageKind } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -198,15 +200,13 @@ export function parseVoiceAllowance(raw: string | undefined): VoiceAllowance | n
   return allowance;
 }
 
-const MANILA_OFFSET_MS = 8 * 3_600_000; // Asia/Manila has no daylight saving time
-
-function manilaToday(now: number): string {
-  return new Date(now + MANILA_OFFSET_MS).toISOString().slice(0, 10);
+/** The usage day: RevTaw's home zone, as in the SQL that counts it (migrations 0016 and 0021). */
+function usageDay(now: number): string {
+  return todayIn(DEFAULT_TIMEZONE, new Date(now));
 }
 
-function secondsUntilManilaMidnight(now: number): number {
-  const day = 86_400_000;
-  const nextMidnight = Math.floor((now + MANILA_OFFSET_MS) / day) * day + day - MANILA_OFFSET_MS;
+function secondsUntilNextUsageDay(now: number): number {
+  const nextMidnight = zonedInstant(addDays(usageDay(now), 1), "00:00", DEFAULT_TIMEZONE).getTime();
   return Math.max(60, Math.ceil((nextMidnight - now) / 1000));
 }
 
@@ -243,7 +243,7 @@ export async function checkVoiceBudget(studentId: string, use: { seconds: true }
     .from("ai_usage")
     .select("input_tokens, output_tokens")
     .eq("user_id", studentId)
-    .eq("day", manilaToday(now))
+    .eq("day", usageDay(now))
     .eq("kind", "voice")
     .maybeSingle();
   if (error) {
@@ -257,7 +257,7 @@ export async function checkVoiceBudget(studentId: string, use: { seconds: true }
   const kind = "seconds" in use ? "seconds" : "characters";
   throw new AiError("quota_exceeded", `daily voice ${kind} limit reached`, false, {
     message: voiceLimitMessage(kind, allowance),
-    retryAfterSeconds: secondsUntilManilaMidnight(now),
+    retryAfterSeconds: secondsUntilNextUsageDay(now),
   });
 }
 

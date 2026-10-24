@@ -4,7 +4,12 @@
  * depends on the server's zone.
  */
 
-export const DEFAULT_TIMEZONE = "UTC";
+/**
+ * RevTaw's home time zone: "today" for a student whose browser has not told RevTaw theirs yet (the app
+ * stores it on the first visit), and the day the daily AI limits reset on. The SQL functions in migrations
+ * 0016 and 0021 count AI usage in the same zone. Manila has no daylight saving time.
+ */
+export const DEFAULT_TIMEZONE = "Asia/Manila";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 

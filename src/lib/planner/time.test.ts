@@ -8,9 +8,9 @@ describe("zonedInstant", () => {
     expect(zonedInstant("2026-10-21", "00:15:00", "Asia/Manila").toISOString()).toBe("2026-10-20T16:15:00.000Z");
   });
 
-  it("treats unknown zones as UTC", () => {
-    expect(zonedInstant("2026-10-21", "09:00", null).toISOString()).toBe("2026-10-21T09:00:00.000Z");
-    expect(zonedInstant("2026-10-21", "09:00", "Mars/Olympus").toISOString()).toBe("2026-10-21T09:00:00.000Z");
+  it("treats unknown zones as RevTaw's home zone (Manila)", () => {
+    expect(zonedInstant("2026-10-21", "09:00", null).toISOString()).toBe("2026-10-21T01:00:00.000Z");
+    expect(zonedInstant("2026-10-21", "09:00", "Mars/Olympus").toISOString()).toBe("2026-10-21T01:00:00.000Z");
   });
 
   it("follows daylight saving time", () => {

@@ -43,7 +43,7 @@ function zoneOffsetMinutes(instant: number, timeZone: string): number {
   return Math.round((Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second")) - instant) / 60_000);
 }
 
-/** The instant a local date and time happen in a time zone (unknown zones count as UTC). */
+/** The instant a local date and time happen in a time zone (an unknown zone counts as RevTaw's home zone). */
 export function zonedInstant(date: string, time: string, timeZone: string | null | undefined): Date {
   const zone = isValidTimezone(timeZone) ? timeZone : DEFAULT_TIMEZONE;
   const [hours, minutes] = shortTime(time).split(":").map(Number);

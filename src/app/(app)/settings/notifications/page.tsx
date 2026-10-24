@@ -5,8 +5,7 @@ import { NotificationsForm } from "@/components/settings/notifications-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { calendarConfigured } from "@/lib/calendar/google";
 import { getCalendarConnection } from "@/lib/calendar/queries";
-import { CALENDAR_TIMEZONE } from "@/lib/calendar/sync";
-import { isValidTimezone } from "@/lib/planner/dates";
+import { DEFAULT_TIMEZONE, isValidTimezone } from "@/lib/planner/dates";
 import { plannerClock } from "@/lib/planner/service";
 import { getPreferences } from "@/lib/preferences/queries";
 import { emailRemindersAvailable } from "@/lib/reminders/service";
@@ -17,7 +16,7 @@ export const metadata: Metadata = {
 
 export default async function NotificationSettingsPage({ searchParams }: PageProps<"/settings/notifications">) {
   const [preferences, connection, query, clock] = await Promise.all([getPreferences(), getCalendarConnection(), searchParams, plannerClock()]);
-  const timeZone = isValidTimezone(clock.timezone) ? clock.timezone : CALENDAR_TIMEZONE;
+  const timeZone = isValidTimezone(clock.timezone) ? clock.timezone : DEFAULT_TIMEZONE;
   const notice = typeof query.calendar === "string" ? query.calendar : null;
   return (
     <div className="flex flex-col gap-6">

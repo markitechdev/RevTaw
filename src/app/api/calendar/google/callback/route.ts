@@ -4,9 +4,9 @@ import { track } from "@/lib/analytics/server";
 import { encryptToken } from "@/lib/calendar/crypto";
 import { calendarExists, createStudyCalendar, exchangeCode, GOOGLE_CALENDAR_SCOPE, revokeToken } from "@/lib/calendar/google";
 import { OAUTH_COOKIE, OAUTH_COOKIE_PATH, readOAuthCookie } from "@/lib/calendar/oauth-cookie";
-import { CALENDAR_TIMEZONE, forgetCalendarToken, reconcileCalendar } from "@/lib/calendar/sync";
+import { forgetCalendarToken, reconcileCalendar } from "@/lib/calendar/sync";
 import { getServerEnv, getSiteUrl } from "@/lib/env";
-import { isValidTimezone } from "@/lib/planner/dates";
+import { DEFAULT_TIMEZONE, isValidTimezone } from "@/lib/planner/dates";
 import { routes } from "@/lib/routes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/supabase/server";
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       admin.from("calendar_connections").select("calendar_id").eq("user_id", user.id).maybeSingle(),
       admin.from("profiles").select("timezone").eq("id", user.id).maybeSingle(),
     ]);
-    const timeZone = isValidTimezone(profile?.timezone) ? profile.timezone : CALENDAR_TIMEZONE;
+    const timeZone = isValidTimezone(profile?.timezone) ? profile.timezone : DEFAULT_TIMEZONE;
     let calendarId = existing?.calendar_id ?? null;
     if (calendarId && !(await calendarExists(grant.accessToken, calendarId))) calendarId = null;
     calendarId ??= await createStudyCalendar(grant.accessToken, timeZone);
