@@ -261,35 +261,64 @@ export async function addMessageToNotes(messageId: string): Promise<{ reviewerId
     .limit(1)
     .maybeSingle();
 
-  let { data: reviewer } = await supabase
-    .from("reviewers")
-    .select("id")
-    .eq("material_id", conversation.material_id)
-    .eq("kind", "bullet_notes")
-    .ilike("title", "Tutor notes%")
-    .is("archived_at", null)
-    .maybeSingle();
-  if (!reviewer) {
-    const { data: material } = await supabase.from("materials").select("title").eq("id", conversation.material_id).maybeSingle();
+  const materialId = conversation.material_id;
+  // The notes reviewer is the one Tamari made for this material (provider "tutor"), whatever the student renamed it to.
+  const findNotes = () =>
+    supabase.from("reviewers").select("id").eq("material_id", materialId).eq("kind", "bullet_notes").eq("provider", "tutor").is("archived_at", null).order("created_at").order("id").limit(1).maybeSingle();
+  const reviewer = await findOrCreateTutorRow(findNotes, async () => {
+    const { data: material } = await supabase.from("materials").select("title").eq("id", materialId).maybeSingle();
     const { data: created, error } = await supabase
       .from("reviewers")
-      .insert({ user_id: message.user_id, material_id: conversation.material_id, kind: "bullet_notes", title: clampTitle(`Tutor notes — ${material?.title ?? "material"}`), status: "ready", provider: "tutor" })
+      .insert({ user_id: message.user_id, material_id: materialId, kind: "bullet_notes", title: clampTitle(`Tutor notes — ${material?.title ?? "material"}`), status: "ready", provider: "tutor" })
       .select("id")
       .single();
     if (error || !created) throw new Error(`reviewers: insert failed: ${error?.message}`);
-    reviewer = created;
-  }
-  const { count } = await supabase.from("reviewer_sections").select("id", { count: "exact", head: true }).eq("reviewer_id", reviewer.id);
+    return created;
+  }, (id) => supabase.from("reviewers").delete().eq("id", id));
   const heading = (previous?.selection ?? previous?.content ?? "Tutor answer").replace(/\s+/g, " ").slice(0, 200);
-  const { error } = await supabase.from("reviewer_sections").insert({
-    reviewer_id: reviewer.id,
-    user_id: message.user_id,
-    position: count ?? 0,
-    heading,
-    content: message.content.slice(0, 20000),
-  });
-  if (error) throw new Error(`reviewer_sections: insert failed: ${error.message}`);
+  await insertAtEnd(
+    () => supabase.from("reviewer_sections").select("position").eq("reviewer_id", reviewer.id).order("position", { ascending: false }).limit(1).maybeSingle(),
+    (position) => supabase.from("reviewer_sections").insert({ reviewer_id: reviewer.id, user_id: message.user_id, position, heading, content: message.content.slice(0, 20000) }),
+    "reviewer_sections",
+  );
   return { reviewerId: reviewer.id };
+}
+
+/**
+ * Finds the material's tutor reviewer or deck, or makes it. Two saves at the same moment can both make
+ * one; the oldest is kept and the other (still empty) is removed, so every save lands in the same place.
+ */
+async function findOrCreateTutorRow(
+  find: () => PromiseLike<{ data: { id: string } | null }>,
+  create: () => Promise<{ id: string }>,
+  remove: (id: string) => PromiseLike<unknown>,
+): Promise<{ id: string }> {
+  const { data: existing } = await find();
+  if (existing) return existing;
+  const created = await create();
+  const { data: kept } = await find();
+  if (kept && kept.id !== created.id) {
+    await remove(created.id);
+    return kept;
+  }
+  return created;
+}
+
+/**
+ * Inserts a row after the parent's last position. Positions can have gaps (a count would collide), and
+ * when another save takes the same position at that moment the insert moves on to the next one.
+ */
+async function insertAtEnd(
+  last: () => PromiseLike<{ data: { position: number } | null }>,
+  insert: (position: number) => PromiseLike<{ error: { code?: string; message: string } | null }>,
+  label: string,
+): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    const { data } = await last();
+    const { error } = await insert((data?.position ?? -1) + 1);
+    if (!error) return;
+    if (error.code !== "23505" || attempt >= 2) throw new Error(`${label}: insert failed: ${error.message}`);
+  }
 }
 
 /** "Create flashcard": saves the tutor's proposed card into the material's tutor deck (created on demand). */
@@ -306,35 +335,36 @@ export async function createFlashcardFromMessage(messageId: string, draft: { fro
   const conversation = message.conversation as unknown as { material_id: string | null; title: string } | null;
   if (!conversation?.material_id) throw new ServiceError("Flashcards need a material. Start the conversation from a material to save cards.", 400);
 
-  let { data: deck } = await supabase
-    .from("flashcard_decks")
-    .select("id, card_count")
-    .eq("material_id", conversation.material_id)
-    .ilike("title", "Tutor cards%")
-    .is("archived_at", null)
-    .maybeSingle();
-  if (!deck) {
-    const { data: material } = await supabase.from("materials").select("title").eq("id", conversation.material_id).maybeSingle();
+  const materialId = conversation.material_id;
+  // The tutor deck is the one Tamari made for this material (provider "tutor"), whatever the student renamed it to.
+  const findDeck = () => supabase.from("flashcard_decks").select("id").eq("material_id", materialId).eq("provider", "tutor").is("archived_at", null).order("created_at").order("id").limit(1).maybeSingle();
+  const deck = await findOrCreateTutorRow(findDeck, async () => {
+    const { data: material } = await supabase.from("materials").select("title").eq("id", materialId).maybeSingle();
     const { data: created, error } = await supabase
       .from("flashcard_decks")
-      .insert({ user_id: message.user_id, material_id: conversation.material_id, title: clampTitle(`Tutor cards — ${material?.title ?? "material"}`), status: "ready", provider: "tutor" })
-      .select("id, card_count")
+      .insert({ user_id: message.user_id, material_id: materialId, title: clampTitle(`Tutor cards — ${material?.title ?? "material"}`), status: "ready", provider: "tutor" })
+      .select("id")
       .single();
     if (error || !created) throw new Error(`flashcard_decks: insert failed: ${error?.message}`);
-    deck = created;
-  }
+    return created;
+  }, (id) => supabase.from("flashcard_decks").delete().eq("id", id));
+  const concepts = await ensureConcepts(supabase, message.user_id, [parsed.data.front.slice(0, 60)], { materialId, subjectId: null });
+  await insertAtEnd(
+    () => supabase.from("flashcards").select("position").eq("deck_id", deck.id).order("position", { ascending: false }).limit(1).maybeSingle(),
+    (position) =>
+      supabase.from("flashcards").insert({
+        deck_id: deck.id,
+        user_id: message.user_id,
+        position,
+        front: parsed.data.front,
+        back: parsed.data.back,
+        concept_id: concepts.get(normalizeConceptName(parsed.data.front.slice(0, 60))) ?? null,
+      }),
+    "flashcards",
+  );
+  // The deck's count from its cards; a save that counted earlier never lowers it.
   const { count } = await supabase.from("flashcards").select("id", { count: "exact", head: true }).eq("deck_id", deck.id);
-  const concepts = await ensureConcepts(supabase, message.user_id, [parsed.data.front.slice(0, 60)], { materialId: conversation.material_id, subjectId: null });
-  const { error } = await supabase.from("flashcards").insert({
-    deck_id: deck.id,
-    user_id: message.user_id,
-    position: count ?? 0,
-    front: parsed.data.front,
-    back: parsed.data.back,
-    concept_id: concepts.get(normalizeConceptName(parsed.data.front.slice(0, 60))) ?? null,
-  });
-  if (error) throw new Error(`flashcards: insert failed: ${error.message}`);
-  await supabase.from("flashcard_decks").update({ card_count: (count ?? 0) + 1 }).eq("id", deck.id);
+  if (count !== null) await supabase.from("flashcard_decks").update({ card_count: count }).eq("id", deck.id).lt("card_count", count);
   return { deckId: deck.id };
 }
 
