@@ -11,6 +11,8 @@ type Delivered = { id: string; title: string; body: string; href: string };
 const REFRESH_MS = 10 * 60_000;
 /** Timers further out than this are set on a later refresh. */
 const HORIZON_MS = 6 * 60 * 60_000;
+/** The first check waits for an idle moment after the page loads, at most this long. */
+const FIRST_CHECK_WITHIN_MS = 3_000;
 
 /**
  * While RevTaw is open, planner reminders arrive at their minute (UI phase
@@ -70,7 +72,9 @@ export function ReminderWatcher() {
       }
     };
 
-    void schedule();
+    // Not part of showing the page: the first look goes out once the browser is idle.
+    const idle = typeof window.requestIdleCallback === "function" ? window.requestIdleCallback(() => void schedule(), { timeout: FIRST_CHECK_WITHIN_MS }) : undefined;
+    const firstCheck = idle === undefined ? window.setTimeout(() => void schedule(), FIRST_CHECK_WITHIN_MS / 2) : undefined;
     const interval = window.setInterval(() => void schedule(), REFRESH_MS);
     const onVisible = () => {
       if (document.visibilityState === "visible") void schedule();
@@ -81,6 +85,8 @@ export function ReminderWatcher() {
     return () => {
       stopped = true;
       timers.forEach((timer) => window.clearTimeout(timer));
+      if (idle !== undefined) window.cancelIdleCallback(idle);
+      window.clearTimeout(firstCheck);
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener(REMINDERS_CHANGED_EVENT, onChanged);
