@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { textLang } from "@/lib/voice/speech-text";
 
 const pixelButton =
-  "inline-flex h-8 cursor-pointer items-center justify-center border-2 border-foreground px-2.5 text-xs font-bold whitespace-nowrap shadow-[2px_2px_0_0_var(--foreground)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:cursor-wait disabled:opacity-70 pointer-coarse:h-11 pointer-coarse:min-w-11";
+  "inline-flex h-8 cursor-pointer items-center justify-center border-2 border-foreground px-2.5 text-xs font-bold whitespace-nowrap shadow-[2px_2px_0_0_var(--foreground)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:cursor-wait disabled:opacity-60 pointer-coarse:h-11 pointer-coarse:min-w-11";
 
 function rememberLater(today: string, id: string): void {
   try {

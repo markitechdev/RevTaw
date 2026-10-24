@@ -31,7 +31,7 @@ export function Pagination({
   if (pageCount <= 1) return null;
   const first = (page - 1) * pageSize + 1;
   const last = Math.min(total, page * pageSize);
-  const quiet = "pointer-events-none opacity-50";
+  const quiet = "pointer-events-none opacity-60";
   return (
     <nav aria-label={`Pages of ${noun}`} className={cn("flex flex-wrap items-center justify-between gap-3", className)}>
       <p className="text-sm text-muted-foreground">

@@ -1077,7 +1077,7 @@ export default function AssistantPanel() {
                   aria-label="Ask by voice"
                   title={voice.status === "listening" ? "Stop listening" : "Ask by voice: a question, or a command like “open the planner”"}
                   className={cn(
-                    "flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                    "flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-60",
                     voice.status === "listening" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
@@ -1088,7 +1088,7 @@ export default function AssistantPanel() {
                 type="submit"
                 disabled={sending || !draft.trim()}
                 aria-label="Send"
-                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-primary text-primary-foreground transition-[background-color,transform] hover:bg-primary-hover active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-primary text-primary-foreground transition-[background-color,transform] hover:bg-primary-hover active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <SendHorizontal className="h-4 w-4" aria-hidden="true" />
               </button>
