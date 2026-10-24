@@ -10,11 +10,14 @@ export function ErrorState({
   description,
   action,
   className,
+  titleAs: Title = "p",
 }: {
   title?: string;
   description?: ReactNode;
   action?: ReactNode;
   className?: string;
+  /** "h1" when the error stands in for the whole page. */
+  titleAs?: "p" | "h1" | "h2";
 }) {
   return (
     <div
@@ -28,7 +31,7 @@ export function ErrorState({
         <TriangleAlert className="h-5 w-5" aria-hidden="true" />
       </span>
       <div className="flex max-w-sm flex-col gap-1">
-        <p className="font-medium text-foreground">{title}</p>
+        <Title className="font-medium text-foreground">{title}</Title>
         {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>
       {action && <div className="mt-1 flex flex-wrap justify-center gap-2">{action}</div>}
