@@ -190,7 +190,7 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
                 aria-current={position === index ? "step" : undefined}
                 aria-label={`Question ${position + 1}${answered ? ", answered" : ""}`}
                 className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-md border text-xs font-medium transition-colors",
+                  "flex h-8 w-8 items-center justify-center rounded-md border text-xs font-medium transition-colors pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:text-sm",
                   position === index ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted",
                   position !== index && answered && "border-primary/40 bg-primary-soft text-primary",
                   position !== index && immediate && state?.graded && state.isCorrect === true && "border-success/40 bg-success-soft text-success",

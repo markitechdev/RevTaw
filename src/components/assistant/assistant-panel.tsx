@@ -1027,7 +1027,7 @@ export default function AssistantPanel() {
                   <span className="sr-only">Highlighted text: </span>
                   {selection}
                 </p>
-                <button type="button" onClick={() => setSelection(null)} aria-label="Remove the highlighted text" className="-m-1 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-card hover:text-foreground">
+                <button type="button" onClick={() => setSelection(null)} aria-label="Remove the highlighted text" className="touch-target relative -m-1 flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-card hover:text-foreground">
                   <X className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               </div>
@@ -1165,7 +1165,7 @@ export default function AssistantPanel() {
                 <span className="max-w-[11rem] truncate">{attached ? attached.title : "Attach material"}</span>
               </button>
               {attached && (
-                <button type="button" onClick={() => setAttached(null)} aria-label={`Detach ${attached.title}`} className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
+                <button type="button" onClick={() => setAttached(null)} aria-label={`Detach ${attached.title}`} className="touch-target relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
                   <X className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               )}

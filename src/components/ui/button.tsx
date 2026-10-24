@@ -15,11 +15,12 @@ const VARIANTS: Record<ButtonVariant, string> = {
   link: "text-primary underline-offset-4 hover:underline px-0 h-auto",
 };
 
+/** On touch screens every size is at least 44 px tall (and icon buttons 44 px wide), a fingertip's target. */
 const SIZES: Record<ButtonSize, string> = {
-  sm: "h-8 px-3 text-sm gap-1.5",
-  md: "h-10 px-4 text-sm gap-2",
+  sm: "h-8 px-3 text-sm gap-1.5 pointer-coarse:h-11 pointer-coarse:min-w-11",
+  md: "h-10 px-4 text-sm gap-2 pointer-coarse:h-11 pointer-coarse:min-w-11",
   lg: "h-12 px-6 text-base gap-2",
-  icon: "h-10 w-10",
+  icon: "h-10 w-10 pointer-coarse:h-11 pointer-coarse:w-11",
 };
 
 /** Shared by <Button> and buttonClasses(): a small press-down on click, motion on transform only. */

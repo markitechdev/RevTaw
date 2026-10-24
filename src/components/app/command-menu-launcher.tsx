@@ -126,7 +126,7 @@ export function CommandMenuIconButton() {
       onClick={openCommandMenu}
       aria-haspopup="dialog"
       aria-label="Search and commands"
-      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:h-11 pointer-coarse:w-11"
     >
       <Search className="h-4 w-4" aria-hidden="true" />
     </button>

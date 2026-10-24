@@ -297,7 +297,7 @@ export function SessionBuilder({
               aria-expanded={showAllMethods}
               aria-controls={allMethodsId}
               onClick={() => setShowAllMethods((value) => !value)}
-              className="mt-3 inline-flex cursor-pointer items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+              className="touch-target relative mt-3 inline-flex cursor-pointer items-center gap-1.5 text-sm font-medium text-primary hover:underline"
             >
               {showAllMethods ? "Show fewer methods" : `Show all ${BUILDER_METHOD_IDS.length} methods`}
               <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", showAllMethods && "rotate-180")} aria-hidden="true" />

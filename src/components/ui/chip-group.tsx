@@ -77,6 +77,8 @@ export function ChipGroup<T extends string>(props: MultipleProps<T> | SingleProp
                 "group relative flex cursor-pointer select-none items-start gap-2 border text-sm transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-[0.98]",
                 "has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
                 look === "card" ? "rounded-xl px-3 py-2.5" : small ? "items-center gap-1.5 rounded-full px-2.5 py-1 text-xs" : "rounded-full px-3.5 py-1.5",
+                // A fingertip's target on touch screens.
+                look !== "card" && "pointer-coarse:min-h-11 pointer-coarse:items-center",
                 selected ? "border-primary bg-primary-soft text-primary" : "border-border bg-card text-foreground hover:border-input",
                 option.disabled && "cursor-not-allowed opacity-50 active:scale-100",
               )}
@@ -95,6 +97,7 @@ export function ChipGroup<T extends string>(props: MultipleProps<T> | SingleProp
                 className={cn(
                   "flex shrink-0 items-center justify-center border transition-colors",
                   small ? "h-3.5 w-3.5" : "mt-0.5 h-4 w-4",
+                  look !== "card" && "pointer-coarse:mt-0",
                   props.type === "multiple" ? "rounded-[5px]" : "rounded-full",
                   selected ? "border-primary bg-primary text-primary-foreground" : "border-input bg-card",
                 )}

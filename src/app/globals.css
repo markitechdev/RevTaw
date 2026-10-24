@@ -5,6 +5,24 @@
 /* Dark mode is class-based so the user's choice can be persisted. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * A control drawn smaller than a fingertip (a chip's remove button, an inline toggle) gets a 44 × 44 px
+ * hit area on touch screens without changing its size. The element must be positioned (relative or absolute).
+ */
+@utility touch-target {
+  @media (pointer: coarse) {
+    &::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      transform: translate(-50%, -50%);
+    }
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* RevTaw design tokens. Light values on :root, dark values on .dark.  */
 /* Every text/surface pair meets WCAG AA (4.5:1); control borders and  */

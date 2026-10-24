@@ -180,7 +180,7 @@ export function TamariHome({ line, today, pending = false, size, lgSize }: Props
                     {busy === "action" ? (lang === "en" ? "One sec…" : "Sandali…") : shown.action.label}
                   </button>
                 )}
-                <button type="button" disabled={busy !== null} onClick={later} className="inline-flex h-8 cursor-pointer items-center px-1.5 text-xs font-semibold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60">
+                <button type="button" disabled={busy !== null} onClick={later} className="inline-flex h-8 cursor-pointer items-center px-1.5 text-xs font-semibold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-60 pointer-coarse:h-11">
                   {laterLabel(lang)}
                 </button>
               </>
