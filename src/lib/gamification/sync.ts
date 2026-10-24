@@ -35,7 +35,12 @@ export const getGamificationStats = cache(async (): Promise<GamificationStats> =
   const supabase = await createClient();
   const activity = await getActivityStats();
   const [sessions, answers, reviews, mastered, materials, { data: attempts }, goals, mnemonics] = await Promise.all([
-    readPagesQuietly("gamification: sessions", (from, to) => supabase.from("study_sessions").select("method, focus_seconds, items_total, summary").eq("status", "completed").order("completed_at", { ascending: false }).order("id").range(from, to), 2000),
+    // Only the one figure of each summary a badge reads (a pre-test's improvement), not the whole summary.
+    readPagesQuietly(
+      "gamification: sessions",
+      (from, to) => supabase.from("study_sessions").select("method, focus_seconds, items_total, improvement:summary->extra->improvement").eq("status", "completed").order("completed_at", { ascending: false }).order("id").range(from, to),
+      2000,
+    ),
     getAnswerCounts(),
     count(supabase.from("flashcard_reviews").select("id", { count: "exact", head: true })),
     count(supabase.from("concept_mastery").select("concept_id", { count: "exact", head: true }).eq("status", "mastered")),
@@ -52,7 +57,7 @@ export const getGamificationStats = cache(async (): Promise<GamificationStats> =
     byMethod[session.method] = (byMethod[session.method] ?? 0) + 1;
     focusSeconds += sessionFocusSeconds(session);
     if (session.method === "memory_palace" && session.items_total > 0) palaceWalks += 1;
-    const improvement = (session.summary as { extra?: { improvement?: unknown } } | null)?.extra?.improvement;
+    const improvement: unknown = session.improvement;
     if (session.method === "pre_testing" && typeof improvement === "number" && improvement > 0) improvements += 1;
   }
   const best = (attempts ?? []).reduce<number | null>((top, attempt) => {
