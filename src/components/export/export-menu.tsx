@@ -72,7 +72,7 @@ export function ExportMenu({ target, label = "Export", size = "sm", variant = "s
               target={item.target}
               rel={item.target ? "noopener" : undefined}
               onClick={() => setOpen(false)}
-              className="flex items-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+              className="flex items-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
             >
               <item.icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
               <span className="flex flex-col">

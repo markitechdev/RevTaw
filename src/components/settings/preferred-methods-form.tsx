@@ -1,11 +1,11 @@
 "use client";
 
-import { Search } from "lucide-react";
 import { useId, useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
 import { Button } from "@/components/ui/button";
 import { ChipGroup } from "@/components/ui/chip-group";
+import { SearchInput } from "@/components/ui/search-input";
 import { saveStudyPreferencesAction, type SavePreferencesResult } from "@/lib/preferences/actions";
 import { MAX_PREFERRED_METHODS } from "@/lib/preferences/options";
 import { BUILDER_METHOD_IDS, methodName, type BuilderMethodId } from "@/lib/study/catalog";
@@ -35,19 +35,11 @@ export function PreferredMethodsForm({ initial }: { initial: BuilderMethodId[] }
     >
       {result && !result.ok && <Alert tone="error">{result.error}</Alert>}
       {result?.ok && <Alert tone="success">Saved. The session builder shows these first.</Alert>}
-      <div className="relative max-w-xs">
+      <div className="max-w-xs">
         <label htmlFor={filterId} className="sr-only">
           Filter methods
         </label>
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-        <input
-          id={filterId}
-          type="search"
-          value={filter}
-          onChange={(event) => setFilter(event.target.value)}
-          placeholder="Filter methods"
-          className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm focus-visible:border-ring focus-visible:outline-none"
-        />
+        <SearchInput id={filterId} size="sm" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter methods" />
       </div>
       <ChipGroup
         type="multiple"

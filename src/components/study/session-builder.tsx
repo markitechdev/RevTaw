@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Play, Search, Sparkles, Star } from "lucide-react";
+import { ChevronDown, Play, Sparkles, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useId, useMemo, useState, useTransition } from "react";
 
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChipGroup } from "@/components/ui/chip-group";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -303,17 +304,7 @@ export function SessionBuilder({
               <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", showAllMethods && "rotate-180")} aria-hidden="true" />
             </button>
             <div id={allMethodsId} hidden={!showAllMethods} className="mt-3 flex flex-col gap-3">
-              <div className="relative max-w-xs">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                <input
-                  type="search"
-                  aria-label="Filter study methods"
-                  value={methodFilter}
-                  onChange={(event) => setMethodFilter(event.target.value)}
-                  placeholder="Filter methods"
-                  className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm focus-visible:border-ring focus-visible:outline-none"
-                />
-              </div>
+              <SearchInput wrapperClassName="max-w-xs" size="sm" aria-label="Filter study methods" value={methodFilter} onChange={(event) => setMethodFilter(event.target.value)} placeholder="Filter methods" />
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{otherMethods.map(methodCard)}</div>
               {otherMethods.length === 0 && <p className="text-sm text-muted-foreground">No other method matches “{methodFilter}”.</p>}
             </div>

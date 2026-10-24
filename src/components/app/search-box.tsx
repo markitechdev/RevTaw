@@ -1,10 +1,10 @@
 "use client";
 
-import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { PAGE_SEARCH_ID } from "@/components/app/command-menu-launcher";
+import { SearchInput } from "@/components/ui/search-input";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -43,11 +43,9 @@ export function SearchBox({ initialQuery = "", autoFocus = false, className }: {
       <label htmlFor={PAGE_SEARCH_ID} className="sr-only">
         Search documents, notes, topics, questions, flashcards and conversations
       </label>
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-      <input
+      <SearchInput
         ref={inputRef}
         id={PAGE_SEARCH_ID}
-        type="search"
         name="q"
         value={query}
         autoFocus={autoFocus}
@@ -55,7 +53,6 @@ export function SearchBox({ initialQuery = "", autoFocus = false, className }: {
         placeholder="Search everything…  /"
         autoComplete="off"
         maxLength={120}
-        className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:outline-none"
       />
     </form>
   );

@@ -12,6 +12,7 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { useTamariMove } from "@/components/tamari/use-tamari-move";
 import { MessageBubble, type MessageExtras } from "@/components/tutor/message-bubble";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import { TEXT_LINK } from "@/components/ui/text-link";
 import { useStableCallback } from "@/lib/hooks/use-stable-callback";
 import { moveTaskAction } from "@/lib/planner/actions";
@@ -1048,7 +1049,7 @@ export default function AssistantPanel() {
               ))}
             </div>
 
-            <div className="flex items-end gap-1.5 rounded-xl border border-input bg-background p-1.5 pl-3 transition-shadow focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/40">
+            <div className="flex items-end gap-1.5 rounded-xl border border-input bg-background p-1.5 pl-3 transition-shadow focus-within:border-primary focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring">
               <textarea
                 ref={textareaRef}
                 rows={1}
@@ -1191,16 +1192,15 @@ export default function AssistantPanel() {
                         <label htmlFor={filterId} className="sr-only">
                           Filter materials
                         </label>
-                        <input
+                        <SearchInput
                           id={filterId}
-                          type="search"
+                          size="sm"
                           value={filter}
                           onChange={(event) => setFilter(event.target.value)}
                           onKeyDown={(event) => {
                             if (event.key === "Enter") event.preventDefault();
                           }}
                           placeholder="Filter materials"
-                          className="h-9 w-full rounded-lg border border-input bg-card px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/40"
                         />
                       </div>
                     )}

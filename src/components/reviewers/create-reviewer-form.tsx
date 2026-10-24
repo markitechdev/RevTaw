@@ -1,11 +1,12 @@
 "use client";
 
-import { Search, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useId, useState } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
 import { GeneratingNote, ReviewerKindPicker, useCreateReviewer } from "@/components/reviewers/generate-reviewer-dialog";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import type { ReviewerKind } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 
@@ -42,19 +43,11 @@ export function CreateReviewerForm({ materials, initialMaterialId }: { materials
           Material
         </legend>
         {materials.length > 6 && (
-          <div className="relative max-w-sm">
+          <div className="max-w-sm">
             <label htmlFor={filterId} className="sr-only">
               Filter materials
             </label>
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-            <input
-              id={filterId}
-              type="search"
-              value={filter}
-              onChange={(event) => setFilter(event.target.value)}
-              placeholder="Filter by title or subject"
-              className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm focus-visible:border-ring focus-visible:outline-none"
-            />
+            <SearchInput id={filterId} size="sm" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter by title or subject" />
           </div>
         )}
         <div className="grid max-h-[22rem] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
