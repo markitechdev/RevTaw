@@ -75,16 +75,22 @@ would cut those reads short.
 
 **Authentication → Email Templates** (recommended)
 
-The default templates work with the `/auth/callback` route. For links that also
-work when the email is opened in a different browser or device than the one
-that started the flow, point the templates at the token-hash route instead:
+The default templates work with the `/auth/callback` route, but their links are
+used as soon as they are opened, and school or work mail scanners (Microsoft
+Safe Links and the like) open every link first, so students find them already
+used. Point the templates at RevTaw's confirm page instead. Opening the link
+only shows a button; the link is used when the student presses it, and it
+works in any browser or device:
 
 - Confirm signup:
   `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup`
 - Reset password:
-  `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/reset-password`
+  `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery`
 - Change email address:
-  `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email_change&next=/settings/account`
+  `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email_change`
+
+These links always open the Site URL, so during local development a
+confirmation link opens the live site; sign in locally afterwards.
 
 ## 4. Rate limits
 
