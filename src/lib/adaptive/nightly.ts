@@ -3,7 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { MASTERY_STALE_MS, recomputeMasteryFor } from "@/lib/adaptive/engine";
-import { chunked, conceptCategories, DEFAULT_CATEGORY, optionCount } from "@/lib/adaptive/evidence";
+import { chunked, conceptCategories, DEFAULT_CATEGORY, forgetCachedBuckets, optionCount } from "@/lib/adaptive/evidence";
 import { guessFloor } from "@/lib/engine/bkt";
 import { ENGINE } from "@/lib/engine/config";
 import { bucketKey, fitBucketDifficulty, labelPrior, type BucketObservation } from "@/lib/engine/elo";
@@ -97,6 +97,8 @@ export async function refitItemBuckets(admin: Client, now: Date = new Date(), ma
   }));
   const { error } = await admin.from("item_buckets").upsert(rows, { onConflict: "bucket_key" });
   if (error) throw new Error(`item buckets: upsert failed: ${error.message}`);
+  // The rest of this run (and this instance's next graded answers) use the new difficulties.
+  forgetCachedBuckets();
   return rows.length;
 }
 

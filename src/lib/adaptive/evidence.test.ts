@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { abilityOf, chunked, optionCount, readPages } from "@/lib/adaptive/evidence";
+import { abilityOf, BUCKETS_TTL_MS, chunked, forgetCachedBuckets, loadBuckets, optionCount, readPages } from "@/lib/adaptive/evidence";
+
+/** A client whose item_buckets read returns the next queued result and counts the reads. */
+function bucketClient(results: Array<{ data: Array<{ bucket_key: string; difficulty: number }> | null; error: { message: string } | null }>) {
+  const client = { reads: 0, from: () => ({ select: () => ({ limit: async () => (client.reads++, results.shift() ?? { data: [], error: null }) }) }) };
+  return client;
+}
 
 describe("evidence helpers", () => {
   it("reads past the 1,000-row page limit, newest first, up to a cap", async () => {
@@ -23,6 +29,45 @@ describe("evidence helpers", () => {
       [1000, 1499],
     ]);
     await expect(readPages(async () => ({ data: null, error: { message: "denied" } }), 10)).rejects.toThrow("denied");
+  });
+
+  describe("shared item buckets", () => {
+    afterEach(() => {
+      forgetCachedBuckets();
+      vi.restoreAllMocks();
+    });
+
+    it("reuses a good read for ten minutes, then reads again", async () => {
+      const now = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
+      const client = bucketClient([
+        { data: [{ bucket_key: "easy:true_false:definition", difficulty: -1.2 }], error: null },
+        { data: [{ bucket_key: "easy:true_false:definition", difficulty: -0.4 }], error: null },
+      ]);
+      expect((await loadBuckets(client as never)).get("easy:true_false:definition")).toBe(-1.2);
+      now.mockReturnValue(1_000_000 + BUCKETS_TTL_MS - 1);
+      expect((await loadBuckets(client as never)).get("easy:true_false:definition")).toBe(-1.2);
+      expect(client.reads).toBe(1);
+      now.mockReturnValue(1_000_000 + BUCKETS_TTL_MS);
+      expect((await loadBuckets(client as never)).get("easy:true_false:definition")).toBe(-0.4);
+      expect(client.reads).toBe(2);
+    });
+
+    it("never keeps an empty or failed read, and forgets on request", async () => {
+      const client = bucketClient([
+        { data: null, error: { message: "timeout" } },
+        { data: [], error: null },
+        { data: [{ bucket_key: "hard:essay:process", difficulty: 1.5 }], error: null },
+        { data: [{ bucket_key: "hard:essay:process", difficulty: 1.1 }], error: null },
+      ]);
+      expect((await loadBuckets(client as never)).size).toBe(0);
+      expect((await loadBuckets(client as never)).size).toBe(0);
+      expect((await loadBuckets(client as never)).get("hard:essay:process")).toBe(1.5);
+      expect((await loadBuckets(client as never)).get("hard:essay:process")).toBe(1.5);
+      expect(client.reads).toBe(3);
+      forgetCachedBuckets();
+      expect((await loadBuckets(client as never)).get("hard:essay:process")).toBe(1.1);
+      expect(client.reads).toBe(4);
+    });
   });
 
   it("splits id lists, counts options and shrinks ability towards zero", () => {

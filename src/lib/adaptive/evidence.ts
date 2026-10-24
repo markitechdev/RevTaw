@@ -29,7 +29,7 @@ export type ModelContext = {
   /** The student's median response time per question type (null until there are enough timed answers). */
   medians: Record<string, number | null>;
   /** Learned bucket difficulties (logits) by bucket key. */
-  buckets: Map<string, number>;
+  buckets: ReadonlyMap<string, number>;
   categories: Map<string, ConceptCategory>;
   previous: Map<string, { bestStatus: MasteryStatus | null; eloStart: number | null }>;
   /** Overall ability: where a concept's rating starts the first time it is answered. */
@@ -268,10 +268,27 @@ export async function conceptCategories(supabase: Client, conceptIds: string[], 
   return result;
 }
 
-/** Shared item buckets (difficulty in logits by bucket key). Readable by every signed-in student. */
-export async function loadBuckets(supabase: Client): Promise<Map<string, number>> {
-  const { data } = await supabase.from("item_buckets").select("bucket_key, difficulty").limit(2000);
-  return new Map((data ?? []).map((row) => [row.bucket_key, Number(row.difficulty)]));
+/** How long a server instance reuses the shared item buckets before reading them again. */
+export const BUCKETS_TTL_MS = 10 * 60_000;
+let cachedBuckets: { value: ReadonlyMap<string, number>; until: number } | null = null;
+
+/**
+ * Shared item buckets (difficulty in logits by bucket key). Readable by every
+ * signed-in student and the same for all of them, refit once a night, so each
+ * server instance keeps a good read for ten minutes instead of reading the
+ * table for every graded answer. An empty or failed read is never kept.
+ */
+export async function loadBuckets(supabase: Client): Promise<ReadonlyMap<string, number>> {
+  if (cachedBuckets && cachedBuckets.until > Date.now()) return cachedBuckets.value;
+  const { data, error } = await supabase.from("item_buckets").select("bucket_key, difficulty").limit(2000);
+  const value: ReadonlyMap<string, number> = new Map((data ?? []).map((row) => [row.bucket_key, Number(row.difficulty)]));
+  if (!error && value.size > 0) cachedBuckets = { value, until: Date.now() + BUCKETS_TTL_MS };
+  return value;
+}
+
+/** Drops this instance's copy, so the next read sees a refit straight away. */
+export function forgetCachedBuckets(): void {
+  cachedBuckets = null;
 }
 
 /** Answers-weighted mean of the student's concept ratings, shrunk towards 0 while there are few answers. */
