@@ -82,6 +82,7 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
             Study
           </Link>
           <SessionSummaryCard
+            headingLevel="h1"
             title={`${name} complete`}
             summary={summary}
             actions={
@@ -125,6 +126,7 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
         {reaction && <TamariSays text={reaction.text} />}
         {summary ? (
           <SessionSummaryCard
+            headingLevel="h1"
             title={session.status === "abandoned" ? `${name} stopped early` : `${name} complete`}
             summary={summary}
             extraStats={extraStats}

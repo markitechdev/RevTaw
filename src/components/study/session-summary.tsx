@@ -33,11 +33,14 @@ export function SessionSummaryCard({
   summary,
   extraStats = [],
   actions,
+  headingLevel = "h2",
 }: {
   title: string;
   summary: SessionSummary;
   extraStats?: Array<{ label: string; value: string }>;
   actions?: ReactNode;
+  /** h1 when the summary is the page (a finished session opened later), h2 under a runner's own heading. */
+  headingLevel?: "h1" | "h2";
 }) {
   const accuracy = summary.accuracy === null ? null : Math.round(summary.accuracy * 100);
   const improvement = summary.improvement === null ? null : Math.round(summary.improvement * 100);
@@ -53,7 +56,9 @@ export function SessionSummaryCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">{title}</CardTitle>
+        <CardTitle as={headingLevel} className="text-lg">
+          {title}
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">

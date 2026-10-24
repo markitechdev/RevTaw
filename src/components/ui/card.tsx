@@ -18,7 +18,7 @@ export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElemen
  * page's h1, so h3 would skip a level. Pass `as` when the card is nested
  * under another heading.
  */
-export function CardTitle({ as: Tag = "h2", className, ...props }: HTMLAttributes<HTMLHeadingElement> & { as?: "h2" | "h3" | "h4" }) {
+export function CardTitle({ as: Tag = "h2", className, ...props }: HTMLAttributes<HTMLHeadingElement> & { as?: "h1" | "h2" | "h3" | "h4" }) {
   return <Tag className={cn("text-base font-semibold leading-tight", className)} {...props} />;
 }
 
