@@ -259,13 +259,18 @@ export async function rebalancePlan(planId: string, options: { force?: boolean }
   const { timezone, today } = await plannerClock();
   if (plan.status !== "active") return { changed: false, note: plan.adjustment_note };
   if (!options.force && plan.adjusted_at && dateIn(plan.adjusted_at, timezone) === today) return { changed: false, note: plan.adjustment_note };
+  // Claim the adjustment first: the update matches only while adjusted_at is as read, so when two tabs (or
+  // Home and the planner) open at once, one of them adjusts the plan and the other leaves it.
+  const claim = supabase.from("study_plans").update({ adjusted_at: new Date().toISOString() }).eq("id", plan.id).eq("status", "active");
+  const { data: claimed, error: claimError } = await (plan.adjusted_at ? claim.eq("adjusted_at", plan.adjusted_at) : claim.is("adjusted_at", null)).select("id");
+  if (claimError) throw new Error(`study_plans: adjustment claim failed: ${claimError.message}`);
+  if (!claimed?.length) return { changed: false, note: plan.adjustment_note };
   const exam = await loadExam(supabase, plan.exam_id);
   if (daysBetween(today, exam.exam_date) < 0) {
     await supabase.from("study_plans").update({ status: "completed", adjusted_at: new Date().toISOString() }).eq("id", plan.id);
     return { changed: true, note: "The exam date has passed; the plan is complete." };
   }
-  const { data: rows } = await supabase.from("study_tasks").select("*").eq("plan_id", plan.id).order("scheduled_for").order("position");
-  const tasks = rows ?? [];
+  const tasks = await readPages((from, to) => supabase.from("study_tasks").select("*").eq("plan_id", plan.id).order("scheduled_for").order("position").order("id").range(from, to), 5000);
   const notes: string[] = [];
   const allowed = new Set(plan.available_days);
   const usedByDay = new Map<string, number>();
