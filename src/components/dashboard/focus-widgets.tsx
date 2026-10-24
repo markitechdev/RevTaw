@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { StartTaskButton } from "@/components/dashboard/start-task-button";
 import { formatRelativeDate } from "@/components/materials/material-card";
 import { buttonClasses } from "@/components/ui/button";
+import { TEXT_LINK } from "@/components/ui/text-link";
 import { getRecommendations } from "@/lib/adaptive/recommend";
 import { getContinueItem } from "@/lib/dashboard/queries";
 import { SOURCE_LABEL } from "@/lib/materials/constants";
@@ -296,7 +297,7 @@ export async function DueTodayWidget({ planning }: { planning: Promise<unknown> 
           </p>
           <p className="text-sm text-muted-foreground">
             Nothing is due. Get ahead with a quick review, or{" "}
-            <Link href={routes.planner} className="font-medium text-primary hover:underline">
+            <Link href={routes.planner} className={TEXT_LINK}>
               plan the week
             </Link>
             .
@@ -329,7 +330,7 @@ export async function DueTodayWidget({ planning }: { planning: Promise<unknown> 
         </ul>
       )}
       {rows.length > visible.length && (
-        <Link href={routes.planner} className="mt-auto text-xs font-medium text-primary hover:underline">
+        <Link href={routes.planner} className={cn("mt-auto self-start text-xs", TEXT_LINK)}>
           {rows.length - visible.length} more in the Planner
         </Link>
       )}

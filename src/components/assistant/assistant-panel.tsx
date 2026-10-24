@@ -12,6 +12,7 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { useTamariMove } from "@/components/tamari/use-tamari-move";
 import { MessageBubble, type MessageExtras } from "@/components/tutor/message-bubble";
 import { Button } from "@/components/ui/button";
+import { TEXT_LINK } from "@/components/ui/text-link";
 import { useStableCallback } from "@/lib/hooks/use-stable-callback";
 import { moveTaskAction } from "@/lib/planner/actions";
 import { saveResponseLanguageAction } from "@/lib/preferences/actions";
@@ -869,7 +870,7 @@ export default function AssistantPanel() {
             )}
           </div>
           <div className="border-t border-border px-4 py-3">
-            <Link href={routes.tutor} onClick={hide} className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+            <Link href={routes.tutor} onClick={hide} className={cn("text-sm", TEXT_LINK)}>
               Open the AI Tutor for every chat and study mode
             </Link>
           </div>
@@ -1179,7 +1180,7 @@ export default function AssistantPanel() {
                 ) : materials.length === 0 ? (
                   <p className="px-2 py-3 text-sm text-muted-foreground">
                     No material is ready yet.{" "}
-                    <Link href={`${routes.materials}?upload=1`} onClick={hide} className="font-medium text-primary underline-offset-4 hover:underline">
+                    <Link href={`${routes.materials}?upload=1`} onClick={hide} className={TEXT_LINK}>
                       Upload one
                     </Link>
                   </p>

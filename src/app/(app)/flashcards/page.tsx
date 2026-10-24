@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
+import { TEXT_LINK } from "@/components/ui/text-link";
 import { countDueCards, listDecksPage } from "@/lib/flashcards/queries";
 import { listMaterials } from "@/lib/materials/queries";
 import { GRID_PAGE_SIZE, parsePage, withPage } from "@/lib/pagination";
@@ -99,7 +100,7 @@ export default async function FlashcardsPage({ searchParams }: PageProps<"/flash
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>Updated {formatRelativeDate(deck.updated_at)}</span>
                     {deck.status === "ready" && (
-                      <Link href={`${routes.flashcards}/${deck.id}/review?mode=${deck.dueCount > 0 ? "due" : "all"}`} className="font-medium text-primary hover:underline">
+                      <Link href={`${routes.flashcards}/${deck.id}/review?mode=${deck.dueCount > 0 ? "due" : "all"}`} className={TEXT_LINK}>
                         {deck.dueCount > 0 ? "Review due" : "Study all"}
                       </Link>
                     )}

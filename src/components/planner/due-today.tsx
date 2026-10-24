@@ -5,8 +5,10 @@ import { TaskItem } from "@/components/planner/task-item";
 import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TEXT_LINK } from "@/components/ui/text-link";
 import type { DueToday } from "@/lib/planner/queries";
 import { routes } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 
 /** The due-today system (§22 "Due Today", Phase 7): plan tasks, overdue tasks, due cards, fading concepts. */
 export function DueTodayCard({ due, compact = false, title = "Due today" }: { due: DueToday; compact?: boolean; title?: string }) {
@@ -72,7 +74,7 @@ export function DueTodayCard({ due, compact = false, title = "Due today" }: { du
                 </ul>
                 {pending.length > plannedShown &&
                   (compact ? (
-                    <Link href={routes.planner} className="mt-2 inline-block text-xs text-primary hover:underline">
+                    <Link href={routes.planner} className={cn("mt-2 inline-block text-xs", TEXT_LINK)}>
                       {pending.length - plannedShown} more in the planner
                     </Link>
                   ) : (

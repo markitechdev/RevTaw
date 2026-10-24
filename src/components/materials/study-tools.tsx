@@ -8,6 +8,7 @@ import { GenerateReviewerButton } from "@/components/reviewers/generate-reviewer
 import { NewConversationButton } from "@/components/tutor/new-conversation-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TEXT_LINK } from "@/components/ui/text-link";
 import type { DeckListItem } from "@/lib/flashcards/queries";
 import type { QuizListItem } from "@/lib/quizzes/queries";
 import { REVIEWER_KIND_BY_ID } from "@/lib/reviewers/kinds";
@@ -141,7 +142,7 @@ export function StudyTools({
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Memory aids from this material</h3>
             <p className="flex items-center gap-2 text-sm">
               <Lightbulb className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <Link href={routes.memoryAids} className="font-medium hover:underline">
+              <Link href={routes.memoryAids} className={TEXT_LINK}>
                 {memoryAids} memory aid{memoryAids === 1 ? "" : "s"} in your library
               </Link>
             </p>

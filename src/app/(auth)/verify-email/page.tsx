@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AuthCard } from "@/components/auth/auth-card";
 import { ResendVerificationForm } from "@/components/auth/resend-verification-form";
 import { Alert } from "@/components/forms/form-alert";
+import { TEXT_LINK } from "@/components/ui/text-link";
 import { getPendingEmail } from "@/lib/auth/pending-email";
 import { routes } from "@/lib/routes";
 import { turnstileSiteKey } from "@/lib/security/turnstile";
@@ -35,11 +36,11 @@ export default async function VerifyEmailPage({ searchParams }: PageProps<"/veri
       footer={
         <>
           Wrong address?{" "}
-          <Link href={routes.register} className="font-medium text-primary hover:underline">
+          <Link href={routes.register} className={TEXT_LINK}>
             Register again
           </Link>{" "}
           or{" "}
-          <Link href={routes.login} className="font-medium text-primary hover:underline">
+          <Link href={routes.login} className={TEXT_LINK}>
             sign in
           </Link>
           .

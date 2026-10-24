@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { AuthCard } from "@/components/auth/auth-card";
 import { LoginForm } from "@/components/auth/login-form";
+import { TEXT_LINK } from "@/components/ui/text-link";
 import { routes, safeNextPath } from "@/lib/routes";
 import { turnstileSiteKey } from "@/lib/security/turnstile";
 
@@ -42,7 +43,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       footer={
         <>
           New to RevTaw?{" "}
-          <Link href={routes.register} className="font-medium text-primary hover:underline">
+          <Link href={routes.register} className={TEXT_LINK}>
             Create an account
           </Link>
         </>

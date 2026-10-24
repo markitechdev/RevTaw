@@ -9,6 +9,7 @@ import { AssistantPage } from "@/components/assistant/assistant-provider";
 import { pickTask, usePickedTask } from "@/components/planner/picked-task";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TEXT_LINK } from "@/components/ui/text-link";
 import { completeTaskAction, deleteTaskAction, reopenTaskAction, skipTaskAction, startTaskAction } from "@/lib/planner/actions";
 import { relativeDays } from "@/lib/planner/dates";
 import type { TaskView } from "@/lib/planner/queries";
@@ -141,7 +142,7 @@ export function TaskItem({
           </p>
         )}
         {task.status === "done" && task.session_id && (
-          <Link href={`${routes.study}/${task.session_id}`} className="text-xs text-primary hover:underline">
+          <Link href={`${routes.study}/${task.session_id}`} className={cn("self-start text-xs", TEXT_LINK)}>
             View session summary
           </Link>
         )}

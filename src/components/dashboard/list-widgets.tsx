@@ -6,6 +6,7 @@ import { WidgetHeading, WidgetPanel } from "@/components/dashboard/widget-shell"
 import { formatRelativeDate } from "@/components/materials/material-card";
 import { GoalList } from "@/components/planner/goals";
 import { buttonClasses } from "@/components/ui/button";
+import { TEXT_LINK } from "@/components/ui/text-link";
 import { getMasterySummary } from "@/lib/adaptive/engine";
 import { listDecks } from "@/lib/flashcards/queries";
 import { listRecentMaterials } from "@/lib/materials/queries";
@@ -33,7 +34,7 @@ export async function RecentMaterialsWidget() {
       {materials.length === 0 ? (
         <EmptyLine>
           Nothing here yet.&nbsp;
-          <Link href={`${routes.materials}?upload=1`} className="font-medium text-primary hover:underline">
+          <Link href={`${routes.materials}?upload=1`} className={TEXT_LINK}>
             Upload your first material
           </Link>
         </EmptyLine>

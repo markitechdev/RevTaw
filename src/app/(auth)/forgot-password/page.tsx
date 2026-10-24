@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { AuthCard } from "@/components/auth/auth-card";
 import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
+import { TEXT_LINK } from "@/components/ui/text-link";
 import { routes } from "@/lib/routes";
 import { turnstileSiteKey } from "@/lib/security/turnstile";
 
@@ -22,7 +23,7 @@ export default async function ForgotPasswordPage({ searchParams }: PageProps<"/f
       footer={
         <>
           Remembered it?{" "}
-          <Link href={routes.login} className="font-medium text-primary hover:underline">
+          <Link href={routes.login} className={TEXT_LINK}>
             Back to sign in
           </Link>
         </>

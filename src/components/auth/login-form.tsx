@@ -9,6 +9,7 @@ import { PasswordInput } from "@/components/forms/password-input";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { TurnstileField } from "@/components/forms/turnstile-field";
 import { Input } from "@/components/ui/input";
+import { TEXT_LINK } from "@/components/ui/text-link";
 import { loginAction } from "@/lib/auth/actions";
 import { IDLE_STATE } from "@/lib/forms/action-state";
 import { routes } from "@/lib/routes";
@@ -55,7 +56,7 @@ export function LoginForm({
       </Field>
 
       <div className="-mt-1 text-right text-sm">
-        <Link href={routes.forgotPassword} className="font-medium text-primary hover:underline">
+        <Link href={routes.forgotPassword} className={TEXT_LINK}>
           Forgot your password?
         </Link>
       </div>

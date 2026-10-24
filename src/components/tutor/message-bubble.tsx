@@ -8,6 +8,7 @@ import { Markdown } from "@/components/content/markdown";
 import { VisualView } from "@/components/study/visual-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TEXT_LINK } from "@/components/ui/text-link";
 import { CONTENT_PAGE_SIZE, pageOfIndex, withPage } from "@/lib/pagination";
 import { routes } from "@/lib/routes";
 import type { MessageView } from "@/lib/tutor/queries";
@@ -91,7 +92,7 @@ export const MessageBubble = memo(function MessageBubble({
                     {source.heading ?? `Section ${source.position + 1}`}
                     {source.pages ? ` · p. ${source.pages}` : ""}
                     {materialId && (
-                      <Link href={`${withPage(`${routes.materials}/${materialId}`, { tab: "content" }, pageOfIndex(source.position, CONTENT_PAGE_SIZE))}#chunk-${source.position + 1}`} className="ml-2 text-primary hover:underline">
+                      <Link href={`${withPage(`${routes.materials}/${materialId}`, { tab: "content" }, pageOfIndex(source.position, CONTENT_PAGE_SIZE))}#chunk-${source.position + 1}`} className={cn("ml-2", TEXT_LINK)}>
                         open
                       </Link>
                     )}
