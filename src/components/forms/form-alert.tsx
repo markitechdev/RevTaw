@@ -17,8 +17,9 @@ const TONES: Record<AlertTone, { className: string; Icon: typeof AlertCircle; ro
     Icon: CheckCircle2,
     role: "status",
   },
+  // The fixed info blue, not the theme color: on the red, orange or pink themes the theme color reads as an error.
   info: {
-    className: "border-primary/30 bg-primary-soft text-primary",
+    className: "border-info/30 bg-info-soft text-info",
     Icon: Info,
     role: "status",
   },
