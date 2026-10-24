@@ -1,4 +1,4 @@
-import { ArrowLeft, BookOpenCheck } from "lucide-react";
+import { BookOpenCheck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -8,7 +8,7 @@ import { ExportMenu } from "@/components/export/export-menu";
 import { AttemptResults } from "@/components/quizzes/attempt-results";
 import { QuizRunner } from "@/components/quizzes/quiz-runner";
 import { buttonClasses } from "@/components/ui/button";
-import { PAGE_TITLE } from "@/components/ui/typography";
+import { BackLink, DetailHeader } from "@/components/ui/page-header";
 import { getAttemptResults, getAttemptRunner, getQuiz } from "@/lib/quizzes/queries";
 import { expireIfNeeded } from "@/lib/quizzes/service";
 import { routes } from "@/lib/routes";
@@ -37,10 +37,7 @@ export default async function AttemptPage({ params }: PageProps<"/quiz/[id]/atte
       <div className="flex flex-col gap-4">
         {/* No floating button while answering: the quiz keeps the student's focus (and its answers stay theirs). */}
         <AssistantLauncher mode="hidden" />
-        <Link href={`${routes.quiz}/${quiz.id}`} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          {quiz.title}
-        </Link>
+        <BackLink href={`${routes.quiz}/${quiz.id}`} label={quiz.title} />
         <QuizRunner key={runner.attempt.id} view={runner} />
       </div>
     );
@@ -58,14 +55,12 @@ export default async function AttemptPage({ params }: PageProps<"/quiz/[id]/atte
         materialId={quiz.material_id}
         suggestions={firstWrong >= 0 ? [`Why did I get number ${firstWrong + 1} wrong?`, "Explain my mistakes simply", "Quiz me again on what I missed"] : ["What should I study next?", "Explain the trickiest question", "Quiz me on something harder"]}
       />
-      <div className="flex flex-col gap-1">
-        <Link href={`${routes.quiz}/${quiz.id}`} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          {quiz.title}
-        </Link>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className={PAGE_TITLE}>Results</h1>
-          <div className="flex flex-wrap items-center gap-2">
+      <DetailHeader
+        back={{ href: `${routes.quiz}/${quiz.id}`, label: quiz.title }}
+        title="Results"
+        status={expired && <p className="text-sm text-warning">Time ran out, so this attempt was submitted automatically.</p>}
+        actions={
+          <>
             <ExportMenu target={{ kind: "results", id: attemptId }} label="Export results" />
             {session && (
               <Link href={`${routes.study}/${session.id}`} className={buttonClasses({ size: "sm", variant: "secondary" })}>
@@ -73,10 +68,9 @@ export default async function AttemptPage({ params }: PageProps<"/quiz/[id]/atte
                 Session summary
               </Link>
             )}
-          </div>
-        </div>
-        {expired && <p className="text-sm text-warning">Time ran out, so this attempt was submitted automatically.</p>}
-      </div>
+          </>
+        }
+      />
       <AttemptResults view={results} questionCount={quiz.question_count} />
     </div>
   );

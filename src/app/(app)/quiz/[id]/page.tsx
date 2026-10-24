@@ -1,8 +1,9 @@
-import { ArrowLeft, Clock, History, Shuffle } from "lucide-react";
+import { Clock, History, Shuffle } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { MadeFrom } from "@/components/content/made-from";
 import { formatRelativeDate } from "@/components/materials/material-card";
 import { ExportMenu } from "@/components/export/export-menu";
 import { QuizActions } from "@/components/quizzes/quiz-actions";
@@ -13,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { GeneratingState } from "@/components/ui/generating-state";
-import { PAGE_TITLE } from "@/components/ui/typography";
+import { DetailHeader } from "@/components/ui/page-header";
 import { getQuiz } from "@/lib/quizzes/queries";
 import { DIFFICULTY_LABEL, QUESTION_TYPE_BY_ID, QUIZ_MODE_LABEL } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
@@ -38,46 +39,31 @@ export default async function QuizDetailPage({ params }: PageProps<"/quiz/[id]">
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3">
-        <Link href={routes.quiz} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Quizzes
-        </Link>
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
+      <DetailHeader
+        back={{ href: routes.quiz, label: "Quizzes" }}
+        badges={
+          <>
             <Badge tone={quiz.config.mode === "exam" ? "warning" : "primary"}>{QUIZ_MODE_LABEL[quiz.config.mode]} by default</Badge>
             <Badge tone="neutral">{quiz.question_count} questions</Badge>
             <Badge tone="neutral">{quiz.config.difficulty === "mixed" ? "Mixed difficulty" : quiz.config.difficulty === "adaptive" ? "Adaptive difficulty" : DIFFICULTY_LABEL[quiz.config.difficulty]}</Badge>
             {quiz.status === "generating" && <Badge tone="neutral">Generating…</Badge>}
-          </div>
-          <h1 className={PAGE_TITLE}>{quiz.title}</h1>
-          <p className="text-sm text-muted-foreground">
-            {quiz.material ? (
+          </>
+        }
+        title={quiz.title}
+        meta={<MadeFrom material={quiz.material} createdAt={quiz.created_at} provider={quiz.provider} />}
+        status={quiz.status_detail && quiz.status !== "failed" && <p className="text-sm text-muted-foreground">{quiz.status_detail}</p>}
+        actions={
+          <>
+            {quiz.status === "ready" && quiz.question_count > 0 && (
               <>
-                From{" "}
-                <Link href={`${routes.materials}/${quiz.material.id}`} className="font-medium text-foreground wrap-anywhere hover:underline">
-                  {quiz.material.title}
-                </Link>
-                {quiz.material.subject ? ` · ${quiz.material.subject.name}` : ""}
+                <ExportMenu target={{ kind: "quiz", id: quiz.id }} label="Export questions" />
+                <ExportMenu target={{ kind: "quiz", id: quiz.id, query: { answers: "1" } }} label="With answer key" />
               </>
-            ) : (
-              "Source material removed"
             )}
-            {" · "}created {formatRelativeDate(quiz.created_at)}
-            {quiz.provider ? ` · ${quiz.provider}` : ""}
-          </p>
-          {quiz.status_detail && quiz.status !== "failed" && <p className="text-sm text-muted-foreground">{quiz.status_detail}</p>}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {quiz.status === "ready" && quiz.question_count > 0 && (
-            <>
-              <ExportMenu target={{ kind: "quiz", id: quiz.id }} label="Export questions" />
-              <ExportMenu target={{ kind: "quiz", id: quiz.id, query: { answers: "1" } }} label="With answer key" />
-            </>
-          )}
-          <QuizActions quizId={quiz.id} title={quiz.title} status={quiz.status} />
-        </div>
-      </div>
+            <QuizActions quizId={quiz.id} title={quiz.title} status={quiz.status} />
+          </>
+        }
+      />
 
       {quiz.status === "failed" ? (
         <ErrorState title="This quiz could not be generated" description={quiz.status_detail ?? "Something went wrong while writing the questions."} />

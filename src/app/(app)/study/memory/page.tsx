@@ -1,11 +1,8 @@
-import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { formatRelativeDate } from "@/components/materials/material-card";
 import { MnemonicLibrary } from "@/components/study/mnemonic-library";
 import { PalaceLibrary } from "@/components/study/palace-editor";
-import { buttonClasses } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { listMaterials } from "@/lib/materials/queries";
 import { routes } from "@/lib/routes";
@@ -22,11 +19,7 @@ export default async function MemoryAidsPage({ searchParams }: PageProps<"/study
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href={routes.study} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Study
-      </Link>
-      <PageHeader title="Memory aids" description="The mnemonics you saved or wrote yourself, and the memory palaces you walk. Star the mnemonics that work, practice recalling their lists, and keep your routes up to date." />
+      <PageHeader back={{ href: routes.study, label: "Study" }} title="Memory aids" description="The mnemonics you saved or wrote yourself, and the memory palaces you walk. Star the mnemonics that work, practice recalling their lists, and keep your routes up to date." />
       <MnemonicLibrary
         favoritesOnly={favoritesOnly}
         materials={materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title }))}

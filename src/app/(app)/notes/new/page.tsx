@@ -1,4 +1,4 @@
-import { ArrowLeft, ScrollText, Upload } from "lucide-react";
+import { ScrollText, Upload } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -21,11 +21,7 @@ export default async function NewReviewerPage({ searchParams }: PageProps<"/note
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href={routes.notes} className="inline-flex w-fit items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Notes
-      </Link>
-      <PageHeader title="Create a reviewer" description="Turn one of your materials into study notes: a complete reviewer, a summary, Cornell notes, a cheat sheet and more." />
+      <PageHeader back={{ href: routes.notes, label: "Notes" }} title="Create a reviewer" description="Turn one of your materials into study notes: a complete reviewer, a summary, Cornell notes, a cheat sheet and more." />
       {materials.length === 0 ? (
         <EmptyState
           icon={ScrollText}

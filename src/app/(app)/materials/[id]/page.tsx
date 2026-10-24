@@ -1,6 +1,4 @@
-import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { MaterialMastery } from "@/components/adaptive/material-mastery";
@@ -16,9 +14,8 @@ import { MaterialTabs } from "@/components/materials/material-tabs";
 import { StudyTools } from "@/components/materials/study-tools";
 import { TrackOpen } from "@/components/materials/track-open";
 import { formatRelativeDate, placementOf } from "@/components/materials/material-card";
-import { buttonClasses } from "@/components/ui/button";
+import { DetailHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
-import { PAGE_TITLE } from "@/components/ui/typography";
 import { listMastery } from "@/lib/adaptive/engine";
 import { listReviewTasks } from "@/lib/planner/queries";
 import { formatBytes, SOURCE_LABEL } from "@/lib/materials/constants";
@@ -95,31 +92,30 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
       {!deleted && <TrackOpen materialId={material.id} />}
       {material.status === "ready" && <AssistantPage context={{ kind: "material", id: material.id }} label={material.subject ? `${material.subject.name} → ${material.title}` : material.title} materialId={material.id} />}
 
-      <div className="flex flex-col gap-3">
-        <Link
-          href={material.subject ? `${routes.materials}?subject=${material.subject.id}` : routes.materials}
-          className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          {material.subject ? material.subject.name : "All materials"}
-        </Link>
-        <div className="flex flex-col gap-2">
-          <h1 className={PAGE_TITLE}>{material.title}</h1>
-          <p className="text-sm text-muted-foreground">
+      <DetailHeader
+        back={{ href: material.subject ? `${routes.materials}?subject=${material.subject.id}` : routes.materials, label: material.subject ? material.subject.name : "All materials" }}
+        title={material.title}
+        meta={
+          <>
             {material.subject ? material.subject.name : "No subject"}
             {material.folder ? ` · ${material.folder.name}` : ""}
             {" · "}
             {meta.join(" · ")}
-          </p>
-          {!deleted && (
-            <MaterialStatusBadge
-              materialId={material.id}
-              status={material.status}
-              detail={material.status_detail}
-              showDetail
-            />
-          )}
-        </div>
+          </>
+        }
+        status={!deleted && <MaterialStatusBadge materialId={material.id} status={material.status} detail={material.status_detail} showDetail />}
+        actions={
+          <MaterialActions
+            materialId={material.id}
+            title={material.title}
+            subjectId={material.subject_id}
+            folderId={material.folder_id}
+            filedUnder={placementOf(material)}
+            state={deleted ? "deleted" : archived ? "archived" : "active"}
+            subjects={subjects}
+          />
+        }
+      >
         {archived && material.archived_at && (
           <Alert tone="warning">
             In the Archive. Its file, extracted text and analysis are deleted permanently{" "}
@@ -133,16 +129,7 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
             {KEPT_ITEMS} made from it are kept here — rename it or move it to keep them organized.
           </Alert>
         )}
-        <MaterialActions
-          materialId={material.id}
-          title={material.title}
-          subjectId={material.subject_id}
-          folderId={material.folder_id}
-          filedUnder={placementOf(material)}
-          state={deleted ? "deleted" : archived ? "archived" : "active"}
-          subjects={subjects}
-        />
-      </div>
+      </DetailHeader>
 
       {!deleted && (
         <MaterialTabs

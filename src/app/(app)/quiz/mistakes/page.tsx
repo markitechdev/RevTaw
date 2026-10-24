@@ -1,4 +1,4 @@
-import { ArrowLeft, NotebookPen, RotateCcw } from "lucide-react";
+import { NotebookPen, RotateCcw } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -28,11 +28,7 @@ export default async function MistakesPage({ searchParams }: PageProps<"/quiz/mi
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href={routes.quiz} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Quizzes
-      </Link>
-      <PageHeader
+      <PageHeader back={{ href: routes.quiz, label: "Quizzes" }}
         title="Mistake notebook"
         description="Every incorrect quiz answer lands here automatically with the correct answer and the reason. Classify what went wrong, then mark it learned once you can answer it cold."
         actions={

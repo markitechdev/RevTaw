@@ -1,11 +1,8 @@
-import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Alert } from "@/components/forms/form-alert";
 import { BadgeGrid, LevelCard, XpHistory } from "@/components/gamification/badges";
-import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { SECTION_TITLE } from "@/components/ui/typography";
@@ -28,11 +25,7 @@ export default async function AchievementsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href={routes.progress} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Progress
-      </Link>
-      <PageHeader title="Badges and XP" description="XP comes from evidence of learning — answers, finished sessions, mastered concepts, reached goals and active days — never from time spent idling. Badges mark milestones along the way." />
+      <PageHeader back={{ href: routes.progress, label: "Progress" }} title="Badges and XP" description="XP comes from evidence of learning — answers, finished sessions, mastered concepts, reached goals and active days — never from time spent idling. Badges mark milestones along the way." />
       {fresh.length > 0 && (
         <Alert tone="success">
           New badge{fresh.length === 1 ? "" : "s"}: {fresh.map((achievement) => achievement.title).join(", ")}.

@@ -1,20 +1,21 @@
-import { ArrowLeft, Play, Shuffle, Star } from "lucide-react";
+import { Play, Shuffle, Star } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AssistantPage } from "@/components/assistant/assistant-provider";
+import { MadeFrom } from "@/components/content/made-from";
 import { BoxBar, CardList } from "@/components/flashcards/card-list";
 import { ExportMenu } from "@/components/export/export-menu";
 import { DeckActions } from "@/components/flashcards/deck-actions";
-import { formatRelativeDate } from "@/components/materials/material-card";
 import { formatDue } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/error-state";
 import { GeneratingState } from "@/components/ui/generating-state";
-import { PAGE_TITLE, SECTION_TITLE } from "@/components/ui/typography";
+import { DetailHeader } from "@/components/ui/page-header";
+import { SECTION_TITLE } from "@/components/ui/typography";
 import { getDeck } from "@/lib/flashcards/queries";
 import { routes } from "@/lib/routes";
 
@@ -34,40 +35,25 @@ export default async function DeckPage({ params }: PageProps<"/flashcards/[deckI
   return (
     <div className="flex flex-col gap-6">
       <AssistantPage context={{ kind: "deck", id: deck.id }} label={`Flashcards → ${deck.title}`} materialId={deck.material_id} />
-      <div className="flex flex-col gap-3">
-        <Link href={routes.flashcards} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Flashcards
-        </Link>
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
+      <DetailHeader
+        back={{ href: routes.flashcards, label: "Flashcards" }}
+        badges={
+          <>
             <Badge tone="neutral">{deck.card_count} cards</Badge>
             {deck.status === "ready" && <Badge tone={deck.dueCount > 0 ? "primary" : "success"}>{deck.dueCount > 0 ? `${deck.dueCount} due now` : "Nothing due"}</Badge>}
             {deck.status === "generating" && <Badge tone="neutral">Generating…</Badge>}
-          </div>
-          <h1 className={PAGE_TITLE}>{deck.title}</h1>
-          <p className="text-sm text-muted-foreground">
-            {deck.material ? (
-              <>
-                From{" "}
-                <Link href={`${routes.materials}/${deck.material.id}`} className="font-medium text-foreground wrap-anywhere hover:underline">
-                  {deck.material.title}
-                </Link>
-                {deck.material.subject ? ` · ${deck.material.subject.name}` : ""}
-              </>
-            ) : (
-              "Source material removed"
-            )}
-            {" · "}created {formatRelativeDate(deck.created_at)}
-            {deck.provider ? ` · ${deck.provider}` : ""}
-          </p>
-          {deck.status_detail && deck.status !== "failed" && <p className="text-sm text-muted-foreground">{deck.status_detail}</p>}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {deck.status === "ready" && deck.cards.length > 0 && <ExportMenu target={{ kind: "deck", id: deck.id }} />}
-          <DeckActions deckId={deck.id} title={deck.title} status={deck.status} />
-        </div>
-      </div>
+          </>
+        }
+        title={deck.title}
+        meta={<MadeFrom material={deck.material} createdAt={deck.created_at} provider={deck.provider} />}
+        status={deck.status_detail && deck.status !== "failed" && <p className="text-sm text-muted-foreground">{deck.status_detail}</p>}
+        actions={
+          <>
+            {deck.status === "ready" && deck.cards.length > 0 && <ExportMenu target={{ kind: "deck", id: deck.id }} />}
+            <DeckActions deckId={deck.id} title={deck.title} status={deck.status} />
+          </>
+        }
+      />
 
       {deck.status === "failed" ? (
         <ErrorState title="This deck could not be generated" description={deck.status_detail ?? "Something went wrong while writing the cards."} />

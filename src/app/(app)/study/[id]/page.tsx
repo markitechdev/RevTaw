@@ -1,4 +1,4 @@
-import { ArrowLeft, ListChecks } from "lucide-react";
+import { ListChecks } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -24,6 +24,7 @@ import { SmartSessionView } from "@/components/study/smart-session";
 import { TamariSays } from "@/components/tamari/tamari-says";
 import { buttonClasses } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
+import { BackLink } from "@/components/ui/page-header";
 import { getSmartSessionView, tamariPlanNote } from "@/lib/adaptive/smart";
 import { planReaction } from "@/lib/tamari/plan";
 import { routes } from "@/lib/routes";
@@ -77,10 +78,7 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
       const attemptId = (summary.extra as { attemptId?: string } | undefined)?.attemptId ?? state?.attemptId;
       return (
         <div className="flex flex-col gap-4">
-          <Link href={routes.study} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Study
-          </Link>
+          <BackLink href={routes.study} label="Study" />
           <SessionSummaryCard
             headingLevel="h1"
             title={`${name} complete`}
@@ -119,10 +117,7 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
     const reaction = note && summary && session.status === "completed" ? planReaction(note.language, summary) : null;
     return (
       <div className="flex flex-col gap-4">
-        <Link href={routes.study} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Study
-        </Link>
+        <BackLink href={routes.study} label="Study" />
         {reaction && <TamariSays text={reaction.text} />}
         {summary ? (
           <SessionSummaryCard

@@ -1,20 +1,18 @@
-import { ArrowLeft, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AssistantPage } from "@/components/assistant/assistant-provider";
-import { formatRelativeDate } from "@/components/materials/material-card";
+import { MadeFrom } from "@/components/content/made-from";
 import { ExportMenu } from "@/components/export/export-menu";
 import { ReviewerActions } from "@/components/reviewers/reviewer-actions";
 import { ReviewerSectionView } from "@/components/reviewers/reviewer-section";
 import { TrackReviewerOpen } from "@/components/reviewers/track-open";
 import { HighlightToolbar } from "@/components/tutor/highlight-toolbar";
 import { Badge } from "@/components/ui/badge";
-import { buttonClasses } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
 import { GeneratingState } from "@/components/ui/generating-state";
-import { PAGE_TITLE } from "@/components/ui/typography";
+import { DetailHeader } from "@/components/ui/page-header";
 import { REVIEWER_KIND_BY_ID } from "@/lib/reviewers/kinds";
 import { getReviewer } from "@/lib/reviewers/queries";
 import { routes } from "@/lib/routes";
@@ -37,41 +35,24 @@ export default async function ReviewerPage({ params }: PageProps<"/notes/[id]">)
       <AssistantPage context={{ kind: "reviewer", id: reviewer.id }} label={reviewer.material ? `${reviewer.material.title} → ${reviewer.title}` : reviewer.title} materialId={reviewer.material?.id ?? null} />
       <TrackReviewerOpen reviewerId={reviewer.id} />
 
-      <div className="flex flex-col gap-3">
-        <Link href={routes.notes} className={buttonClasses({ variant: "ghost", size: "sm", className: "-ml-2 self-start" })}>
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Notes
-        </Link>
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
+      <DetailHeader
+        back={{ href: routes.notes, label: "Notes" }}
+        badges={
+          <>
             <Badge tone="primary">{kind.name}</Badge>
             {reviewer.status === "generating" && <Badge tone="neutral">Generating…</Badge>}
-          </div>
-          <h1 className={PAGE_TITLE}>{reviewer.title}</h1>
-          <p className="text-sm text-muted-foreground">
-            {reviewer.material ? (
-              <>
-                From{" "}
-                <Link href={`${routes.materials}/${reviewer.material.id}`} className="font-medium text-foreground wrap-anywhere hover:underline">
-                  {reviewer.material.title}
-                </Link>
-                {reviewer.material.subject ? ` · ${reviewer.material.subject.name}` : ""}
-              </>
-            ) : (
-              "Source material removed"
-            )}
-            {" · "}created {formatRelativeDate(reviewer.created_at)}
-            {reviewer.provider ? ` · ${reviewer.provider}` : ""}
-          </p>
-          {reviewer.status_detail && reviewer.status !== "failed" && (
-            <p className="text-sm text-muted-foreground">{reviewer.status_detail}</p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {reviewer.status === "ready" && reviewer.sections.length > 0 && <ExportMenu target={{ kind: "reviewer", id: reviewer.id }} />}
-          <ReviewerActions reviewerId={reviewer.id} title={reviewer.title} status={reviewer.status} />
-        </div>
-      </div>
+          </>
+        }
+        title={reviewer.title}
+        meta={<MadeFrom material={reviewer.material} createdAt={reviewer.created_at} provider={reviewer.provider} />}
+        status={reviewer.status_detail && reviewer.status !== "failed" && <p className="text-sm text-muted-foreground">{reviewer.status_detail}</p>}
+        actions={
+          <>
+            {reviewer.status === "ready" && reviewer.sections.length > 0 && <ExportMenu target={{ kind: "reviewer", id: reviewer.id }} />}
+            <ReviewerActions reviewerId={reviewer.id} title={reviewer.title} status={reviewer.status} />
+          </>
+        }
+      />
 
       {reviewer.status === "failed" ? (
         <ErrorState
