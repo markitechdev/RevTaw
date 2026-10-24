@@ -14,30 +14,60 @@ export function isIsoDate(value: string): boolean {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
+/*
+ * Creating an Intl.DateTimeFormat costs far more than using one (about
+ * 0.1 ms each, and the learning engine converts thousands of dates per
+ * student), so formatters are made once per time zone and kept.
+ */
+const MAX_CACHED_ZONES = 500;
+const zoneValidity = new Map<string, boolean>();
+const dateFormatters = new Map<string, Intl.DateTimeFormat>();
+const hourFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function cached<T>(cache: Map<string, T>, key: string, make: () => T): T {
+  let value = cache.get(key);
+  if (value === undefined) {
+    if (cache.size >= MAX_CACHED_ZONES) cache.clear();
+    value = make();
+    cache.set(key, value);
+  }
+  return value;
+}
+
 /** Whether `Intl` knows the zone; unknown zones fall back to UTC everywhere. */
 export function isValidTimezone(value: string | null | undefined): value is string {
   if (!value) return false;
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: value });
-    return true;
-  } catch {
-    return false;
-  }
+  return cached(zoneValidity, value, () => {
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: value });
+      return true;
+    } catch {
+      return false;
+    }
+  });
 }
 
 /** The calendar date of an instant in a time zone. */
 export function dateIn(instant: Date | string | number, timezone: string | null | undefined): string {
   const date = instant instanceof Date ? instant : new Date(instant);
   const zone = isValidTimezone(timezone) ? timezone : DEFAULT_TIMEZONE;
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
-  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "00";
-  return `${get("year")}-${get("month")}-${get("day")}`;
+  const formatter = cached(dateFormatters, zone, () => new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }));
+  let year = "0000";
+  let month = "00";
+  let day = "00";
+  for (const part of formatter.formatToParts(date)) {
+    if (part.type === "year") year = part.value;
+    else if (part.type === "month") month = part.value;
+    else if (part.type === "day") day = part.value;
+  }
+  return `${year}-${month}-${day}`;
 }
 
 /** Local hour (0-23) of an instant in a time zone. */
 export function hourIn(instant: Date, timezone: string | null | undefined): number {
   const zone = isValidTimezone(timezone) ? timezone : DEFAULT_TIMEZONE;
-  const hour = new Intl.DateTimeFormat("en-US", { timeZone: zone, hour: "numeric", hourCycle: "h23" }).formatToParts(instant).find((part) => part.type === "hour")?.value;
+  const formatter = cached(hourFormatters, zone, () => new Intl.DateTimeFormat("en-US", { timeZone: zone, hour: "numeric", hourCycle: "h23" }));
+  const hour = formatter.formatToParts(instant).find((part) => part.type === "hour")?.value;
   return Number(hour ?? 0);
 }
 

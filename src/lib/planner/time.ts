@@ -23,9 +23,22 @@ export function formatClock(time: string): string {
   return `${hours % 12 === 0 ? 12 : hours % 12}:${String(minutes).padStart(2, "0")} ${suffix}`;
 }
 
+const clockFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/** One formatter per zone: making one costs far more than using it. */
+function clockFormatter(timeZone: string): Intl.DateTimeFormat {
+  let formatter = clockFormatters.get(timeZone);
+  if (!formatter) {
+    if (clockFormatters.size >= 500) clockFormatters.clear();
+    formatter = new Intl.DateTimeFormat("en-US", { timeZone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    clockFormatters.set(timeZone, formatter);
+  }
+  return formatter;
+}
+
 /** How far (in minutes) the zone's clock is ahead of UTC at an instant. */
 function zoneOffsetMinutes(instant: number, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat("en-US", { timeZone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }).formatToParts(new Date(instant));
+  const parts = clockFormatter(timeZone).formatToParts(new Date(instant));
   const get = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
   return Math.round((Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second")) - instant) / 60_000);
 }

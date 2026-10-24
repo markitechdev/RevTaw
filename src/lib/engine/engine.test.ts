@@ -219,6 +219,18 @@ describe("concept model (§5–§8)", () => {
     expect(two.status).toBe("learning");
   });
 
+  it("models a long history quickly (each day worked out once, misconceptions in one pass)", () => {
+    const start = Date.parse("2026-01-01T02:00:00Z");
+    const history = Array.from({ length: 2000 }, (_, index) =>
+      answer(new Date(start + index * 3 * 3_600_000).toISOString(), index % 4 !== 0, index % 7 === 0 ? { confidence: "very_confident" } : {}),
+    );
+    const began = performance.now();
+    const model = modelConcept({ events: history, openMistakes: 3, category: "understanding", ability: 0, timeZone: TZ, now: new Date("2026-10-24T00:00:00Z") });
+    expect(performance.now() - began).toBeLessThan(1500);
+    expect(model.misconceptions).toBe(0);
+    expect(model.gates.spaced).toBe(true);
+  });
+
   it("keeps a confident error open until a correct answer on a later day", () => {
     const wrong = answer("2026-10-10T02:00:00Z", false, { confidence: "very_confident" });
     const open = modelConcept({ events: [answer("2026-10-09T02:00:00Z", true), wrong, answer("2026-10-10T03:00:00Z", true)], openMistakes: 1, category: "understanding", ability: 0, timeZone: TZ, now: new Date("2026-10-10T04:00:00Z") });

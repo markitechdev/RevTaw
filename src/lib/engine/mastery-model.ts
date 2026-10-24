@@ -130,12 +130,12 @@ function mostCommon<T>(values: T[]): T | null {
  * item that day was wrong, Hard if all were right but some fragile,
  * otherwise Good. Rapid guesses don't count.
  */
-export function dailyReviews(events: EngineEvent[], readings: ReadAnswer[], timeZone: string): GradedReview[] {
+export function dailyReviews(events: EngineEvent[], readings: ReadAnswer[], timeZone: string, eventDays?: string[]): GradedReview[] {
   const days = new Map<string, { at: string; seen: Set<string>; wrong: boolean; fragile: boolean; graded: number }>();
   events.forEach((event, index) => {
     const reading = readings[index];
     if (reading.reading === "rapid_guess") return;
-    const day = dateIn(event.at, timeZone);
+    const day = eventDays?.[index] ?? dateIn(event.at, timeZone);
     const entry = days.get(day) ?? { at: event.at, seen: new Set<string>(), wrong: false, fragile: false, graded: 0 };
     days.set(day, entry);
     entry.at = event.at;
@@ -155,7 +155,8 @@ export function modelConcept(input: ConceptModelInput): ConceptModel {
     readAnswer({ correct: event.correct, confidence: event.confidence, responseMs: event.responseMs, medianMs: input.medianMs?.[event.questionType ?? event.kind] ?? null }),
   );
   const weightOf = (index: number) => readings[index].weight * (events[index].kind === "flashcard" ? ENGINE.answers.flashcardWeight : 1);
-  const dayOf = (at: string) => dateIn(at, input.timeZone);
+  // Each event's day in the student's zone, worked out once.
+  const days = events.map((event) => dateIn(event.at, input.timeZone));
   const real = (index: number) => readings[index].reading !== "rapid_guess";
 
   // BKT: every answer, weighted by how it was read.
@@ -179,10 +180,12 @@ export function modelConcept(input: ConceptModelInput): ConceptModel {
     ratingAnswers += 1;
   });
 
-  // Misconceptions stay open until a correct answer on a later day clears them.
-  const openMisconceptions = events.filter(
-    (event, index) => readings[index].reading === "misconception" && !events.some((later, j) => later.correct && real(j) && dayOf(later.at) > dayOf(event.at)),
-  );
+  // Misconceptions stay open until a correct answer on a later day clears them: one pass finds the last such day.
+  let lastCorrectDay = "";
+  for (let index = 0; index < events.length; index += 1) {
+    if (events[index].correct && real(index) && days[index] > lastCorrectDay) lastCorrectDay = days[index];
+  }
+  const openMisconceptions = events.filter((_, index) => readings[index].reading === "misconception" && !(lastCorrectDay > days[index]));
 
   // Weakness: the gap in P(learned), confident errors and repeated misses, shrunk by evidence.
   const windowStart = now.getTime() - ENGINE.weakness.windowDays * DAY_MS;
@@ -197,18 +200,18 @@ export function modelConcept(input: ConceptModelInput): ConceptModel {
   });
 
   // FSRS on the concept: one review per day, replayed from the history.
-  const fsrs = replay(dailyReviews(events, readings, input.timeZone), "concept");
+  const fsrs = replay(dailyReviews(events, readings, input.timeZone, days), "concept");
   const recall = fsrs ? (recallAt(fsrs, now) ?? 1) : null;
 
   // Gates.
   const answered = events.filter((_, index) => real(index)).length;
-  const corrects = events.filter((event, index) => event.correct && real(index));
-  const firstCorrectDay = corrects[0] ? dayOf(corrects[0].at) : null;
+  const correctDays = days.filter((_, index) => events[index].correct && real(index));
+  const firstCorrectDay = correctDays[0] ?? null;
   const gates: Gates = {
     evidence: answered >= ENGINE.gates.minAnswers,
     hardItem: hardItemCorrect,
     noMisconception: openMisconceptions.length === 0,
-    spaced: firstCorrectDay !== null && corrects.some((event) => daysBetween(firstCorrectDay, dayOf(event.at)) >= ENGINE.gates.spacedDays),
+    spaced: firstCorrectDay !== null && correctDays.some((day) => daysBetween(firstCorrectDay, day) >= ENGINE.gates.spacedDays),
   };
   const unmet = GATE_ORDER.filter((gate) => !gates[gate.key]);
   const cap = unmet.reduce((lowest, gate) => Math.min(lowest, gate.cap), 100);
