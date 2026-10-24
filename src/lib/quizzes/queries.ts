@@ -5,7 +5,9 @@ import { cache } from "react";
 import { attemptDeadline, orderOptions } from "@/lib/quizzes/service";
 import { answerSchema, parseQuizConfig, responseSchema } from "@/lib/quizzes/schemas";
 import { describeAnswer, describeResponse, type QuestionAnswer, type QuestionOption, type QuestionResponse, type QuizConfig } from "@/lib/quizzes/types";
+import { pageOf, type Page } from "@/lib/pagination";
 import type { ConfidenceLevel, Json, Mistake, Quiz, QuizAttempt, QuizQuestion } from "@/lib/supabase/database.types";
+import { fetchPage, readPages } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 type MaterialRef = { id: string; title: string; subject: { name: string } | null } | null;
@@ -31,6 +33,13 @@ function withAttemptStats<T extends { attempts: QuizListItem["attempts"] }>(row:
   return { ...row, bestPercent, attemptCount: submitted.length };
 }
 
+type QuizRow = Omit<QuizListItem, "config" | "bestPercent" | "attemptCount"> & { config: Json };
+
+function toListItem(row: QuizRow): QuizListItem {
+  return withAttemptStats({ ...row, config: parseQuizConfig(row.config) });
+}
+
+/** A material's quizzes (its page lists them all; a material has a handful). */
 export async function listQuizzes(filters: { materialId?: string } = {}): Promise<QuizListItem[]> {
   const supabase = await createClient();
   let query = supabase.from("quizzes").select(LIST_COLUMNS).is("archived_at", null).order("updated_at", { ascending: false }).limit(200);
@@ -40,10 +49,19 @@ export async function listQuizzes(filters: { materialId?: string } = {}): Promis
     console.error("quizzes: list failed", error.message);
     return [];
   }
-  return (data ?? []).map((row) => {
-    const typed = row as unknown as Omit<QuizListItem, "config" | "bestPercent" | "attemptCount"> & { config: Json };
-    return withAttemptStats({ ...typed, config: parseQuizConfig(typed.config) });
-  });
+  return (data ?? []).map((row) => toListItem(row as unknown as QuizRow));
+}
+
+/** One page of the Quiz page, most recently updated first (the id breaks ties, so pages never overlap). */
+export async function listQuizzesPage(page: number, pageSize: number): Promise<Page<QuizListItem>> {
+  const supabase = await createClient();
+  const rows = await fetchPage<QuizRow>(
+    "quizzes",
+    (head) => supabase.from("quizzes").select(head ? "id" : LIST_COLUMNS, { count: "exact", head }).is("archived_at", null).order("updated_at", { ascending: false }).order("id"),
+    page,
+    pageSize,
+  );
+  return pageOf(rows.items.map(toListItem), rows.total, rows.page, rows.pageSize, rows.beyond);
 }
 
 export const countQuizzes = cache(async (): Promise<number> => {
@@ -318,22 +336,61 @@ export type MistakeListItem = Mistake & {
   material: { id: string; title: string } | null;
 };
 
-export async function listMistakes(filters: { resolved?: boolean; conceptId?: string } = {}): Promise<MistakeListItem[]> {
-  const supabase = await createClient();
-  let query = supabase
-    .from("mistakes")
-    .select("*, concept:concepts!mistakes_concept_fk(id, name), material:materials!mistakes_material_fk(id, title)")
-    .order("created_at", { ascending: false })
-    .limit(300);
+const MISTAKE_COLUMNS = "*, concept:concepts!mistakes_concept_fk(id, name), material:materials!mistakes_material_fk(id, title)";
+
+type MistakeFilters = { resolved?: boolean; conceptId?: string };
+
+/** Open (or learned) mistakes, newest first; the id breaks ties, so pages never overlap. */
+function mistakesQuery(supabase: Awaited<ReturnType<typeof createClient>>, filters: MistakeFilters, columns: string, options?: { count: "exact"; head?: boolean }) {
+  let query = supabase.from("mistakes").select(columns, options).order("created_at", { ascending: false }).order("id");
   query = filters.resolved ? query.not("resolved_at", "is", null) : query.is("resolved_at", null);
   if (filters.conceptId) query = query.eq("concept_id", filters.conceptId);
-  const { data, error } = await query;
+  return query;
+}
+
+/** Up to 300 mistakes, for exports and the error-review method. */
+export async function listMistakes(filters: MistakeFilters = {}): Promise<MistakeListItem[]> {
+  const supabase = await createClient();
+  const { data, error } = await mistakesQuery(supabase, filters, MISTAKE_COLUMNS).limit(300);
   if (error) {
     console.error("mistakes: list failed", error.message);
     return [];
   }
   return (data ?? []) as unknown as MistakeListItem[];
 }
+
+/** One page of the mistake notebook. */
+export async function listMistakesPage(filters: MistakeFilters, page: number, pageSize: number): Promise<Page<MistakeListItem>> {
+  const supabase = await createClient();
+  return fetchPage<MistakeListItem>("mistakes", (head) => mistakesQuery(supabase, filters, head ? "id" : MISTAKE_COLUMNS, { count: "exact", head }), page, pageSize);
+}
+
+/** Concepts with two or more open mistakes, most first (the notebook's "repeated trouble spots"), across every page. */
+export const listRepeatedMistakeConcepts = cache(async (): Promise<Array<{ id: string; name: string; count: number }>> => {
+  const supabase = await createClient();
+  let rows: Array<{ concept: { id: string; name: string } | null }>;
+  try {
+    rows = await readPages(
+      (from, to) =>
+        supabase.from("mistakes").select("concept:concepts!mistakes_concept_fk(id, name)").is("resolved_at", null).not("concept_id", "is", null).order("id").range(from, to) as unknown as PromiseLike<{
+          data: Array<{ concept: { id: string; name: string } | null }> | null;
+          error: { message: string } | null;
+        }>,
+      5000,
+    );
+  } catch (error) {
+    console.error("mistakes: repeated concepts failed", error);
+    return [];
+  }
+  const counts = new Map<string, { id: string; name: string; count: number }>();
+  for (const row of rows) {
+    if (!row.concept) continue;
+    const entry = counts.get(row.concept.id) ?? { id: row.concept.id, name: row.concept.name, count: 0 };
+    entry.count += 1;
+    counts.set(row.concept.id, entry);
+  }
+  return [...counts.values()].filter((entry) => entry.count >= 2).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+});
 
 export const countOpenMistakes = cache(async (): Promise<number> => {
   const supabase = await createClient();

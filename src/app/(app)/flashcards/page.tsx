@@ -1,6 +1,7 @@
 import { Layers, Play } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { BoxBar } from "@/components/flashcards/card-list";
 import { NewDeckButton } from "@/components/flashcards/new-deck-dialog";
@@ -11,8 +12,10 @@ import { buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { countDueCards, listDecks } from "@/lib/flashcards/queries";
+import { Pagination } from "@/components/ui/pagination";
+import { countDueCards, listDecksPage } from "@/lib/flashcards/queries";
 import { listMaterials } from "@/lib/materials/queries";
+import { GRID_PAGE_SIZE, parsePage, withPage } from "@/lib/pagination";
 import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = {
@@ -21,7 +24,10 @@ export const metadata: Metadata = {
 
 export default async function FlashcardsPage({ searchParams }: PageProps<"/flashcards">) {
   const params = await searchParams;
-  const [decks, materials, due] = await Promise.all([listDecks(), listMaterials(), countDueCards()]);
+  const [listed, materials, due] = await Promise.all([listDecksPage(parsePage(params.page), GRID_PAGE_SIZE), listMaterials(), countDueCards()]);
+  const pageHref = (next: number) => withPage(routes.flashcards, {}, next);
+  if (listed.beyond) redirect(pageHref(listed.pageCount));
+  const decks = listed.items;
   const readyMaterials = materials
     .filter((material) => material.status === "ready")
     .map((material) => ({ id: material.id, title: material.title, subject: material.subject?.name ?? null }));
@@ -68,39 +74,42 @@ export default async function FlashcardsPage({ searchParams }: PageProps<"/flash
           }
         />
       ) : (
-        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {decks.map((deck) => (
-            <li key={deck.id}>
-              <Card className="flex h-full flex-col gap-3 p-4 transition-colors hover:border-primary/40">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone="neutral">{deck.card_count} cards</Badge>
-                  {deck.status === "ready" && deck.dueCount > 0 && <Badge tone="primary">{deck.dueCount} due</Badge>}
-                  {deck.status !== "ready" && (
-                    <Badge tone={deck.status === "failed" ? "danger" : "neutral"}>{deck.status === "failed" ? "Failed" : "Generating…"}</Badge>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <Link href={`${routes.flashcards}/${deck.id}`} className="line-clamp-2 font-medium text-foreground hover:underline">
-                    {deck.title}
-                  </Link>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {deck.material?.title ?? "Material removed"}
-                    {deck.material?.subject ? ` · ${deck.material.subject.name}` : ""}
-                  </p>
-                </div>
-                {deck.status === "ready" && <BoxBar boxes={deck.boxes} compact />}
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Updated {formatRelativeDate(deck.updated_at)}</span>
-                  {deck.status === "ready" && (
-                    <Link href={`${routes.flashcards}/${deck.id}/review?mode=${deck.dueCount > 0 ? "due" : "all"}`} className="font-medium text-primary hover:underline">
-                      {deck.dueCount > 0 ? "Review due" : "Study all"}
+        <>
+          <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {decks.map((deck) => (
+              <li key={deck.id}>
+                <Card className="flex h-full flex-col gap-3 p-4 transition-colors hover:border-primary/40">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone="neutral">{deck.card_count} cards</Badge>
+                    {deck.status === "ready" && deck.dueCount > 0 && <Badge tone="primary">{deck.dueCount} due</Badge>}
+                    {deck.status !== "ready" && (
+                      <Badge tone={deck.status === "failed" ? "danger" : "neutral"}>{deck.status === "failed" ? "Failed" : "Generating…"}</Badge>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <Link href={`${routes.flashcards}/${deck.id}`} className="line-clamp-2 font-medium text-foreground hover:underline">
+                      {deck.title}
                     </Link>
-                  )}
-                </div>
-              </Card>
-            </li>
-          ))}
-        </ul>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {deck.material?.title ?? "Material removed"}
+                      {deck.material?.subject ? ` · ${deck.material.subject.name}` : ""}
+                    </p>
+                  </div>
+                  {deck.status === "ready" && <BoxBar boxes={deck.boxes} compact />}
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Updated {formatRelativeDate(deck.updated_at)}</span>
+                    {deck.status === "ready" && (
+                      <Link href={`${routes.flashcards}/${deck.id}/review?mode=${deck.dueCount > 0 ? "due" : "all"}`} className="font-medium text-primary hover:underline">
+                        {deck.dueCount > 0 ? "Review due" : "Study all"}
+                      </Link>
+                    )}
+                  </div>
+                </Card>
+              </li>
+            ))}
+          </ul>
+          <Pagination page={listed.page} pageCount={listed.pageCount} pageSize={listed.pageSize} total={listed.total} noun="decks" hrefFor={pageHref} />
+        </>
       )}
     </div>
   );

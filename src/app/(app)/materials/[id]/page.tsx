@@ -1,7 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { MaterialMastery } from "@/components/adaptive/material-mastery";
 import { AssistantPage } from "@/components/assistant/assistant-provider";
@@ -17,12 +17,14 @@ import { StudyTools } from "@/components/materials/study-tools";
 import { TrackOpen } from "@/components/materials/track-open";
 import { formatRelativeDate, placementOf } from "@/components/materials/material-card";
 import { buttonClasses } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
 import { listMastery } from "@/lib/adaptive/engine";
 import { listReviewTasks } from "@/lib/planner/queries";
 import { formatBytes, SOURCE_LABEL } from "@/lib/materials/constants";
 import { purgeMaterials } from "@/lib/materials/purge";
-import { getMaterial, getMaterialAnalysis, getMaterialChunks, listSubjects } from "@/lib/materials/queries";
+import { getMaterial, getMaterialAnalysis, getMaterialChunksPage, listSubjects } from "@/lib/materials/queries";
 import { dayLabel, daysUntilPurge, KEPT_ITEMS, purgeCountdown, purgeDueAt } from "@/lib/materials/retention";
+import { CONTENT_PAGE_SIZE, parsePage, withPage } from "@/lib/pagination";
 import { listDecks } from "@/lib/flashcards/queries";
 import { listQuizzes } from "@/lib/quizzes/queries";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
@@ -60,8 +62,9 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
   const requested = typeof query.tab === "string" ? query.tab : "overview";
   // Once the file is gone there is no text or original to show: only what was made from it.
   const tab: Tab = !deleted && (TABS as readonly string[]).includes(requested) ? (requested as Tab) : "overview";
-  const [chunks, analysis, subjects, reviewers, quizzes, decks, mastery, reviewTasks, memoryAids] = await Promise.all([
-    tab === "content" ? getMaterialChunks(material.id) : Promise.resolve([]),
+  const contentPage = parsePage(query.page);
+  const [content, analysis, subjects, reviewers, quizzes, decks, mastery, reviewTasks, memoryAids] = await Promise.all([
+    tab === "content" ? getMaterialChunksPage(material.id, contentPage, CONTENT_PAGE_SIZE) : Promise.resolve(null),
     tab === "overview" && !deleted ? getMaterialAnalysis(material.id) : Promise.resolve(null),
     listSubjects(),
     tab === "overview" ? listReviewers({ materialId: material.id }) : Promise.resolve([]),
@@ -73,6 +76,9 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
   ]);
 
   const hrefFor = (next: string) => `${routes.materials}/${material.id}${next === "overview" ? "" : `?tab=${next}`}`;
+  const contentHref = (next: number) => withPage(`${routes.materials}/${material.id}`, { tab: "content" }, next);
+  // A section page past the end (the text was re-extracted and got shorter): the last page there is.
+  if (content?.beyond) redirect(contentHref(content.pageCount));
   const meta = deleted
     ? [SOURCE_LABEL[material.source], `added ${formatRelativeDate(material.created_at)}`]
     : [
@@ -166,8 +172,9 @@ export default async function MaterialPage({ params, searchParams }: PageProps<"
         <div className="max-w-3xl">
           <HighlightToolbar materialId={material.id}>
             <p className="mb-4 text-xs text-muted-foreground">Select any sentence to ask RevTaw about it — explain, simplify, give an example, quiz me, ask why.</p>
-            <MaterialContent chunks={chunks} />
+            <MaterialContent chunks={content?.items ?? []} />
           </HighlightToolbar>
+          {content && <Pagination className="mt-8" page={content.page} pageCount={content.pageCount} pageSize={content.pageSize} total={content.total} noun="sections" hrefFor={contentHref} />}
         </div>
       ) : (
         <MaterialOriginal material={material} />

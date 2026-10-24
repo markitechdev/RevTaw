@@ -1,6 +1,7 @@
 import { MessageCircle } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { AssistantLauncher } from "@/components/assistant/assistant-provider";
 import { Alert } from "@/components/forms/form-alert";
@@ -11,9 +12,11 @@ import { buttonClasses } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { Pagination } from "@/components/ui/pagination";
 import { listMaterials } from "@/lib/materials/queries";
+import { GRID_PAGE_SIZE, parsePage, withPage } from "@/lib/pagination";
 import { routes } from "@/lib/routes";
-import { listConversations } from "@/lib/tutor/queries";
+import { listConversationsPage } from "@/lib/tutor/queries";
 import { TUTOR_MODE_BY_ID } from "@/lib/tutor/types";
 
 export const metadata: Metadata = {
@@ -22,7 +25,10 @@ export const metadata: Metadata = {
 
 export default async function TutorPage({ searchParams }: PageProps<"/tutor">) {
   const params = await searchParams;
-  const [conversations, materials] = await Promise.all([listConversations(), listMaterials()]);
+  const [listed, materials] = await Promise.all([listConversationsPage(parsePage(params.page), GRID_PAGE_SIZE), listMaterials()]);
+  const pageHref = (next: number) => withPage(routes.tutor, {}, next);
+  if (listed.beyond) redirect(pageHref(listed.pageCount));
+  const conversations = listed.items;
   const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title, subject: material.subject?.name ?? null }));
   const notice = params.notice === "deleted" ? "The conversation was deleted." : null;
 
@@ -49,28 +55,31 @@ export default async function TutorPage({ searchParams }: PageProps<"/tutor">) {
           action={<NewConversationButton materials={readyMaterials} size="sm">Ask the tutor</NewConversationButton>}
         />
       ) : (
-        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {conversations.map((conversation) => (
-            <li key={conversation.id}>
-              <Card className="flex h-full flex-col gap-3 p-4 transition-colors hover:border-primary/40">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone="primary">{TUTOR_MODE_BY_ID[conversation.mode].label}</Badge>
-                  {conversation.session_id && <Badge tone="neutral">Study session</Badge>}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <Link href={`${routes.tutor}/${conversation.id}`} className="line-clamp-2 font-medium text-foreground hover:underline">
-                    {conversation.title}
-                  </Link>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{conversation.material?.title ?? "General questions"}</p>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {conversation.message_count} message{conversation.message_count === 1 ? "" : "s"}
-                  {conversation.last_message_at ? ` · ${formatRelativeDate(conversation.last_message_at)}` : ""}
-                </p>
-              </Card>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {conversations.map((conversation) => (
+              <li key={conversation.id}>
+                <Card className="flex h-full flex-col gap-3 p-4 transition-colors hover:border-primary/40">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone="primary">{TUTOR_MODE_BY_ID[conversation.mode].label}</Badge>
+                    {conversation.session_id && <Badge tone="neutral">Study session</Badge>}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <Link href={`${routes.tutor}/${conversation.id}`} className="line-clamp-2 font-medium text-foreground hover:underline">
+                      {conversation.title}
+                    </Link>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{conversation.material?.title ?? "General questions"}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {conversation.message_count} message{conversation.message_count === 1 ? "" : "s"}
+                    {conversation.last_message_at ? ` · ${formatRelativeDate(conversation.last_message_at)}` : ""}
+                  </p>
+                </Card>
+              </li>
+            ))}
+          </ul>
+          <Pagination page={listed.page} pageCount={listed.pageCount} pageSize={listed.pageSize} total={listed.total} noun="conversations" hrefFor={pageHref} />
+        </>
       )}
       {readyMaterials.length > 0 && conversations.length > 0 && (
         <p className="text-sm text-muted-foreground">

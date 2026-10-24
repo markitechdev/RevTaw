@@ -2,8 +2,10 @@ import "server-only";
 
 import { cache } from "react";
 
+import type { Page } from "@/lib/pagination";
 import type { Visual } from "@/lib/study/visuals";
 import type { TutorConversation, TutorMessage } from "@/lib/supabase/database.types";
+import { fetchPage } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 import type { FlashcardDraft, FollowUpId, TutorSource } from "@/lib/tutor/types";
 
@@ -11,11 +13,14 @@ export type ConversationListItem = Pick<TutorConversation, "id" | "material_id" 
   material: { id: string; title: string } | null;
 };
 
+const CONVERSATION_COLUMNS = "id, material_id, session_id, title, mode, message_count, last_message_at, created_at, material:materials!tutor_conversations_material_fk(id, title)";
+
+/** The most recent conversations (Tamari's history list asks for a few). */
 export async function listConversations(filters: { materialId?: string; limit?: number } = {}): Promise<ConversationListItem[]> {
   const supabase = await createClient();
   let query = supabase
     .from("tutor_conversations")
-    .select("id, material_id, session_id, title, mode, message_count, last_message_at, created_at, material:materials!tutor_conversations_material_fk(id, title)")
+    .select(CONVERSATION_COLUMNS)
     .is("archived_at", null)
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(filters.limit ?? 50);
@@ -26,6 +31,23 @@ export async function listConversations(filters: { materialId?: string; limit?: 
     return [];
   }
   return (data ?? []) as unknown as ConversationListItem[];
+}
+
+/** One page of the AI Tutor page, latest message first (the id breaks ties, so pages never overlap). */
+export async function listConversationsPage(page: number, pageSize: number): Promise<Page<ConversationListItem>> {
+  const supabase = await createClient();
+  return fetchPage<ConversationListItem>(
+    "tutor_conversations",
+    (head) =>
+      supabase
+        .from("tutor_conversations")
+        .select(head ? "id" : CONVERSATION_COLUMNS, { count: "exact", head })
+        .is("archived_at", null)
+        .order("last_message_at", { ascending: false, nullsFirst: false })
+        .order("id"),
+    page,
+    pageSize,
+  );
 }
 
 export type MessageView = Pick<TutorMessage, "id" | "role" | "content" | "action" | "selection" | "grounding" | "additional_explanation" | "created_at"> & {

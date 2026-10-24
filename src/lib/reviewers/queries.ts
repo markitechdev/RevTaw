@@ -2,7 +2,9 @@ import "server-only";
 
 import { cache } from "react";
 
+import type { Page } from "@/lib/pagination";
 import type { Reviewer, ReviewerSection } from "@/lib/supabase/database.types";
+import { fetchPage } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 export type ReviewerListItem = Pick<
@@ -16,6 +18,7 @@ const LIST_COLUMNS =
   "id, material_id, kind, title, status, status_detail, created_at, updated_at, last_opened_at, " +
   "material:materials!reviewers_material_fk(id, title, subject:subjects!materials_subject_fk(name))";
 
+/** A material's reviewers (its page lists them all; a material has a handful). */
 export async function listReviewers(filters: { materialId?: string } = {}): Promise<ReviewerListItem[]> {
   const supabase = await createClient();
   let query = supabase
@@ -31,6 +34,17 @@ export async function listReviewers(filters: { materialId?: string } = {}): Prom
     return [];
   }
   return (data ?? []) as unknown as ReviewerListItem[];
+}
+
+/** One page of the Notes page, most recently updated first (the id breaks ties, so pages never overlap). */
+export async function listReviewersPage(page: number, pageSize: number): Promise<Page<ReviewerListItem>> {
+  const supabase = await createClient();
+  return fetchPage<ReviewerListItem>(
+    "reviewers",
+    (head) => supabase.from("reviewers").select(head ? "id" : LIST_COLUMNS, { count: "exact", head }).is("archived_at", null).order("updated_at", { ascending: false }).order("id"),
+    page,
+    pageSize,
+  );
 }
 
 export type ReviewerDetail = Reviewer & {

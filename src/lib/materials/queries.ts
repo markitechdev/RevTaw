@@ -3,7 +3,9 @@ import "server-only";
 import { cache } from "react";
 
 import { parseAnalysisData, type AnalysisData } from "@/lib/materials/analysis-schema";
+import type { Page } from "@/lib/pagination";
 import type { Folder, Material, MaterialAnalysis, MaterialChunk, Subject } from "@/lib/supabase/database.types";
+import { fetchPage } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 export type SubjectWithFolders = Pick<Subject, "id" | "name" | "color" | "archived_at"> & {
@@ -80,25 +82,40 @@ export type MaterialFilters = {
   search?: string;
 };
 
-export async function listMaterials(filters: MaterialFilters = {}): Promise<MaterialListItem[]> {
-  const supabase = await createClient();
-  let query = supabase.from("materials").select(MATERIAL_LIST_COLUMNS).limit(200);
+type MaterialsClient = Awaited<ReturnType<typeof createClient>>;
 
-  // The Archive lists what can still be restored, the next to be deleted first; a material whose file
-  // is gone stays out of both lists (what was made from it keeps its place elsewhere).
+/**
+ * The materials matching `filters`, in list order. The Archive lists what can
+ * still be restored, the next to be deleted first; a material whose file is
+ * gone stays out of both lists (what was made from it keeps its place
+ * elsewhere). The id breaks ties, so pages never overlap.
+ */
+function materialsQuery(supabase: MaterialsClient, filters: MaterialFilters, columns: string, options?: { count: "exact"; head?: boolean }) {
+  let query = supabase.from("materials").select(columns, options);
   query = filters.archived
-    ? query.not("archived_at", "is", null).is("purged_at", null).order("archived_at", { ascending: true })
-    : query.is("archived_at", null).order("updated_at", { ascending: false });
+    ? query.not("archived_at", "is", null).is("purged_at", null).order("archived_at", { ascending: true }).order("id")
+    : query.is("archived_at", null).order("updated_at", { ascending: false }).order("id");
   if (filters.subjectId) query = query.eq("subject_id", filters.subjectId);
   if (filters.folderId) query = query.eq("folder_id", filters.folderId);
   if (filters.search) query = query.ilike("title", `%${escapeLike(filters.search)}%`);
+  return query;
+}
 
-  const { data, error } = await query;
+/** Up to 200 materials, for pickers and summaries (the Materials page itself pages through them). */
+export async function listMaterials(filters: MaterialFilters = {}): Promise<MaterialListItem[]> {
+  const supabase = await createClient();
+  const { data, error } = await materialsQuery(supabase, filters, MATERIAL_LIST_COLUMNS).limit(200);
   if (error) {
     console.error("materials: list failed", error.message);
     return [];
   }
   return (data ?? []) as unknown as MaterialListItem[];
+}
+
+/** One page of the Materials page's grid. */
+export async function listMaterialsPage(filters: MaterialFilters, page: number, pageSize: number): Promise<Page<MaterialListItem>> {
+  const supabase = await createClient();
+  return fetchPage<MaterialListItem>("materials", (head) => materialsQuery(supabase, filters, head ? "id" : MATERIAL_LIST_COLUMNS, { count: "exact", head }), page, pageSize);
 }
 
 export const countMaterials = cache(async (): Promise<number> => {
@@ -142,19 +159,18 @@ export const getMaterial = cache(async (materialId: string): Promise<MaterialDet
   return (data as unknown as MaterialDetail | null) ?? null;
 });
 
-export const getMaterialChunks = cache(async (materialId: string): Promise<MaterialChunkView[]> => {
+const CHUNK_COLUMNS = "id, position, heading, page_start, page_end, content, char_count";
+
+/** One page of a material's sections, in reading order (positions are unique per material). */
+export async function getMaterialChunksPage(materialId: string, page: number, pageSize: number): Promise<Page<MaterialChunkView>> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("material_chunks")
-    .select("id, position, heading, page_start, page_end, content, char_count")
-    .eq("material_id", materialId)
-    .order("position");
-  if (error) {
-    console.error("material_chunks: list failed", error.message);
-    return [];
-  }
-  return data ?? [];
-});
+  return fetchPage<MaterialChunkView>(
+    "material_chunks",
+    (head) => supabase.from("material_chunks").select(head ? "id" : CHUNK_COLUMNS, { count: "exact", head }).eq("material_id", materialId).order("position"),
+    page,
+    pageSize,
+  );
+}
 
 export type MaterialAnalysisView = {
   summary: string;

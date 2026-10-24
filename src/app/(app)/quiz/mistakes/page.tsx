@@ -1,13 +1,16 @@
 import { ArrowLeft, NotebookPen, RotateCcw } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { ExportMenu } from "@/components/export/export-menu";
 import { MistakeItem } from "@/components/quizzes/mistake-item";
 import { buttonClasses } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { listMistakes } from "@/lib/quizzes/queries";
+import { Pagination } from "@/components/ui/pagination";
+import { LIST_PAGE_SIZE, parsePage, withPage } from "@/lib/pagination";
+import { listMistakesPage, listRepeatedMistakeConcepts } from "@/lib/quizzes/queries";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -18,16 +21,10 @@ export const metadata: Metadata = {
 export default async function MistakesPage({ searchParams }: PageProps<"/quiz/mistakes">) {
   const params = await searchParams;
   const showResolved = params.view === "learned";
-  const mistakes = await listMistakes({ resolved: showResolved });
-
-  const concepts = new Map<string, { name: string; count: number }>();
-  for (const mistake of mistakes) {
-    if (!mistake.concept) continue;
-    const entry = concepts.get(mistake.concept.id) ?? { name: mistake.concept.name, count: 0 };
-    entry.count += 1;
-    concepts.set(mistake.concept.id, entry);
-  }
-  const repeated = [...concepts.entries()].filter(([, entry]) => entry.count >= 2).sort((a, b) => b[1].count - a[1].count);
+  const [listed, repeated] = await Promise.all([listMistakesPage({ resolved: showResolved }, parsePage(params.page), LIST_PAGE_SIZE), showResolved ? Promise.resolve([]) : listRepeatedMistakeConcepts()]);
+  const pageHref = (next: number) => withPage(`${routes.quiz}/mistakes`, { view: showResolved ? "learned" : null }, next);
+  if (listed.beyond) redirect(pageHref(listed.pageCount));
+  const mistakes = listed.items;
 
   return (
     <div className="flex flex-col gap-6">
@@ -71,7 +68,7 @@ export default async function MistakesPage({ searchParams }: PageProps<"/quiz/mi
         <div className="rounded-xl border border-warning/40 bg-warning-soft/40 p-4 text-sm">
           <p className="font-medium">Repeated trouble spots</p>
           <p className="mt-1 text-muted-foreground">
-            {repeated.map(([, entry]) => `${entry.name} (${entry.count})`).join(" · ")}. Re-read their sections in the material before the next quiz.
+            {repeated.map((entry) => `${entry.name} (${entry.count})`).join(" · ")}. Re-read their sections in the material before the next quiz.
           </p>
         </div>
       )}
@@ -92,11 +89,14 @@ export default async function MistakesPage({ searchParams }: PageProps<"/quiz/mi
           }
         />
       ) : (
-        <ul className="flex flex-col gap-3">
-          {mistakes.map((mistake) => (
-            <MistakeItem key={mistake.id} mistake={mistake} />
-          ))}
-        </ul>
+        <>
+          <ul className="flex flex-col gap-3">
+            {mistakes.map((mistake) => (
+              <MistakeItem key={mistake.id} mistake={mistake} />
+            ))}
+          </ul>
+          <Pagination page={listed.page} pageCount={listed.pageCount} pageSize={listed.pageSize} total={listed.total} noun={showResolved ? "learned mistakes" : "mistakes"} hrefFor={pageHref} />
+        </>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import { Archive, FolderOpen, Layers } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
 
@@ -11,9 +12,11 @@ import { MaterialCard } from "@/components/materials/material-card";
 import { UploadButton } from "@/components/materials/upload-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { Pagination } from "@/components/ui/pagination";
 import { purgeMyExpiredMaterials } from "@/lib/materials/purge";
-import { listMaterials, listSubjects } from "@/lib/materials/queries";
+import { listMaterialsPage, listSubjects } from "@/lib/materials/queries";
 import { ARCHIVE_DAYS, ARCHIVE_RULE, KEPT_ITEMS } from "@/lib/materials/retention";
+import { GRID_PAGE_SIZE, parsePage, withPage } from "@/lib/pagination";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -31,6 +34,7 @@ export default async function MaterialsPage({ searchParams }: PageProps<"/materi
   const subjectId = param(params.subject);
   const folderId = param(params.folder);
   const archived = params.archived === "1";
+  const page = parsePage(params.page);
   const notice = param(params.notice);
   const movedId = z.uuid().safeParse(param(params.material)).data ?? null;
 
@@ -42,10 +46,14 @@ export default async function MaterialsPage({ searchParams }: PageProps<"/materi
     else after(purgeMyExpiredMaterials(user.id));
   }
 
-  const [subjects, materials] = await Promise.all([
+  const [subjects, listed] = await Promise.all([
     listSubjects(),
-    listMaterials({ subjectId, folderId, archived }),
+    listMaterialsPage({ subjectId, folderId, archived }, page, GRID_PAGE_SIZE),
   ]);
+  const pageHref = (next: number) => withPage(routes.materials, { subject: subjectId, folder: folderId, archived: archived ? "1" : null }, next);
+  // A page past the end (materials were moved or deleted since): the last page there is.
+  if (listed.beyond) redirect(pageHref(listed.pageCount));
+  const materials = listed.items;
 
   const activeSubject = subjects.find((subject) => subject.id === subjectId) ?? null;
   const activeFolder = activeSubject?.folders.find((folder) => folder.id === folderId) ?? null;
@@ -191,13 +199,16 @@ export default async function MaterialsPage({ searchParams }: PageProps<"/materi
               />
             )
           ) : (
-            <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {materials.map((material) => (
-                <li key={material.id}>
-                  <MaterialCard material={material} timeZone={profile?.timezone ?? undefined} />
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {materials.map((material) => (
+                  <li key={material.id}>
+                    <MaterialCard material={material} timeZone={profile?.timezone ?? undefined} />
+                  </li>
+                ))}
+              </ul>
+              <Pagination className="mt-6" page={listed.page} pageCount={listed.pageCount} pageSize={listed.pageSize} total={listed.total} noun={archived ? "archived materials" : "materials"} hrefFor={pageHref} />
+            </>
           )}
         </section>
       </div>

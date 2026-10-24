@@ -3,7 +3,9 @@ import "server-only";
 import { cache } from "react";
 
 import { currentSnapshot, ratingWaits } from "@/lib/flashcards/scheduler";
+import { pageOf, type Page } from "@/lib/pagination";
 import type { Flashcard, FlashcardDeck, FlashcardRating } from "@/lib/supabase/database.types";
+import { fetchPage } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 
 type MaterialRef = { id: string; title: string; subject: { name: string } | null } | null;
@@ -33,6 +35,14 @@ async function dueAndBoxesByDeck(supabase: Awaited<ReturnType<typeof createClien
   return stats;
 }
 
+type DeckRow = Omit<DeckListItem, "dueCount" | "boxes">;
+
+async function withCardStats(supabase: Awaited<ReturnType<typeof createClient>>, rows: DeckRow[]): Promise<DeckListItem[]> {
+  const stats = await dueAndBoxesByDeck(supabase, rows.map((row) => row.id));
+  return rows.map((row) => ({ ...row, dueCount: stats.get(row.id)?.dueCount ?? 0, boxes: stats.get(row.id)?.boxes ?? [0, 0, 0, 0, 0] }));
+}
+
+/** Decks with what is due in each: a material's (its page lists them all), or every deck for Home's widget. */
 export async function listDecks(filters: { materialId?: string } = {}): Promise<DeckListItem[]> {
   const supabase = await createClient();
   let query = supabase.from("flashcard_decks").select(DECK_COLUMNS).is("archived_at", null).order("updated_at", { ascending: false }).limit(200);
@@ -42,9 +52,19 @@ export async function listDecks(filters: { materialId?: string } = {}): Promise<
     console.error("flashcard_decks: list failed", error.message);
     return [];
   }
-  const rows = (data ?? []) as unknown as Omit<DeckListItem, "dueCount" | "boxes">[];
-  const stats = await dueAndBoxesByDeck(supabase, rows.map((row) => row.id));
-  return rows.map((row) => ({ ...row, dueCount: stats.get(row.id)?.dueCount ?? 0, boxes: stats.get(row.id)?.boxes ?? [0, 0, 0, 0, 0] }));
+  return withCardStats(supabase, (data ?? []) as unknown as DeckRow[]);
+}
+
+/** One page of the Flashcards page, most recently updated first (the id breaks ties, so pages never overlap). */
+export async function listDecksPage(page: number, pageSize: number): Promise<Page<DeckListItem>> {
+  const supabase = await createClient();
+  const rows = await fetchPage<DeckRow>(
+    "flashcard_decks",
+    (head) => supabase.from("flashcard_decks").select(head ? "id" : DECK_COLUMNS, { count: "exact", head }).is("archived_at", null).order("updated_at", { ascending: false }).order("id"),
+    page,
+    pageSize,
+  );
+  return pageOf(await withCardStats(supabase, rows.items), rows.total, rows.page, rows.pageSize, rows.beyond);
 }
 
 export type CardView = Pick<

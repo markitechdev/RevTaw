@@ -9,6 +9,7 @@ import type { EngineEvent, EngineEventKind } from "@/lib/engine/mastery-model";
 import { parseAnalysisData, type ConceptCategory } from "@/lib/materials/analysis-schema";
 import { DEFAULT_TIMEZONE, isValidTimezone } from "@/lib/planner/dates";
 import type { ConfidenceLevel, Database, FlashcardRating, MasteryStatus, QuestionDifficulty, QuestionType, SessionItemKind } from "@/lib/supabase/database.types";
+import { readPages as readAllPages } from "@/lib/supabase/paginate";
 
 /**
  * What the learning engine reads for one student: every graded answer per
@@ -67,23 +68,17 @@ export function optionCount(options: unknown): number | null {
   return Array.isArray(options) && options.length >= 2 ? options.length : null;
 }
 
-/** Supabase returns at most 1,000 rows per request by default. */
-const PAGE = 1000;
-
 /**
  * Reads a query a page at a time (newest first, so a cap keeps the latest
- * rows), up to `maxRows`. `build` makes a fresh query for each range.
+ * rows), up to `maxRows`: the shared reader (lib/supabase/paginate) with the
+ * engine's error prefix.
  */
 export async function readPages<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>, maxRows: number): Promise<T[]> {
-  const rows: T[] = [];
-  for (let from = 0; from < maxRows; from += PAGE) {
-    const to = Math.min(maxRows, from + PAGE) - 1;
-    const { data, error } = await build(from, to);
-    if (error) throw new Error(`mastery evidence: ${error.message}`);
-    rows.push(...(data ?? []));
-    if (!data || data.length < to - from + 1) break;
+  try {
+    return await readAllPages(build, maxRows);
+  } catch (error) {
+    throw new Error(`mastery evidence: ${error instanceof Error ? error.message : String(error)}`);
   }
-  return rows;
 }
 
 /**
