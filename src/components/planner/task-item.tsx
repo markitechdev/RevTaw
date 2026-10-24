@@ -9,6 +9,7 @@ import { AssistantPage } from "@/components/assistant/assistant-provider";
 import { pickTask, usePickedTask } from "@/components/planner/picked-task";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TEXT_LINK } from "@/components/ui/text-link";
 import { completeTaskAction, deleteTaskAction, reopenTaskAction, skipTaskAction, startTaskAction } from "@/lib/planner/actions";
 import { relativeDays } from "@/lib/planner/dates";
@@ -50,6 +51,7 @@ export function TaskItem({
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const actionable = task.status === "pending" || task.status === "missed";
   const startable = task.method !== "activity";
   const category = categoryOf(task);
@@ -182,9 +184,21 @@ export function TaskItem({
           </Button>
         )}
         {task.kind !== "plan" && (
-          <Button type="button" size="sm" variant="ghost" aria-label="Delete task" title="Delete" loading={busy === "delete" && pending} disabled={pending && busy !== "delete"} onClick={() => run("delete", () => deleteTaskAction(task.id))}>
-            {!(busy === "delete" && pending) && <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />}
-          </Button>
+          <>
+            <Button type="button" size="sm" variant="ghost" aria-label="Delete task" title="Delete" disabled={pending} onClick={() => setConfirmingDelete(true)}>
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+            <ConfirmDialog
+              open={confirmingDelete}
+              title="Delete this task?"
+              description={`“${task.title}” comes off your plan. Sessions you finished stay in your history.`}
+              confirmLabel="Delete task"
+              pending={busy === "delete" && pending}
+              error={confirmingDelete ? error : null}
+              onConfirm={() => run("delete", () => deleteTaskAction(task.id))}
+              onCancel={() => setConfirmingDelete(false)}
+            />
+          </>
         )}
       </div>
     </li>

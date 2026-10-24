@@ -9,6 +9,7 @@ import { Alert } from "@/components/forms/form-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -188,12 +189,14 @@ export function RoutinesCard({ routines, materials }: { routines: RoutineItem[];
     });
   };
 
+  const [deleting, setDeleting] = useState<RoutineItem | null>(null);
   const remove = (routine: RoutineItem) => {
     setError(null);
     setBusy(`delete:${routine.id}`);
     startTransition(async () => {
       const result = await deleteRoutineAction(routine.id);
       if (!result.ok) setError(result.message);
+      else setDeleting(null);
       setBusy(null);
       router.refresh();
     });
@@ -241,8 +244,8 @@ export function RoutinesCard({ routines, materials }: { routines: RoutineItem[];
                   <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setEditing(routine)} aria-label={`Edit ${routine.title}`}>
                     <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
-                  <Button type="button" size="sm" variant="ghost" loading={busy === `delete:${routine.id}` && pending} disabled={pending && busy !== `delete:${routine.id}`} onClick={() => remove(routine)} aria-label={`Delete ${routine.title}`}>
-                    {!(busy === `delete:${routine.id}` && pending) && <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />}
+                  <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setDeleting(routine)} aria-label={`Delete ${routine.title}`}>
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </Button>
                 </div>
               </li>
@@ -258,6 +261,16 @@ export function RoutinesCard({ routines, materials }: { routines: RoutineItem[];
       </CardContent>
       {creating && <RoutineDialog open onClose={() => setCreating(false)} materials={materials} routine={null} />}
       {editing && <RoutineDialog key={editing.id} open onClose={() => setEditing(null)} materials={materials} routine={editing} />}
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Delete this routine?"
+        description={deleting ? `“${deleting.title}” is removed from your routines. Sessions you ran with it stay in your history.` : undefined}
+        confirmLabel="Delete routine"
+        pending={pending && busy === `delete:${deleting?.id}`}
+        error={deleting ? error : null}
+        onConfirm={() => deleting && remove(deleting)}
+        onCancel={() => setDeleting(null)}
+      />
     </Card>
   );
 }

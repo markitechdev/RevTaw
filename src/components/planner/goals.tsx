@@ -8,6 +8,7 @@ import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -141,6 +142,7 @@ export function GoalList({ goals, compact = false }: { goals: GoalProgress[]; co
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<GoalProgress | null>(null);
 
   const run = (id: string, action: () => Promise<{ ok: boolean; message?: string }>) => {
     setBusy(id);
@@ -155,42 +157,61 @@ export function GoalList({ goals, compact = false }: { goals: GoalProgress[]; co
 
   if (goals.length === 0) return null;
   return (
-    <ul className="flex flex-col gap-3">
-      {error && (
-        <li className="text-xs text-danger" role="alert">
-          {error}
-        </li>
-      )}
-      {goals.map((item) => (
-        <li key={item.goal.id} className={cn("flex flex-col gap-1.5", item.goal.status === "completed" && "opacity-75")}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                <Flag className={cn("h-3.5 w-3.5", item.reached ? "text-success" : "text-muted-foreground")} aria-hidden="true" />
-                <span className={cn(item.goal.status === "completed" && "line-through decoration-muted-foreground/60")}>{item.label}</span>
-                {item.reached && <Badge tone="success">Reached</Badge>}
-                {!compact && item.goal.period !== "once" && <Badge tone="neutral">{GOAL_PERIOD_LABEL[item.goal.period]}</Badge>}
-              </p>
-              <p className="text-xs text-muted-foreground">{item.detail}</p>
-            </div>
-            {!compact && (
-              <div className="flex shrink-0 gap-1">
-                {item.goal.period === "once" && (
-                  <Button type="button" size="sm" variant="ghost" aria-label={item.goal.status === "completed" ? "Reopen goal" : "Mark goal done"} title={item.goal.status === "completed" ? "Reopen" : "Mark done"} loading={busy === `${item.goal.id}:done` && pending} disabled={pending} onClick={() => run(`${item.goal.id}:done`, () => completeGoalAction(item.goal.id, item.goal.status !== "completed"))}>
-                    {!(busy === `${item.goal.id}:done` && pending) && (item.goal.status === "completed" ? <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> : <Check className="h-3.5 w-3.5" aria-hidden="true" />)}
-                  </Button>
-                )}
-                <Button type="button" size="sm" variant="ghost" aria-label="Delete goal" title="Delete" loading={busy === `${item.goal.id}:delete` && pending} disabled={pending} onClick={() => run(`${item.goal.id}:delete`, () => deleteGoalAction(item.goal.id))}>
-                  {!(busy === `${item.goal.id}:delete` && pending) && <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />}
-                </Button>
+    <>
+      <ul className="flex flex-col gap-3">
+        {error && (
+          <li className="text-xs text-danger" role="alert">
+            {error}
+          </li>
+        )}
+        {goals.map((item) => (
+          <li key={item.goal.id} className={cn("flex flex-col gap-1.5", item.goal.status === "completed" && "opacity-75")}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                  <Flag className={cn("h-3.5 w-3.5", item.reached ? "text-success" : "text-muted-foreground")} aria-hidden="true" />
+                  <span className={cn(item.goal.status === "completed" && "line-through decoration-muted-foreground/60")}>{item.label}</span>
+                  {item.reached && <Badge tone="success">Reached</Badge>}
+                  {!compact && item.goal.period !== "once" && <Badge tone="neutral">{GOAL_PERIOD_LABEL[item.goal.period]}</Badge>}
+                </p>
+                <p className="text-xs text-muted-foreground">{item.detail}</p>
               </div>
-            )}
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={item.percent} aria-valuemin={0} aria-valuemax={100} aria-label={`${item.percent}% of goal`}>
-            <div className={cn("h-full rounded-full", item.reached ? "bg-success" : "bg-primary")} style={{ width: `${item.percent}%` }} />
-          </div>
-        </li>
-      ))}
-    </ul>
+              {!compact && (
+                <div className="flex shrink-0 gap-1">
+                  {item.goal.period === "once" && (
+                    <Button type="button" size="sm" variant="ghost" aria-label={item.goal.status === "completed" ? "Reopen goal" : "Mark goal done"} title={item.goal.status === "completed" ? "Reopen" : "Mark done"} loading={busy === `${item.goal.id}:done` && pending} disabled={pending} onClick={() => run(`${item.goal.id}:done`, () => completeGoalAction(item.goal.id, item.goal.status !== "completed"))}>
+                      {!(busy === `${item.goal.id}:done` && pending) && (item.goal.status === "completed" ? <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> : <Check className="h-3.5 w-3.5" aria-hidden="true" />)}
+                    </Button>
+                  )}
+                  <Button type="button" size="sm" variant="ghost" aria-label="Delete goal" title="Delete" disabled={pending} onClick={() => setDeleting(item)}>
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Button>
+                </div>
+              )}
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={item.percent} aria-valuemin={0} aria-valuemax={100} aria-label={`${item.percent}% of goal`}>
+              <div className={cn("h-full rounded-full", item.reached ? "bg-success" : "bg-primary")} style={{ width: `${item.percent}%` }} />
+            </div>
+          </li>
+        ))}
+      </ul>
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Delete this goal?"
+        description={deleting ? `“${deleting.label}” and its progress are removed. XP you earned with it stays.` : undefined}
+        confirmLabel="Delete goal"
+        pending={pending && busy === `${deleting?.goal.id}:delete`}
+        onConfirm={() => {
+          if (!deleting) return;
+          const goalId = deleting.goal.id;
+          run(`${goalId}:delete`, async () => {
+            const result = await deleteGoalAction(goalId);
+            if (result.ok) setDeleting(null);
+            return result;
+          });
+        }}
+        onCancel={() => setDeleting(null)}
+      />
+    </>
   );
 }
