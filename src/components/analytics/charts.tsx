@@ -132,7 +132,8 @@ export function DailyColumns({
               onBlur={() => setActive(null)}
               className="cursor-default outline-none"
             >
-              <rect x={padding.left + index * slot} y={padding.top} width={slot} height={innerHeight} fill="transparent" />
+              {/* The column's hit area; it outlines the column under the pointer or keyboard focus. */}
+              <rect x={padding.left + index * slot + 1} y={padding.top} width={Math.max(0, slot - 2)} height={innerHeight} rx={6} fill="transparent" strokeWidth={2} className={cn(isActive && "stroke-ring")} />
               {point.value > 0 ? (
                 <>
                   <rect x={x} y={y} width={barWidth} height={barHeight} rx={Math.min(4, barWidth / 2)} className={cn(stacked ? "fill-primary/35" : "fill-primary", isActive && "opacity-80")} />
@@ -246,7 +247,7 @@ export function ScoreColumns({ title, scores, className }: { title: string; scor
           const last = index === scores.length - 1;
           return (
             <g key={`${score.date}-${index}`} tabIndex={0} role="img" aria-label={`${score.title}, ${shortDate(score.date)}: ${score.percent}%`} onMouseEnter={() => setActive(index)} onMouseLeave={() => setActive(null)} onFocus={() => setActive(index)} onBlur={() => setActive(null)} className="cursor-default outline-none">
-              <rect x={padding.left + index * slot} y={padding.top} width={slot} height={innerHeight} fill="transparent" />
+              <rect x={padding.left + index * slot + 1} y={padding.top} width={Math.max(0, slot - 2)} height={innerHeight} rx={6} fill="transparent" strokeWidth={2} className={cn(active === index && "stroke-ring")} />
               <rect x={x} y={padding.top + innerHeight - barHeight} width={barWidth} height={Math.max(1, barHeight)} rx={Math.min(4, barWidth / 2)} className={cn(last || active === index ? "fill-primary" : "fill-primary/35")} />
               {last && (
                 <text x={x + barWidth / 2} y={padding.top + innerHeight - barHeight - 4} textAnchor="middle" className="fill-foreground text-3xs font-medium">
