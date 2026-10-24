@@ -57,6 +57,17 @@ Google's own OAuth (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`,
 calendar events link back to RevTaw. Credentials stay in server environment
 variables only.
 
+## Deploying
+
+RevTaw is built for Vercel. `vercel.json` runs the server code in Sydney
+(`syd1`), next to the Supabase project, because every page makes a few dozen
+database requests; if your Supabase project is in another region, change it
+to the matching one ([Vercel's region list](https://vercel.com/docs/regions)).
+Vercel's CDN caches the hashed static files and compresses responses, and it
+adds function instances under load, so there is no CDN, compression or load
+balancer to set up. Keep Supabase's Data API **Max rows** at 1,000 or more
+(the default): long reads go 1,000 rows at a time.
+
 ## What works today
 
 - Accounts, onboarding and settings (Phase 1)
@@ -141,6 +152,12 @@ variables only.
   recommendations ranked by weakness, fading recall and your next exam,
   with the study method picked by a rule table that says why; and an exam
   booster two days before an exam for what would otherwise fade
+- Faster and right at any size (performance round): about 35 KB less
+  JavaScript on every signed-in page, the command menu loaded after the
+  page, recompressed images, database indexes where reads scanned (0024),
+  long lists a page at a time, loading placeholders shaped like each page,
+  fewer re-renders, smaller page data, and streaks, due counts, goals and
+  Progress read in full past Supabase's 1,000-row limit
 
 ## Scripts
 

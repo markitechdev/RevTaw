@@ -50,9 +50,15 @@ supabase db push
 | `0021_ai_usage_server_tokens.sql` | token, voice-second and character counts are added only by the server: `add_ai_tokens(user, kind, input, output)` for the service role only |
 | `0022_learning_engine.sql` | the learning engine: `mastery_status` gains `developing`; `concept_mastery` keeps P(learned), recall, Elo rating (and where it started), weakness, gates, next step, best status and the concept's FSRS state; FSRS columns on `flashcards` and `flashcard_reviews`; `item_buckets` (shared question difficulty, written by the server only) |
 | `0023_material_archive.sql` | the Archive: `material_status` gains `deleted`; `materials.purged_at` (the file, text and analysis deleted permanently 30 days after Delete; the row stays for what was made from it) with a check that a deleted file stays archived; materials archived before get the full 30 days |
+| `0024_performance_indexes.sql` | indexes for the per-student reads that scanned every student's rows and for the foreign keys that are cleared or followed when their parent goes, two for the night run, and six duplicates of unique indexes dropped (indexes only; no data changes) |
 
 Migrations are additive. Never edit an applied migration; add a new numbered
 file instead.
+
+Leave the Data API's **Max rows** (in the dashboard: **Integrations → Data
+API → Settings**) at 1,000 or more, the default. RevTaw reads long lists
+1,000 rows at a time and takes a shorter page as the end, so a lower setting
+would cut those reads short.
 
 ## 3. Configure authentication
 

@@ -4,9 +4,98 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-23 (the Archive, Tamari's language any time and the level card, after the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
+_Last updated: 2026-10-24 (the performance round, after the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
 
 ## Completed
+
+### Performance round
+
+Measured against the build before the round (`1905faa`) on the same data
+(a student with 24 materials, 8 quizzes, 200 cards and 400 reviews, 25
+sessions and a 112-task plan), with a cold browser cache.
+
+- **Lighthouse** (median of 3, simulated throttling) — mobile performance
+  on the app pages went from 79–92 to 87–99: Dashboard 81 → 87, Materials
+  82 → 92, Notes 92 → 99, Quiz 89 → 88, Flashcards 92 → 98, Planner 83 → 89,
+  Progress 79 → 87, Study 86 → 87; total blocking time fell by up to two
+  thirds (Materials 322 → 99 ms, Planner 280 → 82 ms, Progress 324 → 117 ms,
+  Dashboard 186 → 97 ms). Desktop stays at 99–100; the landing page (96 /
+  100) and sign-in (97 → 98 / 100) were already light. Best practices
+  96 → 100 on every app page (no CSP error any more), SEO 91 → 100 on
+  Progress, accessibility 100 everywhere. Real throttled loads (4× CPU,
+  1.6 Mbps, 150 ms, 9 runs) agree: Dashboard LCP 1.12 → 1.02 s and full
+  load 2.77 → 2.60 s, Progress LCP 1.47 → 1.40 s and load 3.00 → 2.72 s,
+  server time unchanged. Lighthouse's simulated first paint and Speed Index
+  read later on pages that stream behind their placeholder; the real traces
+  show first paint at the same time or earlier.
+- **JavaScript** — zod is out of every page's first load: the option
+  lists, labels, limits and defaults the browser needs live in zod-free
+  modules (the server still validates everything with zod), the two
+  dialogs that check input with the server's schema (a new quiz, the memory
+  palace editor) load it when they open, and
+  `src/lib/browser-bundle.test.ts` fails if a client entry imports zod any
+  other way. That is 31–41 KB less (compressed) on every app page, 239–259
+  KB → 199–226 KB of JavaScript per load. The Ctrl/Cmd+K command menu loads
+  once the page is idle instead of with it, the planner's reminder check
+  waits for idle too, and zod's eval probe no longer trips the Content
+  Security Policy (`src/instrumentation-client.ts`).
+- **Images** — every PNG and the favicon recompressed losslessly (oxipng
+  with zopfli, 214 → 201 KB); WebP and AVIF were not smaller for the pixel
+  art. The images components import (the logo, Tamari's sprites), the
+  scripts, styles and fonts are content-hashed by Next.js and cached for a
+  year (`immutable`) by Vercel's CDN and the browser; the tab and home-screen
+  icons are revalidated, as Next.js serves them.
+- **Database indexes** (migration 0024) — the per-student reads that
+  scanned every student's rows and the foreign keys that are cleared or
+  followed when their parent goes now have indexes, plus two for the night
+  run; six indexes that duplicated a unique one are dropped (they only
+  slowed inserts).
+- **Long lists page** — Materials, Notes, Quiz, Flashcards and Tutor (24 a
+  page), the mistake notebook (20) and a material's Content tab (12
+  sections) come a page at a time with Previous/Next; the page is in
+  the URL (`?page=2`), a page past the end goes to the last one, and a
+  source link opens the page its section is on (`src/lib/pagination.ts`,
+  `fetchPage()` in `src/lib/supabase/paginate.ts`).
+- **Reading past Supabase's 1,000-row cap** — the Data API returns at most
+  1,000 rows a request whatever a query asks for, and reads that wanted up
+  to 5,000 got an arbitrary 1,000: a student with 1,800 reviews saw a 0-day
+  streak, decks stopped at "1000 due", goals and Progress fell short, exam
+  cards counted the wrong tasks and the calendar sync removed events it had
+  not read. These reads now go a page at a time, newest first, up to the
+  same caps (`readPages()` / `readPagesQuietly()`), and the calendar keeps
+  activity events when its window was not read in full. Progress's 30-day
+  totals count only the window's own days, and accuracy and "questions
+  answered in total" are exact counts (`getAnswerCounts()`).
+- **Loading placeholders** — each main page shows a placeholder shaped like
+  it while it loads (`loading.tsx`, `src/components/ui/skeleton.tsx`; a
+  general one for the rest), announced once as "Loading…".
+- **Fewer re-renders** — the quiz countdown ticks on its own (nothing else
+  in the runner re-renders each second), and typing in Tamari's or the
+  tutor's composer no longer re-renders the messages (25 → 12 components
+  a key with four messages).
+- **Inputs** — the command menu searches 160 ms after typing stops,
+  cancels the previous request and reuses answers it already has while it
+  is open; the theme color picker saves 600 ms after the last change; the
+  other fields save on submit or blur.
+- **Smaller payloads** — planner tasks carry only the 20 columns the
+  planner shows (a month of 171 tasks: 167 → 137 KB of page data) and the
+  bell only the fields it shows.
+- **Caching** — static files as above; the shared item buckets (question
+  difficulty) are kept ten minutes per server instance and dropped after
+  the nightly refit; reads within one request are shared with React
+  `cache()`. Nothing per student is cached between requests and every API
+  response stays `private, no-store`, so a finished session shows at once
+  and no CDN or shared computer keeps a student's data.
+- **Hosting** — `vercel.json` runs the server code in Sydney (`syd1`),
+  beside the Supabase project (Oceania, Sydney); Vercel's CDN serves static
+  files from the edge nearest the student, compresses HTML, JSON and page
+  data (gzip or Brotli) and starts more function instances under load
+  (there is no load balancer to run). RevTaw reaches Postgres only through
+  Supabase's Data API, whose PostgREST keeps its own pooled connections, so
+  there are no direct database connections to pool.
+- **Unused code** — knip found two unused files (the browser Supabase
+  client and a phase placeholder), now removed; every package in
+  `package.json` is used.
 
 ### Phase 1 — Foundation
 
@@ -993,10 +1082,10 @@ tables.
 
 - Nothing at the moment. All ten phases of the specification, the UI/UX
   Improvement and Personalization Phase, the Tamari visual AI companion
-  integration, the API integrations round, the learning engine round and
-  the Archive round are implemented. The services still need the owner's
-  real keys (see Environment Requirements); the hosted database has
-  0001–0022 and needs 0023 (the Archive).
+  integration, the API integrations round, the learning engine round, the
+  Archive round and the performance round are implemented. The services
+  still need the owner's real keys (see Environment Requirements); the
+  hosted database has 0001–0023 and needs 0024 (the performance indexes).
 
 ## Next (priority order)
 
@@ -1010,11 +1099,14 @@ tables.
    scheduler (it still runs on page load).
 3. Web Push for reminders when no RevTaw tab is open (email and in-app
    already work).
-4. Pagination of the Content tab for very large materials; map-reduce
-   analysis for books.
+4. Map-reduce analysis for books (the Content tab already pages through
+   very large materials).
 5. A Redis-backed rate limiter (and shared AI cooldowns) when running
    several instances.
-6. More Tamari poses (happy, confused, Pomodoro, a wrong-answer face) and
+6. A metric-matched fallback for the two web fonts and placeholders sized
+   like Home's widgets, so nothing moves when they arrive (see Known
+   Issues).
+7. More Tamari poses (happy, confused, Pomodoro, a wrong-answer face) and
    blink frames for the other poses: one picture set in
    `src/components/tamari/sprites.ts` and a line in `src/lib/tamari/states.ts`
    each.
@@ -1089,6 +1181,21 @@ trigram matching and vector similarity over `material_chunks`, fused in
 `match_material_chunks()`; there is no vector index yet (exact search over one
 student's chunks is fast; add HNSW past about 2,000 chunks a student).
 
+Indexes (migration 0024): `user_id` indexes for the per-student reads that
+had none (`study_session_items` by answer time, `material_chunks`,
+`reviewer_sections`, `quiz_questions`, `tutor_messages`, `folders`,
+`material_analyses`, `exam_materials`, `study_plans`); partial indexes on the
+foreign keys that are cleared or followed when their parent goes
+(`quiz_questions.source_chunk_id`, the question, attempt and material of
+`mistakes`, `study_sessions.quiz_attempt_id`,
+`study_session_items.source_mistake_id`, `flashcard_reviews.session_id`,
+`tutor_conversations.session_id`, `materials.folder_id`, the exam and
+session of `study_tasks`); `quiz_answers (answered_at, id)` and stale
+`concept_mastery` for the night run; six duplicates of unique indexes
+dropped. The Data API's **Max rows** must stay at 1,000 or more (the
+default): long reads go 1,000 rows at a time and take a short page as the
+end (`readPages()`).
+
 Types for queries live in `src/lib/supabase/database.types.ts` (hand-written
 in `supabase gen types` format; regenerate with the CLI when the project is
 linked).
@@ -1113,6 +1220,17 @@ linked).
 - **Rate limiting** — in-memory fixed window per server instance
   (`src/lib/rate-limit.ts`), in addition to Supabase's own limits. Swap the
   store for Redis when running several instances.
+- **Reads, pages and caching** — lists come a page at a time
+  (`fetchPage()`: one ranged query with an exact count, a stable order with
+  the id last, 416 past the end → the last page); reads that can pass 1,000
+  rows go through `readPages()` / `readPagesQuietly()` with a newest-first
+  order and an explicit cap. React `cache()` shares a read within one
+  request; across requests only the shared item buckets are cached (ten
+  minutes per instance, `loadBuckets()`); student data and API responses
+  are never cached (`private, no-store`). Pages stream behind
+  `loading.tsx` placeholders; the command menu and the reminder check load
+  after the page. Server code runs in Sydney (`vercel.json`) beside the
+  database.
 - **Routes** — all paths come from `src/lib/routes.ts`; navigation items from
   `src/components/app/nav-items.ts` (groups, pinned tools, phone tabs);
   command menu entries from `src/components/app/commands.ts`.
@@ -1333,6 +1451,28 @@ linked).
 ## Known Issues / Limitations
 
 - Rate limit counters reset on deploy and are per instance.
+- Lighthouse leftovers after the performance round: "legacy JavaScript" is
+  Next.js's own small polyfill set (e.g. `Array.prototype.at`) in its
+  framework chunk; the back/forward cache stays off because signed-in pages
+  are `no-store`; Home's layout shift (0.01–0.04, under the 0.1 "good" line,
+  the same before the round) comes from the two web fonts swapping in and,
+  when a widget streams in after the first paint, from its placeholder being
+  taller or shorter than the widget; axe's experimental label-in-name rule
+  (not scored) flags the bell when more than nine are unread, because the
+  badge shows "9+" while screen readers hear the exact count. Preloading the
+  fonts was tried and dropped: fonts arrived 0.8 s sooner but first paint
+  came 0.2 s later.
+- Reads have caps, newest first: the streak and focus time read 90 days (up
+  to 1,000 sessions, 1,000 quiz attempts and 2,000 reviews); Progress reads
+  30 days of sessions (2,000) and reviews (5,000) and the latest 3,000 quiz
+  answers and 3,000 session answers for its charts and breakdowns
+  (accuracy and the answer total are exact counts); goals read the last two weeks (up to 1,000
+  sessions and 2,000 each of reviews, quiz answers and session answers);
+  deck due counts read 5,000 cards, exam progress 5,000 tasks, a calendar
+  sync 2,000 activities (past that it writes the first 2,000 and removes
+  nothing that run).
+- The item buckets cache lets a server instance use difficulties up to ten
+  minutes old after the nightly refit.
 - Email address changes are not offered in the UI yet (`/auth/confirm`
   already supports `email_change`).
 - Account deletion is disabled until `SUPABASE_SECRET_KEY` is configured; the
@@ -1681,6 +1821,23 @@ Flows verified end to end against a local Supabase-compatible stack
   migrations 0016–0021 in SQL (a student cannot add tokens, refunds and
   token counts by the service role only, hybrid search and saved
   embeddings limited to the student's own chunks, typos matched)
+- Performance round, with the local PostgREST capped at 1,000 rows like
+  Supabase (`db-max-rows`): `rows-cap-e2e.mjs` (1,800 reviews, a
+  1,250-card deck, an exam with 1,100 tasks and a weekly goal: the streak,
+  due counts, goal, Progress and exam figures right; the build before the
+  round fails ten of its checks), `progress-window-e2e.mjs` (the day before
+  the 30 days is left out of the totals), `answers-total-e2e.mjs` (7,000
+  answers: 7% accuracy, "7,000 questions answered in total"),
+  `pagination-e2e.mjs` (pages, summaries, past-the-end redirects, a source
+  link to section 14), `cmdk-cache-e2e.mjs` (an answer reused while the
+  menu is open, asked afresh after reopening), `gcal-e2e.mjs` (2,050
+  activities: the first 2,000 written and nothing removed, then the stale
+  events removed once the window is read in full) and the unit tests for
+  `readPagesQuietly()`, the bucket cache and the calendar's partial-read
+  rule. `~/lh/median.mjs` runs Lighthouse on two builds alternately with a
+  cold cache (`perf-seed.mjs` makes the student), `real-trace.mjs` measures
+  real throttled loads and `dup-queries.mjs` counts the database requests
+  each page load makes.
 - Accessibility: `~/preview/a11y-audit.mjs` (axe-core, 43 states incl. the
   new settings pages, the activity form and Tamari's chat, light) and
   `a11y-dark.mjs` (dark) report no violations; keyboard paths are
