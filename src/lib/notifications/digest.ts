@@ -12,6 +12,7 @@ import { parsePreferences } from "@/lib/preferences/schema";
 import { escapeHtml } from "@/lib/reminders/message";
 import { routes } from "@/lib/routes";
 import type { Database } from "@/lib/supabase/database.types";
+import { readPages } from "@/lib/supabase/paginate";
 
 /**
  * The daily study digest (research doc §16): one email each morning with
@@ -29,6 +30,10 @@ const FIRST_HOUR = 6;
 const LAST_HOUR = 11;
 const MAX_ATTEMPTS = 3;
 const RETRY_AFTER_MS = 10 * 60_000;
+/** A run lasts at most a minute: a digest still "sending" after this was left behind by a run that stopped. */
+const SENDING_STALE_MS = 15 * 60_000;
+/** Students with the digest on, read in pages (Supabase returns at most 1,000 rows a request). */
+const DIGEST_STUDENTS_MAX = 20_000;
 const EXAM_HORIZON_DAYS = 14;
 
 export type DigestTask = { title: string; time: string | null; minutes: number };
@@ -111,21 +116,26 @@ export async function digestContent(client: Client, userId: string, day: string,
   };
 }
 
-/** Claims today's digest for a student; false when it was sent, is being sent, or failed too often. */
+/**
+ * Claims today's digest for a student; false when it was sent or skipped, is being sent, or failed too often.
+ * A failed digest is retried after ten minutes, and one left "sending" by a run that stopped after fifteen.
+ */
 async function claim(client: Client, userId: string, day: string): Promise<boolean> {
   const { data: inserted, error } = await client.from("email_digests").upsert({ user_id: userId, day, status: "sending", attempts: 1 }, { onConflict: "user_id,day", ignoreDuplicates: true }).select("user_id");
   if (error) throw new Error(`email_digests: claim failed: ${error.message}`);
   if (inserted && inserted.length > 0) return true;
   const { data: existing } = await client.from("email_digests").select("status, attempts, updated_at").eq("user_id", userId).eq("day", day).maybeSingle();
-  if (!existing || existing.status !== "failed" || existing.attempts >= MAX_ATTEMPTS) return false;
-  if (Date.now() - new Date(existing.updated_at).getTime() < RETRY_AFTER_MS) return false;
-  // Only one run can move a failed row back to "sending".
+  if (!existing || existing.attempts >= MAX_ATTEMPTS) return false;
+  const waitMs = existing.status === "failed" ? RETRY_AFTER_MS : existing.status === "sending" ? SENDING_STALE_MS : null;
+  if (waitMs === null || Date.now() - new Date(existing.updated_at).getTime() < waitMs) return false;
+  // Only one run can take the row back: the update matches only while it is unchanged since it was read.
   const { data: retried } = await client
     .from("email_digests")
     .update({ status: "sending", attempts: existing.attempts + 1, error: null })
     .eq("user_id", userId)
     .eq("day", day)
-    .eq("status", "failed")
+    .eq("status", existing.status)
+    .eq("updated_at", existing.updated_at)
     .select("user_id");
   return Boolean(retried && retried.length > 0);
 }
@@ -142,11 +152,15 @@ export async function runDailyDigest(client: Client, options: { now?: Date; budg
   const run: DigestRun = { checked: 0, sent: 0, skipped: 0, failed: 0, notDue: 0 };
   if (!isEmailConfigured()) return run;
 
-  const { data: profiles, error } = await client.from("profiles").select("id, display_name, timezone, preferences").eq("preferences->notifications->>digest", "true").limit(500);
-  if (error) throw new Error(`profiles: digest query failed: ${error.message}`);
+  const profiles = await readPages(
+    (from, to) => client.from("profiles").select("id, display_name, timezone, preferences").eq("preferences->notifications->>digest", "true").order("id").range(from, to),
+    DIGEST_STUDENTS_MAX,
+  ).catch((error: unknown) => {
+    throw new Error(`profiles: digest query failed: ${error instanceof Error ? error.message : String(error)}`);
+  });
   const siteUrl = getPublicSiteUrl();
 
-  for (const profile of profiles ?? []) {
+  for (const profile of profiles) {
     if (Date.now() > deadline) break;
     if (!parsePreferences(profile.preferences ?? {}).notifications.digest) continue;
     run.checked += 1;
@@ -157,28 +171,42 @@ export async function runDailyDigest(client: Client, options: { now?: Date; budg
       continue;
     }
     const day = dateIn(now, timeZone);
-    if (!(await claim(client, profile.id, day))) continue;
-
-    const content = await digestContent(client, profile.id, day, timeZone);
-    const { data: user } = await client.auth.admin.getUserById(profile.id);
-    const email = user.user?.email ?? null;
-    if (digestIsEmpty(content) || !email) {
-      await client.from("email_digests").update({ status: "skipped", error: email ? null : "no email address" }).eq("user_id", profile.id).eq("day", day);
-      run.skipped += 1;
-      continue;
-    }
-
-    const unsubscribe = unsubscribeUrl(siteUrl, profile.id, "digest");
-    const message = digestMessage(profile.display_name, content, siteUrl, unsubscribe);
-    const result = await sendEmail({ to: email, ...message, headers: unsubscribeHeaders(unsubscribe), idempotencyKey: `digest-${profile.id}-${day}` });
-    if (result.ok) {
-      await client.from("email_digests").update({ status: "sent", sent_at: new Date().toISOString(), error: null }).eq("user_id", profile.id).eq("day", day);
-      run.sent += 1;
-    } else {
-      console.error("digest: email failed", result.error);
-      await client.from("email_digests").update({ status: "failed", error: result.error.slice(0, 300) }).eq("user_id", profile.id).eq("day", day);
+    let claimed = false;
+    // One student's failure is recorded and the run goes on to the next.
+    try {
+      claimed = await claim(client, profile.id, day);
+      if (!claimed) continue;
+      const outcome = await sendDigest(client, profile, day, timeZone, siteUrl);
+      run[outcome] += 1;
+    } catch (error) {
       run.failed += 1;
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error(`digest: student ${profile.id} failed`, detail);
+      if (claimed) await client.from("email_digests").update({ status: "failed", error: detail.slice(0, 300) }).eq("user_id", profile.id).eq("day", day).eq("status", "sending");
     }
   }
   return run;
+}
+
+/** Builds and sends one claimed digest and records how it went. */
+async function sendDigest(client: Client, profile: { id: string; display_name: string | null }, day: string, timeZone: string, siteUrl: string | null): Promise<"sent" | "skipped" | "failed"> {
+  const content = await digestContent(client, profile.id, day, timeZone);
+  const { data: user, error: userError } = await client.auth.admin.getUserById(profile.id);
+  if (userError) throw new Error(`auth: user lookup failed: ${userError.message}`);
+  const email = user.user?.email ?? null;
+  if (digestIsEmpty(content) || !email) {
+    await client.from("email_digests").update({ status: "skipped", error: email ? null : "no email address" }).eq("user_id", profile.id).eq("day", day);
+    return "skipped";
+  }
+
+  const unsubscribe = unsubscribeUrl(siteUrl, profile.id, "digest");
+  const message = digestMessage(profile.display_name, content, siteUrl, unsubscribe);
+  const result = await sendEmail({ to: email, ...message, headers: unsubscribeHeaders(unsubscribe), idempotencyKey: `digest-${profile.id}-${day}` });
+  if (result.ok) {
+    await client.from("email_digests").update({ status: "sent", sent_at: new Date().toISOString(), error: null }).eq("user_id", profile.id).eq("day", day);
+    return "sent";
+  }
+  console.error("digest: email failed", result.error);
+  await client.from("email_digests").update({ status: "failed", error: result.error.slice(0, 300) }).eq("user_id", profile.id).eq("day", day);
+  return "failed";
 }
