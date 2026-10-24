@@ -1,4 +1,4 @@
-import { Flame, GraduationCap, Target, Timer } from "lucide-react";
+import { Flame, Gauge, GraduationCap, Timer } from "lucide-react";
 
 import { StatTile } from "@/components/dashboard/widget-shell";
 import { getMasterySummary } from "@/lib/adaptive/engine";
@@ -93,7 +93,7 @@ export async function MasteryWidget() {
   const summary = await getMasterySummary();
   const tracked = summary.mastered.length + summary.strong.length + summary.developing.length + summary.learning.length + summary.weak.length;
   if (tracked === 0 || summary.averageMastery === null) {
-    return <StatTile icon={Target} label="Mastery" value="—" caption="Answer a few questions and RevTaw starts tracking each concept." href={routes.progress} />;
+    return <StatTile icon={Gauge} label="Mastery" value="—" caption="Answer a few questions and RevTaw starts tracking each concept." href={routes.progress} />;
   }
   const segments = [
     { key: "mastered", count: summary.mastered.length, label: "mastered", tone: "bg-success" },
@@ -104,7 +104,7 @@ export async function MasteryWidget() {
   ].filter((segment) => segment.count > 0);
   const description = segments.map((segment) => `${segment.count} ${segment.label}`).join(", ");
   return (
-    <StatTile icon={Target} label="Mastery" value={`${Math.round(summary.averageMastery)}%`} unit="average" caption={`${tracked} concept${tracked === 1 ? "" : "s"} · ${description}`} href={routes.progress}>
+    <StatTile icon={Gauge} label="Mastery" value={`${Math.round(summary.averageMastery)}%`} unit="average" caption={`${tracked} concept${tracked === 1 ? "" : "s"} · ${description}`} href={routes.progress}>
       <div className="mt-3 flex h-1.5 gap-0.5 overflow-hidden rounded-full" role="img" aria-label={`Concepts: ${description}`}>
         {segments.map((segment) => (
           <span key={segment.key} className={cn("h-full first:rounded-l-full last:rounded-r-full", segment.tone)} style={{ flexGrow: segment.count }} />

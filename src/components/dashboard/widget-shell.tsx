@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { StatBody } from "@/components/dashboard/stat-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -37,23 +38,11 @@ export function WidgetPanel({ children, className, labelledBy }: { children: Rea
 
 /** One tile of the at-a-glance strip: a label, a big value and a short line. */
 export function StatTile({ icon: Icon, label, value, unit, caption, href, children }: { icon: LucideIcon; label: string; value: ReactNode; unit?: string; caption?: ReactNode; href?: string; children?: ReactNode }) {
-  const body = (
-    <>
-      <h2 className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-        {label}
-      </h2>
-      <p className="mt-2 flex items-baseline gap-1">
-        <span className="font-display tracking-display text-3xl font-bold leading-none tabular-nums text-foreground">{value}</span>
-        {unit && <span className="text-sm font-medium text-muted-foreground">{unit}</span>}
-      </p>
-      {caption && <p className="mt-1.5 text-xs text-muted-foreground">{caption}</p>}
-      {children}
-    </>
-  );
   return (
     <section className="relative flex h-full flex-col bg-card p-4 sm:p-5">
-      {body}
+      <StatBody icon={Icon} label={label} value={value} unit={unit} caption={caption} labelAs="h2">
+        {children}
+      </StatBody>
       {href && <Link href={href} className="absolute inset-0 outline-offset-[-3px] transition-colors hover:bg-muted/40" aria-label={`${label}: open details`} />}
     </section>
   );
