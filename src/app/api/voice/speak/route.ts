@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   if (!voiceCapabilities().speak) {
     return NextResponse.json({ error: "Reading aloud in Filipino isn't set up on this server." }, { status: 503 });
   }
-  const limit = rateLimit(`voice-speak:${user.id}`, 60, 10 * 60_000);
+  const limit = await rateLimit(`voice-speak:${user.id}`, 60, 10 * 60_000);
   if (!limit.ok) {
     return NextResponse.json({ error: "That's a lot to read aloud. Please wait a little." }, { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } });
   }

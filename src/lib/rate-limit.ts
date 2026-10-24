@@ -1,14 +1,20 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+
 import { headers } from "next/headers";
 
+import { createAdminClient } from "@/lib/supabase/admin";
+
 /**
- * Small fixed-window rate limiter kept in process memory.
+ * Fixed-window rate limits.
  *
- * It is a defence-in-depth layer in front of Supabase Auth's own limits and
- * is intentionally simple: counters live per server instance and reset on
- * restart. For multi-instance deployments swap the `store` for Redis/Upstash
- * while keeping the same `rateLimit()` contract.
+ * `rateLimit()` counts in Postgres (migration 0026, `rate_limit_hit`), so the
+ * limit holds across every server instance and survives deploys; keys are
+ * hashed before they leave the server. Without the secret key (local
+ * development) or when the database can't be reached, it falls back to the
+ * in-memory counter of this instance, which is also what `localRateLimit()`
+ * uses for chatty per-student checks (status polls, file views).
  */
 
 type Bucket = { count: number; resetAt: number };
@@ -22,7 +28,8 @@ export type RateLimitResult = {
   retryAfterSeconds: number;
 };
 
-export function rateLimit(
+/** This instance's counter: fast, but per instance and reset on restart. */
+export function localRateLimit(
   key: string,
   limit: number,
   windowMs: number,
@@ -52,6 +59,43 @@ export function rateLimit(
   return { ok: true, remaining: limit - bucket.count, retryAfterSeconds: 0 };
 }
 
+let warned = false;
+
+/** Keys carry email and IP addresses; only a hash is stored. */
+function storedKey(key: string): string {
+  return createHash("sha256").update(key).digest("base64url");
+}
+
+/** A limit shared by every server instance (see the module comment). */
+export async function rateLimit(key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
+  const admin = createAdminClient();
+  if (admin) {
+    try {
+      const { data, error } = await admin.rpc("rate_limit_hit", {
+        p_key: storedKey(key),
+        p_limit: limit,
+        p_window_seconds: Math.max(1, Math.ceil(windowMs / 1000)),
+      });
+      const row = data?.[0];
+      if (!error && row) {
+        return row.allowed
+          ? { ok: true, remaining: Math.max(0, limit - row.hits), retryAfterSeconds: 0 }
+          : { ok: false, remaining: 0, retryAfterSeconds: Math.max(1, row.retry_after_seconds) };
+      }
+      if (error && !warned) {
+        warned = true;
+        console.warn(`rate limits: shared counter unavailable (${error.message}); using this instance's counter`);
+      }
+    } catch (error) {
+      if (!warned) {
+        warned = true;
+        console.warn("rate limits: shared counter unavailable; using this instance's counter", error instanceof Error ? error.message : error);
+      }
+    }
+  }
+  return localRateLimit(key, limit, windowMs);
+}
+
 /** Best-effort client address for keying limits behind common proxies. */
 export async function getClientAddress(): Promise<string> {
   const headerStore = await headers();
@@ -69,7 +113,7 @@ export function describeRetry(seconds: number): string {
   return `${minutes} minute${minutes === 1 ? "" : "s"}`;
 }
 
-/** Test hook: clears all counters. */
+/** Test hook: clears this instance's counters. */
 export function resetRateLimits(): void {
   store.clear();
 }

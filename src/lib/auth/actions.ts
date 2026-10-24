@@ -45,7 +45,7 @@ export async function registerAction(
 
   // Generous per-IP limit: whole classrooms often share one address.
   const ip = await getClientAddress();
-  const limit = rateLimit(`register:${ip}`, 20, 15 * MINUTE);
+  const limit = await rateLimit(`register:${ip}`, 20, 15 * MINUTE);
   if (!limit.ok) {
     return errorState(tooManyAttempts(limit.retryAfterSeconds, "sign-up attempts"), { values });
   }
@@ -95,7 +95,7 @@ export async function loginAction(
   const next = safeNextPath(formString(formData, "next"));
 
   const ip = await getClientAddress();
-  const ipLimit = rateLimit(`login:ip:${ip}`, 20, 15 * MINUTE);
+  const ipLimit = await rateLimit(`login:ip:${ip}`, 20, 15 * MINUTE);
   if (!ipLimit.ok) {
     return errorState(tooManyAttempts(ipLimit.retryAfterSeconds, "sign-in attempts"), { values });
   }
@@ -112,7 +112,7 @@ export async function loginAction(
   }
 
   const { email, password } = parsed.data;
-  const accountLimit = rateLimit(`login:email:${email}`, 8, 15 * MINUTE);
+  const accountLimit = await rateLimit(`login:email:${email}`, 8, 15 * MINUTE);
   if (!accountLimit.ok) {
     return errorState(
       tooManyAttempts(accountLimit.retryAfterSeconds, "sign-in attempts for this account"),
@@ -149,7 +149,7 @@ export async function forgotPasswordAction(
   const values = { email: formString(formData, "email") };
 
   const ip = await getClientAddress();
-  const limit = rateLimit(`forgot:${ip}`, 10, 15 * MINUTE);
+  const limit = await rateLimit(`forgot:${ip}`, 10, 15 * MINUTE);
   if (!limit.ok) {
     return errorState(tooManyAttempts(limit.retryAfterSeconds, "reset requests"), { values });
   }
@@ -216,7 +216,7 @@ export async function resendVerificationAction(
   formData: FormData,
 ): Promise<ActionState> {
   const ip = await getClientAddress();
-  const limit = rateLimit(`resend:${ip}`, 6, 60 * MINUTE);
+  const limit = await rateLimit(`resend:${ip}`, 6, 60 * MINUTE);
   if (!limit.ok) {
     return errorState(tooManyAttempts(limit.retryAfterSeconds, "requests"));
   }
@@ -231,7 +231,7 @@ export async function resendVerificationAction(
   }
 
   const email = parsed.data;
-  const perEmail = rateLimit(`resend:email:${email}`, 1, MINUTE);
+  const perEmail = await rateLimit(`resend:email:${email}`, 1, MINUTE);
   if (!perEmail.ok) {
     return errorState("We just sent an email to that address. Please wait a minute before trying again.");
   }

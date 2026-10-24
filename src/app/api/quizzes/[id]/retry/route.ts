@@ -21,7 +21,7 @@ export async function POST(_request: Request, context: RouteContext<"/api/quizze
     return NextResponse.json({ error: "Invalid quiz id." }, { status: 400 });
   }
   const ip = await getClientAddress();
-  const limit = rateLimit(`generate:${user.id}:${ip}`, 30, 60 * 60_000);
+  const limit = await rateLimit(`generate:${user.id}:${ip}`, 30, 60 * 60_000);
   if (!limit.ok) {
     return NextResponse.json({ error: "Too many generation requests. Please wait a little." }, { status: 429 });
   }

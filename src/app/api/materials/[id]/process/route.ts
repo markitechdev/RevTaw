@@ -27,7 +27,7 @@ export async function POST(request: Request, context: RouteContext<"/api/materia
   }
 
   const ip = await getClientAddress();
-  const limit = rateLimit(`process:${user.id}:${ip}`, 30, 10 * 60_000);
+  const limit = await rateLimit(`process:${user.id}:${ip}`, 30, 10 * 60_000);
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many processing requests. Please wait a few minutes." },

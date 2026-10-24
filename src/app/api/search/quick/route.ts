@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   }
   // Debounced typing makes a few requests a second at most.
-  const limit = rateLimit(`quick-search:${user.id}`, 120, 60_000);
+  const limit = await rateLimit(`quick-search:${user.id}`, 120, 60_000);
   if (!limit.ok) {
     return NextResponse.json({ error: "Too many searches at once. Try again in a moment." }, { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } });
   }

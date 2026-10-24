@@ -23,7 +23,7 @@ export async function POST(_request: Request, context: RouteContext<"/api/materi
   }
 
   const ip = await getClientAddress();
-  const limit = rateLimit(`analyze:${user.id}:${ip}`, 20, 10 * 60_000);
+  const limit = await rateLimit(`analyze:${user.id}:${ip}`, 20, 10 * 60_000);
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many analysis requests. Please wait a few minutes." },

@@ -29,7 +29,7 @@ export async function POST(request: Request, context: RouteContext<"/api/reviewe
     return NextResponse.json({ error: "Instructions are limited to 500 characters." }, { status: 400 });
   }
   const ip = await getClientAddress();
-  const limit = rateLimit(`regenerate:${user.id}:${ip}`, 60, 60 * 60_000);
+  const limit = await rateLimit(`regenerate:${user.id}:${ip}`, 60, 60 * 60_000);
   if (!limit.ok) {
     return NextResponse.json({ error: "Too many regeneration requests. Please wait a little." }, { status: 429 });
   }

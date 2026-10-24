@@ -50,7 +50,7 @@ async function build(kind: (typeof EXPORT_KINDS)[number], query: z.infer<typeof 
 export async function GET(request: Request, context: RouteContext<"/api/export/[kind]">) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Sign in to export." }, { status: 401 });
-  const limit = rateLimit(`export:${user.id}`, 30, 60_000);
+  const limit = await rateLimit(`export:${user.id}`, 30, 60_000);
   if (!limit.ok) return NextResponse.json({ error: "Too many exports in a short time. Try again in a minute." }, { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } });
 
   const params = paramsSchema.safeParse(await context.params);

@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { STORAGE_BUCKET } from "@/lib/materials/constants";
 import { safeFilename } from "@/lib/materials/storage";
-import { rateLimit } from "@/lib/rate-limit";
+import { localRateLimit } from "@/lib/rate-limit";
 import { FILE_RESPONSE_CSP } from "@/lib/security/csp";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -28,7 +28,7 @@ export async function GET(_request: Request, context: RouteContext<"/api/materia
     return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   }
   // Each hit streams a whole file out of the bucket; a viewer needs a handful a minute, not hundreds.
-  const limit = rateLimit(`material-file:${user.id}`, 60, 60_000);
+  const limit = localRateLimit(`material-file:${user.id}`, 60, 60_000);
   if (!limit.ok) {
     return NextResponse.json({ error: "Too many file requests. Try again in a minute." }, { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } });
   }

@@ -530,6 +530,13 @@ type ItemBucketsRow = {
   refit_at: string;
 };
 
+/** Shared rate-limit counters (0026); written only through rate_limit_hit() with the secret key. */
+type RateLimitsRow = {
+  key: string;
+  hits: number;
+  expires_at: string;
+};
+
 type ExamsRow = {
   id: string;
   user_id: string;
@@ -1335,6 +1342,12 @@ export type Database = {
         Update: Partial<ItemBucketsRow>;
         Relationships: [];
       };
+      rate_limits: {
+        Row: RateLimitsRow;
+        Insert: Writable<RateLimitsRow, "key" | "expires_at">;
+        Update: Partial<RateLimitsRow>;
+        Relationships: [];
+      };
       achievements: {
         Row: AchievementsRow;
         Insert: Writable<AchievementsRow, "key">;
@@ -1371,6 +1384,10 @@ export type Database = {
       save_chunk_embeddings: {
         Args: { items: Json; model: string };
         Returns: number;
+      };
+      rate_limit_hit: {
+        Args: { p_key: string; p_limit: number; p_window_seconds: number };
+        Returns: Array<{ allowed: boolean; hits: number; retry_after_seconds: number }>;
       };
     };
     Enums: {

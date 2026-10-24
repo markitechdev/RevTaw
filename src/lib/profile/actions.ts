@@ -156,7 +156,7 @@ export async function changePasswordAction(
   if (!user || !user.email) redirect(routes.login);
 
   const ip = await getClientAddress();
-  const limit = rateLimit(`change-password:${user.id}:${ip}`, 5, 15 * MINUTE);
+  const limit = await rateLimit(`change-password:${user.id}:${ip}`, 5, 15 * MINUTE);
   if (!limit.ok) {
     return errorState(
       `Too many attempts. Please try again in ${describeRetry(limit.retryAfterSeconds)}.`,
@@ -204,7 +204,7 @@ export async function deleteAccountAction(
   if (!user || !user.email) redirect(routes.login);
 
   const ip = await getClientAddress();
-  const limit = rateLimit(`delete-account:${user.id}:${ip}`, 5, 15 * MINUTE);
+  const limit = await rateLimit(`delete-account:${user.id}:${ip}`, 5, 15 * MINUTE);
   if (!limit.ok) {
     return errorState(
       `Too many attempts. Please try again in ${describeRetry(limit.retryAfterSeconds)}.`,

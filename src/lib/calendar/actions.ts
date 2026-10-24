@@ -18,7 +18,7 @@ export async function syncCalendarNowAction(): Promise<CalendarActionResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, message: "Please sign in again." };
   if (!calendarConfigured()) return { ok: false, message: "Google Calendar is not set up on this server." };
-  const limit = rateLimit(`calendar-sync:${user.id}`, 10, 10 * 60_000);
+  const limit = await rateLimit(`calendar-sync:${user.id}`, 10, 10 * 60_000);
   if (!limit.ok) return { ok: false, message: "RevTaw just synced. Try again in a few minutes." };
   const admin = createAdminClient();
   if (!admin) return { ok: false, message: "Google Calendar is not set up on this server." };

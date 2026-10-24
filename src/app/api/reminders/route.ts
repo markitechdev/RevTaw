@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   const body = bodySchema.safeParse(await request.json().catch(() => ({})));
   if (!body.success) return NextResponse.json({ error: "Invalid reminders." }, { status: 400 });
   const ip = await getClientAddress();
-  const limit = rateLimit(`reminders:${user.id}:${ip}`, 60, 60_000);
+  const limit = await rateLimit(`reminders:${user.id}:${ip}`, 60, 60_000);
   if (!limit.ok) return NextResponse.json({ error: "Too many requests." }, { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } });
   const delivered = await deliverDueReminders({ ids: body.data.ids });
   return NextResponse.json({ delivered }, { headers: { "cache-control": "no-store" } });

@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   if (!voiceCapabilities().transcribe) {
     return NextResponse.json({ error: "Voice typing isn't set up on this server. Type your question instead." }, { status: 503 });
   }
-  const limit = rateLimit(`voice:${user.id}`, 40, 10 * 60_000);
+  const limit = await rateLimit(`voice:${user.id}`, 40, 10 * 60_000);
   if (!limit.ok) {
     return NextResponse.json({ error: "That's a lot of voice messages. Please wait a little." }, { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } });
   }

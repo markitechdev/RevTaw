@@ -61,7 +61,7 @@ export async function POST(request: Request, context: RouteContext<"/api/tutor/c
     return NextResponse.json({ error: "Type a question or pick an action." }, { status: 400 });
   }
   const ip = await getClientAddress();
-  const limit = rateLimit(`tutor:${user.id}:${ip}`, 120, 60 * 60_000);
+  const limit = await rateLimit(`tutor:${user.id}:${ip}`, 120, 60 * 60_000);
   if (!limit.ok) {
     return NextResponse.json({ error: "You have sent a lot of messages. Please wait a little." }, { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } });
   }

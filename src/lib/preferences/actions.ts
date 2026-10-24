@@ -47,7 +47,7 @@ async function writeSection(section: PreferenceSection, value: unknown): Promise
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Your session has ended. Please sign in again." };
 
-  const limit = rateLimit(`preferences:${user.id}`, 60, MINUTE);
+  const limit = await rateLimit(`preferences:${user.id}`, 60, MINUTE);
   if (!limit.ok) {
     return { ok: false, error: `That was a lot of changes at once. Try again in ${describeRetry(limit.retryAfterSeconds)}.` };
   }

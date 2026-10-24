@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Choose a material and a number of cards." }, { status: 400 });
   }
   const ip = await getClientAddress();
-  const limit = rateLimit(`generate:${user.id}:${ip}`, 30, 60 * 60_000);
+  const limit = await rateLimit(`generate:${user.id}:${ip}`, 30, 60 * 60_000);
   if (!limit.ok) {
     return NextResponse.json(
       { error: "You have generated a lot recently. Please wait a little before creating more." },

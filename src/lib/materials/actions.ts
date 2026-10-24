@@ -46,7 +46,7 @@ export async function createFileMaterialAction(
   const user = await getCurrentUser();
   if (!user) redirect(routes.login);
 
-  const limit = rateLimit(`upload:${user.id}`, 60, 60 * 60_000);
+  const limit = await rateLimit(`upload:${user.id}`, 60, 60 * 60_000);
   if (!limit.ok) {
     return { ok: false, message: "You have uploaded a lot recently. Please wait a little before adding more." };
   }
@@ -129,7 +129,7 @@ export async function createTextMaterialAction(
     newSubjectName: formString(formData, "newSubjectName"),
   };
 
-  const limit = rateLimit(`upload:${user.id}`, 60, 60 * 60_000);
+  const limit = await rateLimit(`upload:${user.id}`, 60, 60 * 60_000);
   if (!limit.ok) {
     return errorState("You have added a lot recently. Please wait a little before adding more.", { values });
   }
