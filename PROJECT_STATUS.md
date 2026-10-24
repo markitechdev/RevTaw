@@ -1099,8 +1099,10 @@ linked).
   `cacheComponents` is off (dynamic, cookie-based pages). Route groups:
   `(marketing)`, `(auth)`, `(onboarding)`, `(app)`.
 - **Supabase** via `@supabase/ssr`. `src/lib/supabase/server.ts` for Server
-  Components/Actions/Route Handlers, `client.ts` for Client Components,
-  `admin.ts` (secret key, server-only) for privileged operations.
+  Components/Actions/Route Handlers, `proxy.ts` for the session refresh in
+  `src/proxy.ts`, `admin.ts` (secret key, server-only) for privileged
+  operations. The browser never queries Supabase itself: it calls RevTaw's
+  server, and uploads go straight to a signed Storage URL.
 - **Authorization** — `src/proxy.ts` refreshes the session and redirects; it
   is a convenience layer only. Every Server Action and protected page calls
   `getCurrentUser()` (JWT verified with `getClaims()`), and the database
