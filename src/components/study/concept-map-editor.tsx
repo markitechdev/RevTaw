@@ -108,7 +108,7 @@ export function ConceptMapEditor({ mapId, title, initial }: { mapId: string; tit
               setNewConcept("");
             }}
           >
-            <Input aria-label="New concept" placeholder="Add a concept" value={newConcept} maxLength={120} className="h-9" onChange={(event) => setNewConcept(event.target.value)} />
+            <Input aria-label="New concept" placeholder="Add a concept" value={newConcept} maxLength={120} fieldSize="sm" onChange={(event) => setNewConcept(event.target.value)} />
             <Button type="submit" size="sm" variant="secondary" disabled={!newConcept.trim() || map.nodes.length >= 40}>
               <Plus className="h-4 w-4" aria-hidden="true" />
               Add

@@ -251,7 +251,7 @@ export function MindMapEditor({ mapId, initial, onQuiz, quizBusy = null }: { map
         {node.note && <p className="ml-9 text-xs text-muted-foreground">{node.note}</p>}
         {connecting === node.id && (
           <div className="ml-9 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background p-2 text-sm">
-            <Select aria-label={`Connect ${node.label} to`} value={target} onChange={(event) => setTarget(event.target.value)} className="w-48">
+            <Select aria-label={`Connect ${node.label} to`} value={target} onChange={(event) => setTarget(event.target.value)} fieldSize="sm" className="w-48">
               <option value="">Choose an idea…</option>
               {map.nodes
                 .filter((other) => other.id !== node.id)
@@ -261,7 +261,7 @@ export function MindMapEditor({ mapId, initial, onQuiz, quizBusy = null }: { map
                   </option>
                 ))}
             </Select>
-            <Input aria-label="Connection label (optional)" placeholder="label (optional)" value={linkLabel} maxLength={60} className="h-9 w-40" onChange={(event) => setLinkLabel(event.target.value)} />
+            <Input aria-label="Connection label (optional)" placeholder="label (optional)" value={linkLabel} maxLength={60} fieldSize="sm" className="w-40" onChange={(event) => setLinkLabel(event.target.value)} />
             <Button type="button" size="sm" disabled={!target} onClick={connect}>
               Connect
             </Button>

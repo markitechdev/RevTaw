@@ -1,16 +1,18 @@
 import { ChevronDown } from "lucide-react";
 import { forwardRef, type SelectHTMLAttributes } from "react";
 
+import { FIELD_HEIGHT, type FieldSize } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 /** Native select with consistent styling; keyboard and screen-reader friendly by default. */
-export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
-  ({ className, children, ...props }, ref) => (
+export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement> & { fieldSize?: FieldSize }>(
+  ({ className, children, fieldSize = "md", ...props }, ref) => (
     <div className="relative">
       <select
         ref={ref}
         className={cn(
-          "h-10 w-full appearance-none rounded-lg border border-input bg-card pl-3 pr-9 text-sm text-foreground",
+          "w-full appearance-none rounded-lg border border-input bg-card pl-3 pr-9 text-sm text-foreground",
+          FIELD_HEIGHT[fieldSize],
           "transition-colors focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-60",
           "aria-[invalid=true]:border-danger",
           className,

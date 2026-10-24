@@ -155,7 +155,7 @@ function ManageSubjectsDialog({
                               run(() => renameFolderAction(folder.id, editing.value), () => setEditing(null));
                             }}
                           >
-                            <Input aria-label={`Rename ${folder.name}`} value={editing.value} maxLength={80} autoFocus onChange={(event) => setEditing({ ...editing, value: event.target.value })} className="h-9" />
+                            <Input aria-label={`Rename ${folder.name}`} value={editing.value} maxLength={80} autoFocus onChange={(event) => setEditing({ ...editing, value: event.target.value })} fieldSize="sm" />
                             <Button type="submit" size="icon-sm" aria-label="Save name" loading={pending}>
                               <Check className="h-4 w-4" aria-hidden="true" />
                             </Button>
@@ -185,7 +185,7 @@ function ManageSubjectsDialog({
                             run(() => createFolderAction(subject.id, newFolder.value), () => setNewFolder(null));
                           }}
                         >
-                          <Input aria-label="New folder name" value={newFolder.value} maxLength={80} placeholder="Folder name, e.g. Chapter 1" autoFocus onChange={(event) => setNewFolder({ ...newFolder, value: event.target.value })} className="h-9" />
+                          <Input aria-label="New folder name" value={newFolder.value} maxLength={80} placeholder="Folder name, e.g. Chapter 1" autoFocus onChange={(event) => setNewFolder({ ...newFolder, value: event.target.value })} fieldSize="sm" />
                           <Button type="submit" size="sm" loading={pending} disabled={!newFolder.value.trim()}>
                             Add
                           </Button>
