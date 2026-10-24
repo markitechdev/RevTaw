@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { settleGenerationStatus } from "@/lib/generation/stale";
 import { attemptDeadline, orderOptions } from "@/lib/quizzes/service";
 import { answerSchema, parseQuizConfig, responseSchema } from "@/lib/quizzes/schemas";
 import { describeAnswer, describeResponse, type QuestionAnswer, type QuestionOption, type QuestionResponse, type QuizConfig } from "@/lib/quizzes/types";
@@ -36,7 +37,7 @@ function withAttemptStats<T extends { attempts: QuizListItem["attempts"] }>(row:
 type QuizRow = Omit<QuizListItem, "config" | "bestPercent" | "attemptCount"> & { config: Json };
 
 function toListItem(row: QuizRow): QuizListItem {
-  return withAttemptStats({ ...row, config: parseQuizConfig(row.config) });
+  return withAttemptStats(settleGenerationStatus({ ...row, config: parseQuizConfig(row.config) }));
 }
 
 /** A material's quizzes (its page lists them all; a material has a handful). */
@@ -100,7 +101,7 @@ export const getQuiz = cache(async (quizId: string): Promise<QuizDetail | null> 
   if (!quiz) return null;
   const counts = new Map<QuizQuestion["type"], number>();
   for (const question of questions ?? []) counts.set(question.type, (counts.get(question.type) ?? 0) + 1);
-  const typed = quiz as unknown as Omit<QuizDetail, "config" | "attempts" | "typeCounts"> & { config: Json };
+  const typed = settleGenerationStatus(quiz as unknown as Omit<QuizDetail, "config" | "attempts" | "typeCounts"> & { config: Json });
   return {
     ...typed,
     config: parseQuizConfig(typed.config),

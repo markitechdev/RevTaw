@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { settleGenerationStatus } from "@/lib/generation/stale";
 import type { Page } from "@/lib/pagination";
 import type { Reviewer, ReviewerSection } from "@/lib/supabase/database.types";
 import { fetchPage } from "@/lib/supabase/paginate";
@@ -33,18 +34,19 @@ export async function listReviewers(filters: { materialId?: string } = {}): Prom
     console.error("reviewers: list failed", error.message);
     return [];
   }
-  return (data ?? []) as unknown as ReviewerListItem[];
+  return ((data ?? []) as unknown as ReviewerListItem[]).map((row) => settleGenerationStatus(row));
 }
 
 /** One page of the Notes page, most recently updated first (the id breaks ties, so pages never overlap). */
 export async function listReviewersPage(page: number, pageSize: number): Promise<Page<ReviewerListItem>> {
   const supabase = await createClient();
-  return fetchPage<ReviewerListItem>(
+  const result = await fetchPage<ReviewerListItem>(
     "reviewers",
     (head) => supabase.from("reviewers").select(head ? "id" : LIST_COLUMNS, { count: "exact", head }).is("archived_at", null).order("updated_at", { ascending: false }).order("id"),
     page,
     pageSize,
   );
+  return { ...result, items: result.items.map((row) => settleGenerationStatus(row)) };
 }
 
 export type ReviewerDetail = Reviewer & {
@@ -71,7 +73,7 @@ export const getReviewer = cache(async (reviewerId: string): Promise<ReviewerDet
     return null;
   }
   if (!reviewer) return null;
-  return { ...(reviewer as unknown as Omit<ReviewerDetail, "sections">), sections: sections ?? [] };
+  return { ...settleGenerationStatus(reviewer as unknown as Omit<ReviewerDetail, "sections">), sections: sections ?? [] };
 });
 
 export const countReviewers = cache(async (): Promise<number> => {

@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { settleMaterialStatus } from "@/lib/generation/stale";
 import { parseAnalysisData, type AnalysisData } from "@/lib/materials/analysis-schema";
 import type { Page } from "@/lib/pagination";
 import type { Folder, Material, MaterialAnalysis, MaterialChunk, Subject } from "@/lib/supabase/database.types";
@@ -29,13 +30,14 @@ export type MaterialListItem = Pick<
   | "created_at"
   | "updated_at"
   | "last_opened_at"
+  | "last_processed_at"
 > & {
   subject: { id: string; name: string; color: string | null } | null;
   folder: { id: string; name: string } | null;
 };
 
 const MATERIAL_LIST_COLUMNS =
-  "id, title, source, status, status_detail, subject_id, folder_id, file_size, page_count, word_count, archived_at, created_at, updated_at, last_opened_at, " +
+  "id, title, source, status, status_detail, subject_id, folder_id, file_size, page_count, word_count, archived_at, created_at, updated_at, last_opened_at, last_processed_at, " +
   "subject:subjects!materials_subject_fk(id, name, color), folder:folders!materials_folder_fk(id, name)";
 
 /** Subjects (with their folders) for pickers and the materials sidebar. */
@@ -109,13 +111,14 @@ export async function listMaterials(filters: MaterialFilters = {}): Promise<Mate
     console.error("materials: list failed", error.message);
     return [];
   }
-  return (data ?? []) as unknown as MaterialListItem[];
+  return ((data ?? []) as unknown as MaterialListItem[]).map((row) => settleMaterialStatus(row));
 }
 
 /** One page of the Materials page's grid. */
 export async function listMaterialsPage(filters: MaterialFilters, page: number, pageSize: number): Promise<Page<MaterialListItem>> {
   const supabase = await createClient();
-  return fetchPage<MaterialListItem>("materials", (head) => materialsQuery(supabase, filters, head ? "id" : MATERIAL_LIST_COLUMNS, { count: "exact", head }), page, pageSize);
+  const result = await fetchPage<MaterialListItem>("materials", (head) => materialsQuery(supabase, filters, head ? "id" : MATERIAL_LIST_COLUMNS, { count: "exact", head }), page, pageSize);
+  return { ...result, items: result.items.map((row) => settleMaterialStatus(row)) };
 }
 
 export const countMaterials = cache(async (): Promise<number> => {
@@ -156,7 +159,7 @@ export const getMaterial = cache(async (materialId: string): Promise<MaterialDet
     console.error("materials: get failed", error.message);
     return null;
   }
-  return (data as unknown as MaterialDetail | null) ?? null;
+  return data ? settleMaterialStatus(data as unknown as MaterialDetail) : null;
 });
 
 const CHUNK_COLUMNS = "id, position, heading, page_start, page_end, content, char_count";
@@ -207,7 +210,7 @@ export const getMaterialAnalysis = cache(async (materialId: string): Promise<Mat
   };
 });
 
-export type RecentMaterial = Pick<Material, "id" | "title" | "source" | "status" | "last_opened_at" | "updated_at"> & {
+export type RecentMaterial = Pick<Material, "id" | "title" | "source" | "status" | "status_detail" | "last_opened_at" | "updated_at" | "created_at" | "last_processed_at"> & {
   subject: { name: string } | null;
 };
 
@@ -216,7 +219,7 @@ export const listRecentMaterials = cache(async (limit = 5): Promise<RecentMateri
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("materials")
-    .select("id, title, source, status, last_opened_at, updated_at, subject:subjects!materials_subject_fk(name)")
+    .select("id, title, source, status, status_detail, last_opened_at, updated_at, created_at, last_processed_at, subject:subjects!materials_subject_fk(name)")
     .is("archived_at", null)
     .order("last_opened_at", { ascending: false, nullsFirst: false })
     .order("updated_at", { ascending: false })
@@ -225,5 +228,5 @@ export const listRecentMaterials = cache(async (limit = 5): Promise<RecentMateri
     console.error("materials: recent failed", error.message);
     return [];
   }
-  return (data ?? []) as unknown as RecentMaterial[];
+  return ((data ?? []) as unknown as RecentMaterial[]).map((row) => settleMaterialStatus(row));
 });

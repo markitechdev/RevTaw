@@ -4,6 +4,7 @@ import { defaultDifficulty, difficultyTargets, refreshMastery, weakConceptNames 
 import { awardAttemptXp } from "@/lib/gamification/service";
 import { isAiError } from "@/lib/ai";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
+import { isStaleGeneration } from "@/lib/generation/stale";
 import { gradeObjective, gradeOpenAnswers, normalizeText, type GradeResult, type OpenAnswerItem } from "@/lib/quizzes/grade";
 import { generateQuiz } from "@/lib/quizzes/generate";
 import { answerSchema, parseQuizConfig, responseSchema } from "@/lib/quizzes/schemas";
@@ -68,9 +69,10 @@ export async function createQuiz(
 
 export async function retryQuiz(quizId: string): Promise<{ status: "ready" | "failed"; detail: string | null }> {
   const supabase = await createClient();
-  const { data: quiz } = await supabase.from("quizzes").select("id, material_id, config, status").eq("id", quizId).maybeSingle();
+  const { data: quiz } = await supabase.from("quizzes").select("id, material_id, config, status, status_detail, updated_at").eq("id", quizId).maybeSingle();
   if (!quiz) throw new ServiceError("Quiz not found.", 404);
-  if (quiz.status === "generating") return { status: "failed", detail: "Still generating." };
+  // A generation cut off by a timeout or a closed tab stays "generating"; past the limit it may be retried.
+  if (quiz.status === "generating" && !isStaleGeneration(quiz)) return { status: "failed", detail: "Still generating." };
 
   const context = await loadMaterialContext(supabase, quiz.material_id);
   await supabase.from("quizzes").update({ status: "generating", status_detail: null }).eq("id", quiz.id);
@@ -128,7 +130,7 @@ async function populateQuiz(
     if (result.coverageRatio < 1) notes.push(`Built from the first ${Math.round(result.coverageRatio * 100)}% of a very long material.`);
     const detail = notes.length ? notes.join(" ") : null;
 
-    await supabase
+    const { error: readyError } = await supabase
       .from("quizzes")
       .update({
         title: result.title,
@@ -139,6 +141,7 @@ async function populateQuiz(
         question_count: result.questions.length,
       })
       .eq("id", quizId);
+    if (readyError) throw new Error(`quizzes: ready update failed: ${readyError.message}`);
     return { status: "ready", detail };
   } catch (generationError) {
     console.error(`quizzes: generation for ${quizId} failed`, generationError);

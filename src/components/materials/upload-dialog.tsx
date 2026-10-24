@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Textarea } from "@/components/ui/input";
 import { IDLE_STATE, type ActionState } from "@/lib/forms/action-state";
-import { createFileMaterialAction, createTextMaterialAction } from "@/lib/materials/actions";
+import { createFileMaterialAction, createTextMaterialAction, discardUploadAction } from "@/lib/materials/actions";
 import {
   ACCEPT_ATTRIBUTE,
   acceptedTypeFor,
@@ -208,6 +208,8 @@ function FileUploadPanel({
       onDone();
     } catch (error) {
       onBusyChange(false);
+      // The row exists from step 1; without the file it would sit at "Uploading" forever.
+      void discardUploadAction(prepared.materialId).then(() => router.refresh());
       if (error instanceof DOMException && error.name === "AbortError") {
         setPhase({ kind: "idle" });
         return;
@@ -216,7 +218,6 @@ function FileUploadPanel({
         kind: "error",
         message: error instanceof Error ? error.message : "The upload failed. Please try again.",
       });
-      router.refresh();
     } finally {
       abortRef.current = null;
     }

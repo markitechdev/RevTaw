@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { settleMaterialStatus } from "@/lib/generation/stale";
 import { rateLimit } from "@/lib/rate-limit";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -26,7 +27,7 @@ export async function GET(_request: Request, context: RouteContext<"/api/materia
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("materials")
-    .select("status, status_detail, updated_at")
+    .select("status, status_detail, created_at, updated_at, last_processed_at")
     .eq("id", params.data.id)
     .maybeSingle();
 
@@ -37,8 +38,10 @@ export async function GET(_request: Request, context: RouteContext<"/api/materia
     return NextResponse.json({ error: "Material not found." }, { status: 404 });
   }
 
+  // A step cut off by a timeout or a closed tab reads as failed, so the page stops waiting and offers Retry.
+  const settled = settleMaterialStatus(data);
   return NextResponse.json(
-    { status: data.status, detail: data.status_detail, updatedAt: data.updated_at },
+    { status: settled.status, detail: settled.status_detail, updatedAt: data.updated_at },
     { headers: { "cache-control": "no-store" } },
   );
 }

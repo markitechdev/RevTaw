@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { currentSnapshot, ratingWaits } from "@/lib/flashcards/scheduler";
+import { settleGenerationStatus } from "@/lib/generation/stale";
 import { pageOf, type Page } from "@/lib/pagination";
 import type { Flashcard, FlashcardDeck, FlashcardRating } from "@/lib/supabase/database.types";
 import { fetchPage, readPagesQuietly } from "@/lib/supabase/paginate";
@@ -38,7 +39,7 @@ type DeckRow = Omit<DeckListItem, "dueCount" | "boxes">;
 
 async function withCardStats(supabase: Awaited<ReturnType<typeof createClient>>, rows: DeckRow[]): Promise<DeckListItem[]> {
   const stats = await dueAndBoxesByDeck(supabase, rows.map((row) => row.id));
-  return rows.map((row) => ({ ...row, dueCount: stats.get(row.id)?.dueCount ?? 0, boxes: stats.get(row.id)?.boxes ?? [0, 0, 0, 0, 0] }));
+  return rows.map((row) => ({ ...settleGenerationStatus(row), dueCount: stats.get(row.id)?.dueCount ?? 0, boxes: stats.get(row.id)?.boxes ?? [0, 0, 0, 0, 0] }));
 }
 
 /** Decks with what is due in each: a material's (its page lists them all), or every deck for Home's widget. */
@@ -125,7 +126,7 @@ export const getDeck = cache(async (deckId: string): Promise<DeckDetail | null> 
   for (const card of active) boxes[Math.min(5, Math.max(1, card.box)) - 1] += 1;
   const future = active.filter((card) => card.due_at > now).map((card) => card.due_at).sort();
   return {
-    ...(deck as unknown as Omit<DeckDetail, "cards" | "dueCount" | "boxes" | "nextDueAt" | "fetchedAt">),
+    ...settleGenerationStatus(deck as unknown as Omit<DeckDetail, "cards" | "dueCount" | "boxes" | "nextDueAt" | "fetchedAt">),
     cards: (cards ?? []) as unknown as CardView[],
     dueCount: active.filter((card) => card.due_at <= now).length,
     boxes,

@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 
 import { isAiError } from "@/lib/ai";
 import { track } from "@/lib/analytics/server";
+import { isStaleMaterial } from "@/lib/generation/stale";
 import { analyzeMaterial, type AnalysisChunkInput } from "@/lib/materials/analyze";
 import { chunkSections, countWords } from "@/lib/materials/chunk";
 import { MAX_FILE_BYTES } from "@/lib/materials/constants";
@@ -137,7 +138,7 @@ export async function reanalyzeMaterial(materialId: string): Promise<ProcessOutc
   if (error) throw new Error(`materials: load failed: ${error.message}`);
   if (!material) throw new MaterialNotFoundError();
 
-  if (material.status !== "ready" && material.status !== "failed") {
+  if (material.status !== "ready" && material.status !== "failed" && !isStaleMaterial(material)) {
     return { status: material.status, detail: material.status_detail };
   }
 

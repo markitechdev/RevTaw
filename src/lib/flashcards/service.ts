@@ -5,6 +5,7 @@ import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { generateFlashcards } from "@/lib/flashcards/generate";
 import { describeWait } from "@/lib/engine/fsrs";
 import { currentSnapshot, ratingWaits, scheduleCard, scheduleColumns } from "@/lib/flashcards/scheduler";
+import { isStaleGeneration } from "@/lib/generation/stale";
 import { friendlyGenerationFailure, loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
 import type { FlashcardRating } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -28,9 +29,10 @@ export async function createDeck(materialId: string, options: { count: number; f
 
 export async function retryDeck(deckId: string, options: { count: number; focus: string | null }): Promise<{ status: "ready" | "failed"; detail: string | null }> {
   const supabase = await createClient();
-  const { data: deck } = await supabase.from("flashcard_decks").select("id, material_id, status").eq("id", deckId).maybeSingle();
+  const { data: deck } = await supabase.from("flashcard_decks").select("id, material_id, status, status_detail, updated_at").eq("id", deckId).maybeSingle();
   if (!deck) throw new ServiceError("Deck not found.", 404);
-  if (deck.status === "generating") return { status: "failed", detail: "Still generating." };
+  // A generation cut off by a timeout or a closed tab stays "generating"; past the limit it may be retried.
+  if (deck.status === "generating" && !isStaleGeneration(deck)) return { status: "failed", detail: "Still generating." };
   const context = await loadMaterialContext(supabase, deck.material_id);
   await supabase.from("flashcard_decks").update({ status: "generating", status_detail: null }).eq("id", deck.id);
   await supabase.from("flashcards").delete().eq("deck_id", deck.id);
@@ -69,10 +71,11 @@ async function populateDeck(
     if (result.cards.length < options.count) notes.push(`${result.cards.length} of ${options.count} requested cards could be supported by the material.`);
     if (result.coverageRatio < 1) notes.push(`Built from the first ${Math.round(result.coverageRatio * 100)}% of a very long material.`);
     const detail = notes.length ? notes.join(" ") : null;
-    await supabase
+    const { error: readyError } = await supabase
       .from("flashcard_decks")
       .update({ title: result.title, status: "ready", status_detail: detail, provider: result.provider, model: result.model, card_count: result.cards.length })
       .eq("id", deckId);
+    if (readyError) throw new Error(`flashcard_decks: ready update failed: ${readyError.message}`);
     return { status: "ready", detail };
   } catch (generationError) {
     console.error(`flashcards: generation for ${deckId} failed`, generationError);

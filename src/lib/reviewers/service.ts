@@ -1,6 +1,7 @@
 import "server-only";
 
 import { isAiError } from "@/lib/ai";
+import { isStaleGeneration } from "@/lib/generation/stale";
 import type { AnalysisChunkInput } from "@/lib/materials/analyze";
 import { generateReviewer, regenerateSection, type ReviewerSectionDraft } from "@/lib/reviewers/generate";
 import { REVIEWER_KIND_BY_ID } from "@/lib/reviewers/kinds";
@@ -100,7 +101,7 @@ export async function createReviewer(materialId: string, kind: ReviewerKind): Pr
     if (sectionsError) throw new Error(`reviewer_sections: insert failed: ${sectionsError.message}`);
 
     const detail = result.coverageRatio < 1 ? `Built from the first ${Math.round(result.coverageRatio * 100)}% of a very long material.` : null;
-    await supabase
+    const { error: readyError } = await supabase
       .from("reviewers")
       .update({
         title: result.response.title.slice(0, 160),
@@ -110,6 +111,7 @@ export async function createReviewer(materialId: string, kind: ReviewerKind): Pr
         model: result.model,
       })
       .eq("id", reviewer.id);
+    if (readyError) throw new Error(`reviewers: ready update failed: ${readyError.message}`);
     return { id: reviewer.id, status: "ready", detail };
   } catch (generationError) {
     console.error(`reviewers: generation for ${reviewer.id} failed`, generationError);
@@ -122,9 +124,10 @@ export async function createReviewer(materialId: string, kind: ReviewerKind): Pr
 /** Retries generation for a failed reviewer in place. */
 export async function retryReviewer(reviewerId: string): Promise<{ status: "ready" | "failed"; detail: string | null }> {
   const supabase = await createClient();
-  const { data: reviewer } = await supabase.from("reviewers").select("id, user_id, material_id, kind, status").eq("id", reviewerId).maybeSingle();
+  const { data: reviewer } = await supabase.from("reviewers").select("id, user_id, material_id, kind, status, status_detail, updated_at").eq("id", reviewerId).maybeSingle();
   if (!reviewer) throw new ServiceError("Reviewer not found.", 404);
-  if (reviewer.status === "generating") return { status: "failed", detail: "Still generating." };
+  // A generation cut off by a timeout or a closed tab stays "generating"; past the limit it may be retried.
+  if (reviewer.status === "generating" && !isStaleGeneration(reviewer)) return { status: "failed", detail: "Still generating." };
 
   const context = await loadMaterialContext(supabase, reviewer.material_id);
   await supabase.from("reviewers").update({ status: "generating", status_detail: null }).eq("id", reviewer.id);
@@ -142,10 +145,11 @@ export async function retryReviewer(reviewerId: string): Promise<{ status: "read
       })),
     );
     if (sectionsError) throw new Error(`reviewer_sections: insert failed: ${sectionsError.message}`);
-    await supabase
+    const { error: readyError } = await supabase
       .from("reviewers")
       .update({ title: result.response.title.slice(0, 160), status: "ready", status_detail: null, provider: result.provider, model: result.model })
       .eq("id", reviewer.id);
+    if (readyError) throw new Error(`reviewers: ready update failed: ${readyError.message}`);
     return { status: "ready", detail: null };
   } catch (generationError) {
     console.error(`reviewers: retry for ${reviewer.id} failed`, generationError);

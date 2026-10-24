@@ -9,9 +9,11 @@ import {
   type ActionState,
 } from "@/lib/forms/action-state";
 import { acceptedTypeFor } from "@/lib/materials/constants";
+import { ownedObjectKey } from "@/lib/materials/purge";
 import {
   createUploadTarget,
   materialObjectPath,
+  removeMaterialObjects,
   uploadMaterialBytes,
 } from "@/lib/materials/storage";
 import { rateLimit } from "@/lib/rate-limit";
@@ -265,4 +267,31 @@ export async function markMaterialOpenedAction(materialId: string): Promise<void
     .from("materials")
     .update({ last_opened_at: new Date().toISOString() })
     .eq("id", parsed.data.materialId);
+}
+
+/**
+ * Removes a material whose upload never finished — the student cancelled it
+ * or the transfer failed — so no card is left saying "Uploading" forever.
+ * Only rows still in "uploading" go, with any partial object.
+ */
+export async function discardUploadAction(materialId: string): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) return;
+  const parsed = materialIdSchema.safeParse({ materialId });
+  if (!parsed.success) return;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("materials")
+    .delete()
+    .eq("id", parsed.data.materialId)
+    .eq("status", "uploading")
+    .select("id, user_id, storage_path");
+  if (error) {
+    console.error("materials: discarding an unfinished upload failed", error.message);
+    return;
+  }
+  const key = data?.[0] ? ownedObjectKey(data[0]) : null;
+  if (key) await removeMaterialObjects(supabase, [key]).catch(() => undefined);
+  revalidatePath(routes.materials);
 }
