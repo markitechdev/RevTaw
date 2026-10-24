@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ChipGroup } from "@/components/ui/chip-group";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
@@ -51,19 +51,16 @@ export function ExamDangerActions({ examId, archived }: { examId: string; archiv
         <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
         Delete
       </Button>
-      <Dialog open={confirm} onClose={() => !pending && setConfirm(false)} title="Delete this exam?" description="Its plan and tasks are deleted too. Completed sessions stay in your history.">
-        <div className="flex flex-col gap-4">
-          {error && <Alert tone="error">{error}</Alert>}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" disabled={pending} onClick={() => setConfirm(false)}>
-              Cancel
-            </Button>
-            <Button type="button" variant="danger" loading={pending} onClick={remove}>
-              Delete exam
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+      <ConfirmDialog
+        open={confirm}
+        title="Delete this exam?"
+        description="Its plan and tasks are deleted too. Completed sessions stay in your history."
+        confirmLabel="Delete exam"
+        pending={pending}
+        error={error}
+        onConfirm={remove}
+        onCancel={() => setConfirm(false)}
+      />
     </>
   );
 }
