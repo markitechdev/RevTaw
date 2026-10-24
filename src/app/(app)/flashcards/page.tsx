@@ -42,10 +42,12 @@ export default async function FlashcardsPage({ searchParams }: PageProps<"/flash
         description="Decks generated from your materials. Rate each card and spaced repetition decides when you see it again."
         actions={
           <>
-            <Link href={`${routes.flashcards}/review`} className={buttonClasses({ variant: due > 0 ? "primary" : "secondary", size: "sm" })}>
-              <Play className="h-4 w-4" aria-hidden="true" />
-              Review due{due > 0 ? ` (${due})` : ""}
-            </Link>
+            {due > 0 && (
+              <Link href={`${routes.flashcards}/review`} className={buttonClasses({ size: "sm" })}>
+                <Play className="h-4 w-4" aria-hidden="true" />
+                Review due ({due})
+              </Link>
+            )}
             <NewDeckButton materials={readyMaterials} size="sm" variant={due > 0 ? "secondary" : "primary"} defaultOpen={params.create === "1"}>
               New deck
             </NewDeckButton>

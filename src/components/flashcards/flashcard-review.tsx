@@ -12,6 +12,7 @@ import { Button, buttonClasses } from "@/components/ui/button";
 import { finishReviewSessionAction, reviewCardAction, startReviewSessionAction, toggleFavoriteAction } from "@/lib/flashcards/actions";
 import type { ReviewQueueCard } from "@/lib/flashcards/queries";
 import { BOX_LABELS, RATING_LABELS, REPEAT_WITHIN_MINUTES } from "@/lib/flashcards/labels";
+import { routes } from "@/lib/routes";
 import type { SessionSummary } from "@/lib/study/sessions";
 import type { FlashcardRating } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
@@ -255,11 +256,23 @@ export function FlashcardReview({
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {backLabel}
         </Link>
-        <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center">
-          <p className="font-medium">{mode === "due" ? "Nothing is due right now" : mode === "favorites" ? "No favorite cards yet" : "This deck has no cards"}</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {mode === "due" ? "Spaced repetition only shows cards when it is time. Study the whole deck if you want extra practice." : "Mark cards with the star while reviewing to collect them here."}
-          </p>
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-10 text-center">
+          <div>
+            <p className="font-medium">{mode === "due" ? "Nothing is due right now" : mode === "favorites" ? "No favorite cards yet" : "This deck has no cards"}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {mode === "due"
+                ? deckId
+                  ? "Spaced repetition only shows cards when it is time. Study the whole deck if you want extra practice."
+                  : "Spaced repetition only shows cards when it is time. Pick a deck to study it all for extra practice."
+                : "Mark cards with the star while reviewing to collect them here."}
+            </p>
+          </div>
+          {/* Somewhere to go instead of a dead end. */}
+          {mode !== "all" && (
+            <Link href={deckId ? `${routes.flashcards}/${deckId}/review?mode=all` : routes.flashcards} className={buttonClasses({ size: "sm" })}>
+              {deckId ? "Study all cards" : "Pick a deck"}
+            </Link>
+          )}
         </div>
       </div>
     );

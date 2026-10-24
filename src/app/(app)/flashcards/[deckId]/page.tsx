@@ -86,10 +86,13 @@ export default async function DeckPage({ params }: PageProps<"/flashcards/[deckI
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-wrap gap-2">
-                <Link href={`${base}?mode=due`} className={buttonClasses({ size: "sm", variant: deck.dueCount > 0 ? "primary" : "secondary" })} aria-disabled={deck.dueCount === 0}>
-                  <Play className="h-4 w-4" aria-hidden="true" />
-                  Review due ({deck.dueCount})
-                </Link>
+                {/* With nothing due the button would lead to an empty review: Study all leads instead. */}
+                {deck.dueCount > 0 && (
+                  <Link href={`${base}?mode=due`} className={buttonClasses({ size: "sm" })}>
+                    <Play className="h-4 w-4" aria-hidden="true" />
+                    Review due ({deck.dueCount})
+                  </Link>
+                )}
                 <Link href={`${base}?mode=all`} className={buttonClasses({ size: "sm", variant: deck.dueCount > 0 ? "secondary" : "primary" })}>
                   Study all cards
                 </Link>
