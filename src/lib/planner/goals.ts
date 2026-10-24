@@ -8,6 +8,7 @@ import { GOAL_KIND_BY_ID } from "@/lib/planner/types";
 import type { StudyGoalRow } from "@/lib/supabase/database.types";
 import { readPagesQuietly } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
+import { sessionFocusSeconds } from "@/lib/study/focus";
 
 /**
  * Study goals (§32): "study 60 minutes today", "complete 50 flashcards this
@@ -77,7 +78,7 @@ export async function listGoalsWithProgress(): Promise<GoalProgress[]> {
   const since = `${earliest}T00:00:00Z`;
   // Newest first, so a cap drops last week's rows before this week's.
   const [sessions, reviews, answers, items, mastery] = await Promise.all([
-    needsActivity ? readPagesQuietly("goals: sessions", (from, to) => supabase.from("study_sessions").select("started_at, completed_at, focus_seconds, status").gte("started_at", since).order("started_at", { ascending: false }).order("id").range(from, to), 1000) : Promise.resolve([]),
+    needsActivity ? readPagesQuietly("goals: sessions", (from, to) => supabase.from("study_sessions").select("method, started_at, completed_at, focus_seconds, status").gte("started_at", since).order("started_at", { ascending: false }).order("id").range(from, to), 1000) : Promise.resolve([]),
     needsActivity ? readPagesQuietly("goals: reviews", (from, to) => supabase.from("flashcard_reviews").select("reviewed_at").gte("reviewed_at", since).order("reviewed_at", { ascending: false }).order("id").range(from, to), 2000) : Promise.resolve([]),
     needsActivity ? readPagesQuietly("goals: answers", (from, to) => supabase.from("quiz_answers").select("answered_at").gte("answered_at", since).order("answered_at", { ascending: false }).order("id").range(from, to), 2000) : Promise.resolve([]),
     needsActivity ? readPagesQuietly("goals: session items", (from, to) => supabase.from("study_session_items").select("answered_at").gte("answered_at", since).not("answered_at", "is", null).order("answered_at", { ascending: false }).order("id").range(from, to), 2000) : Promise.resolve([]),
@@ -97,7 +98,7 @@ export async function listGoalsWithProgress(): Promise<GoalProgress[]> {
     let detail = "";
     switch (goal.kind) {
       case "focus_minutes": {
-        const seconds = sessions.filter((session) => inRange(session.completed_at ?? session.started_at, start, end)).reduce((sum, session) => sum + session.focus_seconds, 0);
+        const seconds = sessions.filter((session) => inRange(session.completed_at ?? session.started_at, start, end)).reduce((sum, session) => sum + sessionFocusSeconds(session), 0);
         current = Math.round(seconds / 60);
         detail = `${current} of ${goal.target} min`;
         break;

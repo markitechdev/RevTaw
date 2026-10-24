@@ -8,6 +8,7 @@ import { parseSessionSummary, type SessionSummary } from "@/lib/study/sessions";
 import type { StudySession, StudySessionItem } from "@/lib/supabase/database.types";
 import { readPagesQuietly } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
+import { attemptFocusSeconds, sessionFocusSeconds, sessionLinkedAttempts } from "@/lib/study/focus";
 
 export type SessionListItem = Pick<
   StudySession,
@@ -126,8 +127,8 @@ export const getActivityStats = cache(async (): Promise<ActivityStats> => {
   const since = new Date(Date.now() - 90 * 86_400_000).toISOString();
   // Newest first, so a cap drops the oldest days rather than whichever rows came back.
   const [sessions, attempts, reviews] = await Promise.all([
-    readPagesQuietly("activity: sessions", (from, to) => supabase.from("study_sessions").select("started_at, completed_at, focus_seconds, status").gte("started_at", since).order("started_at", { ascending: false }).order("id").range(from, to), 1000),
-    readPagesQuietly("activity: attempts", (from, to) => supabase.from("quiz_attempts").select("started_at, submitted_at, time_limit_seconds").eq("status", "submitted").gte("started_at", since).order("started_at", { ascending: false }).order("id").range(from, to), 1000),
+    readPagesQuietly("activity: sessions", (from, to) => supabase.from("study_sessions").select("method, started_at, completed_at, focus_seconds, status, quiz_attempt_id").gte("started_at", since).order("started_at", { ascending: false }).order("id").range(from, to), 1000),
+    readPagesQuietly("activity: attempts", (from, to) => supabase.from("quiz_attempts").select("id, started_at, submitted_at, time_limit_seconds").eq("status", "submitted").gte("started_at", since).order("started_at", { ascending: false }).order("id").range(from, to), 1000),
     readPagesQuietly("activity: reviews", (from, to) => supabase.from("flashcard_reviews").select("reviewed_at").gte("reviewed_at", since).order("reviewed_at", { ascending: false }).order("id").range(from, to), 2000),
   ]);
 
@@ -147,18 +148,18 @@ export const getActivityStats = cache(async (): Promise<ActivityStats> => {
     const key = dayKey(session.started_at);
     if (session.status === "completed" || session.focus_seconds > 0) days.add(session.completed_at ? dayKey(session.completed_at) : key);
     if (session.status === "completed") completed += 1;
-    if (key === todayKey) focusToday += session.focus_seconds;
-    if (key >= weekStart) focusWeek += session.focus_seconds;
-    addFocus(key, session.focus_seconds);
+    const seconds = sessionFocusSeconds(session);
+    if (key === todayKey) focusToday += seconds;
+    if (key >= weekStart) focusWeek += seconds;
+    addFocus(key, seconds);
   }
+  // A practice test's attempt is already in its session's time.
+  const carried = sessionLinkedAttempts(sessions);
   for (const attempt of attempts) {
     if (!attempt.submitted_at) continue;
     const key = dayKey(attempt.submitted_at);
     days.add(key);
-    const seconds = Math.min(
-      attempt.time_limit_seconds ?? 3 * 3600,
-      Math.max(0, Math.round((new Date(attempt.submitted_at).getTime() - new Date(attempt.started_at).getTime()) / 1000)),
-    );
+    const seconds = carried.has(attempt.id) ? 0 : attemptFocusSeconds(attempt);
     if (key === todayKey) focusToday += seconds;
     if (key >= weekStart) focusWeek += seconds;
     addFocus(key, seconds);

@@ -9,6 +9,7 @@ import { plannerClock } from "@/lib/planner/service";
 import type { ConfidenceLevel, MasteryStatus, QuestionDifficulty } from "@/lib/supabase/database.types";
 import { readPagesQuietly } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
+import { sessionFocusSeconds } from "@/lib/study/focus";
 
 /**
  * Progress analytics (spec §23): a few understandable figures and charts
@@ -78,7 +79,7 @@ export const getAnalyticsOverview = cache(async (): Promise<AnalyticsOverview> =
   const since = `${addDays(start, -1)}T00:00:00Z`;
   // Newest first, so a cap drops the oldest rows rather than whichever came back.
   const [sessions, answers, items, reviews, { data: attempts }, mastery, counts] = await Promise.all([
-    readPagesQuietly("analytics: sessions", (from, to) => supabase.from("study_sessions").select("started_at, completed_at, focus_seconds, status").gte("started_at", since).order("started_at", { ascending: false }).order("id").range(from, to), 2000),
+    readPagesQuietly("analytics: sessions", (from, to) => supabase.from("study_sessions").select("method, started_at, completed_at, focus_seconds, status").gte("started_at", since).order("started_at", { ascending: false }).order("id").range(from, to), 2000),
     readPagesQuietly("analytics: answers", (from, to) => supabase.from("quiz_answers").select("answered_at, is_correct, confidence, question:quiz_questions!quiz_answers_question_fk(difficulty)").not("answered_at", "is", null).order("answered_at", { ascending: false }).order("id").range(from, to), 3000),
     readPagesQuietly("analytics: session items", (from, to) => supabase.from("study_session_items").select("answered_at, is_correct, confidence, format").not("answered_at", "is", null).order("answered_at", { ascending: false }).order("id").range(from, to), 3000),
     readPagesQuietly("analytics: reviews", (from, to) => supabase.from("flashcard_reviews").select("reviewed_at").gte("reviewed_at", since).order("reviewed_at", { ascending: false }).order("id").range(from, to), 5000),
@@ -107,7 +108,7 @@ export const getAnalyticsOverview = cache(async (): Promise<AnalyticsOverview> =
   for (const session of sessions) {
     const date = day(session.completed_at ?? session.started_at);
     if (session.status === "completed" && days.has(date)) sessionsInWindow += 1;
-    bump(date, { focusMinutes: session.focus_seconds / 60 });
+    bump(date, { focusMinutes: sessionFocusSeconds(session) / 60 });
   }
   const difficulty = new Map<QuestionDifficulty, { answered: number; correct: number }>(DIFFICULTY_ORDER.map((level) => [level, { answered: 0, correct: 0 }]));
   const confidence = new Map<ConfidenceLevel, { answered: number; correct: number }>(CONFIDENCE_ORDER.map((level) => [level, { answered: 0, correct: 0 }]));

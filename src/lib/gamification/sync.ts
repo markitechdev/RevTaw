@@ -13,6 +13,7 @@ import { getActivityStats } from "@/lib/study/queries";
 import type { Achievement, XpEvent } from "@/lib/supabase/database.types";
 import { readPagesQuietly } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
+import { sessionFocusSeconds } from "@/lib/study/focus";
 
 /**
  * Keeps the gamification layer (§31) in step with the evidence: active days
@@ -49,7 +50,7 @@ export const getGamificationStats = cache(async (): Promise<GamificationStats> =
   let improvements = 0;
   for (const session of sessions) {
     byMethod[session.method] = (byMethod[session.method] ?? 0) + 1;
-    focusSeconds += session.focus_seconds;
+    focusSeconds += sessionFocusSeconds(session);
     if (session.method === "memory_palace" && session.items_total > 0) palaceWalks += 1;
     const improvement = (session.summary as { extra?: { improvement?: unknown } } | null)?.extra?.improvement;
     if (session.method === "pre_testing" && typeof improvement === "number" && improvement > 0) improvements += 1;
