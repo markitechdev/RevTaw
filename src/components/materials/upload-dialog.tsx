@@ -1,6 +1,7 @@
 "use client";
 
-import { FileText, Upload, UploadCloud, X } from "lucide-react";
+import { FileText, Lock, Upload, UploadCloud, X } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useId, useRef, useState, type DragEvent } from "react";
 
@@ -17,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Textarea } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
+import { TEXT_LINK } from "@/components/ui/text-link";
 import { IDLE_STATE, type ActionState } from "@/lib/forms/action-state";
 import { createFileMaterialAction, createTextMaterialAction, discardUploadAction } from "@/lib/materials/actions";
 import {
@@ -29,6 +31,7 @@ import {
 } from "@/lib/materials/constants";
 import type { SubjectWithFolders } from "@/lib/materials/queries";
 import { requestProcessing, uploadFileToSignedUrl } from "@/lib/materials/upload-client";
+import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type Tab = "file" | "text";
@@ -68,7 +71,7 @@ export function UploadDialog({
         onChange={setTab}
         fill
         disabled={busy}
-        className="mb-4"
+        className="mb-3"
         options={[
           {
             value: "file",
@@ -90,6 +93,18 @@ export function UploadDialog({
           },
         ]}
       />
+
+      {/* Said where it matters (a just-in-time notice): who sees what is added, and where its text goes. */}
+      <p className="mb-4 flex items-start gap-2 text-xs text-muted-foreground">
+        <Lock className="mt-px h-4 w-4 shrink-0" aria-hidden="true" />
+        <span>
+          Only you can see what you add. To make your reviewers, quizzes and flashcards, its text goes to RevTaw&apos;s AI providers.{" "}
+          <Link href={`${routes.privacy}#who-helps-us`} target="_blank" className={TEXT_LINK}>
+            Who they are
+            <span className="sr-only"> (opens in a new tab)</span>
+          </Link>
+        </span>
+      </p>
 
       <div>
         {tab === "file" ? (
