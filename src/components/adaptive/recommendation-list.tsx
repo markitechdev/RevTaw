@@ -27,6 +27,8 @@ export function RecommendationList({ items, compact = false }: { items: Recommen
           </div>
           <Link href={item.href} className={buttonClasses({ size: "sm", variant: index === 0 ? "primary" : "secondary", className: "shrink-0" })}>
             Start
+            {/* Says which recommendation, for screen readers and link lists (the visible word stays first, WCAG 2.5.3). */}
+            <span className="sr-only">: {item.title}</span>
           </Link>
         </li>
       ))}
