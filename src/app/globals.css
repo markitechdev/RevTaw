@@ -375,6 +375,11 @@
     background-color: var(--highlight);
     color: var(--highlight-foreground);
   }
+  /* "Pause animation" on the landing page (WCAG 2.2.2): the doodles and the caret stop where they are. */
+  [data-landing-motion="paused"] .animate-float,
+  [data-landing-motion="paused"] .animate-caret {
+    animation-play-state: paused;
+  }
   /* Visible, consistent focus for keyboard users (spec §41). */
   :focus-visible {
     outline: 2px solid var(--ring);

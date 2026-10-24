@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { useLandingMotionPaused } from "@/components/marketing/motion-toggle";
 import { useReducedMotion } from "@/lib/hooks/use-reduced-motion";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +14,8 @@ import { cn } from "@/lib/utils";
  * Screen readers get the full text once (the animated copy is aria-hidden).
  * With reduced motion (the device's setting; the app's Reduce motion stays in
  * the app) both phrases are shown, no caret — CSS picks that version, so there
- * is no swap after hydration.
+ * is no swap after hydration. "Pause animation" (MotionToggle) stops it on a
+ * whole phrase.
  */
 /** Zero-height box on the baseline: the bar inside is absolutely placed, so the caret never changes line heights. */
 const CARET = "relative ml-[0.04em] inline-block h-0 w-[0.07em] align-baseline";
@@ -24,6 +26,11 @@ export function TypingHeadline({ phrases, langs = [], className }: { phrases: re
   const [text, setText] = useState(phrases[0]);
   const [typing, setTyping] = useState(false);
   const containerRef = useRef<HTMLSpanElement>(null);
+  const paused = useLandingMotionPaused();
+  const pausedRef = useRef(paused);
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
 
   useEffect(() => {
     if (reduced || phrases.length < 2) return;
@@ -40,30 +47,45 @@ export function TypingHeadline({ phrases, langs = [], className }: { phrases: re
     // Natural rhythm: a little jitter per key, a beat after spaces and punctuation.
     const keyDelay = (char: string) => 48 + Math.random() * 62 + (char === " " ? 40 : 0) + (/[.,!?]/.test(char) ? 140 : 0);
 
-    const untilVisible = async () => {
-      while (!visible && !cancelled) await wait(400);
+    const untilReady = async () => {
+      while ((!visible || pausedRef.current) && !cancelled) await wait(400);
+    };
+    /** Paused mid-word: the whole phrase comes back at once and the loop waits. */
+    const settle = (phrase: string) => {
+      shown = phrase;
+      setText(phrase);
+      setTyping(false);
     };
 
     const run = async () => {
       await wait(2200);
       while (!cancelled) {
-        await untilVisible();
+        await untilReady();
         // Backspace, quicker as it goes, like holding the key down.
         setTyping(true);
         const length = shown.length;
-        for (let n = length - 1; n >= 0 && !cancelled; n -= 1) {
+        const deleting = phrases[index];
+        for (let n = length - 1; n >= 0 && !cancelled && !pausedRef.current; n -= 1) {
           shown = shown.slice(0, n);
           setText(shown);
           const deleted = length - n;
           await wait(deleted < 3 ? 90 : Math.max(22, 60 - deleted * 3));
         }
+        if (pausedRef.current) {
+          settle(deleting);
+          continue;
+        }
         await wait(320);
         index = (index + 1) % phrases.length;
         const next = phrases[index];
-        for (let n = 1; n <= next.length && !cancelled; n += 1) {
+        for (let n = 1; n <= next.length && !cancelled && !pausedRef.current; n += 1) {
           shown = next.slice(0, n);
           setText(shown);
           await wait(keyDelay(next[n - 1]));
+        }
+        if (pausedRef.current) {
+          settle(next);
+          continue;
         }
         setTyping(false);
         await wait(2600);

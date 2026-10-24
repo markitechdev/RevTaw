@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Doodles } from "@/components/marketing/doodles";
 import { HowItWorks } from "@/components/marketing/how-it-works";
 import { MethodExplorer } from "@/components/marketing/method-explorer";
+import { MotionToggle } from "@/components/marketing/motion-toggle";
 import { Reveal } from "@/components/marketing/reveal";
 import { StudyDesk } from "@/components/marketing/study-desk";
 import { TypingHeadline } from "@/components/marketing/typing-headline";
@@ -52,6 +53,7 @@ export default function LandingPage() {
                 See how it works
               </a>
             </div>
+            <MotionToggle className="mt-4" />
             <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
               <li className="flex items-center gap-1.5">
                 <Lock className="h-4 w-4" aria-hidden="true" />
