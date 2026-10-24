@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpenCheck, Brain, CalendarCheck, FileUp, Gauge, Lock, Smartphone, Sparkles, Target } from "lucide-react";
+import { ArrowRight, BookOpenCheck, Brain, CalendarCheck, FileUp, Gauge, Lightbulb, Lock, Smartphone, Target } from "lucide-react";
 import Link from "next/link";
 
 import { Doodles } from "@/components/marketing/doodles";
@@ -15,7 +15,7 @@ const CAPABILITIES = [
   { icon: FileUp, title: "Upload anything", body: "PDFs, Word files, photos of the board, or notes you paste in." },
   { icon: BookOpenCheck, title: "Reviewers your way", body: "Summaries, Cornell notes, cheat sheets, definitions — edit any part." },
   { icon: Brain, title: "Practice from your material", body: "Quizzes and flashcards from your own notes, not a generic question bank." },
-  { icon: Sparkles, title: "Methods that change the session", body: "Active recall, spaced repetition, Feynman, Pomodoro and 30 more." },
+  { icon: Lightbulb, title: "Methods that change the session", body: "Active recall, spaced repetition, Feynman, Pomodoro and 30 more." },
   { icon: Target, title: "Weak spots, caught early", body: "Repeated mistakes come back at the right time until they stick." },
   { icon: CalendarCheck, title: "Exams on a plan", body: "Set the date; the plan adjusts when you miss a day or get ahead." },
   { icon: Gauge, title: "Mastery you can see", body: "Per concept, not just per quiz — so you know what's exam-ready." },

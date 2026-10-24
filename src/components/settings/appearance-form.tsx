@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Monitor, Moon, Sparkles, Sun } from "lucide-react";
+import { Check, Monitor, Moon, Pipette, Sun } from "lucide-react";
 import { useId, useRef, useState } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
@@ -111,7 +111,7 @@ export function AppearanceForm() {
           >
             <input type="radio" name="accent" value="custom" checked={isCustom} onChange={() => pickCustom(draft, { immediate: true })} className={CHOICE_INPUT} />
             <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[conic-gradient(from_90deg,#e11d48,#f59e0b,#16a34a,#0ea5e9,#7c3aed,#e11d48)] shadow-sm ring-2 ring-card">
-              <Sparkles className="h-4 w-4 text-white drop-shadow" />
+              <Pipette className="h-4 w-4 text-white drop-shadow" />
             </span>
             <span className="min-w-0 flex-1 leading-tight">Custom</span>
             {isCustom && <Check className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />}
