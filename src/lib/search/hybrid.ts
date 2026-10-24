@@ -96,11 +96,17 @@ export async function rankMaterialChunks(
 
 export type EmbedOutcome = { embedded: number; remaining: boolean };
 
+/** The backfill job embeds at most this many of one student's chunks a day; their uploads are embedded as they are processed. */
+export const BACKFILL_DAILY_CAP = 1000;
+
 /**
  * Embeds chunks that have no embedding yet, in batches, until the time
  * budget runs out. With `materialId` it covers one material (right after
- * processing); without it, every chunk the client may update (the backfill
- * job runs it with the server's secret key).
+ * processing, with the student's own client). Without it, it is the backfill
+ * job, run with the server's secret key: unembedded_chunks_fair() (migration
+ * 0027) hands out waiting chunks in turns across students, and none to a
+ * student whose chunks were embedded BACKFILL_DAILY_CAP times in the last
+ * day, so no one account can use up the shared Cloudflare allowance.
  */
 export async function embedMissingChunks(
   supabase: Client,
@@ -112,9 +118,10 @@ export async function embedMissingChunks(
   let embedded = 0;
 
   while (embedded < maxChunks && deadline - Date.now() > 3_000) {
-    let query = supabase.from("material_chunks").select("id, heading, content").is("embedding", null);
-    if (options.materialId) query = query.eq("material_id", options.materialId);
-    const { data: rows, error } = await query.order("material_id").order("position").limit(Math.min(EMBEDDING_BATCH, maxChunks - embedded));
+    const size = Math.min(EMBEDDING_BATCH, maxChunks - embedded);
+    const { data: rows, error } = options.materialId
+      ? await supabase.from("material_chunks").select("id, heading, content").is("embedding", null).eq("material_id", options.materialId).order("position").limit(size)
+      : await supabase.rpc("unembedded_chunks_fair", { batch_size: size, daily_cap: BACKFILL_DAILY_CAP });
     if (error) throw new Error(`material_chunks: unembedded query failed: ${error.message}`);
     if (!rows || rows.length === 0) return { embedded, remaining: false };
 

@@ -9,6 +9,7 @@ import { isEmailConfigured } from "@/lib/notifications/email-config";
 import { getPreferences } from "@/lib/preferences/queries";
 import { parsePreferences, type NotificationPreferences } from "@/lib/preferences/schema";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
+import { rateLimit } from "@/lib/rate-limit";
 import { reminderMessage } from "@/lib/reminders/message";
 import { shortTime } from "@/lib/planner/time";
 import { remindAtFor } from "@/lib/reminders/time";
@@ -38,6 +39,13 @@ import { createClient } from "@/lib/supabase/server";
 type Client = SupabaseClient<Database>;
 
 const EMAIL_MAX_ATTEMPTS = 3;
+/**
+ * Reminder emails one student can get in 24 hours. Students can create tasks and reminders directly, and every
+ * reminder email comes out of the provider's shared daily allowance; past the limit, reminders still reach the bell.
+ * Counted in the shared rate-limit table (migration 0026), which students cannot change.
+ */
+export const DAILY_REMINDER_EMAILS = 20;
+const DAY_MS = 24 * 60 * 60_000;
 /** Email for a reminder older than this is no longer useful; the bell still gets it. */
 const EMAIL_STALE_MS = 6 * 60 * 60_000;
 /** The watcher may deliver up to this much early (timers are not exact). */
@@ -89,9 +97,17 @@ type ReminderTask = Pick<StudyTask, "id" | "user_id" | "status" | "title" | "sch
 
 const TASK_FIELDS = "id, user_id, status, title, scheduled_for, starts_at, minutes, notes, material:materials!study_tasks_material_fk(title)";
 
-type Channels = { prefs: NotificationPreferences; timeZone: string | null; email: string | null; sendEmail: boolean; siteUrl: string | null };
+type Channels = {
+  prefs: NotificationPreferences;
+  timeZone: string | null;
+  email: string | null;
+  sendEmail: boolean;
+  siteUrl: string | null;
+  /** Asked right before an email goes out; false skips it for good (the student's daily limit). */
+  emailAllowed?: (userId: string) => Promise<boolean>;
+};
 
-type Outcome = { delivered: DeliveredReminder | null; emailed: boolean; emailFailed: boolean; cancelled: boolean };
+type Outcome = { delivered: DeliveredReminder | null; emailed: boolean; emailFailed: boolean; emailSkipped: boolean; cancelled: boolean };
 
 function emailWanted(prefs: NotificationPreferences, reminder: Reminder, now: number): boolean {
   return prefs.email && emailRemindersAvailable() && !reminder.email_sent_at && reminder.email_attempts < EMAIL_MAX_ATTEMPTS && now - new Date(reminder.remind_at).getTime() < EMAIL_STALE_MS;
@@ -99,7 +115,7 @@ function emailWanted(prefs: NotificationPreferences, reminder: Reminder, now: nu
 
 /** Delivers one due reminder on the channels that still need it and records the result. */
 async function deliverOne(client: Client, reminder: Reminder, task: ReminderTask | undefined, channels: Channels): Promise<Outcome> {
-  const outcome: Outcome = { delivered: null, emailed: false, emailFailed: false, cancelled: false };
+  const outcome: Outcome = { delivered: null, emailed: false, emailFailed: false, emailSkipped: false, cancelled: false };
   if (!task || task.status !== "pending") {
     await client.from("reminders").update({ status: "cancelled", claimed_until: null }).eq("id", reminder.id);
     return { ...outcome, cancelled: true };
@@ -143,7 +159,12 @@ async function deliverOne(client: Client, reminder: Reminder, task: ReminderTask
   // Email is owed when the student wants it; only the scheduler (which knows the address) sends it.
   const emailOwed = emailWanted(channels.prefs, reminder, now);
   let attempts = reminder.email_attempts;
-  if (emailOwed && channels.sendEmail) {
+  if (emailOwed && channels.sendEmail && channels.email && channels.emailAllowed && !(await channels.emailAllowed(task.user_id))) {
+    attempts = EMAIL_MAX_ATTEMPTS;
+    update.email_attempts = attempts;
+    update.email_error = `Not sent: ${DAILY_REMINDER_EMAILS} reminder emails in 24 hours already went to this student.`;
+    outcome.emailSkipped = true;
+  } else if (emailOwed && channels.sendEmail) {
     const result = channels.email
       ? await sendEmail({
           to: channels.email,
@@ -235,7 +256,7 @@ export async function upcomingReminders(): Promise<Array<{ id: string; remindAt:
   return (data ?? []).map((row) => ({ id: row.id, remindAt: row.remind_at }));
 }
 
-export type ReminderRun = { claimed: number; delivered: number; emailed: number; emailFailed: number; cancelled: number };
+export type ReminderRun = { claimed: number; delivered: number; emailed: number; emailFailed: number; emailSkipped: number; cancelled: number };
 
 /**
  * The scheduler's job (every few minutes, see /api/cron/reminders): claim
@@ -243,7 +264,7 @@ export type ReminderRun = { claimed: number; delivered: number; emailed: number;
  * them in-app and by email.
  */
 export async function processDueReminders(admin: Client, options: { batchSize?: number } = {}): Promise<ReminderRun> {
-  const run: ReminderRun = { claimed: 0, delivered: 0, emailed: 0, emailFailed: 0, cancelled: 0 };
+  const run: ReminderRun = { claimed: 0, delivered: 0, emailed: 0, emailFailed: 0, emailSkipped: 0, cancelled: 0 };
   const { data, error } = await admin.rpc("claim_due_reminders", { batch_size: options.batchSize ?? 50 });
   if (error) throw new Error(`reminders: claim failed: ${error.message}`);
   const reminders = (data ?? []) as Reminder[];
@@ -275,10 +296,12 @@ export async function processDueReminders(admin: Client, options: { batchSize?: 
       email: emails.get(reminder.user_id) ?? null,
       sendEmail: true,
       siteUrl,
+      emailAllowed: async (userId) => (await rateLimit(`reminder-email:${userId}`, DAILY_REMINDER_EMAILS, DAY_MS)).ok,
     });
     if (outcome.delivered) run.delivered += 1;
     if (outcome.emailed) run.emailed += 1;
     if (outcome.emailFailed) run.emailFailed += 1;
+    if (outcome.emailSkipped) run.emailSkipped += 1;
     if (outcome.cancelled) run.cancelled += 1;
   }
   return run;

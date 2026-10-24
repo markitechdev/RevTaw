@@ -12,7 +12,7 @@ import { cardSnapshot } from "@/lib/flashcards/scheduler";
 import { addDays, dateIn, daysBetween, DEFAULT_TIMEZONE, isValidTimezone } from "@/lib/planner/dates";
 import { zonedInstant } from "@/lib/planner/time";
 import type { Database, QuestionDifficulty } from "@/lib/supabase/database.types";
-import { readPagesQuietly } from "@/lib/supabase/paginate";
+import { readPages, readPagesQuietly } from "@/lib/supabase/paginate";
 
 /**
  * The learning engine's nightly run (research doc §8–§9), called by
@@ -39,38 +39,26 @@ export type NightlyRun = { buckets: number; boosters: number; cardsMoved: number
 
 const round3 = (value: number) => Math.round(value * 1000) / 1000;
 
-type FirstAttempt = {
-  user_id: string;
-  question_id: string;
-  is_correct: boolean | null;
-  question: { concept_id: string | null; difficulty: QuestionDifficulty; type: string; options: unknown } | null;
-};
+/** Each student counts with at most this many first attempts (their latest), so no one student outweighs the rest. */
+const REFIT_PER_STUDENT = 400;
+const REFIT_MAX_ROWS = 20_000;
 
-/** Refits every bucket that has first attempts in the window; thin buckets stay near their label. */
-export async function refitItemBuckets(admin: Client, now: Date = new Date(), maxPages = 20): Promise<number> {
+/**
+ * Refits every bucket that has first attempts in the window; thin buckets stay near their label.
+ * The attempts come from bucket_first_attempts() (migration 0027): each student's first answer per
+ * question, latest 400 per student, none dated after now.
+ */
+export async function refitItemBuckets(admin: Client, now: Date = new Date()): Promise<number> {
   const since = new Date(now.getTime() - ENGINE.buckets.windowDays * DAY_MS).toISOString();
-  const first = new Map<string, FirstAttempt>();
-  for (let page = 0; page < maxPages; page += 1) {
-    const { data, error } = await admin
-      .from("quiz_answers")
-      .select("user_id, question_id, is_correct, question:quiz_questions!quiz_answers_question_fk!inner(concept_id, difficulty, type, options)")
-      .not("is_correct", "is", null)
-      .not("question.concept_id", "is", null)
-      .gte("answered_at", since)
-      .order("answered_at", { ascending: true })
-      .order("id", { ascending: true })
-      .range(page * PAGE, page * PAGE + PAGE - 1);
-    if (error) throw new Error(`item buckets: answers failed: ${error.message}`);
-    for (const row of (data ?? []) as unknown as FirstAttempt[]) {
-      const key = `${row.user_id}:${row.question_id}`;
-      if (!first.has(key)) first.set(key, row);
-    }
-    if (!data || data.length < PAGE) break;
-  }
-  const answers = [...first.values()].filter((row) => row.question?.concept_id);
+  const answers = await readPages(
+    (from, to) => admin.rpc("bucket_first_attempts", { since, per_student: REFIT_PER_STUDENT, max_rows: REFIT_MAX_ROWS }).range(from, to),
+    REFIT_MAX_ROWS,
+  ).catch((error: unknown) => {
+    throw new Error(`item buckets: answers failed: ${error instanceof Error ? error.message : String(error)}`);
+  });
   if (answers.length === 0) return 0;
 
-  const conceptIds = [...new Set(answers.map((row) => row.question!.concept_id!))];
+  const conceptIds = [...new Set(answers.map((row) => row.concept_id))];
   const [categories, ratingPages] = await Promise.all([
     conceptCategories(admin, conceptIds),
     Promise.all(chunked(conceptIds).map((chunk) => admin.from("concept_mastery").select("user_id, concept_id, elo_rating").in("concept_id", chunk))),
@@ -79,13 +67,12 @@ export async function refitItemBuckets(admin: Client, now: Date = new Date(), ma
   const ratings = new Map(ratingPages.flatMap((page) => page.data ?? []).map((row) => [`${row.user_id}:${row.concept_id}`, Number(row.elo_rating)]));
   const buckets = new Map<string, { label: QuestionDifficulty; observations: BucketObservation[] }>();
   for (const row of answers) {
-    const question = row.question!;
-    const key = bucketKey(question.difficulty, question.type, categories.get(question.concept_id!) ?? DEFAULT_CATEGORY);
-    const entry = buckets.get(key) ?? { label: question.difficulty, observations: [] };
+    const key = bucketKey(row.difficulty, row.question_type, categories.get(row.concept_id) ?? DEFAULT_CATEGORY);
+    const entry = buckets.get(key) ?? { label: row.difficulty, observations: [] };
     entry.observations.push({
-      rating: ratings.get(`${row.user_id}:${question.concept_id}`) ?? 0,
-      correct: Boolean(row.is_correct),
-      guessFloor: guessFloor(question.type, optionCount(question.options)),
+      rating: ratings.get(`${row.user_id}:${row.concept_id}`) ?? 0,
+      correct: row.is_correct,
+      guessFloor: guessFloor(row.question_type, optionCount(row.options)),
     });
     buckets.set(key, entry);
   }

@@ -1389,6 +1389,22 @@ export type Database = {
         Args: { p_key: string; p_limit: number; p_window_seconds: number };
         Returns: Array<{ allowed: boolean; hits: number; retry_after_seconds: number }>;
       };
+      unembedded_chunks_fair: {
+        Args: { batch_size?: number; daily_cap?: number };
+        Returns: Array<{ id: string; user_id: string; heading: string | null; content: string }>;
+      };
+      bucket_first_attempts: {
+        Args: { since: string; per_student?: number; max_rows?: number };
+        Returns: Array<{
+          user_id: string;
+          question_id: string;
+          is_correct: boolean;
+          concept_id: string;
+          difficulty: QuestionDifficulty;
+          question_type: QuestionType;
+          options: Json | null;
+        }>;
+      };
     };
     Enums: {
       education_level: EducationLevel;

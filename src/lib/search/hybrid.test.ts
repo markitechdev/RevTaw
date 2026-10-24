@@ -129,6 +129,31 @@ describe("embedMissingChunks", () => {
     expect(client.rpc).toHaveBeenCalledWith("save_chunk_embeddings", expect.objectContaining({ model: "@cf/baai/bge-m3" }));
   });
 
+  it("takes the backfill job's chunks in turns across students, with the daily cap", async () => {
+    stubEmbeddings();
+    const fair = [
+      [
+        { id: "a1", user_id: "u1", heading: null, content: "One." },
+        { id: "b1", user_id: "u2", heading: null, content: "Two." },
+      ],
+      [],
+    ];
+    const calls: Array<[string, Record<string, unknown>]> = [];
+    const client = {
+      from: () => {
+        throw new Error("the backfill job reads through unembedded_chunks_fair()");
+      },
+      rpc: vi.fn(async (name: string, args: Record<string, unknown>) => {
+        calls.push([name, args]);
+        if (name === "unembedded_chunks_fair") return { data: fair.shift() ?? [], error: null };
+        return { data: (args.items as unknown[]).length, error: null };
+      }),
+    };
+    expect(await embedMissingChunks(client as never, { budgetMs: 20_000, maxChunks: 600 })).toEqual({ embedded: 2, remaining: false });
+    expect(calls[0]).toEqual(["unembedded_chunks_fair", { batch_size: 20, daily_cap: 1000 }]);
+    expect(calls[1][0]).toBe("save_chunk_embeddings");
+  });
+
   it("does nothing without Cloudflare credentials", async () => {
     vi.stubEnv("CLOUDFLARE_API_TOKEN", "");
     const { client } = fakeClient([[{ id: "a", heading: null, content: "x" }]]);
