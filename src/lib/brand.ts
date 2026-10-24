@@ -8,6 +8,8 @@ export const BRAND = {
   motto: "Reviewer na may Bitaw.",
   tagline: "A reviewer that delivers.",
   creator: "Mark Francis Entredicho",
+  /** Where privacy requests and questions about the Terms go (the Privacy Notice and Terms name it). */
+  contactEmail: "support@revtaw.com",
   description:
     "Turn your notes, PDFs, documents, and screenshots into personalized reviewers, quizzes, flashcards, and study sessions powered by AI.",
 } as const;

@@ -39,6 +39,10 @@ export const routes = {
   settingsAi: "/settings/ai",
   settingsNotifications: "/settings/notifications",
   settingsAccount: "/settings/account",
+  privacy: "/privacy",
+  /** The Privacy Notice in plain words, for students under 18. */
+  privacyStudents: "/privacy/students",
+  terms: "/terms",
 } as const;
 
 /** Path prefixes that require a signed-in user. */

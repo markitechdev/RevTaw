@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Alert } from "@/components/forms/form-alert";
@@ -6,6 +7,7 @@ import { ChangePasswordForm } from "@/components/settings/change-password-form";
 import { DeleteAccountForm } from "@/components/settings/delete-account-form";
 import { PrivacyForm } from "@/components/settings/privacy-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TEXT_LINK } from "@/components/ui/text-link";
 import { analyticsConfigured } from "@/lib/analytics/server";
 import { getServerEnv } from "@/lib/env";
 import { getPreferences } from "@/lib/preferences/queries";
@@ -53,7 +55,17 @@ export default async function AccountSettingsPage({ searchParams }: PageProps<"/
       <Card>
         <CardHeader>
           <CardTitle>Privacy</CardTitle>
-          <CardDescription>Choose what RevTaw may learn about how you use it.</CardDescription>
+          <CardDescription>
+            Choose what RevTaw may learn about how you use it. The{" "}
+            <Link href={routes.privacy} className={TEXT_LINK}>
+              Privacy Notice
+            </Link>{" "}
+            explains what RevTaw keeps and why, and the{" "}
+            <Link href={routes.terms} className={TEXT_LINK}>
+              Terms of Use
+            </Link>{" "}
+            are the rules for using it.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <PrivacyForm initial={preferences.privacy} available={analyticsConfigured()} />

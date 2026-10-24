@@ -4,6 +4,7 @@ import { Logo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { buttonClasses } from "@/components/ui/button";
 import { BRAND } from "@/lib/brand";
+import { routes } from "@/lib/routes";
 
 export default function MarketingLayout({ children }: LayoutProps<"/"> ) {
   return (
@@ -13,9 +14,9 @@ export default function MarketingLayout({ children }: LayoutProps<"/"> ) {
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <Logo />
           <nav aria-label="Primary" className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
-            <a href="#features" className="hover:text-foreground">What it does</a>
-            <a href="#how-it-works" className="hover:text-foreground">How it works</a>
-            <a href="#study-methods" className="hover:text-foreground">Study methods</a>
+            <Link href="/#features" className="hover:text-foreground">What it does</Link>
+            <Link href="/#how-it-works" className="hover:text-foreground">How it works</Link>
+            <Link href="/#study-methods" className="hover:text-foreground">Study methods</Link>
           </nav>
           <div className="flex items-center gap-2">
             <ThemeToggle className="hidden sm:inline-flex" />
@@ -41,11 +42,13 @@ export default function MarketingLayout({ children }: LayoutProps<"/"> ) {
               <span lang="fil">{BRAND.motto}</span> {BRAND.tagline}
             </p>
           </div>
-          <div className="flex items-center gap-4">
-            <Link href="/login" className="hover:text-foreground">Sign in</Link>
-            <Link href="/register" className="hover:text-foreground">Create account</Link>
+          <nav aria-label="Footer" className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Link href={routes.login} className="hover:text-foreground">Sign in</Link>
+            <Link href={routes.register} className="hover:text-foreground">Create account</Link>
+            <Link href={routes.privacy} className="hover:text-foreground">Privacy</Link>
+            <Link href={routes.terms} className="hover:text-foreground">Terms</Link>
             <ThemeToggle className="sm:hidden" />
-          </div>
+          </nav>
         </div>
       </footer>
     </div>
