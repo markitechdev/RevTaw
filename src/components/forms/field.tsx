@@ -8,7 +8,7 @@ export type FieldProps = {
   label: ReactNode;
   /** Validation message rendered below the control and linked via aria-describedby. */
   error?: string;
-  /** Persistent helper text rendered below the control. */
+  /** Helper text rendered below the control (and below an error), always. */
   hint?: ReactNode;
   required?: boolean;
   className?: string;
@@ -39,15 +39,17 @@ export function Field({ id, label, error, hint, required, className, children }:
         )}
       </Label>
       {children}
-      {error ? (
+      {error && (
         <p id={`${id}-error`} className="mt-1.5 text-sm text-danger">
           {error}
         </p>
-      ) : hint ? (
-        <p id={`${id}-hint`} className="mt-1.5 text-sm text-muted-foreground">
+      )}
+      {/* The rules stay in view when the value is rejected: that is when they are needed most. */}
+      {hint && (
+        <p id={`${id}-hint`} className={cn(error ? "mt-1" : "mt-1.5", "text-sm text-muted-foreground")}>
           {hint}
         </p>
-      ) : null}
+      )}
     </div>
   );
 }
