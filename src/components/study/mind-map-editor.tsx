@@ -65,7 +65,7 @@ export function UndoBar({ removal, onUndo, onDismiss }: { removal: { message: st
             <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
             Undo
           </Button>
-          <Button type="button" size="icon" variant="ghost" className="h-8 w-8" aria-label="Dismiss" onClick={onDismiss}>
+          <Button type="button" size="icon-sm" variant="ghost" aria-label="Dismiss" onClick={onDismiss}>
             <X className="h-4 w-4" aria-hidden="true" />
           </Button>
         </>
@@ -203,7 +203,7 @@ export function MindMapEditor({ mapId, initial, onQuiz, quizBusy = null }: { map
       <li key={node.id} role="treeitem" aria-level={depth + 1} aria-expanded={children.length ? !node.collapsed : undefined} aria-selected={false} className="flex flex-col gap-1">
         <div className={cn("group flex flex-wrap items-center gap-1 rounded-lg px-1 py-0.5", isRoot && "bg-primary-soft/40")}>
           {children.length > 0 ? (
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`${node.collapsed ? "Expand" : "Collapse"} ${node.label}`} onClick={() => commit(toggleNode(map, node.id))}>
+            <Button type="button" variant="ghost" size="icon-sm" aria-label={`${node.collapsed ? "Expand" : "Collapse"} ${node.label}`} onClick={() => commit(toggleNode(map, node.id))}>
               {node.collapsed ? <ChevronRight className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
             </Button>
           ) : (
@@ -230,19 +230,19 @@ export function MindMapEditor({ mapId, initial, onQuiz, quizBusy = null }: { map
           )}
           {node.collapsed && children.length > 0 && <span className="text-xs text-muted-foreground">({children.length} hidden)</span>}
           <span className="flex items-center gap-0.5">
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`Add a branch under ${node.label}`} onClick={() => addUnder(node)}>
+            <Button type="button" variant="ghost" size="icon-sm" aria-label={`Add a branch under ${node.label}`} onClick={() => addUnder(node)}>
               <Plus className="h-4 w-4" aria-hidden="true" />
             </Button>
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`Connect ${node.label} to another idea`} onClick={() => setConnecting(connecting === node.id ? null : node.id)}>
+            <Button type="button" variant="ghost" size="icon-sm" aria-label={`Connect ${node.label} to another idea`} onClick={() => setConnecting(connecting === node.id ? null : node.id)}>
               <Link2 className="h-4 w-4" aria-hidden="true" />
             </Button>
             {onQuiz && (
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={`Quiz me on ${node.label}`} loading={quizBusy === node.id} disabled={Boolean(quizBusy)} onClick={() => onQuiz(node)}>
+              <Button type="button" variant="ghost" size="icon-sm" aria-label={`Quiz me on ${node.label}`} loading={quizBusy === node.id} disabled={Boolean(quizBusy)} onClick={() => onQuiz(node)}>
                 {quizBusy !== node.id && <HelpCircle className="h-4 w-4" aria-hidden="true" />}
               </Button>
             )}
             {!isRoot && (
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-danger" aria-label={`Remove ${node.label}`} onClick={() => remove(node)}>
+              <Button type="button" variant="danger-ghost" size="icon-sm" aria-label={`Remove ${node.label}`} onClick={() => remove(node)}>
                 <Trash2 className="h-4 w-4" aria-hidden="true" />
               </Button>
             )}
@@ -316,8 +316,7 @@ export function MindMapEditor({ mapId, initial, onQuiz, quizBusy = null }: { map
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
+                  size="icon-sm"
                   aria-label="Remove connection"
                   onClick={() => {
                     apply({ ...map, links: map.links.filter((entry) => entry.id !== link.id) });

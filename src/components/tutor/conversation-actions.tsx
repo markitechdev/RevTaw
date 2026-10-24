@@ -51,7 +51,7 @@ export function ConversationActions({ conversationId, title }: { conversationId:
           <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
           Rename
         </Button>
-        <Button type="button" variant="ghost" size="sm" className="text-danger hover:bg-danger-soft" onClick={() => { setError(null); setDialog("delete"); }}>
+        <Button type="button" variant="danger-ghost" size="sm" onClick={() => { setError(null); setDialog("delete"); }}>
           <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
           Delete
         </Button>

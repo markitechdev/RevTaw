@@ -90,9 +90,8 @@ export function PurgeMaterialButton({
     <>
       <Button
         type="button"
-        variant={variant}
+        variant={variant === "ghost" ? "danger-ghost" : variant}
         size={size}
-        className={variant === "ghost" ? "text-danger hover:bg-danger-soft" : undefined}
         onClick={() => {
           setError(null);
           setOpen(true);

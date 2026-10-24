@@ -132,13 +132,13 @@ function RoutineDialog({ open, onClose, materials, routine }: { open: boolean; o
                 </div>
               )}
               <div className="flex gap-1">
-                <Button type="button" size="icon" variant="ghost" aria-label={`Move block ${index + 1} up`} disabled={pending || index === 0} onClick={() => move(index, -1)} className="h-8 w-8">
+                <Button type="button" size="icon-sm" variant="ghost" aria-label={`Move block ${index + 1} up`} disabled={pending || index === 0} onClick={() => move(index, -1)}>
                   <ArrowUp className="h-4 w-4" aria-hidden="true" />
                 </Button>
-                <Button type="button" size="icon" variant="ghost" aria-label={`Move block ${index + 1} down`} disabled={pending || index === blocks.length - 1} onClick={() => move(index, 1)} className="h-8 w-8">
+                <Button type="button" size="icon-sm" variant="ghost" aria-label={`Move block ${index + 1} down`} disabled={pending || index === blocks.length - 1} onClick={() => move(index, 1)}>
                   <ArrowDown className="h-4 w-4" aria-hidden="true" />
                 </Button>
-                <Button type="button" size="icon" variant="ghost" aria-label={`Remove block ${index + 1}`} disabled={pending} onClick={() => setBlocks((state) => state.filter((_, i) => i !== index))} className="h-8 w-8">
+                <Button type="button" size="icon-sm" variant="ghost" aria-label={`Remove block ${index + 1}`} disabled={pending} onClick={() => setBlocks((state) => state.filter((_, i) => i !== index))}>
                   <X className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </div>

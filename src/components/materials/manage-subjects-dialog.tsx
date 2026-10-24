@@ -135,7 +135,7 @@ function ManageSubjectsDialog({
                       <Button type="button" size="icon" variant="ghost" aria-label={`Add folder to ${subject.name}`} onClick={() => setNewFolder({ subjectId: subject.id, value: "" })}>
                         <FolderPlus className="h-4 w-4" aria-hidden="true" />
                       </Button>
-                      <Button type="button" size="icon" variant="ghost" className="text-danger hover:bg-danger-soft" aria-label={`Delete ${subject.name}`} onClick={() => setConfirmDelete({ kind: "subject", id: subject.id, name: subject.name })}>
+                      <Button type="button" size="icon" variant="danger-ghost" aria-label={`Delete ${subject.name}`} onClick={() => setConfirmDelete({ kind: "subject", id: subject.id, name: subject.name })}>
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
                       </Button>
                     </>
@@ -155,20 +155,20 @@ function ManageSubjectsDialog({
                             }}
                           >
                             <Input aria-label={`Rename ${folder.name}`} value={editing.value} maxLength={80} autoFocus onChange={(event) => setEditing({ ...editing, value: event.target.value })} className="h-9" />
-                            <Button type="submit" size="icon" aria-label="Save name" loading={pending} className="h-9 w-9">
+                            <Button type="submit" size="icon-sm" aria-label="Save name" loading={pending}>
                               <Check className="h-4 w-4" aria-hidden="true" />
                             </Button>
-                            <Button type="button" size="icon" variant="ghost" aria-label="Cancel" className="h-9 w-9" onClick={() => setEditing(null)}>
+                            <Button type="button" size="icon-sm" variant="ghost" aria-label="Cancel" onClick={() => setEditing(null)}>
                               <X className="h-4 w-4" aria-hidden="true" />
                             </Button>
                           </form>
                         ) : (
                           <>
                             <span className="flex-1 truncate">{folder.name}</span>
-                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" aria-label={`Rename ${folder.name}`} onClick={() => setEditing({ kind: "folder", id: folder.id, value: folder.name })}>
+                            <Button type="button" size="icon-sm" variant="ghost" aria-label={`Rename ${folder.name}`} onClick={() => setEditing({ kind: "folder", id: folder.id, value: folder.name })}>
                               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                             </Button>
-                            <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-danger hover:bg-danger-soft" aria-label={`Delete ${folder.name}`} onClick={() => setConfirmDelete({ kind: "folder", id: folder.id, name: folder.name })}>
+                            <Button type="button" size="icon-sm" variant="danger-ghost" aria-label={`Delete ${folder.name}`} onClick={() => setConfirmDelete({ kind: "folder", id: folder.id, name: folder.name })}>
                               <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                             </Button>
                           </>

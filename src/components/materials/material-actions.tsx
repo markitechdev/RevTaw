@@ -106,7 +106,7 @@ export function MaterialActions({
           Move
         </Button>
         {state === "active" && (
-          <Button type="button" variant="ghost" size="sm" className="text-danger hover:bg-danger-soft" onClick={() => open("delete")}>
+          <Button type="button" variant="danger-ghost" size="sm" onClick={() => open("delete")}>
             <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
             Delete
           </Button>

@@ -43,10 +43,10 @@ function OrderExercise({ labels, order, onChange, marks }: { labels: string[]; o
           <span className="min-w-0 flex-1">{labels[original]}</span>
           {!marks && (
             <span className="flex gap-1">
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Move "${labels[original]}" up`} disabled={position === 0} onClick={() => move(position, -1)}>
+              <Button type="button" variant="ghost" size="icon-sm" aria-label={`Move "${labels[original]}" up`} disabled={position === 0} onClick={() => move(position, -1)}>
                 <ArrowUp className="h-4 w-4" aria-hidden="true" />
               </Button>
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label={`Move "${labels[original]}" down`} disabled={position === order.length - 1} onClick={() => move(position, 1)}>
+              <Button type="button" variant="ghost" size="icon-sm" aria-label={`Move "${labels[original]}" down`} disabled={position === order.length - 1} onClick={() => move(position, 1)}>
                 <ArrowDown className="h-4 w-4" aria-hidden="true" />
               </Button>
             </span>

@@ -87,7 +87,7 @@ export function ConceptMapEditor({ mapId, title, initial }: { mapId: string; tit
                     {node.label}
                   </button>
                 )}
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-danger" aria-label={`Remove ${node.label}`}
+                <Button type="button" variant="danger-ghost" size="icon-sm" aria-label={`Remove ${node.label}`}
                   disabled={map.nodes.length <= 1}
                   onClick={() => {
                     const next = removeConcept(map, node.id);
@@ -127,7 +127,7 @@ export function ConceptMapEditor({ mapId, title, initial }: { mapId: string; tit
                   <span className="font-medium">{labelOf(map, edge.from)}</span> <span className="text-primary">— {RELATION_LABEL[edge.relation]} →</span> <span className="font-medium">{labelOf(map, edge.to)}</span>
                   {edge.note && <span className="block text-xs text-muted-foreground">{edge.note}</span>}
                 </span>
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-danger" aria-label={`Remove ${labelOf(map, edge.from)} ${RELATION_LABEL[edge.relation]} ${labelOf(map, edge.to)}`} onClick={() => removeOne(removeRelationship(map, edge.id), "Removed the relationship.")}>
+                <Button type="button" variant="danger-ghost" size="icon-sm" aria-label={`Remove ${labelOf(map, edge.from)} ${RELATION_LABEL[edge.relation]} ${labelOf(map, edge.to)}`} onClick={() => removeOne(removeRelationship(map, edge.id), "Removed the relationship.")}>
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </li>

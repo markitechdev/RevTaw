@@ -57,8 +57,7 @@ export function DashboardCustomizer({ layout, onChange, status }: { layout: Dash
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
+                        size="icon-sm"
                         aria-label={`Move ${widget.label} up`}
                         disabled={index === 0}
                         onClick={() => {
@@ -71,8 +70,7 @@ export function DashboardCustomizer({ layout, onChange, status }: { layout: Dash
                       <Button
                         type="button"
                         variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
+                        size="icon-sm"
                         aria-label={`Move ${widget.label} down`}
                         disabled={index === ids.length - 1}
                         onClick={() => {

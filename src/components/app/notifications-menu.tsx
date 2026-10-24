@@ -67,7 +67,7 @@ export function NotificationsMenu({ notifications, unread }: { notifications: Be
 
   return (
     <div className="relative" ref={panel} onBlur={onBlur}>
-      <Button ref={bell} type="button" variant="ghost" size="icon" aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"} aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen((state) => !state)} className="relative h-9 w-9">
+      <Button ref={bell} type="button" variant="ghost" size="icon-sm" aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"} aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen((state) => !state)} className="relative">
         <Bell className="h-4 w-4" aria-hidden="true" />
         {unread > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground" aria-hidden="true">

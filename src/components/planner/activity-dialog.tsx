@@ -287,7 +287,7 @@ function ActivityForm({ options, date, task, examId, onDone, onCancel }: { optio
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
         <div>
           {task && task.kind === "custom" && !confirmDelete && (
-            <Button type="button" variant="ghost" className="text-danger hover:bg-danger-soft" disabled={pending} onClick={() => setConfirmDelete(true)}>
+            <Button type="button" variant="danger-ghost" disabled={pending} onClick={() => setConfirmDelete(true)}>
               <Trash2 className="h-4 w-4" aria-hidden="true" />
               Delete
             </Button>
