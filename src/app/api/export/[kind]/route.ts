@@ -59,21 +59,31 @@ export async function GET(request: Request, context: RouteContext<"/api/export/[
   const query = querySchema.safeParse(Object.fromEntries(url.searchParams.entries()));
   if (!query.success) return NextResponse.json({ error: "Check the export options." }, { status: 400 });
 
-  const document = await build(params.data.kind, query.data);
+  try {
+    return await respond(request, url, params.data.kind, query.data);
+  } catch (error) {
+    // A failed read or render answers in JSON like every other refusal here, not with Next's error page.
+    console.error(`export: ${params.data.kind} failed`, error);
+    return NextResponse.json({ error: "The export could not be made. Please try again." }, { status: 500, headers: { "cache-control": "private, no-store" } });
+  }
+}
+
+async function respond(request: Request, url: URL, kind: (typeof EXPORT_KINDS)[number], query: z.infer<typeof querySchema>): Promise<NextResponse> {
+  const document = await build(kind, query);
   if (document === "missing-id") return NextResponse.json({ error: "An id is required for this export." }, { status: 400 });
   if (!document) return NextResponse.json({ error: "Nothing to export." }, { status: 404 });
 
   const base = `${fileSlug(document.title)}-${new Date().toISOString().slice(0, 10)}`;
   const common = { "cache-control": "private, no-store", "x-content-type-options": "nosniff" };
-  if (query.data.format === "pdf") {
+  if (query.format === "pdf") {
     const bytes = await renderPdf(document);
     return new NextResponse(new Uint8Array(bytes), { headers: { ...common, "content-type": "application/pdf", "content-disposition": `attachment; filename="${base}.pdf"`, "content-length": String(bytes.byteLength) } });
   }
-  if (query.data.format === "docx") {
+  if (query.format === "docx") {
     const bytes = await renderDocx(document);
     return new NextResponse(new Uint8Array(bytes), { headers: { ...common, "content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "content-disposition": `attachment; filename="${base}.docx"`, "content-length": String(bytes.byteLength) } });
   }
   const downloads = { pdf: `${url.pathname}?${new URLSearchParams({ ...Object.fromEntries(url.searchParams), format: "pdf", print: "0" })}`, docx: `${url.pathname}?${new URLSearchParams({ ...Object.fromEntries(url.searchParams), format: "docx", print: "0" })}` };
-  const html = renderHtml(document, { print: query.data.print === "1", downloads, nonce: request.headers.get("x-nonce") });
+  const html = renderHtml(document, { print: query.print === "1", downloads, nonce: request.headers.get("x-nonce") });
   return new NextResponse(html, { headers: { ...common, "content-type": "text/html; charset=utf-8" } });
 }
