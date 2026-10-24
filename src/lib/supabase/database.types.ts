@@ -1399,6 +1399,10 @@ export type Database = {
         Args: { p_user_id: string };
         Returns: Array<{ weighted: number; answers: number }>;
       };
+      count_session_answer: {
+        Args: { p_session_id: string; p_correct: boolean; p_index?: number | null };
+        Returns: undefined;
+      };
       stale_mastery_students: {
         Args: { cutoff: string; max_students?: number };
         Returns: Array<{ user_id: string; oldest: string }>;

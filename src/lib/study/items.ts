@@ -4,7 +4,7 @@ import { refreshMastery } from "@/lib/adaptive/engine";
 import { ensureConcepts } from "@/lib/concepts/service";
 import { addMistake, resolveMistake } from "@/lib/mistakes/notebook";
 import { loadMaterialContext } from "@/lib/reviewers/service";
-import { createSession, loadSession, SessionError, type CreateSessionInput } from "@/lib/study/sessions";
+import { countSessionAnswer, createSession, type CreateSessionInput, loadSession, SessionError } from "@/lib/study/sessions";
 import type { ConfidenceLevel, Database, Json, MistakeType, SessionGoal, SessionItemKind, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -99,17 +99,7 @@ export async function storeItemAttempt(supabase: Client, item: StudySessionItem,
  * concept's mastery. Only the request that stored the answer calls this.
  */
 export async function settleAnsweredItem(supabase: Client, item: StudySessionItem, session: StudySession, result: Pick<ItemResult, "isCorrect" | "response" | "mistake" | "retestedMistakeId">): Promise<void> {
-  const now = new Date().toISOString();
-  await supabase
-    .from("study_sessions")
-    .update({
-      items_total: session.items_total + 1,
-      items_correct: session.items_correct + (result.isCorrect ? 1 : 0),
-      items_incorrect: session.items_incorrect + (result.isCorrect ? 0 : 1),
-      state: { ...((session.state as Record<string, unknown>) ?? {}), index: item.position + 1 } as Json,
-      last_active_at: now,
-    })
-    .eq("id", session.id);
+  await countSessionAnswer(supabase, session.id, { correct: result.isCorrect, index: item.position + 1 });
 
   if (result.isCorrect && result.retestedMistakeId) {
     await resolveMistake(supabase, result.retestedMistakeId);

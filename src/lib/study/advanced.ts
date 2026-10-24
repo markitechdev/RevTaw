@@ -17,7 +17,7 @@ import {
 import { RAPID_REVIEW_MINUTES } from "@/lib/study/catalog";
 import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
 import { conceptsFor, insertItems, loadOpenItem, openSession, reloadItem, settleAnsweredItem, storeItemAttempt, type Client, type FlowStartInput, type FlowStartResult, type ItemRow, type MaterialContext } from "@/lib/study/items";
-import { loadSession, SessionError, sessionTitle } from "@/lib/study/sessions";
+import { countSessionAnswer, loadSession, SessionError, sessionTitle } from "@/lib/study/sessions";
 import type { Json, SessionItemKind, StudySessionItem } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -467,9 +467,6 @@ export async function evaluateQuestionItem(input: { sessionId: string; question:
     .select("id")
     .single();
   if (error || !item) throw new Error(`study_session_items: insert failed: ${error?.message}`);
-  await supabase
-    .from("study_sessions")
-    .update({ items_total: session.items_total + 1, items_correct: session.items_correct + (good ? 1 : 0), items_incorrect: session.items_incorrect + (good ? 0 : 1), last_active_at: now })
-    .eq("id", session.id);
+  await countSessionAnswer(supabase, session.id, { correct: good });
   return { itemId: item.id, question: input.question, expectedAnswer: input.expectedAnswer, evaluation };
 }

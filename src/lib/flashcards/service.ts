@@ -8,6 +8,7 @@ import { describeWait } from "@/lib/engine/fsrs";
 import { currentSnapshot, ratingWaits, scheduleCard, scheduleColumns } from "@/lib/flashcards/scheduler";
 import { claimForRetry, retryRefusal } from "@/lib/generation/retry";
 import { friendlyGenerationFailure, loadMaterialContext } from "@/lib/reviewers/service";
+import { countSessionAnswer } from "@/lib/study/sessions";
 import type { FlashcardRating } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
@@ -139,20 +140,7 @@ export async function reviewCard(input: { cardId: string; rating: FlashcardRatin
   });
   if (logError) console.error("flashcard_reviews: insert failed", logError.message);
 
-  if (input.sessionId) {
-    const { data: session } = await supabase.from("study_sessions").select("id, status, items_total, items_correct, items_incorrect").eq("id", input.sessionId).maybeSingle();
-    if (session && session.status === "in_progress") {
-      await supabase
-        .from("study_sessions")
-        .update({
-          items_total: session.items_total + 1,
-          items_correct: session.items_correct + (input.rating === "again" ? 0 : 1),
-          items_incorrect: session.items_incorrect + (input.rating === "again" ? 1 : 0),
-          last_active_at: now.toISOString(),
-        })
-        .eq("id", session.id);
-    }
-  }
+  if (input.sessionId) await countSessionAnswer(supabase, input.sessionId, { correct: input.rating !== "again" });
 
   if (card.concept_id) await refreshMastery([card.concept_id]);
   return { box: next.box, intervalDays: next.intervalDays, dueAt: next.dueAt, wait: describeWait(new Date(next.dueAt), now), waits: ratingWaits(next.snapshot, now) };
