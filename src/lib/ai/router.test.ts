@@ -4,9 +4,9 @@ import { AiError } from "@/lib/ai/errors";
 import { AiRouter, cooldownFor, coolingDownUntil, recentRoutes, resetCooldowns } from "@/lib/ai/router";
 import type { AiGenerateOptions, AiProvider } from "@/lib/ai/types";
 
-type Behaviour = "ok" | AiError | (() => never);
+type Behavior = "ok" | AiError | (() => never);
 
-function fake(name: string, behaviours: Behaviour[], extra: Partial<AiProvider> = {}) {
+function fake(name: string, behaviors: Behavior[], extra: Partial<AiProvider> = {}) {
   const calls: AiGenerateOptions[] = [];
   const provider: AiProvider = {
     name,
@@ -14,7 +14,7 @@ function fake(name: string, behaviours: Behaviour[], extra: Partial<AiProvider> 
     supportsVision: false,
     async generate(options) {
       calls.push(options);
-      const next = behaviours.shift() ?? "ok";
+      const next = behaviors.shift() ?? "ok";
       if (next === "ok") return { text: `from ${name}`, usage: { inputTokens: 1, outputTokens: 1 }, provider: name, model: `${name}-model` };
       if (typeof next === "function") return next();
       throw next;

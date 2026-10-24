@@ -82,7 +82,7 @@ export function CaseRunner({ session, methodName, parentSessionId = null, parent
 
   if (summary) return <RunnerSummary methodName={methodName} summary={summary} stoppedEarly={stoppedEarly} parentSessionId={parentSessionId} parentLabel={parentLabel} />;
   const view = viewOf(item);
-  if (!item || !view) return <RunnerDone session={session} methodName={methodName} message="Every case is analysed." ending={ending} onFinish={() => finish()} />;
+  if (!item || !view) return <RunnerDone session={session} methodName={methodName} message="Every case is analyzed." ending={ending} onFinish={() => finish()} />;
 
   const result = results[item.id];
   const answered = Object.keys(results).length;

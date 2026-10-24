@@ -32,7 +32,7 @@ export function MaterialOriginal({ material }: { material: MaterialDetail }) {
   if (material.source === "image") {
     return (
       <div className="flex flex-col gap-3">
-        {/* The image is served privately from our own origin, so next/image optimisation is skipped on purpose. */}
+        {/* The image is served privately from our own origin, so next/image optimization is skipped on purpose. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={fileUrl}

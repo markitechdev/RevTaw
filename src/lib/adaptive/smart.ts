@@ -53,7 +53,7 @@ export function parseSmartPlan(value: unknown): SmartPlan | null {
   return parsed.success ? parsed.data : null;
 }
 
-/** Mistakes this recent count towards "missed three times". */
+/** Mistakes this recent count toward "missed three times". */
 const REPEAT_WINDOW_DAYS = 30;
 
 type PlanContext = { input: TamariPlanInput; materialId: string | null };
@@ -267,7 +267,7 @@ export async function completeSmartSession(sessionId: string): Promise<SessionSu
         ? "No block was completed. Try a shorter plan so the first block is easy to finish."
         : weak.length > 0
           ? `${weak.slice(0, 2).join(" and ")} still need${weak.length === 1 ? "s" : ""} work — Tamari's next plan will start there.`
-          : "Everything you practised today held up. Let spaced repetition carry it; come back when cards are due.",
+          : "Everything you practiced today held up. Let spaced repetition carry it; come back when cards are due.",
     nextReviewAt: summaries.map((summary) => summary.nextReviewAt).filter((value): value is string => Boolean(value)).sort()[0] ?? null,
     // Tamari's reaction compares the plan's first quiz with its last retest ("Mas okay na").
     extra: {

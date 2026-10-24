@@ -107,7 +107,7 @@ type Channels = {
   emailAllowed?: (userId: string) => Promise<boolean>;
 };
 
-type Outcome = { delivered: DeliveredReminder | null; emailed: boolean; emailFailed: boolean; emailSkipped: boolean; cancelled: boolean };
+type Outcome = { delivered: DeliveredReminder | null; emailed: boolean; emailFailed: boolean; emailSkipped: boolean; canceled: boolean };
 
 function emailWanted(prefs: NotificationPreferences, reminder: Reminder, now: number): boolean {
   return prefs.email && emailRemindersAvailable() && !reminder.email_sent_at && reminder.email_attempts < EMAIL_MAX_ATTEMPTS && now - new Date(reminder.remind_at).getTime() < EMAIL_STALE_MS;
@@ -115,10 +115,10 @@ function emailWanted(prefs: NotificationPreferences, reminder: Reminder, now: nu
 
 /** Delivers one due reminder on the channels that still need it and records the result. */
 async function deliverOne(client: Client, reminder: Reminder, task: ReminderTask | undefined, channels: Channels): Promise<Outcome> {
-  const outcome: Outcome = { delivered: null, emailed: false, emailFailed: false, emailSkipped: false, cancelled: false };
+  const outcome: Outcome = { delivered: null, emailed: false, emailFailed: false, emailSkipped: false, canceled: false };
   if (!task || task.status !== "pending") {
     await client.from("reminders").update({ status: "cancelled", claimed_until: null }).eq("id", reminder.id);
-    return { ...outcome, cancelled: true };
+    return { ...outcome, canceled: true };
   }
   const now = Date.now();
   const unsubscribe = unsubscribeUrl(channels.siteUrl, task.user_id, "reminders");
@@ -256,7 +256,7 @@ export async function upcomingReminders(): Promise<Array<{ id: string; remindAt:
   return (data ?? []).map((row) => ({ id: row.id, remindAt: row.remind_at }));
 }
 
-export type ReminderRun = { claimed: number; delivered: number; emailed: number; emailFailed: number; emailSkipped: number; cancelled: number };
+export type ReminderRun = { claimed: number; delivered: number; emailed: number; emailFailed: number; emailSkipped: number; canceled: number };
 
 /**
  * The scheduler's job (every few minutes, see /api/cron/reminders): claim
@@ -264,7 +264,7 @@ export type ReminderRun = { claimed: number; delivered: number; emailed: number;
  * them in-app and by email.
  */
 export async function processDueReminders(admin: Client, options: { batchSize?: number } = {}): Promise<ReminderRun> {
-  const run: ReminderRun = { claimed: 0, delivered: 0, emailed: 0, emailFailed: 0, emailSkipped: 0, cancelled: 0 };
+  const run: ReminderRun = { claimed: 0, delivered: 0, emailed: 0, emailFailed: 0, emailSkipped: 0, canceled: 0 };
   const { data, error } = await admin.rpc("claim_due_reminders", { batch_size: options.batchSize ?? 50 });
   if (error) throw new Error(`reminders: claim failed: ${error.message}`);
   const reminders = (data ?? []) as Reminder[];
@@ -302,7 +302,7 @@ export async function processDueReminders(admin: Client, options: { batchSize?: 
     if (outcome.emailed) run.emailed += 1;
     if (outcome.emailFailed) run.emailFailed += 1;
     if (outcome.emailSkipped) run.emailSkipped += 1;
-    if (outcome.cancelled) run.cancelled += 1;
+    if (outcome.canceled) run.canceled += 1;
   }
   return run;
 }

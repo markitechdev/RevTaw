@@ -100,7 +100,7 @@ sessions and a 112-task plan), with a cold browser cache.
 ### Phase 1 — Foundation
 
 - **Branding and design tokens** — RevTaw name, motto ("Reviewer na may
-  Bitaw."), tagline, logo mark; semantic colour tokens for light and dark in
+  Bitaw."), tagline, logo mark; semantic color tokens for light and dark in
   `src/app/globals.css`; self-hosted Inter; calm academic style, no gradients.
 - **Light/dark mode** — class-based, persisted in `localStorage`
   (`revtaw-theme`), follows the system by default, no flash on load
@@ -319,7 +319,7 @@ sessions and a 112-task plan), with a cold browser cache.
   one cached row per student and concept with mastery, retrieval strength,
   status, next difficulty, attempt/correct/incorrect counters, streak, open
   mistakes, misconceptions, underconfident answers, average confidence and
-  response time, trend, last practised and next review timestamps.
+  response time, trend, last practiced and next review timestamps.
 - **Mastery model** (§28) — `computeMastery()` in `src/lib/adaptive/mastery.ts`
   is pure and unit-tested: recency- and difficulty-weighted accuracy scaled
   by how much evidence exists, minus penalties for unresolved mistakes and
@@ -335,7 +335,7 @@ sessions and a 112-task plan), with a cold browser cache.
   recommendations).
 - **Adaptive difficulty** (§28) — quizzes default to "Adaptive": the
   generator receives per-concept targets from mastery plus the weak
-  concepts to emphasise; practice-testing sessions use it too.
+  concepts to emphasize; practice-testing sessions use it too.
 - **Progress page** (§23) — concepts tracked, average mastery,
   misconceptions, sessions completed; per-concept mastery table (status,
   bar, recall strength, answers with confident misses, trend, next
@@ -409,9 +409,9 @@ sessions and a 112-task plan), with a cold browser cache.
 - **Answers stay server-side** — a session item's model answer and grading
   key points reach the browser only once the item is answered or the
   session is over.
-- **Method catalogue** — every study method in the spec is on the Methods
+- **Method catalog** — every study method in the spec is on the Methods
   page with how it helps, best use cases, suggested time and availability;
-  the ones still to build are labelled "Phase 8".
+  the ones still to build are labeled "Phase 8".
 - **Retrieval practice** (§16) — recall prompts rotate through eight
   formats (short answer, definition, fill in the blank, explanation, list,
   example, process, calculation); each prompt shows its format and the
@@ -493,7 +493,7 @@ no longer has a "coming later" section.
   student reorders steps, fills cells, re-attaches children or names
   relations. "Visualize" in highlight-and-ask draws the same visuals in the
   tutor.
-- **Mind mapping** — a generated map (centre, branches, cross-links) that
+- **Mind mapping** — a generated map (center, branches, cross-links) that
   the student edits in an outline view (add, rename, remove, fold, connect)
   and sees drawn in a map view; "Quiz me on this branch" writes recall
   questions from one branch, answered inline. The map is saved per material
@@ -509,8 +509,8 @@ no longer has a "coming later" section.
   the student picks a device or writes their own, saves the ones that work,
   then recalls the list from the cue alone (graded per item, and for order
   when the order matters). A **Memory aids** page (`/study/memory`) lists
-  saved mnemonics (add, edit, favourite, delete, practice) and a session can
-  practise the saved ones instead of writing new ones.
+  saved mnemonics (add, edit, favorite, delete, practice) and a session can
+  practice the saved ones instead of writing new ones.
 - **Memory palace** — the student defines a route of familiar locations (or
   reuses a saved palace), RevTaw places one key concept at each stop with a
   vivid image that still states the meaning, and the walk asks what sits at
@@ -602,16 +602,16 @@ no longer has a "coming later" section.
   35 signed-out and signed-in states, in light and dark mode, now reports no
   violations. Fixed along the way: card titles are `h2` under the page `h1`
   (`CardTitle as=…` for deeper levels); progress bars carry their own
-  accessible name and value text; charts are groups of focusable, labelled
+  accessible name and value text; charts are groups of focusable, labeled
   bars (no interactive content inside an image role); the logo and the
   flashcard flip button are named by their visible text; quiz, study, tutor
   and flashcard-review pages have a level-one heading; the sidebar and the
-  quiz navigator are uniquely labelled landmarks; the sidebar and search-page
-  boxes have distinct ids and names; the light danger colour is red-700
+  quiz navigator are uniquely labeled landmarks; the sidebar and search-page
+  boxes have distinct ids and names; the light danger color is red-700
   (5.9:1 on its tint) and the "Recommended" chip uses the solid tint; the
   export menu is a disclosure (Tab through the links, Escape returns focus).
   Already in place from earlier phases: skip link, `:focus-visible` ring,
-  `prefers-reduced-motion`, native `<dialog>` focus trapping, labelled
+  `prefers-reduced-motion`, native `<dialog>` focus trapping, labeled
   form fields with `aria-describedby` errors, live regions for status.
 - **Hydration review** — countdowns (quiz timer, Pomodoro) read the clock
   through `useNow()` (`src/lib/hooks/use-now.ts`, a `useSyncExternalStore`
@@ -854,7 +854,7 @@ BKT, Elo, Smart Study ranking) is the next round.
   allowance (Philippine day) for its kind: chat 60, generate 10, study 60,
   upload 30, voice 60 by default (`AI_DAILY_LIMITS`). Repairing a malformed
   answer is free, a request every provider failed is given back (one the
-  student cancelled is not), and the server adds each call's tokens
+  student canceled is not), and the server adds each call's tokens
   afterwards with its secret key. Voice also stops at 30 minutes of voice
   typing and 20,000 characters read aloud a day. The message says when the
   allowance refills.
@@ -917,7 +917,7 @@ BKT, Elo, Smart Study ranking) is the next round.
 - **Security review** (an independent pass over the round), fixed: token
   counts are written only by the server (students could inflate their own
   rows); voice is bounded by seconds and characters, clips by 1 MB, and a
-  cancelled request is no longer refunded; API base URLs must use https
+  canceled request is no longer refunded; API base URLs must use https
   (the Google test override only localhost); emails and calendar events
   carry no localhost links in production (`getPublicSiteUrl()`); the
   hourly calendar job retries failed syncs, an unreadable token asks for a
@@ -1039,7 +1039,7 @@ tables.
   still show it). Its page says when the file went and lists what was kept
   ("What you made from it"), with Rename and Move to keep things organized;
   no content tabs and no creation tools. Generation, sessions, Smart Study,
-  the tutor's sources, processing, plans and never-practised
+  the tutor's sources, processing, plans and never-practiced
   recommendations skip a deleted file (410 "The file behind … was deleted,
   so nothing new can be made from it"); starting a planner task for it opens
   its page instead of a session. Only archived materials can be
@@ -1116,7 +1116,7 @@ tables.
 | Table | Purpose | Ownership |
 | --- | --- | --- |
 | `public.profiles` | One row per `auth.users` row: display name, education level, main goal, preferred session minutes, onboarding timestamp, time zone, `xp` (kept in step with the ledger by trigger), `preferences` (JSON by section, ≤16 KB, saved with `set_preference_section()`) | RLS: owner may select/insert/update; no delete policy (cascade from `auth.users`) |
-| `public.subjects` | Top-level organisation (name, colour, archived_at) | owner full access; `(id, user_id)` unique for composite FKs |
+| `public.subjects` | Top-level organization (name, color, archived_at) | owner full access; `(id, user_id)` unique for composite FKs |
 | `public.folders` | Grouping inside a subject (chapter, topic…) | owner full access; FK `(subject_id, user_id)` |
 | `public.materials` | One upload or note: title, source, file metadata, `storage_path`, `content_hash`, status + detail (`deleted` once the file is gone), counts, `last_opened_at`, `archived_at` (in the Archive: deleted permanently 30 days later), `purged_at` (when the file, text and analysis were deleted; the row stays for what was made from it, migration 0023) | owner full access; composite FKs to subject and folder (folder must belong to the subject); a deleted file stays archived (check) |
 | `public.material_chunks` | Ordered extracted text with heading and page range; `embedding` (BGE-M3, `halfvec(1024)`), `embedding_model`, `embedded_at` and a generated `simple` full-text `search_tsv` (migration 0017) | owner full access; cascade from material |
@@ -1140,13 +1140,13 @@ tables.
 | `public.flashcard_reviews` | Review log: rating, response time, box before/after, interval, due date, optional session, FSRS state, stability, difficulty and the recall just before (`retrievability`) | owner full access; cascade from card |
 | `public.tutor_conversations` | Tutor chat: material, optional study session, mode, title, message count, last message | owner full access; material/session FKs set null |
 | `public.tutor_messages` | One turn: role, content, quick action, selection, grounding, `sources` JSON, additional explanation, follow-ups, flashcard draft, optional `visual`, provider/model | owner full access; cascade from conversation |
-| `public.concept_mastery` | Recomputable cache per student and concept: mastery, retrieval strength, status, next difficulty, counters, streak, open mistakes, misconceptions, underconfident, average confidence/response time, trend, last practised, next review; and the learning engine's `p_learned`, `recall`, `elo_rating`, `elo_answers`, `elo_start` (kept: where the rating starts), `weakness`, `first_attempts`, `gates`, `next_step`, `best_status`, the concept's FSRS state (migration 0022) | owner full access; unique `(user_id, concept_id)`; cascade from concept |
+| `public.concept_mastery` | Recomputable cache per student and concept: mastery, retrieval strength, status, next difficulty, counters, streak, open mistakes, misconceptions, underconfident, average confidence/response time, trend, last practiced, next review; and the learning engine's `p_learned`, `recall`, `elo_rating`, `elo_answers`, `elo_start` (kept: where the rating starts), `weakness`, `first_attempts`, `gates`, `next_step`, `best_status`, the concept's FSRS state (migration 0022) | owner full access; unique `(user_id, concept_id)`; cascade from concept |
 | `public.item_buckets` | Shared question difficulty (logits) per difficulty label × question type × concept category, with the answers it was fitted on and when (migration 0022) | signed-in students may select (no personal data); written only by the server's secret key (the night run) |
 | `public.exams` | An exam: title, date, subject, priority, confidence, topics, notes, `archived_at` | owner full access; subject FK set null |
 | `public.exam_materials` | Materials an exam covers, with position | owner full access; cascade from exam and material |
 | `public.study_plans` | One plan per exam: mode (exam/cram), status, start/end, `available_days`, `minutes_per_day`, `settings` (warnings), `generated_at`, `adjusted_at`, `adjustment_note` | owner full access; unique `exam_id`; cascade from exam |
 | `public.study_tasks` | A scheduled activity: kind (plan/review/custom), method (`activity` for plain calendar items), title, reason, `scheduled_for`, `starts_at` (local time), position, minutes, concepts, status (pending/done/skipped/missed), `session_id`, `completed_at`, `subject_id`, `priority`, `notes`, `category`, `reminder` + `reminder_minutes` | owner full access; cascade from plan/exam; material, session and subject FKs clear their own column |
-| `public.reminders` | One per activity with a reminder: `remind_at`, status (pending/sent/cancelled), `in_app_sent_at`, `email_sent_at`, `email_attempts`, `email_error`, `claimed_until` | owner full access; cascade from the task; `claim_due_reminders()` for the service role only |
+| `public.reminders` | One per activity with a reminder: `remind_at`, status (`pending`/`sent`/`cancelled`, the stored values), `in_app_sent_at`, `email_sent_at`, `email_attempts`, `email_error`, `claimed_until` | owner full access; cascade from the task; `claim_due_reminders()` for the service role only |
 | `public.study_goals` | A goal: kind, period (day/week/once), target, optional material/subject, title, `due_date`, status | owner full access; cascade from material/subject |
 | `public.notifications` | Reminder feed: kind (incl. `achievement`, `level_up`, `reminder`), title, body, href, `dedupe_key`, `read_at` | owner full access; unique `(user_id, dedupe_key)` |
 | `public.xp_events` | XP ledger: source (answers, session, reviews, mastered, goal, streak_day, achievement), `source_key` (idempotent award), points, label | owner full access; unique `(user_id, source_key)`; trigger `apply_xp_event` adds to `profiles.xp` |
@@ -1342,7 +1342,7 @@ linked).
   log + session counters), `queries.ts` (decks with due counts, review
   queues with each card's waits, due counts), `actions.ts`.
 - **Study sessions** — `src/lib/study/`: `methods.ts` (catalog), `catalog.ts`
-  (per-method behaviour, goals, availability, builder/recall/test/tutor
+  (per-method behavior, goals, availability, builder/recall/test/tutor
   method groups, builder recommendations), `formats.ts` (retrieval formats,
   client-safe), `sessions.ts` (create/complete/summary, improvement vs.
   previous session), `ai.ts` (recall prompts with formats, recall
@@ -1410,7 +1410,7 @@ linked).
   evidence tables in the student's time zone) and `map.ts` (the mastery map
   grouped by subject and material, with `recommendForConcept()`). Charts
   are plain SVG/markup in `src/components/analytics/charts.tsx` (one hue
-  for magnitude, status colours only for status, hover/keyboard readout,
+  for magnitude, status colors only for status, hover/keyboard readout,
   table view); the map UI is `mastery-map.tsx`.
 - **Gamification** — `src/lib/gamification/`: `xp.ts` (pure rules and
   levels), `achievements.ts` (pure badge rules over a stats snapshot),
@@ -1712,7 +1712,7 @@ Flows verified end to end against a local Supabase-compatible stack
   concept maps (add concept and typed relationship, link test with a wrong
   link filed); mnemonics (accurate devices, save, own device, practice with
   the list hidden, order check, saved-mnemonic session, memory aids page
-  add/favourite/edit/delete); memory palace (route editor with validation,
+  add/favorite/edit/delete); memory palace (route editor with validation,
   quick add, reorder, placements, walk with concepts hidden, forgotten stop
   filed, saved palace reused with the same placements, palace library);
   story method (notes and story side by side with fact markers, view toggle,
@@ -1721,7 +1721,7 @@ Flows verified end to end against a local Supabase-compatible stack
   block, post-test on the same concepts, before-and-after table and
   improvement in the summary after a reload); mobile layouts
 - Advanced methods (Phase 8 part 1): Methods page availability; retrieval
-  practice with eight labelled formats and answers/key points hidden until
+  practice with eight labeled formats and answers/key points hidden until
   answered; rapid review presets with mistakes first; cumulative review with
   source labels; interleaving alternating between materials; blurting (two
   rounds, source hidden until the last one, weak blurt filed as a mistake);

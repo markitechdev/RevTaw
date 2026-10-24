@@ -78,7 +78,7 @@ describe("planTamariBlocks", () => {
 
   it("calls it a plain quiz when the top concepts aren't weak topics", () => {
     const quiz = planTamariBlocks({ ...base, lang: "en", weakTopics: false }).blocks.find((block) => block.key === "quiz");
-    expect(quiz).toMatchObject({ label: "Quiz", reason: "A quiz on Binary Trees and Recursion: what's next to practise." });
+    expect(quiz).toMatchObject({ label: "Quiz", reason: "A quiz on Binary Trees and Recursion: what's next to practice." });
   });
 
   it("starts concepts never studied with the rule table's method, in the quiz's place", () => {

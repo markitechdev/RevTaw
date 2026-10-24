@@ -55,7 +55,7 @@ export const TOOLS: Record<ToolId, NavItem> = {
   tutor: { id: "tutor", href: routes.tutor, label: "AI Tutor", icon: MessageSquare, description: "Long conversations about a material, in tutor modes.", group: "learn" },
   mistakes: { id: "mistakes", href: routes.mistakes, label: "Mistake Notebook", icon: TriangleAlert, description: "Every wrong answer, waiting for a retest.", group: "learn" },
   memory: { id: "memory", href: routes.memoryAids, label: "Memory Aids", icon: Brain, description: "Mnemonics, memory palaces and stories.", group: "learn" },
-  map: { id: "map", href: routes.studyMap, label: "Study Map", icon: Network, description: "How your concepts connect, coloured by mastery.", group: "learn" },
+  map: { id: "map", href: routes.studyMap, label: "Study Map", icon: Network, description: "How your concepts connect, colored by mastery.", group: "learn" },
   achievements: { id: "achievements", href: routes.achievements, label: "Badges", icon: Award, description: "Levels, XP and badges.", group: "learn" },
 };
 

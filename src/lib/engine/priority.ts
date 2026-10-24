@@ -19,7 +19,7 @@ export type PriorityInput = {
   daysToExam: number | null;
   /** Weakness score W (0–1). */
   weakness: number;
-  /** Today's recall probability, null when never practised. */
+  /** Today's recall probability, null when never practiced. */
   recall: number | null;
   /** Has the student answered anything on it? */
   practiced: boolean;
@@ -50,7 +50,7 @@ export function priorityParts(input: PriorityInput): PriorityParts {
   const weights = ENGINE.priority.need;
   const weakness = Math.min(1, Math.max(0, input.weakness));
   const due = dueness(input.recall);
-  // C: in scope but never practised.
+  // C: in scope but never practiced.
   const coverage = !input.practiced && (input.inScope || !input.anyExam) ? 1 : 0;
   const need = weights.weakness * weakness + weights.due * due + weights.coverage * coverage;
   const freshness = input.answersToday >= ENGINE.priority.freshAnswers ? ENGINE.priority.freshness : 1;

@@ -23,7 +23,7 @@ export function successProbability(rating: number, difficulty: number, guessFloo
   return c + (1 - c) * sigmoid(rating - difficulty);
 }
 
-/** One rating step towards the result (r = 1 right, 0 wrong), scaled by the answer's weight. */
+/** One rating step toward the result (r = 1 right, 0 wrong), scaled by the answer's weight. */
 export function eloStep(rating: number, answers: number, correct: boolean, probability: number, weight = 1): number {
   return rating + kFactor(answers) * Math.min(1, Math.max(0, weight)) * ((correct ? 1 : 0) - probability);
 }

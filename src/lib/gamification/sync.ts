@@ -146,7 +146,7 @@ export type GamificationView = {
   recentXp: XpEvent[];
 };
 
-/** Level, badges (with progress towards the locked ones) and the latest XP entries. */
+/** Level, badges (with progress toward the locked ones) and the latest XP entries. */
 export const getGamificationView = cache(async (): Promise<GamificationView> => {
   const supabase = await createClient();
   const [{ data: profile }, { data: unlocked }, { data: events }, stats] = await Promise.all([

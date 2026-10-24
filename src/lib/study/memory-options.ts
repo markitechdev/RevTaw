@@ -49,7 +49,7 @@ export function mnemonicResultOf(analysis: unknown): MnemonicPracticeResult | nu
   return result && typeof result.score === "number" && Array.isArray(result.marks) ? result : null;
 }
 
-/** Lists per session: about one every five minutes, 2-5. Practising saved mnemonics is quicker. */
+/** Lists per session: about one every five minutes, 2-5. Practicing saved mnemonics is quicker. */
 export function mnemonicCount(minutes: number, saved = false): number {
   return saved ? Math.max(2, Math.min(10, Math.round(minutes / 3))) : Math.max(2, Math.min(5, Math.round(minutes / 5)));
 }

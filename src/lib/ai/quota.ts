@@ -303,7 +303,7 @@ export class MeteredProvider implements AiProvider {
       recordAiTokens(kind, result.usage, this.studentId);
       return result;
     } catch (error) {
-      // A request the student cancelled is not given back: the provider may
+      // A request the student canceled is not given back: the provider may
       // already have done the work.
       if (ticket && isAiError(error) && !options.signal?.aborted) refundAiRequest(ticket);
       throw error;

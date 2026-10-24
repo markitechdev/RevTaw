@@ -43,7 +43,7 @@ export function uploadFileToSignedUrl(
       }
     };
     xhr.onerror = () => reject(new Error("The upload was interrupted. Check your connection and try again."));
-    xhr.onabort = () => reject(new DOMException("Upload cancelled", "AbortError"));
+    xhr.onabort = () => reject(new DOMException("Upload canceled", "AbortError"));
 
     signal?.addEventListener("abort", () => xhr.abort(), { once: true });
     xhr.send(file);

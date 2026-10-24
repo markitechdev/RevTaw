@@ -22,16 +22,16 @@ export function GeneratingState({ title, description }: { title: string; descrip
   const router = useRouter();
 
   useEffect(() => {
-    let cancelled = false;
+    let canceled = false;
     let attempt = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const started = Date.now();
     const schedule = () => {
-      if (cancelled || Date.now() - started > CHECK_FOR_MS) return;
+      if (canceled || Date.now() - started > CHECK_FOR_MS) return;
       const delay = CHECK_DELAYS_MS[attempt] ?? LATER_DELAY_MS;
       attempt += 1;
       timer = setTimeout(() => {
-        if (cancelled) return;
+        if (canceled) return;
         // A hidden tab waits; it checks again when it comes back.
         if (document.visibilityState === "visible") router.refresh();
         schedule();
@@ -39,7 +39,7 @@ export function GeneratingState({ title, description }: { title: string; descrip
     };
     schedule();
     return () => {
-      cancelled = true;
+      canceled = true;
       if (timer) clearTimeout(timer);
     };
   }, [router]);

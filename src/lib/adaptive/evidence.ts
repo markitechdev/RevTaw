@@ -308,7 +308,7 @@ export function forgetCachedBuckets(): void {
   cachedBuckets = null;
 }
 
-/** Answers-weighted mean of the student's concept ratings, shrunk towards 0 while there are few answers. */
+/** Answers-weighted mean of the student's concept ratings, shrunk toward 0 while there are few answers. */
 export function abilityOf(rows: Array<{ elo_rating: number; elo_answers: number }>): number {
   let weighted = 0;
   let answers = 0;

@@ -70,7 +70,7 @@ describe("evidence helpers", () => {
     });
   });
 
-  it("splits id lists, counts options and shrinks ability towards zero", () => {
+  it("splits id lists, counts options and shrinks ability toward zero", () => {
     expect(chunked([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
     expect(optionCount([{ id: "a" }, { id: "b" }, { id: "c" }])).toBe(3);
     expect(optionCount(null)).toBeNull();

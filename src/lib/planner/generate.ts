@@ -27,7 +27,7 @@ export type PlanMaterial = {
   difficulty: "beginner" | "intermediate" | "advanced" | null;
   /** Understanding/application concepts dominate → Feynman earns a slot. */
   conceptHeavy: boolean;
-  /** Average mastery of practised concepts (0-100), null when untouched. */
+  /** Average mastery of practiced concepts (0-100), null when untouched. */
   mastery: number | null;
   weakConcepts: string[];
   openMistakes: number;

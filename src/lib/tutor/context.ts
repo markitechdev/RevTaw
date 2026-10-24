@@ -47,7 +47,7 @@ export function scoreChunk(chunk: ContextChunk, queryTerms: string[]): number {
     if (hits > 0) score += 1 + Math.log(1 + hits);
     if (headingWords.has(term)) score += 2;
   }
-  // Mild length normalisation so a giant chunk does not win by volume alone.
+  // Mild length normalization so a giant chunk does not win by volume alone.
   return score / Math.sqrt(1 + words.length / 400);
 }
 

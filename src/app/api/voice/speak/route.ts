@@ -54,7 +54,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 429, headers: error.retryAfterSeconds ? { "retry-after": String(error.retryAfterSeconds) } : undefined });
       }
       if (request.signal.aborted) {
-        // Cancelled mid-way: Azure may have read it already, so it still counts.
+        // Canceled mid-way: Azure may have read it already, so it still counts.
         if (ticket) recordAiTokens("voice", { inputTokens: 0, outputTokens: characters }, user.id);
       } else if (ticket) {
         refundAiRequest(ticket);

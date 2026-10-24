@@ -31,7 +31,7 @@ function barColor(status: MasteryStatus): string {
   return STATUS_FILL[status];
 }
 
-/** Mastery indicator (§52): a labelled bar that reads the same everywhere. */
+/** Mastery indicator (§52): a labeled bar that reads the same everywhere. */
 export function MasteryBar({ value, status, compact = false }: { value: number; status: MasteryStatus; compact?: boolean }) {
   const percent = Math.round(Number(value));
   return (

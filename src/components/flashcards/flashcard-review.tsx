@@ -78,12 +78,12 @@ export function FlashcardReview({
   useEffect(() => {
     startedAt.current = Date.now();
     if (queue.length === 0) return;
-    let cancelled = false;
+    let canceled = false;
     startReviewSessionAction({ deckId, mode, cardCount: queue.length, taskId }).then((result) => {
-      if (!cancelled && result.ok) setSessionId(result.data.sessionId);
+      if (!canceled && result.ok) setSessionId(result.data.sessionId);
     });
     return () => {
-      cancelled = true;
+      canceled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

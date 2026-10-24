@@ -90,7 +90,7 @@ export function SessionBuilder({
   initialMaterialId?: string;
   /** Saved mnemonics with a list to recall, per material id. */
   savedMnemonics?: Record<string, number>;
-  /** Settings → Study: the student's favourite methods, listed with the recommendations. */
+  /** Settings → Study: the student's favorite methods, listed with the recommendations. */
   preferredMethods?: BuilderMethodId[];
 }) {
   const router = useRouter();
@@ -114,8 +114,8 @@ export function SessionBuilder({
   const [pending, startTransition] = useTransition();
   const allMethodsId = useId();
 
-  const behaviour = METHOD_BEHAVIOUR[method];
-  const needsMaterial = behaviour.requiresMaterial;
+  const behavior = METHOD_BEHAVIOUR[method];
+  const needsMaterial = behavior.requiresMaterial;
   const effectiveMaterial = needsMaterial || materialId !== "none" ? materialId : "";
   const recommended = useMemo(() => recommendMethods(goal, Boolean(effectiveMaterial && effectiveMaterial !== "none")), [goal, effectiveMaterial]);
   const isTest = isTestMethod(method);
@@ -176,7 +176,7 @@ export function SessionBuilder({
   const sectionTitle = "text-sm font-semibold";
 
   // Progressive disclosure (UI phase §7): the methods that fit the goal and the
-  // student's favourites first; every other method behind "Show all methods".
+  // student's favorites first; every other method behind "Show all methods".
   // The chosen method always stays in view (e.g. when it came from a link).
   const shortList = [...new Set([...recommended.slice(0, 4), ...preferredMethods.filter((id) => BUILDER_METHOD_IDS.includes(id)), method])];
   const needle = methodFilter.trim().toLowerCase();
@@ -308,7 +308,7 @@ export function SessionBuilder({
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{otherMethods.map(methodCard)}</div>
               {otherMethods.length === 0 && <p className="text-sm text-muted-foreground">No other method matches “{methodFilter}”.</p>}
             </div>
-            <p className="mt-3 text-xs text-muted-foreground">{behaviour.behaviour}</p>
+            <p className="mt-3 text-xs text-muted-foreground">{behavior.behavior}</p>
           </fieldset>
 
           {method === "interleaving" && (

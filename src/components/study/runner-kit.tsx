@@ -114,7 +114,7 @@ export function verdictOf(score: number): Verdict {
   return score >= 80 ? "correct" : score >= 40 ? "partial" : "incorrect";
 }
 
-/** Coloured result box; the verdict is spelled out so status never relies on colour alone (§41). */
+/** Colored result box; the verdict is spelled out so status never relies on color alone (§41). */
 export function VerdictBox({ verdict, score, children }: { verdict: Verdict; score: number; children?: ReactNode }) {
   return (
     <div
@@ -147,7 +147,7 @@ export function VerdictBox({ verdict, score, children }: { verdict: Verdict; sco
   );
 }
 
-/** Small labelled list used inside feedback panels. */
+/** Small labeled list used inside feedback panels. */
 export function PointList({ title, items, tone = "neutral" }: { title: string; items: string[]; tone?: "neutral" | "success" | "danger" | "warning" }) {
   if (items.length === 0) return null;
   return (

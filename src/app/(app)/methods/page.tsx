@@ -47,7 +47,7 @@ export default function MethodsPage() {
         </h2>
         <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {available.map((method) => {
-            const behaviour = METHOD_BEHAVIOUR[method.id];
+            const behavior = METHOD_BEHAVIOUR[method.id];
             const href = startHref(method.id);
             return (
               <li key={method.id}>
@@ -57,22 +57,22 @@ export default function MethodsPage() {
                       <h3 className="text-base font-semibold">{method.name}</h3>
                       <Badge tone="neutral">
                         <Clock className="h-3 w-3" aria-hidden="true" />
-                        {behaviour.suggestedMinutes} min
+                        {behavior.suggestedMinutes} min
                       </Badge>
                     </div>
                     <p className="text-sm text-foreground/90">{method.summary}</p>
                     <dl className="grid grid-cols-1 gap-2 text-sm">
                       <div>
                         <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">How it helps</dt>
-                        <dd>{behaviour.howItHelps}</dd>
+                        <dd>{behavior.howItHelps}</dd>
                       </div>
                       <div>
                         <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Best for</dt>
-                        <dd>{behaviour.bestUseCases}</dd>
+                        <dd>{behavior.bestUseCases}</dd>
                       </div>
                       <div>
                         <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">In a session</dt>
-                        <dd className="text-muted-foreground">{behaviour.behaviour}</dd>
+                        <dd className="text-muted-foreground">{behavior.behavior}</dd>
                       </div>
                     </dl>
                     {href && (
@@ -81,7 +81,7 @@ export default function MethodsPage() {
                           <Play className="h-4 w-4" aria-hidden="true" />
                           Start session
                         </Link>
-                        {behaviour.requiresMaterial && <span className="text-xs text-muted-foreground">Pick the material in the next step.</span>}
+                        {behavior.requiresMaterial && <span className="text-xs text-muted-foreground">Pick the material in the next step.</span>}
                       </div>
                     )}
                   </CardContent>
@@ -99,15 +99,15 @@ export default function MethodsPage() {
           </h2>
           <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {upcoming.map((method) => {
-              const behaviour = METHOD_BEHAVIOUR[method.id];
+              const behavior = METHOD_BEHAVIOUR[method.id];
               return (
                 <li key={method.id} className="rounded-xl border border-dashed border-border p-4">
                   <div className="flex items-center justify-between gap-2">
                     <h3 className="font-medium">{method.name}</h3>
-                    <Badge tone="neutral">{behaviour.availableIn}</Badge>
+                    <Badge tone="neutral">{behavior.availableIn}</Badge>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">{method.summary}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Best for: {behaviour.bestUseCases}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Best for: {behavior.bestUseCases}</p>
                 </li>
               );
             })}

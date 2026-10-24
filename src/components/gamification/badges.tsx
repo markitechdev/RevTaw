@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Gamification UI (§31): a level card with the XP bar and streak, the badge
- * grid with progress towards locked ones, and the XP history. Server-safe
+ * grid with progress toward locked ones, and the XP history. Server-safe
  * markup; plain, not childish.
  */
 

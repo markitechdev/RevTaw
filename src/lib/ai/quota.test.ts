@@ -140,7 +140,7 @@ describe("MeteredProvider", () => {
     expect(adminRpc).toHaveBeenCalledWith("refund_ai_request", { p_user_id: "u1", p_kind: "chat" });
   });
 
-  it("does not give the request back when the student cancelled", async () => {
+  it("does not give the request back when the student canceled", async () => {
     rpc.mockResolvedValueOnce(allowed);
     const controller = new AbortController();
     controller.abort();

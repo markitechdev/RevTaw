@@ -303,9 +303,9 @@ export default function AssistantPanel() {
   // Reopen the chat this tab had before a reload.
   useEffect(() => {
     if (!restoreId) return;
-    let cancelled = false;
+    let canceled = false;
     void fetchConversation(restoreId).then((data) => {
-      if (cancelled || touched.current) return;
+      if (canceled || touched.current) return;
       if (data) {
         setConversation(data.conversation);
         setMessages(data.messages);
@@ -315,7 +315,7 @@ export default function AssistantPanel() {
       setRestoring(false);
     });
     return () => {
-      cancelled = true;
+      canceled = true;
     };
   }, [restoreId]);
 

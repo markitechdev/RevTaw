@@ -36,7 +36,7 @@ export type AchievementDef = {
   group: AchievementGroup;
   /** Lucide icon name rendered by the client. */
   icon: "play" | "layers" | "list-checks" | "flame" | "award" | "brain" | "compass" | "clock" | "target" | "trending-up" | "castle" | "book-open" | "graduation-cap" | "sparkles";
-  /** The number the rule counts towards, for a progress hint; null for yes/no badges. */
+  /** The number the rule counts toward, for a progress hint; null for yes/no badges. */
   target: number | null;
   /** How far the student is, from the same stats the rule reads. */
   progress: (stats: GamificationStats) => number;

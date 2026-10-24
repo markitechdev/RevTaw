@@ -28,7 +28,7 @@ const BINARY_SOURCES: Record<string, DetectedType> = {
  * from the extension or the browser-supplied MIME type. Returns null when the
  * content is not one of the supported kinds.
  *
- * A DOCX is a ZIP archive; `file-type` recognises it by inspecting the
+ * A DOCX is a ZIP archive; `file-type` recognizes it by inspecting the
  * central directory, so a renamed .zip is rejected rather than treated as a
  * document.
  */

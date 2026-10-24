@@ -32,15 +32,15 @@ export const serverTextToSpeech: TextToSpeech = {
   speak(text: string, language: string, handlers: SpeakHandlers): Speaking {
     const controller = new AbortController();
     const audio = sharedAudio();
-    let cancelled = false;
+    let canceled = false;
     let url: string | null = null;
     const revoke = () => {
       if (url) URL.revokeObjectURL(url);
       url = null;
     };
     const fail = (message: string) => {
-      if (cancelled) return;
-      cancelled = true;
+      if (canceled) return;
+      canceled = true;
       revoke();
       handlers.onError({ code: "unknown", message });
       handlers.onEnd();
@@ -58,7 +58,7 @@ export const serverTextToSpeech: TextToSpeech = {
         } catch (error) {
           return fail(error instanceof Error && error.name !== "AbortError" ? error.message : FAILED);
         }
-        if (cancelled) return;
+        if (canceled) return;
         next = index + 1 < queue.length ? fetchSpeech(queue[index + 1], language, controller.signal) : null;
         next?.catch(() => {});
         revoke();
@@ -68,7 +68,7 @@ export const serverTextToSpeech: TextToSpeech = {
           audio.onended = () => resolve(true);
           audio.onerror = () => resolve(false);
           audio.onpause = () => {
-            if (cancelled) resolve(true);
+            if (canceled) resolve(true);
           };
         });
         try {
@@ -78,20 +78,20 @@ export const serverTextToSpeech: TextToSpeech = {
         }
         if (index === 0) handlers.onStart();
         const played = await finished;
-        if (cancelled) return;
+        if (canceled) return;
         if (!played) return fail(FAILED);
       }
       revoke();
-      if (!cancelled) {
-        cancelled = true;
+      if (!canceled) {
+        canceled = true;
         handlers.onEnd();
       }
     })();
 
     return {
       cancel: () => {
-        if (cancelled) return;
-        cancelled = true;
+        if (canceled) return;
+        canceled = true;
         controller.abort();
         audio.pause();
         revoke();

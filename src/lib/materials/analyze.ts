@@ -41,7 +41,7 @@ Rules:
 - Use ONLY the material between <material> tags. Never add facts, definitions, formulas or page numbers that are not in it. If something is absent, return an empty list for it.
 - Quote terms and formulas exactly as written; keep the material's language.
 - Be specific and useful to a student, not generic.
-- Categorise each key concept by what mastering it mostly needs: "memorization", "understanding", "calculation" or "application".
+- Categorize each key concept by what mastering it mostly needs: "memorization", "understanding", "calculation" or "application".
 - Estimate difficulty for the described student and the realistic minutes needed to study the whole material well (not just read it).
 - Recommend 2 to 4 study methods from the allowed list that fit the content type (e.g. definition-heavy → flashcards, active_recall, spaced_repetition; concept-heavy → feynman, socratic_questioning, self_explanation; mathematics → worked_examples, faded_worked_examples, practice_problems, error_review; broad exam coverage → interleaving, practice_testing, spaced_repetition). Explain each choice in one sentence.
 - Respond with a single JSON object matching the schema. No markdown, no commentary.`;

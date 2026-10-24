@@ -256,7 +256,7 @@ export function ExamDialogButton({
           </fieldset>
 
           <Field id="exam-notes" label="Notes (optional)">
-            <Textarea {...fieldA11y("exam-notes")} rows={2} maxLength={2000} value={notes} disabled={pending} placeholder="Coverage, format, what the teacher emphasised…" onChange={(event) => setNotes(event.target.value)} />
+            <Textarea {...fieldA11y("exam-notes")} rows={2} maxLength={2000} value={notes} disabled={pending} placeholder="Coverage, format, what the teacher emphasized…" onChange={(event) => setNotes(event.target.value)} />
           </Field>
 
           {pending && (

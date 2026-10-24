@@ -112,7 +112,7 @@ export const webTextToSpeech: TextToSpeech = {
     const synth = window.speechSynthesis;
     synth.cancel();
     const chunks = speechChunks(text);
-    let cancelled = false;
+    let canceled = false;
     let started = false;
     const voice = pickVoice(language);
     chunks.forEach((chunk, index) => {
@@ -127,14 +127,14 @@ export const webTextToSpeech: TextToSpeech = {
         }
       };
       utterance.onerror = (event) => {
-        if (cancelled || event.error === "interrupted" || event.error === "canceled") return;
-        cancelled = true;
+        if (canceled || event.error === "interrupted" || event.error === "canceled") return;
+        canceled = true;
         handlers.onError({ code: "unknown", message: "RevTaw couldn't read that aloud." });
         handlers.onEnd();
       };
       if (index === chunks.length - 1) {
         utterance.onend = () => {
-          if (!cancelled) handlers.onEnd();
+          if (!canceled) handlers.onEnd();
         };
       }
       synth.speak(utterance);
@@ -142,8 +142,8 @@ export const webTextToSpeech: TextToSpeech = {
     if (chunks.length === 0) queueMicrotask(() => handlers.onEnd());
     return {
       cancel: () => {
-        if (cancelled) return;
-        cancelled = true;
+        if (canceled) return;
+        canceled = true;
         synth.cancel();
         handlers.onEnd();
       },

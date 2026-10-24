@@ -1,6 +1,6 @@
 /**
  * Study method catalog (RevTaw spec §16). Phase 2 uses it to label
- * recommendations; later phases attach real session behaviour to each id.
+ * recommendations; later phases attach real session behavior to each id.
  */
 export type StudyMethodId =
   | "active_recall"
@@ -52,7 +52,7 @@ export const STUDY_METHODS: ReadonlyArray<StudyMethod> = [
   { id: "active_recall", name: "Active Recall", summary: "Answer questions from memory before seeing the solution.", bestFor: "Definitions, facts, anything you must remember" },
   { id: "spaced_repetition", name: "Spaced Repetition", summary: "Review at growing intervals based on how well you remember.", bestFor: "Long-term retention before exams" },
   { id: "flashcards", name: "Flashcards", summary: "Term on the front, answer on the back, rated after each review.", bestFor: "Vocabulary, formulas, key facts" },
-  { id: "feynman", name: "Feynman Technique", summary: "Explain a concept as if teaching a beginner, then fix the gaps.", bestFor: "Concepts you can recognise but not explain" },
+  { id: "feynman", name: "Feynman Technique", summary: "Explain a concept as if teaching a beginner, then fix the gaps.", bestFor: "Concepts you can recognize but not explain" },
   { id: "blurting", name: "Blurting", summary: "Write everything you remember, then compare with the source.", bestFor: "Checking what actually stuck after reading" },
   { id: "pomodoro", name: "Pomodoro", summary: "Focused intervals with short breaks.", bestFor: "Long study blocks and avoiding burnout" },
   { id: "cornell_notes", name: "Cornell Notes", summary: "Cues, notes and a summary in one structured page.", bestFor: "Lectures and dense reading" },
@@ -81,7 +81,7 @@ export const STUDY_METHODS: ReadonlyArray<StudyMethod> = [
   { id: "sq3r", name: "SQ3R", summary: "Survey, question, read, recite, review — guided stage by stage.", bestFor: "Reading a chapter properly the first time" },
   { id: "pq4r", name: "PQ4R", summary: "Preview, question, read, reflect, recite, review.", bestFor: "Dense reading that needs reflection" },
   { id: "scenario_based", name: "Scenario-Based Learning", summary: "Realistic situations: choose an action and justify it.", bestFor: "Applied fields: nursing, business, CS, law" },
-  { id: "case_based", name: "Case-Based Learning", summary: "Detailed cases: problem, evidence, options, best solution.", bestFor: "Analysis and judgement" },
+  { id: "case_based", name: "Case-Based Learning", summary: "Detailed cases: problem, evidence, options, best solution.", bestFor: "Analysis and judgment" },
   { id: "pre_testing", name: "Pre-Test → Study → Post-Test", summary: "A diagnostic first, then study, then measure the gain.", bestFor: "Seeing exactly what a study block changed" },
   { id: "concept_mapping", name: "Concept Mapping", summary: "Concepts linked by explicit relationships.", bestFor: "How ideas cause, require and contain each other" },
   { id: "memory_palace", name: "Memory Palace", summary: "Place concepts along a familiar route and walk it to recall.", bestFor: "Ordered lists and long sequences" },

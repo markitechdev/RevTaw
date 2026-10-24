@@ -90,7 +90,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 429, headers: error.retryAfterSeconds ? { "retry-after": String(error.retryAfterSeconds) } : undefined });
       }
       if (request.signal.aborted) {
-        // Cancelled mid-way: the provider may have heard the clip already,
+        // Canceled mid-way: the provider may have heard the clip already,
         // so it still counts and the request is not given back.
         if (ticket) recordAiTokens("voice", { inputTokens: countedVoiceSeconds(null, bytes.byteLength), outputTokens: 0 }, user.id);
       } else if (ticket) {

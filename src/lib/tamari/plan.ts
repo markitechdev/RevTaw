@@ -23,11 +23,11 @@ export type TamariPlanInput = {
   exam: { title: string; daysLeft: number } | null;
   /** Concepts due for review (fading), most faded first. */
   overdue: string[];
-  /** Practised concepts to work on, highest priority first (weakness, fading, the exam's scope). */
+  /** Practiced concepts to work on, highest priority first (weakness, fading, the exam's scope). */
   weak: string[];
   /** Some of them are weak topics (flagged weak, under 60% or holding a confident mistake): a "Weak Topic Quiz". */
   weakTopics?: boolean;
-  /** Concepts never studied that outrank the practised ones, and the method the rule table picks for them. */
+  /** Concepts never studied that outrank the practiced ones, and the method the rule table picks for them. */
   fresh?: { names: string[]; method: SmartBlock["method"] } | null;
   /** A concept answered confidently but wrongly. */
   misconception: string | null;
@@ -221,7 +221,7 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
             : weak.length > 0
               ? say(lang, {
                   taglish: `Quiz sa ${list(weak)} — ito ang susunod na dapat i-practice.`,
-                  en: `A quiz on ${list(weak)}: what's next to practise.`,
+                  en: `A quiz on ${list(weak)}: what's next to practice.`,
                   fil: `Quiz sa ${listFil(weak)} — ito ang susunod na dapat sanayin.`,
                 })
               : say(lang, {

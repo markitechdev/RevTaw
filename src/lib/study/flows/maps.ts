@@ -78,7 +78,7 @@ export async function getSessionMap(session: Pick<StudySession, "state" | "metho
   return parsed.success ? ({ id: data.id, title: data.title, data: parsed.data } as MapView<MindMapData> | MapView<ConceptMapData>) : null;
 }
 
-/** Saves an edited map after validating its structure (one centre, no loops, links between known nodes). */
+/** Saves an edited map after validating its structure (one center, no loops, links between known nodes). */
 export async function saveMap(input: { mapId: string; kind: "mind" | "concept"; data: unknown }): Promise<void> {
   const parsed = (input.kind === "mind" ? mindMapSchema : conceptMapSchema).safeParse(input.data);
   if (!parsed.success) throw new SessionError(parsed.error.issues[0]?.message ?? "That map could not be saved.", 400);

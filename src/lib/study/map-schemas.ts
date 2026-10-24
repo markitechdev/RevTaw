@@ -23,7 +23,7 @@ export const mindMapSchema = z
     const ids = new Set(map.nodes.map((node) => node.id));
     if (ids.size !== map.nodes.length) context.addIssue({ code: "custom", message: "Duplicate node ids." });
     const roots = map.nodes.filter((node) => node.parentId === null);
-    if (roots.length !== 1) context.addIssue({ code: "custom", message: "A mind map has exactly one centre." });
+    if (roots.length !== 1) context.addIssue({ code: "custom", message: "A mind map has exactly one center." });
     const parent = new Map(map.nodes.map((node) => [node.id, node.parentId]));
     for (const node of map.nodes) {
       if (node.parentId !== null && !ids.has(node.parentId)) context.addIssue({ code: "custom", message: "A branch points at a missing node." });

@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Renders a dual-coding visual (§16): table, flowchart, timeline, hierarchy
- * or a concept graph. Pure markup and SVG so it works in both colour themes
+ * or a concept graph. Pure markup and SVG so it works in both color themes
  * and in print; every picture also carries its content as text.
  */
 
@@ -24,16 +24,16 @@ function wrap(label: string, width = 16): string[] {
   return lines;
 }
 
-/** Concept graph: nodes on a circle, labelled arrows between them. */
+/** Concept graph: nodes on a circle, labeled arrows between them. */
 export function GraphView({ nodes, links, title }: { nodes: string[]; links: Array<{ from: string; to: string; relation: string }>; title: string }) {
   const width = 720;
   const height = 460;
   // An ellipse leaves more room between neighbours than a circle in a wide frame.
   const radius = nodes.length <= 3 ? { x: 140, y: 110 } : nodes.length <= 6 ? { x: 220, y: 160 } : { x: 270, y: 175 };
-  const centre = { x: width / 2, y: height / 2 };
+  const center = { x: width / 2, y: height / 2 };
   const position = new Map(nodes.map((node, index) => {
     const angle = (2 * Math.PI * index) / nodes.length - Math.PI / 2;
-    return [node, { x: centre.x + radius.x * Math.cos(angle), y: centre.y + radius.y * Math.sin(angle) }] as const;
+    return [node, { x: center.x + radius.x * Math.cos(angle), y: center.y + radius.y * Math.sin(angle) }] as const;
   }));
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="img" aria-label={`${title}: ${links.map((link) => `${link.from} ${link.relation} ${link.to}`).join("; ")}`}>

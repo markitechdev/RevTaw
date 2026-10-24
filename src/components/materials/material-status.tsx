@@ -47,17 +47,17 @@ export function MaterialStatusBadge({
 
   useEffect(() => {
     if (!IN_FLIGHT_STATUSES.has(status)) return;
-    let cancelled = false;
+    let canceled = false;
     let attempt = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const started = Date.now();
     const schedule = () => {
-      if (cancelled || Date.now() - started > POLL_FOR_MS) return;
+      if (canceled || Date.now() - started > POLL_FOR_MS) return;
       const delay = POLL_DELAYS_MS[attempt] ?? LATER_DELAY_MS;
       attempt += 1;
       timer = setTimeout(async () => {
         const latest = await fetchStatus(materialId);
-        if (cancelled) return;
+        if (canceled) return;
         if (latest && latest.status !== status) {
           setStatus(latest.status);
           setDetail(latest.detail);
@@ -70,7 +70,7 @@ export function MaterialStatusBadge({
     };
     schedule();
     return () => {
-      cancelled = true;
+      canceled = true;
       if (timer) clearTimeout(timer);
     };
   }, [materialId, status, router]);

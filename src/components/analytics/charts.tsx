@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Small, accessible charts for the progress page (§23 "use understandable
- * charts"). Plain SVG and markup: one hue for magnitude, status colours only
+ * charts"). Plain SVG and markup: one hue for magnitude, status colors only
  * for status, thin marks, hairline grid, a legend whenever there are two
  * series, a hover/focus readout and a table view for every chart.
  */
@@ -207,7 +207,7 @@ export function PercentBars({ title, rows, emptyText, className }: { title: stri
   );
 }
 
-/** Quiz scores in order, as columns with the latest emphasised. */
+/** Quiz scores in order, as columns with the latest emphasized. */
 export function ScoreColumns({ title, scores, className }: { title: string; scores: Array<{ date: string; percent: number; title: string }>; className?: string }) {
   const id = useId();
   const [active, setActive] = useState<number | null>(null);
@@ -264,7 +264,7 @@ export function ScoreColumns({ title, scores, className }: { title: string; scor
 
 const STATUS_FILL: Record<string, string> = { mastered: "bg-success", strong: "bg-info", developing: "bg-developing", learning: "bg-warning", weak: "bg-danger", new: "bg-muted-foreground/40" };
 
-/** One stacked strip of the mastery statuses (status colours mean status here) with a legend. */
+/** One stacked strip of the mastery statuses (status colors mean status here) with a legend. */
 export function StatusStrip({ title, counts, labels, className }: { title: string; counts: Record<string, number>; labels: Record<string, string>; className?: string }) {
   const id = useId();
   const order = ["mastered", "strong", "developing", "learning", "weak", "new"];

@@ -105,6 +105,6 @@ export function useTheme() {
 
 /**
  * Inline script that applies the stored theme before React hydrates, so the
- * page never flashes the wrong colours. Rendered in the root layout <head>.
+ * page never flashes the wrong colors. Rendered in the root layout <head>.
  */
 export const THEME_INIT_SCRIPT = `(function(){try{var k="${THEME_STORAGE_KEY}";var t=localStorage.getItem(k);var d=t==="dark"||((t===null||t==="system")&&window.matchMedia("(prefers-color-scheme: dark)").matches);var r=document.documentElement;r.classList.toggle("dark",d);r.style.colorScheme=d?"dark":"light";}catch(e){}})();`;

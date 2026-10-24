@@ -114,7 +114,7 @@ export async function listGoalsWithProgress(): Promise<GoalProgress[]> {
       case "mastery": {
         const rowsFor = mastery.filter((row) => row.concept?.material_id === goal.material_id && row.attempts > 0);
         current = rowsFor.length ? Math.round(rowsFor.reduce((sum, row) => sum + Number(row.mastery), 0) / rowsFor.length) : 0;
-        detail = rowsFor.length ? `${current}% average over ${rowsFor.length} concept${rowsFor.length === 1 ? "" : "s"}` : "No concepts practised yet";
+        detail = rowsFor.length ? `${current}% average over ${rowsFor.length} concept${rowsFor.length === 1 ? "" : "s"}` : "No concepts practiced yet";
         break;
       }
       case "finish_material": {

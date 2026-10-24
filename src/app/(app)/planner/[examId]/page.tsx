@@ -123,7 +123,7 @@ export default async function ExamPlanPage({ params }: PageProps<"/planner/[exam
         <StatCard icon={CalendarDays} label="Days left" value={exam.daysLeft < 0 ? "Done" : String(exam.daysLeft)} caption={exam.plan ? `${exam.plan.available_days.length} study day${exam.plan.available_days.length === 1 ? "" : "s"} a week` : "No plan yet"} />
         <StatCard icon={Sparkles} label="Plan progress" value={`${exam.tasksDone}/${exam.tasksTotal}`} caption={`${totalMinutes} planned minutes in total`} />
         <StatCard icon={Settings2} label="Daily budget" value={exam.plan ? `${exam.plan.minutes_per_day} min` : "—"} caption={exam.plan ? PLAN_MODE_LABEL[exam.plan.mode] : ""} />
-        <StatCard icon={CalendarDays} label="Mastery" value={exam.averageMastery === null ? "—" : `${exam.averageMastery}%`} caption={exam.averageMastery === null ? "Answer questions on its materials" : "Average over practised concepts"} />
+        <StatCard icon={CalendarDays} label="Mastery" value={exam.averageMastery === null ? "—" : `${exam.averageMastery}%`} caption={exam.averageMastery === null ? "Answer questions on its materials" : "Average over practiced concepts"} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

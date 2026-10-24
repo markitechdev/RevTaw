@@ -162,7 +162,7 @@ export async function analyzeFeynmanAction(input: { itemId: string; explanation:
     const result = await analyzeFeynmanItem(parsed.data);
     return { ok: true, data: result };
   } catch (error) {
-    return failure(error, "Your explanation could not be analysed. Please try again.");
+    return failure(error, "Your explanation could not be analyzed. Please try again.");
   }
 }
 

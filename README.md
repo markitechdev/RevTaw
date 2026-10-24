@@ -75,7 +75,7 @@ balancer to set up. Keep Supabase's Data API **Max rows** at 1,000 or more
 
 - Accounts, onboarding and settings (Phase 1)
 - Materials: upload PDF/DOCX/images/notes, extraction, AI analysis with
-  study-method recommendations, organisation by subject and folder (Phase 2);
+  study-method recommendations, organization by subject and folder (Phase 2);
   Delete moves a material to the Archive for 30 days, and deleting it
   permanently removes the file but keeps everything made from it
 - Reviewers in ten formats with editable, individually regenerable sections

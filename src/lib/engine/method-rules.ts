@@ -17,7 +17,7 @@ export type MethodContext = {
   /** Days until the nearest exam that covers the concept. */
   daysToExam: number | null;
   minutes: number;
-  /** An ordered list to memorise, and how many items it has. */
+  /** An ordered list to memorize, and how many items it has. */
   orderedListItems?: number;
   /** Rapid guessing or three skips in a block. */
   disengaged?: boolean;
@@ -99,7 +99,7 @@ function stateRow(state: ConceptState, category: ConceptCategory, minutes: numbe
         groups: [first, ["teach_back"]],
         avoid: [],
         reason: {
-          practice_testing: "Strong: harder practice questions push it towards mastered.",
+          practice_testing: "Strong: harder practice questions push it toward mastered.",
           question_generation: "Strong: writing your own questions shows how deep it goes.",
           scenario_based: "Strong: apply it to a realistic situation.",
           case_based: "Strong: use it to judge a real-looking case.",
@@ -159,10 +159,10 @@ export function chooseMethod(context: MethodContext): MethodPick {
 
   const row = stateRow(context.state, context.category, context.minutes, Boolean(context.longChapter));
   for (const method of row.avoid) remove.add(method);
-  // An ordered list to memorise overrides the family: it needs a structure to hang on.
+  // An ordered list to memorize overrides the family: it needs a structure to hang on.
   for (const method of ["memory_palace", "mnemonics"] as const) {
     if (prefer.has(method) && usable(method)) {
-      return { method, reason: "An ordered list to memorise: give it a structure to hang on.", rule: "ordered_list" };
+      return { method, reason: "An ordered list to memorize: give it a structure to hang on.", rule: "ordered_list" };
     }
   }
   for (const group of row.groups) {

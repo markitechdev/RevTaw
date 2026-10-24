@@ -110,7 +110,7 @@ describe("transcribeAudio", () => {
     await expect(transcribeAudio(clip, "audio/webm", "en")).rejects.toMatchObject({ code: "not_configured" });
   });
 
-  it("stops at once when the student already cancelled", async () => {
+  it("stops at once when the student already canceled", async () => {
     vi.stubEnv("GROQ_API_KEY", "gsk-test");
     const seen = stubFetch([() => new Response(JSON.stringify({ text: "late" }), { status: 200 })]);
     const controller = new AbortController();

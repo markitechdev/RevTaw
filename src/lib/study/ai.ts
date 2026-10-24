@@ -70,12 +70,12 @@ Rules:
 - "key_points": 2-5 short points a complete answer must contain (used to grade the student's answer).
 - "concept": the 1-4 word concept being recalled (reuse the same wording for the same concept).
 - "source_excerpt": a short verbatim quote (max 300 chars) that supports the model answer.
-- Cover different parts of the material; prioritise the focus concepts and recent mistakes when given.
+- Cover different parts of the material; prioritize the focus concepts and recent mistakes when given.
 ${formats ? `- "format": rotate through these formats in order and label each prompt with the format it uses: ${formats.map((format) => `${format} (${FORMAT_RULES[format]})`).join("; ")}.\n` : ""}- Use ONLY the material between <material> tags.
 - Respond with a single JSON object matching the schema. No commentary.`;
   const user = `Material title: ${input.materialTitle}
 Student: ${studentLine(input.student)}
-${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${input.emphasis?.length ? `High-value topics to prioritise: ${input.emphasis.join(", ")}\n` : ""}${input.recentMistakes.length ? `Recent mistakes:\n${input.recentMistakes.map((item) => `- ${item}`).join("\n")}\n` : ""}${formats ? `Formats to rotate: ${formats.join(", ")}\n` : ""}
+${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${input.emphasis?.length ? `High-value topics to prioritize: ${input.emphasis.join(", ")}\n` : ""}${input.recentMistakes.length ? `Recent mistakes:\n${input.recentMistakes.map((item) => `- ${item}`).join("\n")}\n` : ""}${formats ? `Formats to rotate: ${formats.join(", ")}\n` : ""}
 Produce exactly ${input.count} prompts.
 
 JSON schema: { "questions": [{ "prompt": string, "model_answer": string, "key_points": string[], "concept": string, "source_excerpt": string${formats ? ', "format": string' : ""} }] }
@@ -214,7 +214,7 @@ export async function analyzeFeynmanExplanation(input: {
   round: number;
 }): Promise<{ analysis: FeynmanAnalysis; provider: string; model: string }> {
   const provider = getAiProvider("strong");
-  const system = `You are RevTaw's Feynman-technique coach for "${input.materialTitle}". A student explained a concept as if teaching a beginner. Analyse the explanation against the ideal explanation and key points only.
+  const system = `You are RevTaw's Feynman-technique coach for "${input.materialTitle}". A student explained a concept as if teaching a beginner. Analyze the explanation against the ideal explanation and key points only.
 - "correct_concepts": ideas the student got right.
 - "missing_concepts": key points not covered.
 - "incorrect_ideas": statements that are wrong according to the material.
@@ -353,7 +353,7 @@ export async function evaluateStudentQuestion(input: { materialTitle: string; ch
 - "clarity": 0-100 — unambiguous, one defensible answer, well worded?
 - "accuracy": 0-100 — is the expected answer correct per the material (100 when no answer was given but the question is answerable)?
 - "difficulty": easy | medium | hard.
-- "overall": 0-100 weighted judgement.
+- "overall": 0-100 weighted judgment.
 - "feedback": 1-3 specific sentences on how to improve it.
 - "improved_question": a better version (or the same if already good).
 - "model_answer": the correct answer per the material.

@@ -16,7 +16,7 @@ const base: MindMapData = {
 };
 
 describe("mind maps", () => {
-  it("accepts one centre and rejects loops, orphans and second roots", () => {
+  it("accepts one center and rejects loops, orphans and second roots", () => {
     expect(mindMapSchema.safeParse(base).success).toBe(true);
     expect(mindMapSchema.safeParse({ ...base, nodes: [...base.nodes, { id: "n5", label: "Other", parentId: null }] }).success).toBe(false);
     expect(mindMapSchema.safeParse({ ...base, nodes: base.nodes.map((node) => (node.id === "n2" ? { ...node, parentId: "n4" } : node)) }).success).toBe(false);

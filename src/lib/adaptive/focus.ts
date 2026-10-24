@@ -18,7 +18,7 @@ import { createClient } from "@/lib/supabase/server";
 
 /**
  * What to study next (research doc §10–§11), shared by Tamari's plan and the
- * recommendations: every concept the student has practised (and, when
+ * recommendations: every concept the student has practiced (and, when
  * asked, the ones in scope they haven't touched) ranked by
  *
  *   priority = relevance × urgency × need × freshness,
@@ -34,7 +34,7 @@ export type FocusConcept = {
   id: string;
   name: string;
   materialId: string | null;
-  /** The mastery row; null for a concept never practised. */
+  /** The mastery row; null for a concept never practiced. */
   row: MasteryView | null;
   state: ConceptState;
   category: ConceptCategory;
@@ -71,7 +71,7 @@ const answersToday = cache(async (): Promise<Map<string, number>> => {
 
 /**
  * Ranks concepts, highest priority first. `materialId` keeps one material's
- * concepts; `includeUnpracticed` adds concepts never practised from that
+ * concepts; `includeUnpracticed` adds concepts never practiced from that
  * material (or, without one, from the exam's materials) so coverage counts.
  */
 export async function rankConcepts(options: { materialId?: string | null; includeUnpracticed?: boolean } = {}): Promise<RankedConcept[]> {
@@ -81,7 +81,7 @@ export async function rankConcepts(options: { materialId?: string | null; includ
   const practiced = rows.filter((row) => row.attempts > 0 && row.concept && keep(row.concept.material_id));
 
   let unpracticed: Array<{ id: string; name: string; material_id: string | null }> = [];
-  // Never-practised concepts only from materials that can still be studied (a deleted file has nothing to learn from).
+  // Never-practiced concepts only from materials that can still be studied (a deleted file has nothing to learn from).
   const scope = options.materialId ? [options.materialId] : (exam?.materials ?? []).filter((material) => material.status !== "deleted").map((material) => material.id);
   if (options.includeUnpracticed && scope.length > 0) {
     const supabase = await createClient();

@@ -76,7 +76,7 @@ export const visualSetSchema = z.object({
     .max(6),
 });
 
-export const VISUAL_RULES = `Choose the visual that fits the content: a process or sequence → "flowchart"; dates or eras → "timeline"; things compared on the same attributes → "table"; categories, parts or types → "hierarchy" (a root with children and optional grandchildren); causes, requirements and dependencies → "relationships" (nodes and labelled links such as causes, requires, leads to, contains, depends on, is an example of).
+export const VISUAL_RULES = `Choose the visual that fits the content: a process or sequence → "flowchart"; dates or eras → "timeline"; things compared on the same attributes → "table"; categories, parts or types → "hierarchy" (a root with children and optional grandchildren); causes, requirements and dependencies → "relationships" (nodes and labeled links such as causes, requires, leads to, contains, depends on, is an example of).
 Keep visuals small and readable: at most 8 steps or events, a table of at most 5 columns and 6 rows, a hierarchy of at most 3 levels, at most 8 links. Labels are short; details carry the rest.`;
 
 export async function generateVisualSet(input: { materialTitle: string; chunks: AnalysisChunkInput[]; student: StudentContext; count: number }): Promise<{ topics: VisualTopic[]; provider: string; model: string }> {

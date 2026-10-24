@@ -86,10 +86,10 @@ export async function generateProblems(input: {
 
 Rules:
 - ${MODE_RULES[input.mode]}
-- Base problems on the formulas, procedures, rules, definitions and facts in the material. If the material has no calculations, write application problems (apply a procedure, classify a case, analyse a situation step by step) instead.
+- Base problems on the formulas, procedures, rules, definitions and facts in the material. If the material has no calculations, write application problems (apply a procedure, classify a case, analyze a situation step by step) instead.
 - Numbers you introduce must be plausible and the solution must follow from the material's rules; "final_answer" is short and checkable.
 - "key_points": 2-5 points a correct solution must contain (method, key step, result).
-- "concept": the 1-4 word concept practised (reuse the material's wording).
+- "concept": the 1-4 word concept practiced (reuse the material's wording).
 - ${difficultyRule}
 - ${GROUNDING_RULE}
 - Respond with a single JSON object matching the schema. No commentary.`;

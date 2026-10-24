@@ -147,7 +147,7 @@ export type MaterialChunkView = Pick<
 const MATERIAL_DETAIL_COLUMNS =
   "*, subject:subjects!materials_subject_fk(id, name, color), folder:folders!materials_folder_fk(id, name)";
 
-/** One material with its organisation; null when it does not exist or is not the user's. */
+/** One material with its organization; null when it does not exist or is not the user's. */
 export const getMaterial = cache(async (materialId: string): Promise<MaterialDetail | null> => {
   const supabase = await createClient();
   const { data, error } = await supabase

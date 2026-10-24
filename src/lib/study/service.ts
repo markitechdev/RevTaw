@@ -107,8 +107,8 @@ export async function startSession(userId: string, input: StartSessionInput): Pr
 
 async function startSessionInner(userId: string, input: StartSessionInput): Promise<StartSessionResult> {
   const supabase = await createClient();
-  const behaviour = METHOD_BEHAVIOUR[input.method];
-  if (behaviour.requiresMaterial && !input.materialId) throw new SessionError("Choose a material for this method.", 400);
+  const behavior = METHOD_BEHAVIOUR[input.method];
+  if (behavior.requiresMaterial && !input.materialId) throw new SessionError("Choose a material for this method.", 400);
 
   if (input.method === "smart_study") {
     if (input.materialId) {
@@ -579,7 +579,7 @@ function itemSessionNext(method: StudyMethodId, accuracy: number | null, weak: s
     case "pq4r":
       return accuracy !== null && accuracy >= 0.8 ? "You can recite this chapter. Schedule the 1-3-7-14 reviews so it stays." : "Re-read the sections behind the questions you missed, then recite them again tomorrow.";
     case "scenario_based":
-      return accuracy !== null && accuracy >= 0.8 ? "Good judgement. Try a case-based session for longer, multi-step situations." : "Re-read the rationale for the scenarios you missed, then try new scenarios tomorrow.";
+      return accuracy !== null && accuracy >= 0.8 ? "Good judgment. Try a case-based session for longer, multi-step situations." : "Re-read the rationale for the scenarios you missed, then try new scenarios tomorrow.";
     case "case_based":
       return accuracy !== null && accuracy >= 0.8 ? "Strong case analysis. Test it under time pressure with an exam simulation." : "Compare your analysis with the expert one field by field; look first at the evidence you missed.";
     case "practice_problems":

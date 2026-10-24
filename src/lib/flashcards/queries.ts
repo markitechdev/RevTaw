@@ -24,7 +24,7 @@ async function dueAndBoxesByDeck(supabase: Awaited<ReturnType<typeof createClien
   const stats = new Map<string, { dueCount: number; boxes: number[] }>();
   if (deckIds.length === 0) return stats;
   const now = new Date().toISOString();
-  // Suspended cards count towards neither figure, so they are left out of the read.
+  // Suspended cards count toward neither figure, so they are left out of the read.
   const cards = await readPagesQuietly("flashcards: deck stats", (from, to) => supabase.from("flashcards").select("deck_id, box, due_at").in("deck_id", deckIds).eq("suspended", false).order("deck_id").order("position").range(from, to), 5000);
   for (const card of cards) {
     const entry = stats.get(card.deck_id) ?? { dueCount: 0, boxes: [0, 0, 0, 0, 0] };

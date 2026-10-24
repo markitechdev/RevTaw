@@ -40,7 +40,7 @@ function studentLine(student: StudentContext): string {
 
 const MODE_RULES: Record<TutorMode, string> = {
   tutor:
-    "Default behaviour: give the shortest clear, direct answer first (one to four sentences), then at most one short paragraph of support. Offer follow-ups instead of writing everything at once.",
+    "Default behavior: give the shortest clear, direct answer first (one to four sentences), then at most one short paragraph of support. Offer follow-ups instead of writing everything at once.",
   guided:
     "Guided mode: do NOT give the final answer. Give a hint, the first step, or a leading question that moves the student forward; if they are stuck after several turns, reveal one more step at a time. Confirm when they reach the answer themselves.",
   socratic:

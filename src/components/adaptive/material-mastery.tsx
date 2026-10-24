@@ -26,7 +26,7 @@ export function MaterialMastery({ materialId, rows, studyable = true }: { materi
           Your mastery of this material
         </CardTitle>
         <CardDescription>
-          {mastered} of {practiced.length} practised concept{practiced.length === 1 ? "" : "s"} mastered (≥ {MASTERY_THRESHOLD}%) · average {average}%.
+          {mastered} of {practiced.length} practiced concept{practiced.length === 1 ? "" : "s"} mastered (≥ {MASTERY_THRESHOLD}%) · average {average}%.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">

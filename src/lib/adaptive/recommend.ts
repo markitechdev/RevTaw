@@ -156,7 +156,7 @@ export const getRecommendations = cache(async (limit = 4): Promise<Recommendatio
     items.push({
       id: "exam",
       title: "Confirm it under exam conditions",
-      reason: `Every concept you have practised is strong or mastered (average ${summary.averageMastery}%). An exam simulation checks that it holds with a timer and no hints.`,
+      reason: `Every concept you have practiced is strong or mastered (average ${summary.averageMastery}%). An exam simulation checks that it holds with a timer and no hints.`,
       method: "practice_testing",
       minutes: 30,
       href: sessionHref("practice_testing", materialOf([...summary.strong, ...summary.mastered])),

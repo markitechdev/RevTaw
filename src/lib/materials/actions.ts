@@ -270,7 +270,7 @@ export async function markMaterialOpenedAction(materialId: string): Promise<void
 }
 
 /**
- * Removes a material whose upload never finished — the student cancelled it
+ * Removes a material whose upload never finished — the student canceled it
  * or the transfer failed — so no card is left saying "Uploading" forever.
  * Only rows still in "uploading" go, with any partial object.
  */

@@ -4,7 +4,7 @@ import type { GenerationStatus, MaterialStatus } from "@/lib/supabase/database.t
  * Work that runs inside a request (processing a material, writing a quiz,
  * deck or reviewer) stops when its route does — after 120 seconds at most.
  * Anything still "in progress" well past that was cut off (a timeout, a
- * closed tab, a cancelled upload) and is shown as failed, with Try again.
+ * closed tab, a canceled upload) and is shown as failed, with Try again.
  */
 export const STALE_AFTER_MS = 5 * 60_000;
 

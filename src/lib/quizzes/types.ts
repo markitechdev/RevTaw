@@ -24,7 +24,7 @@ export const QUESTION_TYPES: readonly QuestionTypeInfo[] = [
   { id: "short_answer", name: "Short answer", description: "Answer in one or two sentences, graded against a model answer.", grading: "ai", points: 2 },
   { id: "essay", name: "Essay", description: "Explain in a paragraph, graded with a short rubric.", grading: "ai", points: 3 },
   { id: "scenario", name: "Scenario", description: "Apply the material to a realistic situation.", grading: "ai", points: 3 },
-  { id: "case_based", name: "Case-based", description: "Analyse a short case and justify a decision.", grading: "ai", points: 3 },
+  { id: "case_based", name: "Case-based", description: "Analyze a short case and justify a decision.", grading: "ai", points: 3 },
   { id: "problem_solving", name: "Problem solving", description: "Work through a problem step by step to a final answer.", grading: "ai", points: 3 },
 ] as const;
 

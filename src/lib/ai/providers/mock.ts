@@ -261,7 +261,7 @@ export function analyzeHeuristically(material: string) {
         method === "flashcards" || method === "active_recall" || method === "spaced_repetition"
           ? "The material is definition-heavy, so retrieval practice works best."
           : method === "worked_examples" || method === "practice_problems" || method === "faded_worked_examples" || method === "error_review"
-            ? "The material contains formulas, so practising problems builds fluency."
+            ? "The material contains formulas, so practicing problems builds fluency."
             : method === "interleaving" || method === "practice_testing"
               ? "The material covers many topics, so mixing them prepares you for exams."
               : "The material is concept-heavy, so explaining ideas in your own words deepens understanding.",
@@ -674,7 +674,7 @@ export function recallCompareHeuristically(prompt: string) {
           ? `Partly there: you mentioned ${hits.join(", ") || "part of it"}; the model answer also includes ${misses.slice(0, 2).join(", ")}.`
           : blank
             ? "No answer yet — read the model answer, then try this prompt again later."
-            : `Not quite. Re-read the source: the answer centres on ${expected.slice(0, 3).join(", ")}.`,
+            : `Not quite. Re-read the source: the answer centers on ${expected.slice(0, 3).join(", ")}.`,
   };
 }
 

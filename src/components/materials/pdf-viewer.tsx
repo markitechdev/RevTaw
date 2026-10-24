@@ -34,7 +34,7 @@ export function PdfViewer({ url, title }: { url: string; title: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    let canceled = false;
     let loaded: PdfDocument | null = null;
 
     (async () => {
@@ -46,19 +46,19 @@ export function PdfViewer({ url, title }: { url: string; title: string }) {
         ).toString();
         const task = pdfjs.getDocument({ url, withCredentials: true });
         loaded = (await task.promise) as unknown as PdfDocument;
-        if (cancelled) {
+        if (canceled) {
           await loaded.destroy();
           return;
         }
         setDoc(loaded);
       } catch (cause) {
         console.error("pdf viewer: failed to load", cause);
-        if (!cancelled) setError("This PDF could not be displayed. You can still download it below.");
+        if (!canceled) setError("This PDF could not be displayed. You can still download it below.");
       }
     })();
 
     return () => {
-      cancelled = true;
+      canceled = true;
       void loaded?.destroy();
     };
   }, [url]);
@@ -192,12 +192,12 @@ function PdfPageCanvas({
     if (!shouldRender) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    let cancelled = false;
+    let canceled = false;
     let renderTask: { promise: Promise<void>; cancel: () => void } | null = null;
 
     (async () => {
       const page = await doc.getPage(pageNumber);
-      if (cancelled) return;
+      if (canceled) return;
       const container = wrapperRef.current?.parentElement;
       const available = Math.max(280, (container?.clientWidth ?? 800) - 24);
       const base = page.getViewport({ scale: 1 });
@@ -216,7 +216,7 @@ function PdfPageCanvas({
     })();
 
     return () => {
-      cancelled = true;
+      canceled = true;
       renderTask?.cancel();
     };
   }, [doc, pageNumber, zoom, shouldRender]);

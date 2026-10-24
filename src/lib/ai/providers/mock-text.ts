@@ -3,7 +3,7 @@
  * sentences, keywords and the definition-style "facts" most heuristics build on.
  */
 
-/** Splits a RevTaw transcript into its labelled sections. */
+/** Splits a RevTaw transcript into its labeled sections. */
 export function parseTranscriptSections(transcript: string): Array<{ heading: string; text: string }> {
   const sections: Array<{ heading: string; text: string }> = [];
   let current: { heading: string; text: string[] } | null = null;

@@ -38,7 +38,7 @@ export function TypingHeadline({ phrases, langs = [], className }: { phrases: re
     let shown = phrases[0];
     let timer: number | undefined;
     let visible = true;
-    let cancelled = false;
+    let canceled = false;
 
     const wait = (ms: number) =>
       new Promise<void>((resolve) => {
@@ -48,7 +48,7 @@ export function TypingHeadline({ phrases, langs = [], className }: { phrases: re
     const keyDelay = (char: string) => 48 + Math.random() * 62 + (char === " " ? 40 : 0) + (/[.,!?]/.test(char) ? 140 : 0);
 
     const untilReady = async () => {
-      while ((!visible || pausedRef.current) && !cancelled) await wait(400);
+      while ((!visible || pausedRef.current) && !canceled) await wait(400);
     };
     /** Paused mid-word: the whole phrase comes back at once and the loop waits. */
     const settle = (phrase: string) => {
@@ -59,13 +59,13 @@ export function TypingHeadline({ phrases, langs = [], className }: { phrases: re
 
     const run = async () => {
       await wait(2200);
-      while (!cancelled) {
+      while (!canceled) {
         await untilReady();
         // Backspace, quicker as it goes, like holding the key down.
         setTyping(true);
         const length = shown.length;
         const deleting = phrases[index];
-        for (let n = length - 1; n >= 0 && !cancelled && !pausedRef.current; n -= 1) {
+        for (let n = length - 1; n >= 0 && !canceled && !pausedRef.current; n -= 1) {
           shown = shown.slice(0, n);
           setText(shown);
           const deleted = length - n;
@@ -78,7 +78,7 @@ export function TypingHeadline({ phrases, langs = [], className }: { phrases: re
         await wait(320);
         index = (index + 1) % phrases.length;
         const next = phrases[index];
-        for (let n = 1; n <= next.length && !cancelled && !pausedRef.current; n += 1) {
+        for (let n = 1; n <= next.length && !canceled && !pausedRef.current; n += 1) {
           shown = next.slice(0, n);
           setText(shown);
           await wait(keyDelay(next[n - 1]));
@@ -106,7 +106,7 @@ export function TypingHeadline({ phrases, langs = [], className }: { phrases: re
     run();
 
     return () => {
-      cancelled = true;
+      canceled = true;
       window.clearTimeout(timer);
       observer?.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);

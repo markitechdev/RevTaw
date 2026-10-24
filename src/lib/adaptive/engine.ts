@@ -149,7 +149,7 @@ const MASTERY_COLUMNS_FOR_MATERIAL = "*, concept:concepts!concept_mastery_concep
 export const MASTERY_STALE_MS = 20 * 60 * 60 * 1000;
 
 /**
- * Once per request: recompute the student's mastery when any practised
+ * Once per request: recompute the student's mastery when any practiced
  * concept was last computed before the stale cutoff, or never by the
  * learning engine (P(learned) is at least the learn rate once there is an
  * answer, so 0 means an older model wrote the row).

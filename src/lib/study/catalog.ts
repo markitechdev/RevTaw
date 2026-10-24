@@ -2,7 +2,7 @@ import { STUDY_METHOD_BY_ID, STUDY_METHODS, type StudyMethodId } from "@/lib/stu
 import type { SessionGoal } from "@/lib/supabase/database.types";
 
 /**
- * Session behaviour attached to each study method (spec §15): what a session
+ * Session behavior attached to each study method (spec §15): what a session
  * of this method actually does, which goals it fits, how long it should run
  * and whether it is implemented yet. Client-safe.
  */
@@ -16,7 +16,7 @@ export type MethodBehaviour = {
   /** Methods without a runner yet point at the phase that adds one. */
   availableIn: "now" | "Phase 5" | "Phase 8";
   /** What changes when this method runs (shown on the methods page). */
-  behaviour: string;
+  behavior: string;
 };
 
 export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
@@ -27,7 +27,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["memorize", "understand", "practice", "exam_prep", "quick_review", "master_topic"],
     requiresMaterial: false,
     availableIn: "now",
-    behaviour: "Tamari builds a plan of blocks sized to your time — active recall on what is fading, a quiz on your weakest topics, one concept to explain back, your mistake notebook and a last retest on what you missed (longer plans open with a blurt and add due flashcards) — on your next exam's material when one is close, each with the reason it was picked. You run the blocks one by one and get one combined summary.",
+    behavior: "Tamari builds a plan of blocks sized to your time — active recall on what is fading, a quiz on your weakest topics, one concept to explain back, your mistake notebook and a last retest on what you missed (longer plans open with a blurt and add due flashcards) — on your next exam's material when one is close, each with the reason it was picked. You run the blocks one by one and get one combined summary.",
   },
   active_recall: {
     howItHelps: "Pulling an answer from memory strengthens it far more than re-reading it.",
@@ -36,7 +36,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["memorize", "practice", "quick_review", "master_topic"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Answers stay hidden until you have written yours; RevTaw then compares the two and lists what you got right, what was missing and what was wrong. Missed items go to the mistake notebook.",
+    behavior: "Answers stay hidden until you have written yours; RevTaw then compares the two and lists what you got right, what was missing and what was wrong. Missed items go to the mistake notebook.",
   },
   spaced_repetition: {
     howItHelps: "Reviewing just before you forget moves knowledge into long-term memory with the least effort.",
@@ -45,7 +45,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["memorize", "quick_review", "exam_prep"],
     requiresMaterial: false,
     availableIn: "now",
-    behaviour: "Only the flashcards that are due appear. Each rating reschedules the card: correct answers push it further out, misses bring it back tomorrow.",
+    behavior: "Only the flashcards that are due appear. Each rating reschedules the card: correct answers push it further out, misses bring it back tomorrow.",
   },
   flashcards: {
     howItHelps: "Short question-answer pairs make retrieval fast and repeatable.",
@@ -54,16 +54,16 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["memorize", "quick_review"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Cards are generated from the material; you flip and rate each one, and the deck's Leitner boxes and review dates update as you go.",
+    behavior: "Cards are generated from the material; you flip and rate each one, and the deck's Leitner boxes and review dates update as you go.",
   },
   feynman: {
     howItHelps: "Teaching a concept in plain words exposes the gaps that recognition hides.",
-    bestUseCases: "Concepts you recognise but cannot explain; theory-heavy subjects.",
+    bestUseCases: "Concepts you recognize but cannot explain; theory-heavy subjects.",
     suggestedMinutes: 20,
     goals: ["understand", "master_topic"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "You explain each concept as if to a beginner. RevTaw points out correct ideas, missing pieces, wrong ideas and unnecessary complexity, asks you to improve the explanation, and only then shows the ideal version.",
+    behavior: "You explain each concept as if to a beginner. RevTaw points out correct ideas, missing pieces, wrong ideas and unnecessary complexity, asks you to improve the explanation, and only then shows the ideal version.",
   },
   blurting: {
     howItHelps: "Writing everything you remember shows exactly what stuck after reading.",
@@ -72,7 +72,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["memorize", "quick_review"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Each section of the material becomes a blurt: the notes stay hidden while you write everything you remember, then RevTaw compares your text with the source and lists what you remembered, what was missing, what was incorrect and which important concepts you forgot. You get one retry before the source is shown.",
+    behavior: "Each section of the material becomes a blurt: the notes stay hidden while you write everything you remember, then RevTaw compares your text with the source and lists what you remembered, what was missing, what was incorrect and which important concepts you forgot. You get one retry before the source is shown.",
   },
   pomodoro: {
     howItHelps: "Fixed focus intervals with breaks keep attention high across a long block.",
@@ -81,7 +81,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["practice", "exam_prep", "master_topic"],
     requiresMaterial: false,
     availableIn: "now",
-    behaviour: "A work/break timer with presets (15/5, 25/5, 45/10, 50/10, 60/15) and a long break after four rounds; completed rounds count toward your focus time and streak.",
+    behavior: "A work/break timer with presets (15/5, 25/5, 45/10, 50/10, 60/15) and a long break after four rounds; completed rounds count toward your focus time and streak.",
   },
   cornell_notes: {
     howItHelps: "Cues, notes and a summary force you to process a lesson three times.",
@@ -90,7 +90,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["understand"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Generate a Cornell reviewer from the material (Notes → Create reviewer → Cornell): cue column, main notes and summary, all editable.",
+    behavior: "Generate a Cornell reviewer from the material (Notes → Create reviewer → Cornell): cue column, main notes and summary, all editable.",
   },
   retrieval_practice: {
     howItHelps: "Varied recall formats build flexible memory instead of pattern matching.",
@@ -99,16 +99,16 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["memorize", "practice"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Recall exercises in rotating formats — short answer, definition, fill in the blank, explanation, list, example, process, calculation — each graded against the material; retrieval strength per concept updates as you go.",
+    behavior: "Recall exercises in rotating formats — short answer, definition, fill in the blank, explanation, list, example, process, calculation — each graded against the material; retrieval strength per concept updates as you go.",
   },
   practice_testing: {
-    howItHelps: "Testing under exam conditions reveals what you can produce, not just recognise.",
+    howItHelps: "Testing under exam conditions reveals what you can produce, not just recognize.",
     bestUseCases: "Exam readiness; finding weak concepts quickly.",
     suggestedMinutes: 30,
     goals: ["practice", "exam_prep", "master_topic"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "A mixed-type test is generated from the material; answers are hidden until you submit, with an optional timer. The score, concept breakdown and mistakes feed your progress.",
+    behavior: "A mixed-type test is generated from the material; answers are hidden until you submit, with an optional timer. The score, concept breakdown and mistakes feed your progress.",
   },
   interleaving: {
     howItHelps: "Mixing topics forces you to pick the right method each time, like an exam does.",
@@ -117,7 +117,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["exam_prep", "master_topic"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "You pick two to four materials; recall prompts alternate between them so every question forces you to decide which idea applies, and each prompt shows which material it came from.",
+    behavior: "You pick two to four materials; recall prompts alternate between them so every question forces you to decide which idea applies, and each prompt shows which material it came from.",
   },
   chunking: {
     howItHelps: "Small sections with mini summaries keep a big chapter from overwhelming you.",
@@ -126,7 +126,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["understand"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "The material is split into short chunks, each with a main idea, important details and a mini summary; you read one, answer its recall question, and only then move to the next.",
+    behavior: "The material is split into short chunks, each with a main idea, important details and a mini summary; you read one, answer its recall question, and only then move to the next.",
   },
   elaborative_interrogation: {
     howItHelps: "Asking why and how connects facts into explanations that last.",
@@ -135,7 +135,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["understand"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "A tutor conversation in why-chain mode: it states a claim from the material, asks why it is true, evaluates your reasoning and asks the next why; the session ends with a reasoning score.",
+    behavior: "A tutor conversation in why-chain mode: it states a claim from the material, asks why it is true, evaluates your reasoning and asks the next why; the session ends with a reasoning score.",
   },
   self_explanation: {
     howItHelps: "Explaining each step while solving catches misunderstandings early.",
@@ -144,7 +144,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["understand", "practice"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "A tutor conversation that walks through a worked solution or process from the material one step at a time; you explain why each step works before the next appears.",
+    behavior: "A tutor conversation that walks through a worked solution or process from the material one step at a time; you explain why each step works before the next appears.",
   },
   socratic_questioning: {
     howItHelps: "Guided questions make you reach the answer instead of being handed it.",
@@ -153,7 +153,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["understand", "master_topic"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "A tutor conversation in Socratic mode: it answers with questions (What makes you think that? What evidence supports it? What assumption are you making?) and never hands over the answer; the session ends with feedback on your reasoning.",
+    behavior: "A tutor conversation in Socratic mode: it answers with questions (What makes you think that? What evidence supports it? What assumption are you making?) and never hands over the answer; the session ends with feedback on your reasoning.",
   },
   dual_coding: {
     howItHelps: "Pairing words with a diagram gives memory two routes to the same idea.",
@@ -162,7 +162,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["understand", "memorize"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Each important topic as a short text and as a visual — table, flowchart, timeline, diagram or concept relationships — with Text, Visual and Combined views; then you rebuild the visual from memory (reorder the steps, fill the table, attach the parts, name the links) and RevTaw checks it. Visuals are saved for the material and reused.",
+    behavior: "Each important topic as a short text and as a visual — table, flowchart, timeline, diagram or concept relationships — with Text, Visual and Combined views; then you rebuild the visual from memory (reorder the steps, fill the table, attach the parts, name the links) and RevTaw checks it. Visuals are saved for the material and reused.",
   },
   mind_mapping: {
     howItHelps: "A map of topics and links shows the structure you are studying.",
@@ -171,7 +171,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["understand"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "RevTaw draws a hierarchical map of the material that you can expand, collapse, add to, edit, prune and connect across branches, in an outline or a map view; pick any branch and it writes recall questions on it for you to answer. The map is saved with the material.",
+    behavior: "RevTaw draws a hierarchical map of the material that you can expand, collapse, add to, edit, prune and connect across branches, in an outline or a map view; pick any branch and it writes recall questions on it for you to answer. The map is saved with the material.",
   },
   mnemonics: {
     howItHelps: "Acronyms, rhymes and stories make arbitrary lists stick.",
@@ -180,7 +180,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["memorize"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "RevTaw finds the lists and sequences in the material that are hard to memorize and offers two or three accurate devices for each — acronyms, acrostics, rhymes, memory phrases, associations, small stories. Pick one or write your own, save the ones that work, then recall the list from the device alone; saved mnemonics come back for practice.",
+    behavior: "RevTaw finds the lists and sequences in the material that are hard to memorize and offers two or three accurate devices for each — acronyms, acrostics, rhymes, memory phrases, associations, small stories. Pick one or write your own, save the ones that work, then recall the list from the device alone; saved mnemonics come back for practice.",
   },
   worked_examples: {
     howItHelps: "Seeing every step explained builds the pattern before you solve alone.",
@@ -189,7 +189,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["understand", "practice"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Each worked example shows the problem, every solution step with the reason for it and the final answer, revealed step by step; then you solve a similar problem on your own and RevTaw checks your reasoning, not just the result.",
+    behavior: "Each worked example shows the problem, every solution step with the reason for it and the final answer, revealed step by step; then you solve a similar problem on your own and RevTaw checks your reasoning, not just the result.",
   },
   faded_worked_examples: {
     howItHelps: "Removing help gradually moves you from guided to independent solving.",
@@ -198,7 +198,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["practice"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Four problems of one kind: the first comes 90% solved, then 70%, then 40%, then you solve one alone. You write the missing steps and the answer; if one goes badly, the next keeps the same amount of help.",
+    behavior: "Four problems of one kind: the first comes 90% solved, then 70%, then 40%, then you solve one alone. You write the missing steps and the answer; if one goes badly, the next keeps the same amount of help.",
   },
   practice_problems: {
     howItHelps: "Repetition with feedback builds fluency in calculation-heavy subjects.",
@@ -207,7 +207,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["practice", "master_topic"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Source-grounded problems at easy, medium, hard or challenge level (or adapted to your mastery). After you answer: the full solution, the explanation of every step and an alternative approach when one is valid.",
+    behavior: "Source-grounded problems at easy, medium, hard or challenge level (or adapted to your mastery). After you answer: the full solution, the explanation of every step and an alternative approach when one is valid.",
   },
   error_review: {
     howItHelps: "Retesting past mistakes breaks the errors that keep repeating.",
@@ -216,7 +216,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["practice", "exam_prep", "master_topic"],
     requiresMaterial: false,
     availableIn: "now",
-    behaviour: "Open entries from your mistake notebook come back as recall questions; a correct answer marks the mistake learned, a miss keeps it open.",
+    behavior: "Open entries from your mistake notebook come back as recall questions; a correct answer marks the mistake learned, a miss keeps it open.",
   },
   rapid_review: {
     howItHelps: "Hitting the highest-value points first makes the most of very little time.",
@@ -225,7 +225,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["quick_review", "exam_prep"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "A 5, 10 or 15 minute pass: open mistakes first, then recall prompts on your weakest concepts and the material's likely exam topics — nothing else.",
+    behavior: "A 5, 10 or 15 minute pass: open mistakes first, then recall prompts on your weakest concepts and the material's likely exam topics — nothing else.",
   },
   teach_back: {
     howItHelps: "Teaching to a learner who asks questions reveals exactly where your understanding thins out.",
@@ -234,7 +234,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["understand", "master_topic"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "The AI plays a curious beginner: it asks you to teach a concept, interrupts with the questions a learner would ask whenever something is unclear or skipped, and the session ends with a teaching score, strengths, missing concepts and one suggested improvement.",
+    behavior: "The AI plays a curious beginner: it asks you to teach a concept, interrupts with the questions a learner would ask whenever something is unclear or skipped, and the session ends with a teaching score, strengths, missing concepts and one suggested improvement.",
   },
   cumulative_review: {
     howItHelps: "Mixing old lessons back in keeps them from fading while you learn the new ones.",
@@ -243,7 +243,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["quick_review", "exam_prep", "memorize"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Recall prompts are split 60% current material, 20% the previous one, 10% older and 10% the oldest relevant material, each labelled with its source.",
+    behavior: "Recall prompts are split 60% current material, 20% the previous one, 10% older and 10% the oldest relevant material, each labeled with its source.",
   },
   mixed_practice: {
     howItHelps: "Unpredictable formats stop you from pattern-matching the question type.",
@@ -252,7 +252,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["practice", "exam_prep"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "A practice test with every question type RevTaw can write — multiple choice, true/false, identification, fill in the blank, short answer, essay, scenario, case-based and problem solving — shuffled.",
+    behavior: "A practice test with every question type RevTaw can write — multiple choice, true/false, identification, fill in the blank, short answer, essay, scenario, case-based and problem solving — shuffled.",
   },
   exam_simulation: {
     howItHelps: "A rehearsal under real conditions shows how you perform with a clock and no safety net.",
@@ -261,7 +261,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["exam_prep"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Exam mode: timer, random question order, randomised options, no hints, no explanations until the end, automatic submission when time runs out, then the full breakdown.",
+    behavior: "Exam mode: timer, random question order, randomised options, no hints, no explanations until the end, automatic submission when time runs out, then the full breakdown.",
   },
   question_generation: {
     howItHelps: "Writing good questions means understanding what matters and how it could be asked.",
@@ -270,7 +270,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["understand", "exam_prep"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "You write questions about the material (with the answer you expect); RevTaw rates each for relevance, clarity, difficulty and accuracy, suggests an improved version, and the session ends with your question set and its average quality.",
+    behavior: "You write questions about the material (with the answer you expect); RevTaw rates each for relevance, clarity, difficulty and accuracy, suggests an improved version, and the session ends with your question set and its average quality.",
   },
   custom_routine: {
     howItHelps: "A routine you repeat removes the daily decision of what to do.",
@@ -279,7 +279,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["memorize", "understand", "practice", "exam_prep", "quick_review", "master_topic"],
     requiresMaterial: false,
     availableIn: "now",
-    behaviour: "Save an ordered combination of methods and minutes (e.g. 25-minute Pomodoro, 10 recall prompts, 10 flashcards, mistake review) and run it as one session with a combined summary.",
+    behavior: "Save an ordered combination of methods and minutes (e.g. 25-minute Pomodoro, 10 recall prompts, 10 flashcards, mistake review) and run it as one session with a combined summary.",
   },
   sq3r: {
     howItHelps: "Surveying, questioning and reciting turn passive reading into active study.",
@@ -288,7 +288,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["understand"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "RevTaw walks you through each stage: survey the outline, summary and key concepts; turn every heading into a question; read section by section with your questions beside the text; recite the answers from memory with the text hidden; then review — your own summary is compared with the chapter and the questions you missed point to what to re-read.",
+    behavior: "RevTaw walks you through each stage: survey the outline, summary and key concepts; turn every heading into a question; read section by section with your questions beside the text; recite the answers from memory with the text hidden; then review — your own summary is compared with the chapter and the questions you missed point to what to re-read.",
   },
   pq4r: {
     howItHelps: "Reflecting on why something is true makes it stick far longer than reading twice.",
@@ -297,7 +297,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["understand"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Like SQ3R with a Reflect stage after reading: RevTaw asks conceptual why / how / what-if / connect questions about what you read and checks your reasoning before you recite your own questions from memory and review.",
+    behavior: "Like SQ3R with a Reflect stage after reading: RevTaw asks conceptual why / how / what-if / connect questions about what you read and checks your reasoning before you recite your own questions from memory and review.",
   },
   scenario_based: {
     howItHelps: "Applying knowledge to a realistic situation is how exams and jobs test it.",
@@ -306,16 +306,16 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["practice", "understand"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Realistic scenarios set in your field and built from the material: you choose an action from plausible options and justify it; RevTaw grades the choice and the reasoning separately, explains why the best action is best and why yours was or was not.",
+    behavior: "Realistic scenarios set in your field and built from the material: you choose an action from plausible options and justify it; RevTaw grades the choice and the reasoning separately, explains why the best action is best and why yours was or was not.",
   },
   case_based: {
-    howItHelps: "Working a full case builds judgement, not just recall.",
+    howItHelps: "Working a full case builds judgment, not just recall.",
     bestUseCases: "Analysis-heavy subjects.",
     suggestedMinutes: 30,
     goals: ["practice", "understand", "master_topic"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Detailed cases with background, data and a complication: you write the problem, the evidence, possible solutions, the best one and your justification; RevTaw scores each part, shows the expert analysis beside yours and keeps your draft if you refresh.",
+    behavior: "Detailed cases with background, data and a complication: you write the problem, the evidence, possible solutions, the best one and your justification; RevTaw scores each part, shows the expert analysis beside yours and keeps your draft if you refresh.",
   },
   pre_testing: {
     howItHelps: "A test before studying tells you where to pay attention; a test after shows the gain.",
@@ -324,7 +324,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["practice", "master_topic"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Three blocks: a short diagnostic test before you study, which tells you which concepts to pay attention to; a study block aimed at exactly those; then a post-test on the same concepts. The summary shows the before-and-after score and the change for every concept.",
+    behavior: "Three blocks: a short diagnostic test before you study, which tells you which concepts to pay attention to; a study block aimed at exactly those; then a post-test on the same concepts. The summary shows the before-and-after score and the change for every concept.",
   },
   concept_mapping: {
     howItHelps: "Naming the relationship between two ideas is understanding made visible.",
@@ -333,7 +333,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["understand"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Concepts linked by explicit relationships — causes, requires, leads to, contains, depends on, is an example of — drawn as a graph you can edit; then test the links: RevTaw hides the relationships and you name each one from memory.",
+    behavior: "Concepts linked by explicit relationships — causes, requires, leads to, contains, depends on, is an example of — drawn as a graph you can edit; then test the links: RevTaw hides the relationships and you name each one from memory.",
   },
   memory_palace: {
     howItHelps: "Spatial memory is strong; attaching facts to places borrows that strength.",
@@ -342,7 +342,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["memorize"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Define a route of places you know — or reuse a saved palace — and RevTaw places the material's key concepts along it, one vivid image per stop that still says what the concept means. Then walk the route: at each stop you name what you placed there, and the image and meaning come back after you answer.",
+    behavior: "Define a route of places you know — or reuse a saved palace — and RevTaw places the material's key concepts along it, one vivid image per stop that still says what the concept means. Then walk the route: at each stop you name what you placed there, and the image and meaning come back after you answer.",
   },
   story_method: {
     howItHelps: "A story gives unrelated facts a sequence and a reason.",
@@ -351,7 +351,7 @@ export const METHOD_BEHAVIOUR: Record<StudyMethodId, MethodBehaviour> = {
     goals: ["memorize"],
     requiresMaterial: true,
     availableIn: "now",
-    behaviour: "Related facts from the material become a short story — characters and scenes may be invented, the facts may not. The original notes and the story version sit side by side, each paragraph marked with the facts it carries; then you retell the story from memory and RevTaw checks every fact and flags anything that contradicts the notes.",
+    behavior: "Related facts from the material become a short story — characters and scenes may be invented, the facts may not. The original notes and the story version sit side by side, each paragraph marked with the facts it carries; then you retell the story from memory and RevTaw checks every fact and flags anything that contradicts the notes.",
   },
 };
 

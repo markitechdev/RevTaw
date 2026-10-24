@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { chunkSections, CHUNK_MAX_CHARS, isHeadingLine, splitIntoParagraphs } from "@/lib/materials/chunk";
 
 describe("isHeadingLine", () => {
-  it("recognises chapter, numbered, upper-case and markdown headings", () => {
+  it("recognizes chapter, numbered, upper-case and markdown headings", () => {
     expect(isHeadingLine("Chapter 1 Arrays")).toBe(true);
     expect(isHeadingLine("2.3 Binary Search")).toBe(true);
     expect(isHeadingLine("LIGHT-DEPENDENT REACTIONS")).toBe(true);
