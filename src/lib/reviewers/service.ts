@@ -1,6 +1,7 @@
 import "server-only";
 
 import { isAiError } from "@/lib/ai";
+import { ServiceError } from "@/lib/errors";
 import { claimForRetry, retryRefusal } from "@/lib/generation/retry";
 import type { AnalysisChunkInput } from "@/lib/materials/analyze";
 import { generateReviewer, regenerateSection, type ReviewerSectionDraft } from "@/lib/reviewers/generate";
@@ -11,15 +12,6 @@ import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 
-export class ServiceError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-    this.name = "ServiceError";
-  }
-}
 
 /** Loads the material's chunks in the shape the generators expect. */
 export async function loadMaterialContext(supabase: Client, materialId: string) {

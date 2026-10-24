@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { track } from "@/lib/analytics/server";
+import { ServiceError } from "@/lib/errors";
 import { FLASHCARD_MAX, FLASHCARD_MIN } from "@/lib/flashcards/constants";
-import { createDeck, ServiceError } from "@/lib/flashcards/service";
+import { createDeck } from "@/lib/flashcards/service";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/supabase/server";
 

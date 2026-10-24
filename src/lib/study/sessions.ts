@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
+import { ServiceError } from "@/lib/errors";
 import { awardSessionXp } from "@/lib/gamification/service";
 import { completeTaskForSession } from "@/lib/planner/service";
 import { isPlanMethod, isTestMethod } from "@/lib/study/catalog";
@@ -12,14 +13,9 @@ import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 
-export class SessionError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-    this.name = "SessionError";
-  }
+/** A study session that cannot start or go on (not found, already finished, no material ready ...). */
+export class SessionError extends ServiceError {
+  override readonly name = "SessionError";
 }
 
 export const SESSION_GOALS: ReadonlyArray<{ id: SessionGoal; label: string; hint: string }> = [

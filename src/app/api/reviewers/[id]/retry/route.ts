@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { ServiceError } from "@/lib/errors";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";
-import { retryReviewer, ServiceError } from "@/lib/reviewers/service";
+import { retryReviewer } from "@/lib/reviewers/service";
 import { getCurrentUser } from "@/lib/supabase/server";
 
 export const maxDuration = 120;

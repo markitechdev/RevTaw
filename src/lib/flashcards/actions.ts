@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { reviewCard, ServiceError, type ReviewResult } from "@/lib/flashcards/service";
+import { ServiceError } from "@/lib/errors";
+import { reviewCard, type ReviewResult } from "@/lib/flashcards/service";
 import { routes } from "@/lib/routes";
-import { completeSession, createSession, SessionError, sessionTitle, suggestNext, type SessionSummary } from "@/lib/study/sessions";
+import { completeSession, createSession, sessionTitle, suggestNext, type SessionSummary } from "@/lib/study/sessions";
 import { readPages } from "@/lib/supabase/paginate";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { titleWithSuffix } from "@/lib/text/clamp";
@@ -23,7 +24,7 @@ function revalidate(deckId?: string) {
 }
 
 function failure(error: unknown, fallback: string): { ok: false; message: string } {
-  if (error instanceof ServiceError || error instanceof SessionError) return { ok: false, message: error.message };
+  if (error instanceof ServiceError) return { ok: false, message: error.message };
   console.error(fallback, error);
   return { ok: false, message: fallback };
 }

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { track } from "@/lib/analytics/server";
-import { createQuiz, ServiceError } from "@/lib/quizzes/service";
+import { ServiceError } from "@/lib/errors";
+import { createQuiz } from "@/lib/quizzes/service";
 import { quizConfigSchema } from "@/lib/quizzes/schemas";
 import { typeCoverageError } from "@/lib/quizzes/types";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";

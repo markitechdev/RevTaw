@@ -5,17 +5,18 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { isAiError } from "@/lib/ai";
+import { ServiceError } from "@/lib/errors";
 import { routes } from "@/lib/routes";
 import type { SessionSummary } from "@/lib/study/sessions";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import { addMessageToNotes, completeTutorSession, createFlashcardFromMessage, ServiceError, SessionError } from "@/lib/tutor/service";
+import { addMessageToNotes, completeTutorSession, createFlashcardFromMessage } from "@/lib/tutor/service";
 
 export type TutorActionResult<T = undefined> = ({ ok: true } & (T extends undefined ? { data?: undefined } : { data: T })) | { ok: false; message: string };
 
 const uuid = z.uuid();
 
 function failure(error: unknown, fallback: string): { ok: false; message: string } {
-  if (error instanceof ServiceError || error instanceof SessionError) return { ok: false, message: error.message };
+  if (error instanceof ServiceError) return { ok: false, message: error.message };
   if (isAiError(error)) return { ok: false, message: error.message };
   console.error(fallback, error);
   return { ok: false, message: fallback };

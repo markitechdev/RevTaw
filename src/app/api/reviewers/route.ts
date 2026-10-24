@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { track } from "@/lib/analytics/server";
+import { ServiceError } from "@/lib/errors";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { REVIEWER_KIND_IDS } from "@/lib/reviewers/kinds";
-import { createReviewer, ServiceError } from "@/lib/reviewers/service";
+import { createReviewer } from "@/lib/reviewers/service";
 import { getCurrentUser } from "@/lib/supabase/server";
 
 export const maxDuration = 120;

@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { refreshMastery } from "@/lib/adaptive/engine";
-import { saveAnswer, selfGradeAnswer, ServiceError, startAttempt, submitAttempt, type SaveAnswerResult } from "@/lib/quizzes/service";
+import { ServiceError } from "@/lib/errors";
+import { saveAnswer, selfGradeAnswer, startAttempt, submitAttempt, type SaveAnswerResult } from "@/lib/quizzes/service";
 import { routes } from "@/lib/routes";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { retryQuiz, ServiceError } from "@/lib/quizzes/service";
+import { ServiceError } from "@/lib/errors";
+import { retryQuiz } from "@/lib/quizzes/service";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/supabase/server";
 

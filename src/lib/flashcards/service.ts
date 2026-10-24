@@ -2,18 +2,18 @@ import "server-only";
 
 import { refreshMastery } from "@/lib/adaptive/engine";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
+import { ServiceError } from "@/lib/errors";
 import { generateFlashcards } from "@/lib/flashcards/generate";
 import { describeWait } from "@/lib/engine/fsrs";
 import { currentSnapshot, ratingWaits, scheduleCard, scheduleColumns } from "@/lib/flashcards/scheduler";
 import { claimForRetry, retryRefusal } from "@/lib/generation/retry";
-import { friendlyGenerationFailure, loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
+import { friendlyGenerationFailure, loadMaterialContext } from "@/lib/reviewers/service";
 import type { FlashcardRating } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 
-export { ServiceError };
 
 export async function createDeck(materialId: string, options: { count: number; focus: string | null }): Promise<{ id: string; status: "ready" | "failed"; detail: string | null }> {
   const supabase = await createClient();

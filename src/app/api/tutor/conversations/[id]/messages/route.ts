@@ -5,10 +5,11 @@ import { pageContextSchema } from "@/lib/assistant/context-schema";
 import { resolvePageContext } from "@/lib/assistant/context";
 import { studySnapshot } from "@/lib/assistant/snapshot";
 import { asksAboutStudyData } from "@/lib/assistant/study-question";
+import { ServiceError } from "@/lib/errors";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { getConversation } from "@/lib/tutor/queries";
-import { sendMessage, ServiceError } from "@/lib/tutor/service";
+import { sendMessage } from "@/lib/tutor/service";
 import { TUTOR_ACTION_IDS } from "@/lib/tutor/types";
 
 export const maxDuration = 120;

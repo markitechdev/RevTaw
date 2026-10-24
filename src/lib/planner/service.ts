@@ -1,6 +1,7 @@
 import "server-only";
 
 import { listMastery } from "@/lib/adaptive/engine";
+import { ServiceError } from "@/lib/errors";
 import { countDueCards } from "@/lib/flashcards/queries";
 import { parseAnalysisData } from "@/lib/materials/analysis-schema";
 import { addDays, dateIn, daysBetween, isIsoDate, todayIn, weekdayOf } from "@/lib/planner/dates";
@@ -16,14 +17,9 @@ import { clampText, clampTitle } from "@/lib/text/clamp";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 
-export class PlannerError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-    this.name = "PlannerError";
-  }
+/** A plan, exam, task or goal that cannot be changed (not found, out of range ...). */
+export class PlannerError extends ServiceError {
+  override readonly name = "PlannerError";
 }
 
 /** The student's time zone (null = UTC) and today's date in it. */

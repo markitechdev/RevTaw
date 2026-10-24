@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { isAiError } from "@/lib/ai";
+import { ServiceError } from "@/lib/errors";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";
-import { regenerateReviewerSection, ServiceError } from "@/lib/reviewers/service";
+import { regenerateReviewerSection } from "@/lib/reviewers/service";
 import { getCurrentUser } from "@/lib/supabase/server";
 
 export const maxDuration = 90;

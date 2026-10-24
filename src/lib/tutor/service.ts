@@ -3,9 +3,9 @@ import "server-only";
 import { isAiError } from "@/lib/ai";
 import { track } from "@/lib/analytics/server";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
+import { ServiceError } from "@/lib/errors";
 import type { StudentContext } from "@/lib/materials/analyze";
 import { parsePreferences } from "@/lib/preferences/schema";
-import { ServiceError } from "@/lib/reviewers/service";
 import { completeSession, createSession, loadSession, SessionError, type SessionSummary } from "@/lib/study/sessions";
 import type { Json, StudySession, TutorMode } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -18,7 +18,6 @@ import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 
-export { ServiceError, SessionError };
 
 /** Turns of conversation sent with each message (Tamari's request budget). */
 const HISTORY_LIMIT = TUTOR_HISTORY_TURNS;

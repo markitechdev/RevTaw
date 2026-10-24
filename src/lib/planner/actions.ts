@@ -6,30 +6,15 @@ import { z } from "zod";
 
 import { isAiError } from "@/lib/ai";
 import { syncCalendarAfterChange } from "@/lib/calendar/sync";
+import { ServiceError } from "@/lib/errors";
 import { isValidTimezone } from "@/lib/planner/dates";
 import { completeGoal, createGoal, deleteGoal } from "@/lib/planner/goals";
 import { getTask } from "@/lib/planner/queries";
-import {
-  archiveExam,
-  completeTask,
-  createExam,
-  deleteExam,
-  deleteTask,
-  moveTask,
-  PlannerError,
-  rebalancePlan,
-  regeneratePlan,
-  reopenTask,
-  saveActivity,
-  scheduleReviewCycle,
-  skipTask,
-  updateExam,
-  updatePlanSettings,
-} from "@/lib/planner/service";
+import { archiveExam, completeTask, createExam, deleteExam, deleteTask, moveTask, rebalancePlan, regeneratePlan, reopenTask, saveActivity, scheduleReviewCycle, skipTask, updateExam, updatePlanSettings } from "@/lib/planner/service";
 import type { ActivityInput, ExamFormInput, GoalFormInput } from "@/lib/planner/schemas";
 import { routes } from "@/lib/routes";
 import { isBuilderMethod, isTestMethod, type BuilderMethodId } from "@/lib/study/catalog";
-import { ServiceError, SessionError, startSession } from "@/lib/study/service";
+import { startSession } from "@/lib/study/service";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 export type PlannerActionResult<T = undefined> = ({ ok: true } & (T extends undefined ? { data?: undefined } : { data: T })) | { ok: false; message: string };
@@ -46,7 +31,7 @@ function revalidate(examId?: string | null) {
 }
 
 function failure(error: unknown, fallback: string): { ok: false; message: string } {
-  if (error instanceof PlannerError || error instanceof SessionError || error instanceof ServiceError) return { ok: false, message: error.message };
+  if (error instanceof ServiceError) return { ok: false, message: error.message };
   if (isAiError(error)) return { ok: false, message: error.message };
   console.error(fallback, error);
   return { ok: false, message: fallback };

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { defaultDifficulty, difficultyTargets, refreshMastery, weakConceptNames } from "@/lib/adaptive/engine";
+import { ServiceError } from "@/lib/errors";
 import { awardAttemptXp } from "@/lib/gamification/service";
 import { isAiError } from "@/lib/ai";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
@@ -19,7 +20,7 @@ import {
   type QuestionResponse,
   type QuizConfig,
 } from "@/lib/quizzes/types";
-import { friendlyGenerationFailure, loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
+import { friendlyGenerationFailure, loadMaterialContext } from "@/lib/reviewers/service";
 import type { ConfidenceLevel, Json, QuestionType, QuizMode } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { clampText, clampTitle, titleWithSuffix } from "@/lib/text/clamp";
@@ -29,7 +30,6 @@ type Client = Awaited<ReturnType<typeof createClient>>;
 /** Seconds after the deadline during which late answers are still accepted (network slack). */
 const DEADLINE_GRACE_MS = 20_000;
 
-export { ServiceError };
 
 // ---------------------------------------------------------------------------
 // Generation

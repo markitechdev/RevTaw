@@ -7,7 +7,7 @@ import { isAiError } from "@/lib/ai";
 import { getConceptPerformance } from "@/lib/quizzes/queries";
 import { createQuiz, startAttempt } from "@/lib/quizzes/service";
 import { QUESTION_TYPE_IDS } from "@/lib/quizzes/types";
-import { loadMaterialContext, ServiceError } from "@/lib/reviewers/service";
+import { loadMaterialContext } from "@/lib/reviewers/service";
 import { startBlurting, startChunking, startCumulativeReview, startInterleaving, startQuestionGeneration, startRapidReview, startRetrievalPractice } from "@/lib/study/advanced";
 import { startCases, startScenarios } from "@/lib/study/flows/applied";
 import { startGuidedReading } from "@/lib/study/flows/reading";
@@ -27,8 +27,6 @@ import { createClient } from "@/lib/supabase/server";
 import { startTutorSession } from "@/lib/tutor/service";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
-
-export { SessionError, ServiceError };
 
 export type StartSessionInput = {
   method: BuilderMethodId;
