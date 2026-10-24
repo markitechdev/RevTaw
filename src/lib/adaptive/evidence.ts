@@ -202,8 +202,18 @@ export async function collectEvidence(supabase: Client, userId: string, conceptI
   return byConcept;
 }
 
-/** The student's median response time per question type, from their latest timed answers. */
+/** How long a server instance reuses a student's response-time medians (they move slowly; every answer used to read 800 rows). */
+const MEDIANS_TTL_MS = 10 * 60_000;
+const MEDIANS_CACHED_MAX = 1000;
+const cachedMedians = new Map<string, { value: Record<string, number | null>; until: number }>();
+
+/**
+ * The student's median response time per question type, from their latest timed answers. Each server
+ * instance keeps a student's medians for ten minutes, so a run of answers reads them once.
+ */
 async function responseMedians(supabase: Client, userId: string): Promise<Record<string, number | null>> {
+  const hit = cachedMedians.get(userId);
+  if (hit && hit.until > Date.now()) return hit.value;
   const [answers, items] = await Promise.all([
     supabase
       .from("quiz_answers")
@@ -223,7 +233,14 @@ async function responseMedians(supabase: Client, userId: string): Promise<Record
   };
   for (const row of answers.data ?? []) add((row.question as unknown as { type: string } | null)?.type ?? "quiz", row.response_ms);
   for (const row of items.data ?? []) add(itemType(row.kind, row.format), row.response_ms);
-  return Object.fromEntries([...byType].map(([type, values]) => [type, median(values)]));
+  const value = Object.fromEntries([...byType].map(([type, values]) => [type, median(values)]));
+  // A failed read is never kept.
+  if (!answers.error && !items.error) {
+    cachedMedians.delete(userId);
+    if (cachedMedians.size >= MEDIANS_CACHED_MAX) cachedMedians.delete(cachedMedians.keys().next().value!);
+    cachedMedians.set(userId, { value, until: Date.now() + MEDIANS_TTL_MS });
+  }
+  return value;
 }
 
 /** Splits ids into `in (…)` lists short enough for a request URL. */
@@ -300,25 +317,57 @@ export function abilityOf(rows: Array<{ elo_rating: number; elo_answers: number 
     weighted += Number(row.elo_rating) * row.elo_answers;
     answers += row.elo_answers;
   }
-  return answers === 0 ? 0 : weighted / (answers + ENGINE.elo.abilityPriorAnswers);
+  return abilityFromTotals(weighted, answers);
+}
+
+/** The same from the two sums (sum of rating × answers, sum of answers). */
+export function abilityFromTotals(weighted: number, answers: number): number {
+  return answers <= 0 ? 0 : weighted / (answers + ENGINE.elo.abilityPriorAnswers);
+}
+
+/** The student's overall ability from student_elo_totals() (migration 0030), without reading every mastery row. */
+async function studentAbility(supabase: Client, userId: string): Promise<number> {
+  const { data, error } = await supabase.rpc("student_elo_totals", { p_user_id: userId });
+  if (!error && data?.[0]) return abilityFromTotals(Number(data[0].weighted), Number(data[0].answers));
+  // Before the migration is applied: the same from the rows.
+  if (error) console.error("student_elo_totals failed; reading the rows instead", error.message);
+  const rows = await readPages((from, to) => supabase.from("concept_mastery").select("elo_rating, elo_answers").eq("user_id", userId).gt("elo_answers", 0).order("concept_id").range(from, to), 10_000);
+  return abilityOf(rows.map((row) => ({ elo_rating: Number(row.elo_rating), elo_answers: row.elo_answers })));
+}
+
+/** A full recompute reads every row anyway; a few concepts are read by id. */
+const PREVIOUS_BY_ID_MAX = 300;
+
+type PreviousRow = { concept_id: string; best_status: MasteryStatus | null; elo_start: number | null };
+
+/** What the targets' mastery rows keep between recomputes (best state reached, where the rating started). */
+async function previousRows(supabase: Client, userId: string, conceptIds: string[]): Promise<PreviousRow[]> {
+  const columns = "concept_id, best_status, elo_start";
+  if (conceptIds.length > PREVIOUS_BY_ID_MAX) {
+    return readPages((from, to) => supabase.from("concept_mastery").select(columns).eq("user_id", userId).order("concept_id").range(from, to), 10_000);
+  }
+  const pages = await Promise.all(chunked([...new Set(conceptIds)]).map((chunk) => supabase.from("concept_mastery").select(columns).eq("user_id", userId).in("concept_id", chunk)));
+  const failed = pages.find((page) => page.error);
+  if (failed?.error) throw new Error(`concept_mastery: read failed: ${failed.error.message}`);
+  return pages.flatMap((page) => page.data ?? []);
 }
 
 export async function loadModelContext(supabase: Client, userId: string, conceptIds: string[]): Promise<ModelContext> {
-  const [{ data: profile }, medians, buckets, categories, mastery] = await Promise.all([
+  const [{ data: profile }, medians, buckets, categories, previous, ability] = await Promise.all([
     supabase.from("profiles").select("timezone").eq("id", userId).maybeSingle(),
     responseMedians(supabase, userId),
     loadBuckets(supabase),
     conceptCategories(supabase, conceptIds, userId),
-    readPages((from, to) => supabase.from("concept_mastery").select("concept_id, best_status, elo_start, elo_rating, elo_answers").eq("user_id", userId).order("concept_id").range(from, to), 10_000),
+    previousRows(supabase, userId, conceptIds),
+    studentAbility(supabase, userId),
   ]);
-  const rows = mastery;
   const zone = profile?.timezone;
   return {
     timeZone: isValidTimezone(zone) ? zone : DEFAULT_TIMEZONE,
     medians,
     buckets,
     categories,
-    previous: new Map(rows.map((row) => [row.concept_id, { bestStatus: row.best_status, eloStart: row.elo_start === null ? null : Number(row.elo_start) }])),
-    ability: abilityOf(rows),
+    previous: new Map(previous.map((row) => [row.concept_id, { bestStatus: row.best_status, eloStart: row.elo_start === null ? null : Number(row.elo_start) }])),
+    ability,
   };
 }

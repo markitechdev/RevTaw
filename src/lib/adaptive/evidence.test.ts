@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { abilityOf, BUCKETS_TTL_MS, chunked, forgetCachedBuckets, loadBuckets, optionCount, readPages } from "@/lib/adaptive/evidence";
+import { abilityFromTotals, abilityOf, BUCKETS_TTL_MS, chunked, forgetCachedBuckets, loadBuckets, optionCount, readPages } from "@/lib/adaptive/evidence";
 
 /** A client whose item_buckets read returns the next queued result and counts the reads. */
 function bucketClient(results: Array<{ data: Array<{ bucket_key: string; difficulty: number }> | null; error: { message: string } | null }>) {
@@ -77,5 +77,8 @@ describe("evidence helpers", () => {
     expect(abilityOf([])).toBe(0);
     // 10 answers at +1 and nothing else: halfway to +1, as if 10 more answers sat at 0.
     expect(abilityOf([{ elo_rating: 1, elo_answers: 10 }, { elo_rating: 3, elo_answers: 0 }])).toBeCloseTo(0.5, 6);
+    // The database's sums (student_elo_totals) give the same ability.
+    expect(abilityFromTotals(1 * 10, 10)).toBeCloseTo(abilityOf([{ elo_rating: 1, elo_answers: 10 }]), 9);
+    expect(abilityFromTotals(0, 0)).toBe(0);
   });
 });

@@ -1395,6 +1395,10 @@ export type Database = {
         Args: { batch_size?: number; daily_cap?: number };
         Returns: Array<{ id: string; user_id: string; heading: string | null; content: string }>;
       };
+      student_elo_totals: {
+        Args: { p_user_id: string };
+        Returns: Array<{ weighted: number; answers: number }>;
+      };
       stale_mastery_students: {
         Args: { cutoff: string; max_students?: number };
         Returns: Array<{ user_id: string; oldest: string }>;
