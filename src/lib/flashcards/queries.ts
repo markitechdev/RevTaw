@@ -174,16 +174,6 @@ export async function getReviewQueue(options: { deckId?: string; mode: "due" | "
   return cards.map((card) => ({ ...card, waits: ratingWaits(currentSnapshot(card, history.get(card.id) ?? []), now) }));
 }
 
-/** Random order for "shuffle" study; done on the server so the first render and hydration agree. */
-export function shuffleQueue<T>(items: T[]): T[] {
-  const copy = [...items];
-  for (let index = copy.length - 1; index > 0; index -= 1) {
-    const swap = Math.floor(Math.random() * (index + 1));
-    [copy[index], copy[swap]] = [copy[swap], copy[index]];
-  }
-  return copy;
-}
-
 export const countDueCards = cache(async (): Promise<number> => {
   const supabase = await createClient();
   const { count } = await supabase

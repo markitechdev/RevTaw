@@ -20,6 +20,7 @@ import {
   type QuestionResponse,
   type QuizConfig,
 } from "@/lib/quizzes/types";
+import { seededRandom, shuffled } from "@/lib/random";
 import { friendlyGenerationFailure, loadMaterialContext } from "@/lib/reviewers/service";
 import type { ConfidenceLevel, Json, QuestionType, QuizMode } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -155,33 +156,11 @@ async function populateQuiz(
 // Attempts
 // ---------------------------------------------------------------------------
 
-function shuffleInPlace<T>(items: T[], random: () => number = Math.random): T[] {
-  for (let index = items.length - 1; index > 0; index -= 1) {
-    const swap = Math.floor(random() * (index + 1));
-    [items[index], items[swap]] = [items[swap], items[index]];
-  }
-  return items;
-}
-
-function seededRandom(seed: string): () => number {
-  let hash = 2166136261;
-  for (let index = 0; index < seed.length; index += 1) {
-    hash ^= seed.charCodeAt(index);
-    hash = Math.imul(hash, 16777619) >>> 0;
-  }
-  return () => {
-    hash = (hash + 0x6d2b79f5) >>> 0;
-    let value = Math.imul(hash ^ (hash >>> 15), 1 | hash);
-    value = (value + Math.imul(value ^ (value >>> 7), 61 | value)) ^ value;
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 /** Option order shown to the student: stable per attempt so results match what they saw. */
 export function orderOptions(options: QuestionOption[] | null, shuffle: boolean, attemptId: string, questionId: string): QuestionOption[] | null {
   if (!options) return null;
   if (!shuffle) return options;
-  return shuffleInPlace([...options], seededRandom(`${attemptId}:${questionId}`));
+  return shuffled(options, seededRandom(`${attemptId}:${questionId}`));
 }
 
 export function attemptDeadline(attempt: { started_at: string; time_limit_seconds: number | null }): string | null {
@@ -209,7 +188,7 @@ export async function startAttempt(quizId: string, options: { mode: QuizMode; ti
     ? (options.timeLimitMinutes ?? config.timeLimitMinutes ?? defaultExamMinutes(questions.length))
     : options.timeLimitMinutes;
   const ids = questions.map((question) => question.id);
-  const order = exam || config.shuffleQuestions ? shuffleInPlace([...ids]) : ids;
+  const order = exam || config.shuffleQuestions ? shuffled(ids) : ids;
 
   const { data: attempt, error } = await supabase
     .from("quiz_attempts")

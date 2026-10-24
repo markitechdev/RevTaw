@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 
 import { AssistantPage } from "@/components/assistant/assistant-provider";
 import { FlashcardReview } from "@/components/flashcards/flashcard-review";
-import { getDeck, getReviewQueue, shuffleQueue } from "@/lib/flashcards/queries";
+import { getDeck, getReviewQueue } from "@/lib/flashcards/queries";
+import { shuffled } from "@/lib/random";
 import { routes } from "@/lib/routes";
 
 export const metadata: Metadata = {
@@ -16,7 +17,7 @@ export default async function DeckReviewPage({ params, searchParams }: PageProps
   const deck = await getDeck(deckId);
   if (!deck) notFound();
   const mode = query.mode === "all" || query.mode === "favorites" ? query.mode : "due";
-  const shuffled = query.shuffle === "1";
+  const shuffle = query.shuffle === "1";
   const queue = await getReviewQueue({ deckId: deck.id, mode, limit: 200 });
 
   return (
@@ -24,8 +25,9 @@ export default async function DeckReviewPage({ params, searchParams }: PageProps
       {/* Phones keep the rating buttons clear: the floating button is desktop-only here. */}
       <AssistantPage context={{ kind: "deck", id: deck.id }} label={`Flashcards → ${deck.title}`} materialId={deck.material_id} launcher="desktop" />
       <FlashcardReview
-      key={`${mode}-${shuffled}`}
-      queue={shuffled ? shuffleQueue(queue) : queue}
+      key={`${mode}-${shuffle}`}
+      // Shuffled on the server, so the first render and hydration agree.
+      queue={shuffle ? shuffled(queue) : queue}
       deckId={deck.id}
       mode={mode}
       backHref={`${routes.flashcards}/${deck.id}`}
