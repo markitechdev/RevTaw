@@ -149,7 +149,8 @@ function lastUserText(options: AiGenerateOptions): string {
 }
 
 function extractTag(text: string, tag: string): string | null {
-  const match = text.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`));
+  // Tamari's sections can carry attributes (<material title="…">).
+  const match = text.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag}>`));
   return match ? match[1].trim() : null;
 }
 
@@ -751,10 +752,13 @@ function parsePassages(material: string): MockPassage[] {
 
 /** Deterministic tutor: finds the sentences that share keywords with the question and answers from them. */
 export function tutorReplyHeuristically(material: string, prompt: string, system: string, previousAnswer = "") {
-  const message = prompt.match(/^Student message:\s*(.+)$/m)?.[1]?.trim() ?? "";
-  const selection = prompt.match(/Highlighted text the student selected:\n"""\n([\s\S]*?)\n"""/)?.[1]?.trim() ?? "";
+  const message = extractTag(prompt, "student_message") ?? "";
+  const selection = extractTag(prompt, "highlight") ?? "";
   const action = prompt.match(/^Requested action:\s*([^—\n]+)/m)?.[1]?.trim().toLowerCase() ?? "";
-  const noMaterial = /no material selected/.test(prompt) || /\(none\)/.test(material.trim()) || material.trim().length === 0;
+  const noMaterial = /\(no material attached/.test(material) || material.trim().length === 0;
+  // A follow-up names the answer it is about; its words stand in for the topic.
+  const focus = extractTag(prompt, "focus")?.match(/Your answer: ([\s\S]*)$/)?.[1]?.trim() ?? "";
+  const priorAnswer = focus && focus !== "(your last reply above)" ? focus : previousAnswer;
   const mode = /Socratic mode/.test(system) ? "socratic" : /Guided mode/.test(system) ? "guided" : /Elaborative interrogation mode/.test(system) ? "elaborative" : /Self-explanation mode/.test(system) ? "self_explanation" : /Teach-back mode/.test(system) ? "teach_back" : "tutor";
 
   // A question about the student's own study data: answer from the snapshot Tamari's request carries.
@@ -774,7 +778,7 @@ export function tutorReplyHeuristically(material: string, prompt: string, system
   const passages = noMaterial ? [] : parsePassages(material);
   // Follow-ups ("Simplify this.") carry no topic words of their own; fall back to the previous answer's keywords.
   const ownTerms = keywordsOf(`${selection} ${message}`).filter((word) => !/^(explain|simplify|summarize|example|analogy|step|quiz|guide|material|answer|wrong|more|like|beginner|mnemonic|compare|related|ideas|give|keep|asking|until|reason|clear|true|without|giving|this)$/.test(word));
-  const terms = new Set(ownTerms.length ? ownTerms : keywordsOf(previousAnswer));
+  const terms = new Set(ownTerms.length ? ownTerms : keywordsOf(priorAnswer));
   const scored = passages
     .flatMap((passage) => passage.sentences.map((sentence) => ({ passage, sentence, score: keywordsOf(sentence).filter((word) => terms.has(word)).length })))
     .filter((entry) => entry.score > 0 || (selection && entry.sentence.includes(selection.slice(0, 40))))

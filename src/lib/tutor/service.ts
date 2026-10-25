@@ -9,9 +9,10 @@ import { parsePreferences } from "@/lib/preferences/schema";
 import { completeSession, createSession, loadSession, SessionError, type SessionSummary } from "@/lib/study/sessions";
 import type { Json, StudySession, TutorMode } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
-import { evaluateTutorSession, TUTOR_HISTORY_TURNS, tutorReply, type TutorReply } from "@/lib/tutor/ai";
+import { evaluateTutorSession, tutorReply, type TutorReply } from "@/lib/tutor/ai";
 import { rankMaterialChunks } from "@/lib/search/hybrid";
 import { selectContext, type ContextChunk } from "@/lib/tutor/context";
+import { TUTOR_HISTORY_MESSAGES } from "@/lib/tutor/prompt";
 import { flashcardDraftSchema } from "@/lib/tutor/schemas";
 import { TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
 import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
@@ -19,10 +20,10 @@ import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
 type Client = Awaited<ReturnType<typeof createClient>>;
 
 
-/** Turns of conversation sent with each message (Tamari's request budget). */
-const HISTORY_LIMIT = TUTOR_HISTORY_TURNS;
-/** About three of RevTaw's ~3,200-character chunks of the material per message. */
-const TUTOR_CONTEXT_CHARS = 9_000;
+/** Messages of the conversation read for each reply (the prompt keeps the newest that fit its budget). */
+const HISTORY_LIMIT = TUTOR_HISTORY_MESSAGES;
+/** About two and a half of RevTaw's ~3,200-character chunks of the material per message. */
+const TUTOR_CONTEXT_CHARS = 8_000;
 
 async function studentContext(supabase: Client): Promise<StudentContext> {
   const { data: profile } = await supabase.from("profiles").select("education_level, main_goal, preferences").maybeSingle();

@@ -55,19 +55,25 @@ export const TUTOR_ACTION_BY_ID: Record<TutorActionId, TutorAction> = Object.fro
 export const HIGHLIGHT_ACTIONS = TUTOR_ACTIONS.filter((action) => action.highlight);
 
 /** Actions offered under every tutor answer (spec §19 "then offer actions"). */
-export type FollowUpId = "explain_more" | "example" | "simplify" | "analogy" | "test_me" | "add_to_notes" | "create_flashcard";
+export type FollowUpId = "explain_more" | "example" | "simplify" | "analogy" | "why" | "summarize" | "test_me" | "add_to_notes" | "create_flashcard";
 
 export const FOLLOW_UPS: ReadonlyArray<{ id: FollowUpId; label: string; action?: TutorActionId }> = [
   { id: "explain_more", label: "Explain more", action: "explain_more" },
   { id: "example", label: "Example", action: "example" },
   { id: "simplify", label: "Simplify", action: "simplify" },
   { id: "analogy", label: "Analogy", action: "analogy" },
+  { id: "why", label: "Explain why", action: "why" },
+  { id: "summarize", label: "Summarize", action: "summarize" },
   { id: "test_me", label: "Test me", action: "quiz" },
   { id: "add_to_notes", label: "Add to notes" },
   { id: "create_flashcard", label: "Create flashcard" },
 ];
 
 export const FOLLOW_UP_IDS = FOLLOW_UPS.map((item) => item.id) as [FollowUpId, ...FollowUpId[]];
+
+export function isFollowUpId(value: unknown): value is FollowUpId {
+  return typeof value === "string" && (FOLLOW_UP_IDS as readonly string[]).includes(value);
+}
 
 export const TUTOR_MODES: ReadonlyArray<{ id: TutorMode; label: string; description: string }> = [
   { id: "tutor", label: "Direct answers", description: "Shortest clear answer first, then options to go deeper." },
