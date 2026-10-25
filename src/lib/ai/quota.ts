@@ -111,7 +111,7 @@ function warnUnavailable(detail: string): void {
 }
 
 /** Runs a database write after the response is sent, or now when outside a request. */
-function later(task: () => Promise<void>): void {
+export function later(task: () => Promise<void>): void {
   const run = async () => {
     try {
       await task();
@@ -299,7 +299,8 @@ export class MeteredProvider implements AiProvider {
     const ticket = (options.attempt ?? 1) > 1 ? null : await consumeAiRequest(kind);
     if (ticket) this.studentId = ticket.studentId;
     try {
-      const result = await this.inner.generate(options);
+      // Providers with a token budget charge the same student.
+      const result = await this.inner.generate(this.studentId ? { ...options, studentId: this.studentId } : options);
       recordAiTokens(kind, result.usage, this.studentId);
       return result;
     } catch (error) {

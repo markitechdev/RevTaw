@@ -49,3 +49,29 @@ export class AiError extends Error {
 export function isAiError(error: unknown): error is AiError {
   return error instanceof AiError;
 }
+
+/** Which token budget turned a call away: the student's share, the provider's total, or one that could not be checked. */
+export type AiBudgetScope = "student" | "total" | "unavailable";
+
+const BUDGET_MESSAGES: Record<AiBudgetScope, string> = {
+  student: "You've used your share of RevTaw's AI for now. Some of it frees up each day.",
+  total: "RevTaw's AI has reached its limit for now. Please try again later.",
+  unavailable: FRIENDLY.rate_limited,
+};
+
+/**
+ * A provider with a token budget (src/lib/ai/provider-budget.ts) turned a call away before sending it. The
+ * router skips to the next provider without counting a failure or cooling the provider down, since another
+ * student may still have budget left. Without a router, it reads as a used-up allowance.
+ */
+export class AiBudgetError extends AiError {
+  readonly scope: AiBudgetScope;
+  readonly provider: string;
+
+  constructor(scope: AiBudgetScope, provider: string, detail: string) {
+    super("quota_exceeded", detail, false, { message: BUDGET_MESSAGES[scope] });
+    this.name = "AiBudgetError";
+    this.scope = scope;
+    this.provider = provider;
+  }
+}

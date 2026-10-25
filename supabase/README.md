@@ -60,6 +60,7 @@ supabase db push
 | `0031_count_session_answer.sql` | `count_session_answer()`: a study session's answer counters and position move in one update, so answers saved at the same moment all count (caller's rights) |
 | `0032_drop_unused_columns.sql` | drops columns nothing wrote: `archived_at` on `subjects`, `folders`, `reviewers`, `quizzes`, `flashcard_decks` and `tutor_conversations` (only materials and exams are archived) and `study_goals.subject_id`; their list indexes are rebuilt without it. It stops and changes nothing if one of those columns holds a value |
 | `0033_job_runs.sql` | `job_runs`: when each scheduled job (reminders, digest, embeddings, calendar, engine, archive) last finished, last succeeded and its last error; written by the jobs with the secret key and read by `/api/health`; students cannot read it |
+| `0034_ai_provider_budget.sql` | token budgets for an AI provider whose free allowance every student shares (Ollama Cloud): `ai_provider_usage` (all students, per UTC day; kept when an account is deleted) and `ai_provider_student_usage` (per student; deleted with the account); `reserve_ai_provider_tokens()` checks both budgets over the last 32 days and sets a call's estimate aside, one call at a time per provider, and `settle_ai_provider_tokens()` swaps it for the real count; `ai_provider_usage_summary()` for the service check; secret key only |
 
 Never edit an applied migration; add a new numbered file instead. To bring a
 project at 0023 up to date in one go, run the update file shipped with the

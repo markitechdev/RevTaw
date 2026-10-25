@@ -637,6 +637,21 @@ type AiUsageRow = {
   updated_at: string;
 };
 
+/** A budgeted AI provider's tokens per UTC day, all students together (0034); secret key only. */
+type AiProviderUsageRow = {
+  provider: string;
+  day: string;
+  requests: number;
+  input_tokens: number;
+  output_tokens: number;
+  /** Set aside for calls still running. */
+  reserved_tokens: number;
+  updated_at: string;
+};
+
+/** The same per student (0034); deleted with the account; secret key only. */
+type AiProviderStudentUsageRow = AiProviderUsageRow & { user_id: string };
+
 type CalendarConnectionsRow = {
   user_id: string;
   provider: "google";
@@ -1331,6 +1346,18 @@ export type Database = {
         Update: Partial<AiUsageRow>;
         Relationships: [];
       };
+      ai_provider_usage: {
+        Row: AiProviderUsageRow;
+        Insert: Writable<AiProviderUsageRow, "provider" | "day">;
+        Update: Partial<AiProviderUsageRow>;
+        Relationships: [];
+      };
+      ai_provider_student_usage: {
+        Row: AiProviderStudentUsageRow;
+        Insert: Writable<AiProviderStudentUsageRow, "provider" | "user_id" | "day">;
+        Update: Partial<AiProviderStudentUsageRow>;
+        Relationships: [];
+      };
       item_buckets: {
         Row: ItemBucketsRow;
         Insert: Writable<ItemBucketsRow, "bucket_key">;
@@ -1377,6 +1404,25 @@ export type Database = {
       refund_ai_request: {
         Args: { p_user_id: string; p_kind: AiUsageKind };
         Returns: undefined;
+      };
+      reserve_ai_provider_tokens: {
+        Args: { p_provider: string; p_user_id: string | null; p_tokens: number; p_total_limit: number; p_student_limit: number; p_days: number };
+        Returns: Array<{ allowed: boolean; reason: "total" | "student" | null; usage_day: string; total_used: number; student_used: number }>;
+      };
+      settle_ai_provider_tokens: {
+        Args: { p_provider: string; p_user_id: string | null; p_day: string; p_reserved: number; p_input_tokens: number; p_output_tokens: number };
+        Returns: undefined;
+      };
+      ai_provider_usage_summary: {
+        Args: { p_provider: string; p_days: number };
+        Returns: Array<{
+          requests: number;
+          input_tokens: number;
+          output_tokens: number;
+          reserved_tokens: number;
+          students: number;
+          most_by_one_student: number;
+        }>;
       };
       match_material_chunks: {
         Args: { query_text: string; keywords?: string | null; query_embedding?: string | null; only_material?: string | null; match_count?: number };

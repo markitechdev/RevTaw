@@ -141,10 +141,15 @@ export class OpenAiCompatibleProvider implements AiProvider {
     return usesVision || !this.config.reasoningEffort ? base : base + REASONING_ALLOWANCE[this.config.reasoningEffort];
   }
 
+  /** Estimated input tokens plus the output the request reserves (what a token budget sets aside for it). */
+  requestTokens(options: AiGenerateOptions): number {
+    return estimateRequestTokens(options, this.outputTokens(options));
+  }
+
   fits(options: AiGenerateOptions): boolean {
     if (hasImages(options) && !this.supportsVision) return false;
     if (!this.config.maxRequestTokens) return true;
-    return estimateRequestTokens(options, this.outputTokens(options)) <= this.config.maxRequestTokens;
+    return this.requestTokens(options) <= this.config.maxRequestTokens;
   }
 
   async generate(options: AiGenerateOptions): Promise<AiGenerateResult> {

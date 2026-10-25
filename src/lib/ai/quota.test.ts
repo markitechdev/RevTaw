@@ -104,6 +104,21 @@ describe("MeteredProvider", () => {
     expect(adminRpc).toHaveBeenLastCalledWith("add_ai_tokens", { p_user_id: "u1", p_kind: "generate", p_input_tokens: 300, p_output_tokens: 40 });
   });
 
+  it("tells the provider which student the call and its repair count against", async () => {
+    rpc.mockResolvedValueOnce(allowed);
+    adminRpc.mockResolvedValue({ data: null, error: null });
+    const seen: Array<string | undefined> = [];
+    const spy: AiProvider = { ...provider(), generate: async (options) => (seen.push(options.studentId), provider().generate(options)) };
+    const metered = new MeteredProvider(spy);
+    await metered.generate({ task: "generate_quiz", messages: [{ role: "user", content: "x" }] });
+    await metered.generate({ task: "generate_quiz", attempt: 2, messages: [{ role: "user", content: "x" }] });
+    expect(seen).toEqual(["u1", "u1"]);
+    // Without a counted student (limits off, scripts), nothing is passed.
+    vi.stubEnv("AI_DAILY_LIMITS", "off");
+    await new MeteredProvider(spy).generate({ task: "tutor_reply", messages: [{ role: "user", content: "x" }] });
+    expect(seen[2]).toBeUndefined();
+  });
+
   it("records nothing without a student or tokens", async () => {
     recordAiTokens("chat", { inputTokens: 10, outputTokens: 1 }, null);
     recordAiTokens("chat", { inputTokens: 0, outputTokens: 0 }, "u1");

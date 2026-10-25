@@ -1,16 +1,17 @@
 import "server-only";
 
 import { hasImages } from "@/lib/ai/budget";
-import { AiError, isAiError } from "@/lib/ai/errors";
+import { AiBudgetError, AiError, isAiError } from "@/lib/ai/errors";
 import type { AiGenerateOptions, AiGenerateResult, AiProvider } from "@/lib/ai/types";
 
 /**
  * Routes one AI request through an ordered list of providers (spec: "a router
- * per task"). A provider is skipped when the request is over its budget, when
- * it cannot read images, or while it is cooling down after a 429, a 5xx or a
- * rejected key. Cool-downs live in this server instance's memory; Groq and
- * Cloudflare enforce their own limits, so a cold instance at worst pays one
- * fast 429 before moving on.
+ * per task"). A provider is skipped when the request is too large for it,
+ * when it cannot read images, while it is cooling down after a 429, a 5xx or
+ * a rejected key, and when its token budget turns the call away
+ * (src/lib/ai/provider-budget.ts). Cool-downs live in this server instance's
+ * memory; Groq and Cloudflare enforce their own limits, so a cold instance at
+ * worst pays one fast 429 before moving on.
  */
 
 type Cooldown = { until: number; reason: string };
@@ -138,6 +139,7 @@ export class AiRouter implements AiProvider {
     const images = hasImages(options);
     const attempts: RouteAttempt[] = [];
     let lastError: AiError | null = null;
+    let budgetError: AiBudgetError | null = null;
 
     try {
       for (const candidate of this.candidates) {
@@ -147,7 +149,7 @@ export class AiRouter implements AiProvider {
           continue;
         }
         if (candidate.fits && !candidate.fits(options)) {
-          attempts.push({ ...base, outcome: "skipped", reason: "over budget" });
+          attempts.push({ ...base, outcome: "skipped", reason: "too large" });
           continue;
         }
         if (coolingDownUntil(candidate) !== null) {
@@ -172,6 +174,13 @@ export class AiRouter implements AiProvider {
           return result;
         } catch (error) {
           if (options.signal?.aborted || !isAiError(error)) throw error;
+          if (error instanceof AiBudgetError) {
+            // Turned away before anything was sent: not a failure, and no cool-down, since the next student
+            // may still have budget left.
+            budgetError ??= error;
+            attempts.push({ ...base, outcome: "skipped", reason: `budget: ${error.scope}` });
+            continue;
+          }
           lastError = error;
           startCooldown(candidate, error);
           attempts.push({ ...base, outcome: "failed", reason: error.code, ms: Date.now() - started });
@@ -191,9 +200,16 @@ export class AiRouter implements AiProvider {
     if (reasons.includes("cooling down") || reasons.includes("out of time")) {
       throw new AiError("rate_limited", `no provider available (${detail})`);
     }
+    if (budgetError) {
+      // Too large for the other providers, and the budgeted one turned it away: a shorter request still works.
+      if (reasons.includes("too large")) {
+        throw new AiError("content_too_large", `request is too large for every provider with budget left (${detail})`, false);
+      }
+      throw budgetError;
+    }
     if (images) {
       throw new AiError("unsupported", `no provider can read images (${detail})`, false);
     }
-    throw new AiError("content_too_large", `request is over every provider's budget (${detail})`, false);
+    throw new AiError("content_too_large", `request is too large for every provider (${detail})`, false);
   }
 }

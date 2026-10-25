@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AiError } from "@/lib/ai/errors";
+import { AiBudgetError, AiError } from "@/lib/ai/errors";
 import { AiRouter, cooldownFor, coolingDownUntil, recentRoutes, resetCooldowns } from "@/lib/ai/router";
 import type { AiGenerateOptions, AiProvider } from "@/lib/ai/types";
 
@@ -123,6 +123,41 @@ describe("AiRouter", () => {
     const late = fake("groq", ["ok"]);
     await expect(new AiRouter([late.provider]).generate({ ...ask, deadline: Date.now() + 1_000 })).rejects.toMatchObject({ code: "rate_limited" });
     expect(late.calls).toHaveLength(0);
+  });
+
+  it("moves past a provider whose token budget turns the call away, without cooling it down", async () => {
+    const groq = fake("groq", [], { fits: () => false });
+    const ollama = fake("ollama_cloud", [new AiBudgetError("student", "ollama_cloud", "ollama_cloud student budget: 9000 used + 1500 needed > 10000"), "ok"]);
+    const anthropic = fake("anthropic", ["ok"]);
+    const router = new AiRouter([groq.provider, ollama.provider, anthropic.provider]);
+    expect((await router.generate(ask)).provider).toBe("anthropic");
+    expect(recentRoutes()[0].attempts.map((attempt) => `${attempt.provider}:${attempt.reason ?? attempt.outcome}`)).toEqual([
+      "groq:too large",
+      "ollama_cloud:budget: student",
+      "anthropic:ok",
+    ]);
+    expect(coolingDownUntil(ollama.provider)).toBeNull();
+    // Another student (or the same one later) still reaches it.
+    expect((await router.generate(ask)).provider).toBe("ollama_cloud");
+  });
+
+  it("explains a request only the budgeted provider could take as too large, and otherwise gives the budget's reason", async () => {
+    const turnedAway = () => new AiBudgetError("total", "ollama_cloud", "ollama_cloud total budget: 99000 used + 1500 needed > 100000");
+    const groq = fake("groq", [], { fits: () => false });
+    const ollama = fake("ollama_cloud", [turnedAway(), turnedAway()]);
+    await expect(new AiRouter([groq.provider, ollama.provider]).generate(ask)).rejects.toMatchObject({ code: "content_too_large" });
+    const alone = await new AiRouter([ollama.provider]).generate(ask).catch((error: unknown) => error);
+    expect(alone).toBeInstanceOf(AiBudgetError);
+    expect((alone as AiError).message).toMatch(/reached its limit/);
+  });
+
+  it("prefers a busy provider's error to a budget, since retrying soon helps", async () => {
+    const groq = fake("groq", [new AiError("rate_limited", "429", true, { retryAfterSeconds: 30 })]);
+    const ollama = fake("ollama_cloud", [new AiBudgetError("student", "ollama_cloud", "used")]);
+    await expect(new AiRouter([groq.provider, ollama.provider]).generate(ask)).rejects.toMatchObject({ code: "rate_limited" });
+    const ollamaAgain = fake("ollama_cloud", [new AiBudgetError("student", "ollama_cloud", "used")]);
+    // Groq is cooling down now: still "busy", not the budget.
+    await expect(new AiRouter([groq.provider, ollamaAgain.provider]).generate(ask)).rejects.toMatchObject({ code: "rate_limited" });
   });
 
   it("lets programming errors through instead of trying the next provider", async () => {

@@ -31,6 +31,8 @@ export type AiGenerateOptions = {
   task?: string;
   /** 1 for a first call, 2 for generateJson's repair call (which does not count toward daily limits). */
   attempt?: number;
+  /** The signed-in student the call counts against, set by MeteredProvider; providers with a token budget charge them. */
+  studentId?: string;
   signal?: AbortSignal;
   /** Per-call timeout set by the router so a fallback still fits the route's time limit. */
   timeoutMs?: number;
