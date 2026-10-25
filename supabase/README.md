@@ -65,6 +65,7 @@ supabase db push
 Never edit an applied migration; add a new numbered file instead. To bring a
 project at 0023 up to date in one go, run the update file shipped with the
 release (0024–0033 in one transaction: it changes nothing if any part fails).
+A project at 0033 needs only 0034 (it changes nothing in existing tables).
 
 Leave the Data API's **Max rows** (in the dashboard: **Integrations → Data
 API → Settings**) at 1,000 or more, the default. RevTaw reads long lists

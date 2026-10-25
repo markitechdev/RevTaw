@@ -4,11 +4,65 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-25 (Tamari's evaluation round, the unfinished sessions round, the email design round, Tamari's chat round and fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
+_Last updated: 2026-10-25 (the Ollama Cloud round, Tamari's evaluation round, the unfinished sessions round, the email design round, Tamari's chat round and fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
 
 ## Completed
 
-### Tamari's evaluation round (code blocks, reply language, guided mode, Simplify, short follow-ups)
+### Ollama Cloud round (a backup AI with token budgets)
+
+The owner asked to add Ollama's API with a limit per account, so RevTaw
+never uses up its free allowance. Ollama Cloud's free plan includes a small
+monthly amount of usage, counted in tokens at each model's rates, that
+resets on the day the account signed up; Ollama doesn't publish the amount.
+
+- **Token budgets for a provider every student shares**
+  (`src/lib/ai/provider-budget.ts`, migration 0034) — before each call,
+  `reserve_ai_provider_tokens()` checks the provider's total budget and the
+  student's share over today and the 31 days before it, and sets the
+  call's estimate aside (estimated input plus the most the call may write,
+  reasoning included). Any monthly period of up to 31 days fits inside that
+  window, whatever day it resets. One call reserves at a time per provider
+  (an advisory lock), so calls racing for the last tokens can't all get
+  them. After the call, `settle_ai_provider_tokens()` swaps the estimate
+  for the tokens the provider reported. A refused call (429, 402, rejected
+  key) costs nothing; one that may have run (a timeout, a broken answer)
+  or reported no counts is charged the estimate. When the budget can't be
+  checked (no `SUPABASE_SECRET_KEY`, or 0034 not run), the provider isn't
+  used at all, and the server says why once. The totals stay when an
+  account is deleted (the provider counted them too); a student's own rows
+  go with the account.
+- **The router** — a call a budget turns away is a skip (`budget: student`
+  or `budget: total` in the route log): not a failure, and no cooldown,
+  since the next student may still have a share. When nothing could answer,
+  a busy provider still reads as "busy", a request too long for the others
+  reads as too long, and otherwise the budget's own message shows. The size
+  skip is now logged as `too large`. `MeteredProvider` passes the student
+  each call (and its repair) counts against.
+- **Ollama Cloud** (`src/lib/ai/index.ts`) — with `OLLAMA_API_KEY` set,
+  ollama.com's OpenAI-compatible API comes after Groq and Cloudflare and
+  before any paid key: `gpt-oss:120b` on both tiers (free accounts can call
+  only Ollama's unlisted "starter" models, and a free key could call this
+  one in September 2026), low reasoning effort, no JSON mode (as on
+  Cloudflare), no vision, 90 seconds a call. Budgets come from
+  `OLLAMA_CLOUD_LIMITS`: 300,000 tokens in total and 30,000 per student by
+  default, a cautious start until they are compared with
+  ollama.com/settings/usage (`.env.example` explains how). A 402 (out of
+  credit, from any provider) now cools the provider down for an hour.
+- **Service check** — `ai.budgets.ollama_cloud`: the window's input, output
+  and reserved tokens, what is left, requests, how many students used it
+  and the most one student used (no names or ids). A provider whose two
+  tiers use the same model is pinged once.
+- **Privacy Notice** (now dated October 25, 2026) — lists Ollama as a backup
+  AI service: when it is used, what it gets, and its privacy policy
+  (prompts processed only for the request and never trained on; they may be
+  processed in the United States). Both versions now also say RevTaw
+  records how much each student uses the AI.
+- **Ollama's terms** — the account holder must be 18 or older, and its
+  privacy policy says its services are for users aged 18 and older. Unlike
+  Gemini's terms, there is no clause about apps used by people under 18.
+  This goes to the legal review with Groq's, which says the same.
+
+ (code blocks, reply language, guided mode, Simplify, short follow-ups)
 
 The first `npm run eval:tamari` against the real AI passed 15 of 23 cases.
 The eight failures had five causes, each fixed on its own:
@@ -1542,22 +1596,28 @@ tables.
   Improvement and Personalization Phase, the Tamari visual AI companion
   integration, the API integrations round, the learning engine round, the
   Archive round, the performance round, the launch review round, Tamari's
-  chat round, the email design round, the unfinished sessions round and
-  Tamari's evaluation round are implemented (none of the last four needs a
-  database change); the re-run of `npm run eval:tamari` passed all 25
-  cases. The hosted database has 0001–0033 (the health check reads
-  `job_runs`). The four email templates in `supabase/templates` are in the
-  dashboard with their RevTaw subjects, checked byte for byte after saving,
-  and the Password changed notification is on (2026-10-25); Email OTP
-  expiration is 3600 seconds, as the emails say, and auth emails go
-  through Resend's SMTP. Before launch: the scheduler
+  chat round, the email design round, the unfinished sessions round,
+  Tamari's evaluation round and the Ollama Cloud round are implemented (of
+  the last five, only the Ollama Cloud round needs a database change, 0034);
+  the re-run of `npm run eval:tamari` passed all 25 cases. The hosted
+  database has 0001–0033 (the health check reads `job_runs`); 0034 (Ollama
+  Cloud's budgets) waits to be run. To turn on Ollama Cloud: create a key at
+  ollama.com/settings/keys, set `OLLAMA_API_KEY` in `.env.local` and on
+  Vercel (it also needs `SUPABASE_SECRET_KEY`), run 0034, check
+  `/api/system/services?live=1`, and after a few days compare
+  `ai.budgets.ollama_cloud.used` with ollama.com/settings/usage to set
+  `OLLAMA_CLOUD_LIMITS`. The four email templates in `supabase/templates`
+  are in the dashboard with their RevTaw subjects, checked byte for byte
+  after saving, and the Password changed notification is on (2026-10-25);
+  Email OTP expiration is 3600 seconds, as the emails say, and auth emails
+  go through Resend's SMTP. Before launch: the scheduler
   (`supabase/schedules.sql`; `/api/health` still shows every job as never
   run), the production environment variables and a legal review of the
   Privacy Notice and Terms (see `supabase/README.md` and the launch
-  checklist in the review report); for search, Google Search Console
-  (verify revtaw.com, submit `/sitemap.xml`, request indexing of `/` and
-  `/about`). support@revtaw.com forwards to the owner's inbox (Cloudflare
-  Email Routing).
+  checklist in the review report); for search, Google Search Console (verify
+  revtaw.com, submit `/sitemap.xml`, request indexing of `/` and `/about`).
+  support@revtaw.com forwards to the owner's inbox (Cloudflare Email
+  Routing).
 
 ## Next (priority order)
 
@@ -1632,6 +1692,8 @@ tables.
 | `public.calendar_connections` | Google Calendar link: provider, "RevTaw Study" calendar id, encrypted refresh token (`v1:` AES-256-GCM), scope, status (connected, needs_reconnect, error), last sync, last error | owner may select the non-secret columns (column grant without `refresh_token` and `scope`); the server writes |
 | `public.rate_limits` | Fixed-window counters shared by every server instance: hashed key, hits, expiry (migration 0026) | no student access; written only through `rate_limit_hit()` (secret key) |
 | `public.job_runs` | Each scheduled job's last finish, last success and last error, for `/api/health` (migration 0033) | no student access; the jobs write it with the secret key |
+| `public.ai_provider_usage` | A budgeted AI provider's (Ollama Cloud's) use per UTC day, all students together: requests, input, output and reserved tokens (migration 0034) | no student access; written only through `reserve_ai_provider_tokens()` and `settle_ai_provider_tokens()` (secret key); kept when an account is deleted |
+| `public.ai_provider_student_usage` | The same per student and day (migration 0034) | no student access; written the same way; cascade from `auth.users` |
 | `storage.objects` (bucket `materials`) | Private files under `<user_id>/<material_id>/<file>`; a material's `storage_path` must stay inside its own folder (trigger, migration 0025) | policies on first path segment = `auth.uid()` |
 
 Enums: `education_level`, `study_goal`, `material_source`, `material_status` (incl. `deleted`, migration 0023),
@@ -1649,7 +1711,9 @@ definer, the caller's own row only), `public.add_ai_tokens()` and
 `public.save_chunk_embeddings()` (security invoker); and from the launch review:
 `public.rate_limit_hit()` (secret key only), `public.unembedded_chunks_fair()`,
 `public.bucket_first_attempts()` and `public.stale_mastery_students()` (secret key only),
-`public.student_elo_totals()` and `public.count_session_answer()` (security invoker), and
+`public.student_elo_totals()` and `public.count_session_answer()` (security invoker),
+`public.reserve_ai_provider_tokens()`, `public.settle_ai_provider_tokens()` and
+`public.ai_provider_usage_summary()` (secret key only, migration 0034), and
 the `storage_path`, pending-reminder and answer-time triggers. Extensions: `vector` (pgvector) and
 `pg_trgm` in the `extensions` schema.
 
@@ -1811,9 +1875,11 @@ linked).
   regularly exceed that.
 - **AI** — `src/lib/ai/`: `getAiProvider(tier)` returns every configured
   provider behind `AiRouter` (or the one `AI_PROVIDER` names), wrapped in
-  `MeteredProvider` (`quota.ts`, the daily allowance). Groq, Cloudflare and
-  Ollama share `OpenAiCompatibleProvider`; `budget.ts` estimates request
-  sizes; `http.ts` maps HTTP errors to `AiError` codes. `embeddings.ts`
+  `MeteredProvider` (`quota.ts`, the daily allowance). Groq, Cloudflare,
+  Ollama Cloud and Ollama share `OpenAiCompatibleProvider`; Ollama Cloud is
+  wrapped in `BudgetedProvider` (`provider-budget.ts`, its token budgets);
+  `budget.ts` estimates request sizes; `http.ts` maps HTTP errors to
+  `AiError` codes. `embeddings.ts`
   makes BGE-M3 vectors. `mock` is automatic in development without keys and
   must be set explicitly in production. `generateJson()` validates with zod
   and asks the model to repair once (free of the allowance). Student
@@ -2023,8 +2089,8 @@ linked).
   materials are analyzed partially and the coverage is shown. Map-reduce
   analysis for very long books is a later improvement.
 - Image materials need a vision-capable provider (Cloudflare's Mistral
-  Small 3.1, Anthropic, OpenAI or a named Gemini); Groq and Ollama are
-  skipped for them. Without one they fail with a clear message.
+  Small 3.1, Anthropic, OpenAI or a named Gemini); Groq, Ollama Cloud and
+  Ollama are skipped for them. Without one they fail with a clear message.
 - The Content tab renders every chunk at once; very large materials would
   benefit from pagination.
 - Scanned PDFs without a text layer are rejected with guidance to upload
@@ -2148,6 +2214,14 @@ linked).
   so instances learn about a busy provider separately; the per-student
   limits are shared (Postgres). Cloudflare's free daily allowance is shared
   by fallback chat, image reading, Whisper and embeddings.
+- Ollama Cloud's budgets count tokens, input and output alike, while Ollama
+  charges each model's own input and output rates and doesn't publish the
+  free amount, so the budget is a stand-in to set from
+  ollama.com/settings/usage. Calls charged at their estimate (a timeout, a
+  reply without counts) count more than they used. A student who uses up
+  their share gets it back gradually, as days leave the 32-day window,
+  rather than on the reset day. Calls without a signed-in student (the
+  service check's ping) count toward the total only.
 - Until Google verifies the app, at most 100 test users can connect Google
   Calendar and their access expires after 7 days (they reconnect). The
   sync is one-way: edits made in Google Calendar are overwritten.
@@ -2164,15 +2238,16 @@ Copy `.env.example` to `.env.local`. Never commit real values.
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Supabase project URL (public) |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | yes | Publishable/anon key (public; RLS protects data) |
-| `SUPABASE_SECRET_KEY` | recommended | Server-only privileged client: account deletion, the scheduler and its job records (`/api/health`), rate limits shared by every instance, the student's address for Supabase Auth's limits (an auth-only client), AI token and voice counts, refunds, Google Calendar, the analytics pseudonym key |
+| `SUPABASE_SECRET_KEY` | recommended | Server-only privileged client: account deletion, the scheduler and its job records (`/api/health`), rate limits shared by every instance, the student's address for Supabase Auth's limits (an auth-only client), AI token and voice counts, refunds, Ollama Cloud's token budgets (without it, Ollama Cloud isn't used), Google Calendar, the analytics pseudonym key |
 | `NEXT_PUBLIC_SITE_URL` | in production | Absolute origin for auth redirects, email links, calendar events, canonical addresses, the sitemap and the share image (Vercel's production domain is used when empty) |
 | `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | optional | Cloudflare Turnstile on sign-up, sign-in, "Forgot password" and "Resend"; set both or neither (with one, those forms refuse requests); leave Supabase's own CAPTCHA off |
 | `GROQ_API_KEY` | recommended | First AI provider (free tier); also speech-to-text |
 | `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` | recommended | Workers AI: fallback chat, image reading, embeddings for Tamari's search, fallback speech-to-text |
+| `OLLAMA_API_KEY` / `OLLAMA_CLOUD_LIMITS` / `OLLAMA_CLOUD_MODEL_FAST` / `OLLAMA_CLOUD_MODEL_STRONG` | optional | Ollama Cloud, the backup after Groq and Cloudflare, with token budgets over 32 days (`total=300000,student=30000` by default); needs `SUPABASE_SECRET_KEY` and migration 0034; the account holder must be 18+ |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OLLAMA_BASE_URL` | optional | Paid providers and a local Ollama, tried after the free ones; `GOOGLE_AI_API_KEY` only when named |
 | `AI_PROVIDER` / `AI_PROVIDER_ORDER` / `AI_MODEL_FAST` / `AI_MODEL_STRONG` | optional | Pin one provider or change the order and models (see `.env.example` for the per-provider model variables) |
 | `AI_DAILY_LIMITS` | optional | Requests per student and day by kind, plus `voice_seconds` and `voice_chars`; `off` to disable |
-| `GROQ_BASE_URL` / `CLOUDFLARE_AI_BASE_URL` | optional | A gateway in front of the providers (https only) |
+| `GROQ_BASE_URL` / `CLOUDFLARE_AI_BASE_URL` / `OLLAMA_CLOUD_BASE_URL` | optional | A gateway in front of the providers (https only) |
 | `AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION` / `AZURE_TTS_VOICE` | optional | Filipino read-aloud where the device has no Filipino voice |
 | `RESEND_API_KEY` / `EMAIL_FROM` | optional | Email reminders and the digest, from a verified domain; email stays off until set (SMTP is no longer supported) |
 | `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / `CALENDAR_TOKEN_KEY` | optional | Google Calendar sync; redirect URI `<site>/api/calendar/google/callback`; the key is 32 random bytes in base64 |
@@ -2396,6 +2471,18 @@ Flows verified end to end against a local Supabase-compatible stack
   material with reviews, phone layout, axe light/dark); migrations 0012,
   0013, 0014 and 0015 tested in SQL (RLS, cross-student references,
   claiming)
+- Ollama Cloud round: `ollama-budget-e2e.mjs` against stand-ins for Groq
+  and Ollama Cloud (29 checks: Groq's 429 → Ollama with its own key and
+  request shape; the reservation set aside during the call and swapped for
+  the reported tokens; a student's share and then the total turning calls
+  away without calling Ollama, with "busy" and the daily request given
+  back; another student still served; the service check's budget numbers
+  without keys or ids; a too-long turn reading as too long; a 402 costing
+  nothing and cooling Ollama down for an hour; a missing migration keeping
+  Ollama unused with one warning; one live ping); migration 0034 in SQL
+  (both budgets, the window's edge at 31 days, permissions, bad input, 20
+  parallel reservations for five calls' worth getting exactly five,
+  account deletion keeping the totals); `airouter-e2e.mjs` still passes
 - API integrations round, against stand-ins for every provider:
   `airouter-e2e.mjs` (Groq's 429 → Cloudflare's Responses API, the
   cooldown and its end, an over-budget turn skipping Groq, the daily chat
@@ -2540,7 +2627,9 @@ Flows verified end to end against a local Supabase-compatible stack
   and speech text, month grids, zoned times, reminder instants and
   messages, and the email sender (mocked provider); the AI router,
   budgets, cooldowns, the OpenAI-compatible adapter and the daily
-  allowance (voice seconds and characters included), embeddings and hybrid
+  allowance (voice seconds and characters included), provider token
+  budgets (parsing, reserving and settling, failing closed, the router's
+  skips), embeddings and hybrid
   ranking, Whisper and Azure requests, the digest and unsubscribe tokens,
   calendar encryption, events and sync, analytics payloads, endpoint and
   site-address checks; the learning engine (BKT, answer readings, Elo and
