@@ -12,6 +12,14 @@ export const BRAND = {
   domain: "revtaw.com",
   /** Where privacy requests and questions about the Terms go (the Privacy Notice and Terms name it). */
   contactEmail: "support@revtaw.com",
+  /** The creator's profiles: the contact icons in the landing page's footer. */
+  social: [
+    { id: "facebook", label: "Facebook", href: "https://www.facebook.com/Francis.Create" },
+    { id: "instagram", label: "Instagram", href: "https://www.instagram.com/mitocis/" },
+    { id: "github", label: "GitHub", href: "https://github.com/markitechdev" },
+  ],
   description:
     "Turn your notes, PDFs, documents, and screenshots into personalized reviewers, quizzes, flashcards, and study sessions powered by AI.",
 } as const;
+
+export type SocialId = (typeof BRAND.social)[number]["id"];

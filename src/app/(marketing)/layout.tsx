@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SkipLink } from "@/components/app/skip-link";
 import { Logo } from "@/components/brand/logo";
+import { SocialLinks } from "@/components/marketing/social-links";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { buttonClasses } from "@/components/ui/button";
 import { BRAND } from "@/lib/brand";
@@ -41,6 +42,8 @@ export default function MarketingLayout({ children }: LayoutProps<"/"> ) {
             <p>
               <span lang="fil">{BRAND.motto}</span> {BRAND.tagline}
             </p>
+            {/* Pulled left by the icon's inset, so the first icon lines up with the text above. */}
+            <SocialLinks className="mt-2 -ml-2.5 pointer-coarse:-ml-3" />
           </div>
           <nav aria-label="Footer" className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link href={routes.login} className="hover:text-foreground">Sign in</Link>
