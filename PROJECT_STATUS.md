@@ -292,7 +292,11 @@ model that uploaded text is data. What changed:
   JavaScript reaches the browser. They are plain links that open in a new
   tab: no embeds, widgets or scripts from those sites. Each is 40 px (44 px
   on touch screens) and its accessible name says whose profile it is and
-  that it opens in a new tab.
+  that it opens in a new tab. The hero's "Created by" pill links down to
+  them (`#contact`, with an arrow and the name underlined); it is larger
+  than before (14 px text instead of 12, 44 px tall on touch screens). The
+  icons stay out of the hero, so its only call to action is to start
+  studying.
 - **Locked study methods, explained once** — without a processed material,
   the session builder showed about 30 greyed methods, each saying "Needs a
   processed material.", with Active Recall picked even though it couldn't
