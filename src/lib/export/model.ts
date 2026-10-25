@@ -77,7 +77,7 @@ export function callout(label: string, value: string): ExportBlock {
   return { type: "callout", label, runs: inlineRuns(value) };
 }
 
-/** Markdown (as the reviewers store it) → blocks, keeping headings, lists, paragraphs and code. */
+/** Markdown (as the reviewers store it) → blocks, keeping headings, lists, paragraphs, tables and code. */
 export function markdownBlocks(source: string): ExportBlock[] {
   return parseMarkdown(source).map((block): ExportBlock => {
     switch (block.type) {
@@ -87,6 +87,11 @@ export function markdownBlocks(source: string): ExportBlock[] {
         return { type: "list", ordered: block.ordered, items: block.items.map((item) => ({ runs: inlineRuns(item.text), children: item.children.map(inlineRuns) })) };
       case "code":
         return { type: "code", text: block.text };
+      case "table": {
+        // Export tables hold plain text: the bold and code markers come off.
+        const plain = (cell: string) => cell.replace(/\*\*|`/g, "");
+        return { type: "table", columns: block.header.map(plain), rows: block.rows.map((row) => row.map(plain)) };
+      }
       default:
         return { type: "paragraph", runs: inlineRuns(block.text) };
     }

@@ -4,18 +4,37 @@ import { cn } from "@/lib/utils";
 
 /**
  * Minimal markdown renderer for AI-generated study content. It understands
- * paragraphs, headings, bullet and numbered lists (one nesting level), code
- * fences, bold, italic and inline code — and nothing else, so no raw HTML or
- * links can slip through from a model response.
+ * paragraphs, headings, bullet and numbered lists (one nesting level, numbered
+ * lists keep their numbers), tables, code fences (with their language), bold,
+ * italic and inline code — and nothing else, so no raw HTML or links can slip
+ * through from a model response.
  */
+
+type Align = "left" | "center" | "right" | null;
 
 type Block =
   | { type: "paragraph"; text: string }
   | { type: "heading"; level: number; text: string }
-  | { type: "list"; ordered: boolean; items: Array<{ text: string; children: string[] }> }
-  | { type: "code"; text: string };
+  | { type: "list"; ordered: boolean; start: number; items: Array<{ text: string; children: string[] }> }
+  | { type: "code"; text: string; lang: string | null }
+  | { type: "table"; header: string[]; align: Align[]; rows: string[][] };
 
 const BULLET = /^(\s*)(?:[-*•]|\d+[.)])\s+(.*)$/;
+const TABLE_SEPARATOR = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/;
+
+function tableCells(line: string): string[] {
+  return line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+/** A table starts with a row of cells followed by a separator row (| --- | :---: |). */
+function startsTable(lines: string[], index: number): boolean {
+  return lines[index].includes("|") && index + 1 < lines.length && TABLE_SEPARATOR.test(lines[index + 1]) && lines[index + 1].includes("-");
+}
 
 export function parseMarkdown(source: string): Block[] {
   const blocks: Block[] = [];
@@ -26,6 +45,7 @@ export function parseMarkdown(source: string): Block[] {
     const line = lines[index];
 
     if (/^\s*```/.test(line)) {
+      const lang = line.trim().slice(3).trim().split(/\s+/)[0]?.replace(/[^\w#+.-]/g, "") || null;
       const buffer: string[] = [];
       index += 1;
       while (index < lines.length && !/^\s*```/.test(lines[index])) {
@@ -33,7 +53,22 @@ export function parseMarkdown(source: string): Block[] {
         index += 1;
       }
       index += 1;
-      blocks.push({ type: "code", text: buffer.join("\n") });
+      blocks.push({ type: "code", text: buffer.join("\n"), lang });
+      continue;
+    }
+
+    if (startsTable(lines, index)) {
+      const header = tableCells(line);
+      const align: Align[] = tableCells(lines[index + 1]).map((cell) => (cell.startsWith(":") && cell.endsWith(":") ? "center" : cell.endsWith(":") ? "right" : cell.startsWith(":") ? "left" : null));
+      const rows: string[][] = [];
+      index += 2;
+      while (index < lines.length && lines[index].includes("|") && lines[index].trim()) {
+        const cells = tableCells(lines[index]);
+        // Every row has the header's columns, so a ragged row neither drops nor shifts cells.
+        rows.push(header.map((_, column) => cells[column] ?? ""));
+        index += 1;
+      }
+      blocks.push({ type: "table", header, align: header.map((_, column) => align[column] ?? null), rows });
       continue;
     }
 
@@ -52,6 +87,8 @@ export function parseMarkdown(source: string): Block[] {
     const bullet = line.match(BULLET);
     if (bullet) {
       const ordered = /^\s*\d+[.)]/.test(line);
+      // Steps split by a paragraph ("1." … text … "2.") keep counting instead of starting at 1 again.
+      const start = ordered ? Number(line.match(/^\s*(\d+)/)?.[1] ?? 1) : 1;
       const items: Array<{ text: string; children: string[] }> = [];
       while (index < lines.length) {
         const match = lines[index].match(BULLET);
@@ -66,12 +103,12 @@ export function parseMarkdown(source: string): Block[] {
         }
         index += 1;
       }
-      blocks.push({ type: "list", ordered, items });
+      blocks.push({ type: "list", ordered, start, items });
       continue;
     }
 
     const buffer: string[] = [];
-    while (index < lines.length && lines[index].trim() && !BULLET.test(lines[index]) && !/^(#{1,6})\s/.test(lines[index]) && !/^\s*```/.test(lines[index])) {
+    while (index < lines.length && lines[index].trim() && !BULLET.test(lines[index]) && !/^(#{1,6})\s/.test(lines[index]) && !/^\s*```/.test(lines[index]) && !startsTable(lines, index)) {
       buffer.push(lines[index].trim());
       index += 1;
     }
@@ -120,7 +157,7 @@ export function Markdown({ source, className, lang }: { source: string; classNam
           case "list": {
             const Tag = block.ordered ? "ol" : "ul";
             return (
-              <Tag key={index} className={cn("space-y-1.5 pl-5", block.ordered ? "list-decimal" : "list-disc")}>
+              <Tag key={index} start={block.ordered && block.start !== 1 ? block.start : undefined} className={cn("space-y-1.5 pl-5", block.ordered ? "list-decimal" : "list-disc")}>
                 {block.items.map((item, itemIndex) => (
                   <li key={itemIndex}>
                     {renderInline(item.text)}
@@ -138,9 +175,39 @@ export function Markdown({ source, className, lang }: { source: string; classNam
           }
           case "code":
             return (
-              <pre key={index} className="overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-sm">
-                <code>{block.text}</code>
-              </pre>
+              <figure key={index} className="flex flex-col overflow-hidden rounded-lg bg-muted">
+                {block.lang && <figcaption className="border-b border-border px-3 py-1 font-mono text-2xs uppercase tracking-wide text-muted-foreground">{block.lang}</figcaption>}
+                <pre className="overflow-x-auto px-3 py-2 font-mono text-sm">
+                  <code>{block.text}</code>
+                </pre>
+              </figure>
+            );
+          case "table":
+            return (
+              <div key={index} className="overflow-x-auto rounded-lg border border-border">
+                <table className="w-full border-collapse text-sm">
+                  <thead className="bg-muted/60">
+                    <tr>
+                      {block.header.map((cell, column) => (
+                        <th key={column} scope="col" style={{ textAlign: block.align[column] ?? undefined }} className="border-b border-border px-3 py-2 text-left font-semibold text-foreground">
+                          {renderInline(cell)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {block.rows.map((row, rowIndex) => (
+                      <tr key={rowIndex} className="border-b border-border last:border-b-0">
+                        {row.map((cell, column) => (
+                          <td key={column} style={{ textAlign: block.align[column] ?? undefined }} className="px-3 py-2 align-top">
+                            {renderInline(cell)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             );
           default:
             return <p key={index}>{renderInline(block.text)}</p>;
