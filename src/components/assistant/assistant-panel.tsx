@@ -42,7 +42,16 @@ type Reply = {
   visual?: MessageView["visual"];
 };
 type SendResponse = { error?: string; id?: string; conversation?: ConversationInfo | null; reused?: boolean; userMessageId?: string | null; assistantMessageId?: string; reply?: Reply };
-type SendInput = { content: string; action: TutorActionId | null; selection?: string | null; materialId?: string | null; continueThread?: boolean; fromVoice?: boolean };
+type SendInput = {
+  content: string;
+  action: TutorActionId | null;
+  selection?: string | null;
+  materialId?: string | null;
+  continueThread?: boolean;
+  fromVoice?: boolean;
+  /** The answer a follow-up button was pressed under, so the follow-up is about it. */
+  replyTo?: string | null;
+};
 type PendingSave = { kind: "save_note" | "save_flashcard"; message: MessageView };
 type PendingMove = { taskId: string; title: string; date: string };
 
@@ -433,7 +442,7 @@ export default function AssistantPanel() {
     storeConversation(null);
   };
 
-  const send = async ({ content, action, selection: quoted = selection, materialId, continueThread = false, fromVoice = false }: SendInput) => {
+  const send = async ({ content, action, selection: quoted = selection, materialId, continueThread = false, fromVoice = false, replyTo = null }: SendInput) => {
     const text = content.trim();
     if (sending || (!text && !action)) return;
     // "20 minutes lang ako", "quiz me about Chapter 4", "may exam ako Friday", "move this to Friday": Tamari does it.
@@ -486,7 +495,7 @@ export default function AssistantPanel() {
         headers: { "content-type": "application/json", accept: "application/json" },
         body: JSON.stringify(
           current
-            ? { message: text, action, selection: quoted ?? null, context }
+            ? { message: text, action, selection: quoted ?? null, context, replyTo }
             : { materialId: target, mode: "tutor", message: text || null, action, selection: quoted ?? null, context, reuse: continueThread },
         ),
       });
@@ -562,7 +571,7 @@ export default function AssistantPanel() {
       });
       return;
     }
-    if (action) void send({ content: "", action });
+    if (action) void send({ content: "", action, replyTo: message.id });
   });
 
   /** Says a short line aloud when the student is talking to Tamari (and spoken replies are on). */

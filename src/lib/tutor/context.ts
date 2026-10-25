@@ -111,3 +111,11 @@ export function labelChunk(chunk: ContextChunk): string {
   const pages = chunk.pageStart ? (chunk.pageEnd && chunk.pageEnd !== chunk.pageStart ? `pages ${chunk.pageStart}-${chunk.pageEnd}` : `page ${chunk.pageStart}`) : null;
   return `[Section ${chunk.position}${chunk.heading ? `: ${chunk.heading}` : ""}${pages ? `, ${pages}` : ""}]`;
 }
+
+/** What to search the material for: a follow-up ("give me an example") carries the topic of the answer it is about. */
+export function retrievalQuery(message: string, focus: { question: string | null; answer: string } | null, lastQuestion: string | null): string {
+  if (focus) return `${message} ${focus.question ?? ""} ${focus.answer.slice(0, 400)}`.trim();
+  // A short follow-up ("why does that happen?") is about the previous question.
+  if (lastQuestion && message.trim().length < 60) return `${message} ${lastQuestion.slice(0, 400)}`;
+  return message;
+}

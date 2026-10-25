@@ -11,8 +11,8 @@ import type { Json, StudySession, TutorMode } from "@/lib/supabase/database.type
 import { createClient } from "@/lib/supabase/server";
 import { evaluateTutorSession, tutorReply, type TutorReply } from "@/lib/tutor/ai";
 import { rankMaterialChunks } from "@/lib/search/hybrid";
-import { selectContext, type ContextChunk } from "@/lib/tutor/context";
-import { TUTOR_HISTORY_MESSAGES } from "@/lib/tutor/prompt";
+import { retrievalQuery, selectContext, type ContextChunk } from "@/lib/tutor/context";
+import { TUTOR_HISTORY_MESSAGES, type TutorFocus } from "@/lib/tutor/prompt";
 import { flashcardDraftSchema } from "@/lib/tutor/schemas";
 import { TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
 import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
@@ -109,6 +109,49 @@ async function loadConversation(supabase: Client, conversationId: string): Promi
   return data;
 }
 
+type HistoryRow = { id: string; role: string; content: string; selection: string | null; created_at: string };
+
+/** A student message as the model sees it: with the text they highlighted, when there was one. */
+function asked(row: { content: string; selection: string | null }): string {
+  return row.selection ? `[Selected: "${row.selection.slice(0, 300)}"] ${row.content}` : row.content;
+}
+
+/**
+ * The earlier answer a follow-up is about: the one the student clicked under (`replyTo`), or, for a quick
+ * action with nothing typed or highlighted, the latest answer. With its question, so "it" has a referent.
+ */
+async function resolveFocus(
+  supabase: Client,
+  conversationId: string,
+  rows: HistoryRow[],
+  input: { replyTo?: string | null; action: TutorActionId | null; typed: boolean; selection: string | null },
+): Promise<TutorFocus | null> {
+  if (input.replyTo) {
+    const { data: answer } = await supabase.from("tutor_messages").select("content, created_at").eq("id", input.replyTo).eq("conversation_id", conversationId).eq("role", "assistant").maybeSingle();
+    if (answer) {
+      const { data: question } = await supabase
+        .from("tutor_messages")
+        .select("content, selection")
+        .eq("conversation_id", conversationId)
+        .eq("role", "user")
+        .lt("created_at", answer.created_at)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return { question: question ? asked(question) : null, answer: answer.content };
+    }
+  }
+  if (input.action && !input.typed && !input.selection) {
+    // `rows` is newest first: the latest answer, then the question before it.
+    const index = rows.findIndex((row) => row.role === "assistant");
+    if (index >= 0) {
+      const question = rows.slice(index + 1).find((row) => row.role === "user");
+      return { question: question ? asked(question) : null, answer: rows[index].content };
+    }
+  }
+  return null;
+}
+
 /**
  * Produces one assistant turn for a conversation: builds the grounded context,
  * asks the model and stores the reply with its sources. `storeUser` controls
@@ -117,23 +160,25 @@ async function loadConversation(supabase: Client, conversationId: string): Promi
 async function respond(
   supabase: Client,
   conversation: ConversationRow,
-  input: { content: string; action: TutorActionId | null; selection: string | null; storeUser: boolean; pageNote?: string | null },
+  input: { content: string; action: TutorActionId | null; selection: string | null; storeUser: boolean; pageNote?: string | null; replyTo?: string | null; typed?: boolean },
 ): Promise<SentMessage> {
-  const [{ data: historyRows }, student, material, ranked] = await Promise.all([
+  const [{ data: historyData }, student, material] = await Promise.all([
     supabase
       .from("tutor_messages")
-      .select("role, content, selection")
+      .select("id, role, content, selection, created_at")
       .eq("conversation_id", conversation.id)
       .order("created_at", { ascending: false })
       .limit(HISTORY_LIMIT),
     studentContext(supabase),
     conversation.material_id ? materialChunks(supabase, conversation.material_id) : Promise.resolve(null),
-    // Tamari's search: the passages that best match the question (null → keyword scoring).
-    conversation.material_id ? rankMaterialChunks(supabase, { materialId: conversation.material_id, query: input.content, selection: input.selection }) : Promise.resolve(null),
   ]);
-  const history = (historyRows ?? [])
-    .reverse()
-    .map((row) => ({ role: row.role as "user" | "assistant", content: row.role === "user" && row.selection ? `[Selected: "${row.selection.slice(0, 300)}"] ${row.content}` : row.content }));
+  const rows = (historyData ?? []) as HistoryRow[];
+  const focus = await resolveFocus(supabase, conversation.id, rows, { replyTo: input.replyTo, action: input.action, typed: input.typed ?? true, selection: input.selection });
+  const lastQuestion = rows.find((row) => row.role === "user");
+  const query = retrievalQuery(input.content, focus, lastQuestion ? asked(lastQuestion) : null);
+  // Tamari's search: the passages that best match the question (null → keyword scoring).
+  const ranked = conversation.material_id ? await rankMaterialChunks(supabase, { materialId: conversation.material_id, query, selection: input.selection }) : null;
+  const history = [...rows].reverse().map((row) => ({ role: row.role as "user" | "assistant", content: row.role === "user" ? asked(row) : row.content }));
 
   let userMessageId: string | null = null;
   if (input.storeUser) {
@@ -146,7 +191,7 @@ async function respond(
     userMessageId = userMessage.id;
   }
 
-  const context = material ? selectContext(material.chunks, input.content, input.selection, TUTOR_CONTEXT_CHARS, ranked?.ids ?? null) : { chunks: [], totalChunks: 0, truncated: false };
+  const context = material ? selectContext(material.chunks, query, input.selection, TUTOR_CONTEXT_CHARS, ranked?.ids ?? null) : { chunks: [], totalChunks: 0, truncated: false };
   let reply: TutorReply;
   let provider: string | null = null;
   let model: string | null = null;
@@ -160,6 +205,7 @@ async function respond(
       message: input.content,
       action: input.action,
       selection: input.selection,
+      focus,
       student,
       pageNote: input.pageNote ?? null,
     });
@@ -229,13 +275,17 @@ async function respond(
   return { userMessageId, assistantMessageId: assistantMessage.id, reply: { ...reply, sources } };
 }
 
-/** Stores the student's message and the tutor's grounded reply. `pageNote` describes the page Ask RevTaw was opened on. */
-export async function sendMessage(input: { conversationId: string; content: string; action: TutorActionId | null; selection: string | null; pageNote?: string | null }): Promise<SentMessage> {
+/**
+ * Stores the student's message and the tutor's grounded reply. `pageNote` describes the page Ask RevTaw was
+ * opened on; `replyTo` is the answer a follow-up button was pressed under.
+ */
+export async function sendMessage(input: { conversationId: string; content: string; action: TutorActionId | null; selection: string | null; pageNote?: string | null; replyTo?: string | null }): Promise<SentMessage> {
   const supabase = await createClient();
   const conversation = await loadConversation(supabase, input.conversationId);
-  const content = input.content.trim() || (input.action ? TUTOR_ACTION_BY_ID[input.action].prompt : "");
+  const typed = input.content.trim();
+  const content = typed || (input.action ? TUTOR_ACTION_BY_ID[input.action].prompt : "");
   if (!content) throw new ServiceError("Type a question or pick an action.", 400);
-  return respond(supabase, conversation, { content, action: input.action, selection: input.selection, storeUser: true, pageNote: input.pageNote ?? null });
+  return respond(supabase, conversation, { content, action: input.action, selection: input.selection, storeUser: true, pageNote: input.pageNote ?? null, replyTo: input.replyTo ?? null, typed: Boolean(typed) });
 }
 
 /** "Add to notes": appends the answer as a section of the material's tutor-notes reviewer (created on demand). */

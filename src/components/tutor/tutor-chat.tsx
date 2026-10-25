@@ -44,7 +44,8 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
     bottom.current?.scrollIntoView({ block: "end" });
   }, [messages.length, sending]);
 
-  const send = async (content: string, action: TutorActionId | null, selection: string | null = null) => {
+  /** `replyTo` is the answer a follow-up button was pressed under, so the follow-up is about it. */
+  const send = async (content: string, action: TutorActionId | null, selection: string | null = null, replyTo: string | null = null) => {
     if (sending || locked) return;
     setError(null);
     setSending(true);
@@ -69,7 +70,7 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
       const response = await fetch(`/api/tutor/conversations/${conversation.id}/messages`, {
         method: "POST",
         headers: { "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify({ message: content, action, selection }),
+        body: JSON.stringify({ message: content, action, selection, replyTo }),
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string; userMessageId?: string; assistantMessageId?: string; reply?: MessageView & { answer: string } };
       if (!response.ok || !body.reply || !body.assistantMessageId) {
@@ -123,7 +124,7 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
       });
       return;
     }
-    if (action) void send("", action);
+    if (action) void send("", action, null, message.id);
   });
 
   const toggleMode = (next: "tutor" | "guided") => {

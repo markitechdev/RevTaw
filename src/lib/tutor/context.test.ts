@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { labelChunk, selectContext, tokenize, type ContextChunk } from "@/lib/tutor/context";
+import { labelChunk, retrievalQuery, selectContext, tokenize, type ContextChunk } from "@/lib/tutor/context";
 
 const chunks: ContextChunk[] = [
   { id: "a", position: 0, heading: "Photosynthesis Overview", pageStart: 1, pageEnd: 1, content: "Photosynthesis is the process by which green plants convert light energy into chemical energy. The overall equation is 6CO2 + 6H2O -> C6H12O6 + 6O2." },
@@ -46,5 +46,19 @@ describe("tutor context", () => {
   it("labels sections with headings and page ranges", () => {
     expect(labelChunk(chunks[2])).toBe("[Section 2: Calvin Cycle, pages 3-4]");
     expect(labelChunk({ ...chunks[0], heading: null, pageStart: null, pageEnd: null })).toBe("[Section 0]");
+  });
+});
+
+describe("retrievalQuery", () => {
+  it("searches with the topic of the answer a follow-up is about", () => {
+    expect(retrievalQuery("Give me an example.", { question: "What is a LEFT JOIN?", answer: "A LEFT JOIN keeps every row of the left table." }, null)).toBe(
+      "Give me an example. What is a LEFT JOIN? A LEFT JOIN keeps every row of the left table.",
+    );
+  });
+
+  it("adds the previous question to a short follow-up, and leaves a full question alone", () => {
+    expect(retrievalQuery("Why does that happen?", null, "What is glycolysis?")).toBe("Why does that happen? What is glycolysis?");
+    const full = "Explain how the electron transport chain produces most of the ATP in cellular respiration.";
+    expect(retrievalQuery(full, null, "What is glycolysis?")).toBe(full);
   });
 });

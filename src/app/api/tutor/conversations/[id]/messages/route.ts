@@ -22,6 +22,8 @@ const bodySchema = z.object({
   selection: z.string().trim().max(4000).nullable().default(null),
   /** Ask RevTaw: the page the student asked from (ids only; resolved with their session). */
   context: pageContextSchema.nullable().default(null),
+  /** The answer a follow-up button was pressed under ("Example", "Simplify"…), so the follow-up is about it. */
+  replyTo: z.uuid().nullable().default(null),
 });
 
 /** The conversation's messages, for reopening it in Ask RevTaw. */
@@ -70,7 +72,7 @@ export async function POST(request: Request, context: RouteContext<"/api/tutor/c
     // The page the student asked from, plus their study data when the question is about it ("what am I weak at?").
     const [page, snapshot] = await Promise.all([resolvePageContext(body.data.context), asksAboutStudyData(body.data.message) ? studySnapshot() : null]);
     const pageNote = [page.note, snapshot].filter(Boolean).join("\n\n") || null;
-    const result = await sendMessage({ conversationId: params.data.id, content: body.data.message, action: body.data.action, selection: body.data.selection, pageNote });
+    const result = await sendMessage({ conversationId: params.data.id, content: body.data.message, action: body.data.action, selection: body.data.selection, pageNote, replyTo: body.data.replyTo });
     return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     if (error instanceof ServiceError) {
