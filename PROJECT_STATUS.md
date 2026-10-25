@@ -368,23 +368,34 @@ model that uploaded text is data. What changed:
   can't begin.
 - **Found by the developer's name** — so a search for Mark Francis B.
   Entredicho can lead to RevTaw and say he developed it: an About page
-  (`/about`, linked from the footer, in the sitemap) whose title, heading
-  and first sentence carry the full name ("RevTaw is an AI-powered study
-  and reviewer platform developed by Mark Francis B. Entredicho."), with
-  the three profiles as labeled links; schema.org JSON-LD
-  (`src/lib/seo.ts`, `<JsonLd>`): the About page is a ProfilePage about
-  one Person (full name, `alternateName` "Mark Francis Entredicho",
-  `sameAs` the profiles) and the home page's WebSite has the same Person,
-  by the same `@id`, as its creator; author and creator meta tags with a
+  (`/about`, linked from the header and the footer, in the sitemap) whose
+  title, heading and first sentence carry the full name ("RevTaw is an
+  AI-powered study and reviewer platform developed by Mark Francis B.
+  Entredicho."), with the three profiles as labeled links; schema.org
+  JSON-LD (`src/lib/seo.ts`, `<JsonLd>`): the About page is a ProfilePage
+  about one Person (full name, `alternateName` "Mark Francis Entredicho",
+  `sameAs` the profiles) and the home page's WebSite has the same Person, by
+  the same `@id`, as its creator; author and creator meta tags with a
   `rel="author"` link on every page. The name is `BRAND.creatorFullName`
   (`BRAND.creator` stays on the landing page and in the emails). Search
-  engines decide when and how to show it; Google Search Console (verify
-  the domain, submit the sitemap, request indexing of `/` and `/about`)
-  and links to revtaw.com from the GitHub, Facebook and Instagram
-  profiles speed it up.
+  engines decide when and how to show it; Google Search Console (verify the
+  domain, submit the sitemap, request indexing of `/` and `/about`) and
+  links to revtaw.com from the GitHub, Facebook and Instagram profiles speed
+  it up.
 - **Footer anchor** — the contact icons' id is `contact-links`; `contact`
   belongs to the "Contact us" sections of the Privacy Notice and Terms
   (they had two elements with that id for a day).
+- **About in the header, and a longer About page** — the landing page's
+  header links to About after "Study methods" (`HeaderNavLink`, marked as
+  the current page on `/about`). The header's links now show from 1024 px:
+  with four of them, they and the buttons wrapped onto two lines between
+  768 and about 900 px. The About page now also says why RevTaw exists (a
+  summary is only the start of reviewing; what "Reviewer na may Bitaw"
+  means, in the spec's words; who it's for) and what it does: ten features
+  with the app's own names, each matching what runs today (email reminders
+  and Google Calendar are left out until they run in production). It stays
+  about RevTaw, with no personal bio (the owner's choice); its title,
+  description, first sentence and structured data are unchanged.
 
 ### Launch review round (security, correctness, accessibility, consistency, launch polish)
 
