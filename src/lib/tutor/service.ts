@@ -139,12 +139,19 @@ export type SentMessage = {
   reply: FinalReply<TutorReply["visual"]>;
 };
 
-type ConversationRow = { id: string; user_id: string; material_id: string | null; mode: TutorMode; title: string; message_count: number };
+type ConversationRow = { id: string; user_id: string; material_id: string | null; session_id: string | null; mode: TutorMode; title: string; message_count: number };
 
 async function loadConversation(supabase: Client, conversationId: string): Promise<ConversationRow> {
-  const { data } = await supabase.from("tutor_conversations").select("id, user_id, material_id, mode, title, message_count").eq("id", conversationId).maybeSingle();
+  const { data } = await supabase.from("tutor_conversations").select("id, user_id, material_id, session_id, mode, title, message_count").eq("id", conversationId).maybeSingle();
   if (!data) throw new ServiceError("Conversation not found.", 404);
   return data;
+}
+
+/** A study session's chat is read-only once the session has ended (its summary is already written). */
+async function assertOpen(supabase: Client, conversation: ConversationRow): Promise<void> {
+  if (!conversation.session_id) return;
+  const { data: session } = await supabase.from("study_sessions").select("status").eq("id", conversation.session_id).maybeSingle();
+  if (session && session.status !== "in_progress") throw new ServiceError("This session has ended. Start a new one from the Study page to continue.", 409);
 }
 
 /** What the student reads when Tamari could not answer: plain words, never a technical error. */
@@ -353,6 +360,7 @@ async function touchConversation(supabase: Client, conversation: ConversationRow
 export async function regenerateReply(input: { conversationId: string; pageNote?: string | null }): Promise<SentMessage> {
   const supabase = await createClient();
   const conversation = await loadConversation(supabase, input.conversationId);
+  await assertOpen(supabase, conversation);
   const { data: latest } = await supabase
     .from("tutor_messages")
     .select("id, role, content, action, selection, created_at")
@@ -402,6 +410,7 @@ export async function sendMessage(input: {
 }): Promise<SentMessage> {
   const supabase = await createClient();
   let conversation = await loadConversation(supabase, input.conversationId);
+  await assertOpen(supabase, conversation);
   const typed = input.content.trim();
   const content = typed || (input.action ? TUTOR_ACTION_BY_ID[input.action].prompt : "");
   if (!content) throw new ServiceError("Type a question or pick an action.", 400);
