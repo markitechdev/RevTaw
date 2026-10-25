@@ -1,5 +1,6 @@
 import { STUDY_METHOD_BY_ID, STUDY_METHODS, type StudyMethodId } from "@/lib/study/methods";
 import type { SessionGoal } from "@/lib/supabase/database.types";
+import type { UnfinishedKind } from "@/lib/study/unfinished";
 
 /**
  * Session behavior attached to each study method (spec §15): what a session
@@ -446,4 +447,14 @@ export function recommendMethods(goal: SessionGoal, hasMaterial: boolean): Build
 
 export function methodName(id: string): string {
   return (STUDY_METHOD_BY_ID as Record<string, { name: string } | undefined>)[id]?.name ?? id;
+}
+
+/** What ending or deleting an unfinished session of this method touches besides its own answers. */
+export function unfinishedKind(method: string): UnfinishedKind {
+  if (isPlanMethod(method)) return "plan";
+  if (isTutorMethod(method)) return "tutor";
+  if (isTestMethod(method)) return "test";
+  if (method === "flashcards" || method === "spaced_repetition") return "review";
+  if (method === "pomodoro") return "timer";
+  return "items";
 }

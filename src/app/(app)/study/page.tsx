@@ -7,22 +7,23 @@ import { formatRelativeDate } from "@/components/materials/material-card";
 import { RoutinesCard } from "@/components/study/routines";
 import { SessionBuilder } from "@/components/study/session-builder";
 import { formatSeconds } from "@/components/study/session-summary";
+import { UnfinishedSessions } from "@/components/study/unfinished-sessions";
 import { Badge } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { TINT } from "@/components/ui/tint";
 import { countDueCards } from "@/lib/flashcards/queries";
 import { listMaterials } from "@/lib/materials/queries";
 import { getPreferences } from "@/lib/preferences/queries";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { countOpenMistakes } from "@/lib/quizzes/queries";
 import { routes } from "@/lib/routes";
-import { methodName } from "@/lib/study/catalog";
+import { isPlanMethod, methodName, unfinishedKind } from "@/lib/study/catalog";
 import { getMnemonicCounts } from "@/lib/study/flows/memory";
 import { getActivityStats, listSessions } from "@/lib/study/queries";
 import { listRoutines } from "@/lib/study/routines";
+import type { UnfinishedSessionView } from "@/lib/study/unfinished";
 
 export const metadata: Metadata = {
   title: "Study",
@@ -32,10 +33,35 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
   const params = await searchParams;
   const { user, profile } = await getCurrentUserWithProfile();
   if (!user) redirect(routes.login);
-  const [materials, sessions, openMistakes, dueCards, activity, routines, mnemonics, preferences] = await Promise.all([listMaterials(), listSessions({ limit: 20 }), countOpenMistakes(), countDueCards(), getActivityStats(), listRoutines(), getMnemonicCounts(), getPreferences()]);
+  const [materials, unfinished, finished, openMistakes, dueCards, activity, routines, mnemonics, preferences] = await Promise.all([
+    listMaterials(),
+    listSessions({ status: "in_progress", limit: 60 }),
+    listSessions({ status: "finished", limit: 8 }),
+    countOpenMistakes(),
+    countDueCards(),
+    getActivityStats(),
+    listRoutines(),
+    getMnemonicCounts(),
+    getPreferences(),
+  ]);
   const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title, subject: material.subject?.name ?? null }));
-  const inProgress = sessions.filter((session) => session.status === "in_progress");
-  const finished = sessions.filter((session) => session.status !== "in_progress");
+  // A plan's unfinished blocks continue from the plan, which has its own row.
+  const openPlans = new Set(unfinished.filter((session) => isPlanMethod(session.method)).map((session) => session.id));
+  const inProgress: UnfinishedSessionView[] = unfinished
+    .filter((session) => !session.parent_id || !openPlans.has(session.parent_id))
+    .map((session) => {
+      const kind = unfinishedKind(session.method);
+      const answered = session.items_correct + session.items_incorrect;
+      const progress = kind === "timer" ? (session.focus_seconds >= 60 ? `${Math.round(session.focus_seconds / 60)} min focused` : null) : answered > 0 ? `${answered} ${kind === "review" ? "rated" : "answered"}` : null;
+      return {
+        id: session.id,
+        title: session.title,
+        kind,
+        href: `${routes.study}/${session.id}`,
+        answered,
+        meta: [methodName(session.method), `started ${formatRelativeDate(session.started_at)}`, progress].filter(Boolean).join(" · "),
+      };
+    });
 
   return (
     <div className="flex flex-col gap-6">
@@ -60,33 +86,7 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
         }
       />
 
-      {inProgress.length > 0 && (
-        <Card className={TINT.primary}>
-          <CardHeader>
-            <CardTitle>Continue where you left off</CardTitle>
-            <CardDescription>Sessions in progress keep their place.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="flex flex-col divide-y divide-border">
-              {inProgress.map((session) => (
-                <li key={session.id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
-                  <div className="min-w-0">
-                    <Link href={`${routes.study}/${session.id}`} className="block truncate text-sm font-medium hover:underline">
-                      {session.title}
-                    </Link>
-                    <p className="text-xs text-muted-foreground">
-                      {methodName(session.method)} · started {formatRelativeDate(session.started_at)}
-                    </p>
-                  </div>
-                  <Link href={`${routes.study}/${session.id}`} className={buttonClasses({ size: "sm" })}>
-                    Resume
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
+      <UnfinishedSessions sessions={inProgress} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
@@ -152,7 +152,7 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
                 <EmptyState compact icon={BookOpenCheck} title="No sessions yet" description="Your first summary appears here after a session." />
               ) : (
                 <ul className="flex flex-col divide-y divide-border">
-                  {finished.slice(0, 8).map((session) => {
+                  {finished.map((session) => {
                     const accuracy = session.summary?.accuracy;
                     return (
                       <li key={session.id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">

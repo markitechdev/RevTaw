@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, type ReactNode } from "react";
 
 import { SECTION_TITLE } from "@/components/ui/typography";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,24 @@ import { cn } from "@/lib/utils";
  * last in the markup.
  */
 export const DIALOG_ACTIONS = "flex flex-col-reverse gap-2 *:w-full sm:flex-row sm:flex-wrap sm:justify-end sm:*:w-auto";
+
+/**
+ * Moves the focus to an element (by id) once a dialog has closed. The browser hands the focus back to
+ * whatever opened the dialog, but a menu item that opened it is gone by then; call the returned function
+ * when closing the dialog, and the focus goes there right after the dialog shuts.
+ */
+export function useFocusAfterClose(open: boolean): (id: string) => void {
+  const target = useRef<string | null>(null);
+  // After every commit: the dialog's own effect has already closed it (a child's effects run first).
+  useEffect(() => {
+    if (open || !target.current) return;
+    document.getElementById(target.current)?.focus();
+    target.current = null;
+  });
+  return useCallback((id: string) => {
+    target.current = id;
+  }, []);
+}
 
 /**
  * Modal built on the native <dialog> element: focus is trapped, Escape closes

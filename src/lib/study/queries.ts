@@ -16,15 +16,19 @@ export type SessionListItem = Pick<
 > & {
   material: { id: string; title: string } | null;
   summary: SessionSummary | null;
+  /** Set on a block of a plan (Smart Study, a routine, pre-testing): the plan's session. */
+  parent_id: string | null;
 };
 
 const LIST_COLUMNS =
-  "id, material_id, method, goal, planned_minutes, title, status, focus_seconds, items_total, items_correct, items_incorrect, started_at, completed_at, last_active_at, summary, material:materials!study_sessions_material_fk(id, title)";
+  "id, material_id, method, goal, planned_minutes, title, status, focus_seconds, items_total, items_correct, items_incorrect, started_at, completed_at, last_active_at, summary, parent_id:state->>parentId, material:materials!study_sessions_material_fk(id, title)";
 
-export async function listSessions(filters: { status?: "in_progress" | "completed"; limit?: number } = {}): Promise<SessionListItem[]> {
+/** Sessions, the one active last first: unfinished ones, completed ones, or every finished one ("finished": completed or stopped early). */
+export async function listSessions(filters: { status?: "in_progress" | "completed" | "finished"; limit?: number } = {}): Promise<SessionListItem[]> {
   const supabase = await createClient();
   let query = supabase.from("study_sessions").select(LIST_COLUMNS).order("last_active_at", { ascending: false }).limit(filters.limit ?? 30);
-  if (filters.status) query = query.eq("status", filters.status);
+  if (filters.status === "finished") query = query.neq("status", "in_progress");
+  else if (filters.status) query = query.eq("status", filters.status);
   const { data, error } = await query;
   if (error) {
     console.error("study_sessions: list failed", error.message);
