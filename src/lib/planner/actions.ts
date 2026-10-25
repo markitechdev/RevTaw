@@ -14,6 +14,7 @@ import { archiveExam, completeTask, createExam, deleteExam, deleteTask, moveTask
 import type { ActivityInput, ExamFormInput, GoalFormInput } from "@/lib/planner/schemas";
 import { routes } from "@/lib/routes";
 import { isBuilderMethod, isTestMethod, type BuilderMethodId } from "@/lib/study/catalog";
+import { withStartLock } from "@/lib/study/duplicates";
 import { startPlannedSession } from "@/lib/study/service";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -130,48 +131,56 @@ export async function rebalancePlanAction(planId: string): Promise<PlannerAction
   }
 }
 
-/** "Start" on a task: opens a session of the task's method sized to its minutes (flashcards go to the review page). */
+/**
+ * "Start" on a task: opens a session of the task's method sized to its minutes (flashcards go to the review
+ * page), or the task's unfinished session. One start per task at a time, so a double click or a second tab
+ * opens the same session instead of a second one.
+ */
 export async function startTaskAction(taskId: string): Promise<PlannerActionResult<{ redirect: string }>> {
   const user = await getCurrentUser();
   if (!user) redirect(routes.login);
   if (!uuid.safeParse(taskId).success) return { ok: false, message: "Invalid task." };
   try {
-    const task = await getTask(taskId);
-    if (!task) return { ok: false, message: "Task not found." };
-    if (task.status === "done") return { ok: false, message: "This task is already done." };
-    if (task.session_id) {
-      const supabase = await createClient();
-      const { data: session } = await supabase.from("study_sessions").select("id, status, method, state").eq("id", task.session_id).maybeSingle();
-      if (session?.status === "in_progress") {
-        const conversationId = (session.state as { conversationId?: string } | null)?.conversationId;
-        return { ok: true, data: { redirect: conversationId ? `${routes.tutor}/${conversationId}` : `${routes.study}/${session.id}` } };
-      }
-    }
-    if (task.method === "activity") return { ok: false, message: "This activity has no study session. Mark it done when you have finished it." };
-    if (task.method === "spaced_repetition") return { ok: true, data: { redirect: `${routes.flashcards}/review?task=${task.id}` } };
-    // The material's file was deleted: its page lists the notes, quizzes and flashcards that were kept.
-    if (task.material?.status === "deleted") return { ok: true, data: { redirect: `${routes.materials}/${task.material.id}` } };
-    const candidate = task.method === "review" ? "active_recall" : task.method;
-    if (!isBuilderMethod(candidate) || candidate === "smart_study") return { ok: false, message: "This task's method cannot be started yet. Mark it done when you have studied it." };
-    const method: BuilderMethodId = candidate;
-    const minutes = Math.max(1, Math.min(480, task.minutes));
-    const result = await startPlannedSession(user.id, {
-      method,
-      materialId: task.material_id,
-      goal: task.method === "review" ? "quick_review" : isTestMethod(method) || method === "rapid_review" ? "exam_prep" : "practice",
-      plannedMinutes: minutes,
-      questionCount: isTestMethod(method) ? Math.max(5, Math.min(30, Math.round(minutes / 1.5))) : undefined,
-      timed: isTestMethod(method) ? true : undefined,
-      workMinutes: method === "pomodoro" ? Math.min(60, minutes) : undefined,
-      breakMinutes: method === "pomodoro" ? 5 : undefined,
-      topic: method === "pomodoro" ? task.title.replace(/^Focused study:\s*/, "").slice(0, 120) : undefined,
-      taskId: task.id,
-    });
-    revalidate(task.exam_id);
-    return { ok: true, data: { redirect: result.redirect } };
+    return await withStartLock(user.id, `task:${taskId}`, () => startTask(user.id, taskId));
   } catch (error) {
     return failure(error, "The task could not be started.");
   }
+}
+
+async function startTask(userId: string, taskId: string): Promise<PlannerActionResult<{ redirect: string }>> {
+  const task = await getTask(taskId);
+  if (!task) return { ok: false, message: "Task not found." };
+  if (task.status === "done") return { ok: false, message: "This task is already done." };
+  if (task.session_id) {
+    const supabase = await createClient();
+    const { data: session } = await supabase.from("study_sessions").select("id, status, method, state").eq("id", task.session_id).maybeSingle();
+    if (session?.status === "in_progress") {
+      const conversationId = (session.state as { conversationId?: string } | null)?.conversationId;
+      return { ok: true, data: { redirect: conversationId ? `${routes.tutor}/${conversationId}` : `${routes.study}/${session.id}` } };
+    }
+  }
+  if (task.method === "activity") return { ok: false, message: "This activity has no study session. Mark it done when you have finished it." };
+  if (task.method === "spaced_repetition") return { ok: true, data: { redirect: `${routes.flashcards}/review?task=${task.id}` } };
+  // The material's file was deleted: its page lists the notes, quizzes and flashcards that were kept.
+  if (task.material?.status === "deleted") return { ok: true, data: { redirect: `${routes.materials}/${task.material.id}` } };
+  const candidate = task.method === "review" ? "active_recall" : task.method;
+  if (!isBuilderMethod(candidate) || candidate === "smart_study") return { ok: false, message: "This task's method cannot be started yet. Mark it done when you have studied it." };
+  const method: BuilderMethodId = candidate;
+  const minutes = Math.max(1, Math.min(480, task.minutes));
+  const result = await startPlannedSession(userId, {
+    method,
+    materialId: task.material_id,
+    goal: task.method === "review" ? "quick_review" : isTestMethod(method) || method === "rapid_review" ? "exam_prep" : "practice",
+    plannedMinutes: minutes,
+    questionCount: isTestMethod(method) ? Math.max(5, Math.min(30, Math.round(minutes / 1.5))) : undefined,
+    timed: isTestMethod(method) ? true : undefined,
+    workMinutes: method === "pomodoro" ? Math.min(60, minutes) : undefined,
+    breakMinutes: method === "pomodoro" ? 5 : undefined,
+    topic: method === "pomodoro" ? task.title.replace(/^Focused study:\s*/, "").slice(0, 120) : undefined,
+    taskId: task.id,
+  });
+  revalidate(task.exam_id);
+  return { ok: true, data: { redirect: result.redirect } };
 }
 
 export async function completeTaskAction(taskId: string): Promise<PlannerActionResult> {
