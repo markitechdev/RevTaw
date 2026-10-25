@@ -155,7 +155,7 @@ async function assertOpen(supabase: Client, conversation: ConversationRow): Prom
 }
 
 /** What the student reads when Tamari could not answer: plain words, never a technical error. */
-function tutorErrorMessage(error: AiError): string {
+export function tutorErrorMessage(error: AiError): string {
   switch (error.code) {
     // A reached daily limit says when it refills; "try again in a moment" would mislead.
     case "quota_exceeded":
