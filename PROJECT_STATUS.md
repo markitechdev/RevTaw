@@ -1496,13 +1496,15 @@ tables.
   chat round, the email design round, the unfinished sessions round and
   Tamari's evaluation round are implemented (none of the last four needs a
   database change); the re-run of `npm run eval:tamari` passed all 25
-  cases. Before launch: the hosted database had
-  0001–0023 and needs 0024–0033 (one update file), the scheduler
-  (`supabase/schedules.sql`) after the first deploy, the four email
-  templates in `supabase/templates` pasted into the dashboard after the
-  deploy that serves `/email/` (and the Password changed notification
-  switched on), the production environment variables and a legal review of
-  the Privacy Notice and Terms (see `supabase/README.md` and the launch
+  cases. The hosted database has 0001–0033 (the health check reads
+  `job_runs`). The four email templates in `supabase/templates` are in the
+  dashboard with their RevTaw subjects, checked byte for byte after saving,
+  and the Password changed notification is on (2026-10-25); Email OTP
+  expiration is 3600 seconds, as the emails say, and auth emails go
+  through Resend's SMTP. Before launch: the scheduler
+  (`supabase/schedules.sql`; `/api/health` still shows every job as never
+  run), the production environment variables and a legal review of the
+  Privacy Notice and Terms (see `supabase/README.md` and the launch
   checklist in the review report). support@revtaw.com forwards to the
   owner's inbox (Cloudflare Email Routing).
 
