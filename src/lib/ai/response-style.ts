@@ -5,13 +5,20 @@ import type { AiPreferences } from "@/lib/preferences/schema";
  * depth of conversational answers. Language understanding (speech to text),
  * the model and speech output stay separate layers; this only shapes the
  * model's wording. The student's own words in a message always win.
+ *
+ * `written` is the language the student's message was found to be in (language.ts), stated for the Auto
+ * setting ("Answer in the language I write in") so the reply follows it; only English is ever stated.
  */
-export function responseStyleRules(response: AiPreferences | undefined): string[] {
+export function responseStyleRules(response: AiPreferences | undefined, written: "en" | null = null): string[] {
   if (!response) return [];
   const rules: string[] = [];
   switch (response.language) {
     case "auto":
-      rules.push("Language: reply in the language the student writes in — English, Filipino (Tagalog), Taglish (a natural mix of Filipino and English) or another language — and match their mix.");
+      rules.push(
+        written === "en"
+          ? "Language: the student's message is in English, so reply in English. Switch to Filipino (Tagalog), Taglish or another language only when they write in it or ask for it."
+          : "Language: reply in the language the student writes in — English, Filipino (Tagalog), Taglish (a natural mix of Filipino and English) or another language — and match their mix.",
+      );
       break;
     case "en":
       rules.push("Language: reply in English.");

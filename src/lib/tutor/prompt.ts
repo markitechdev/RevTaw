@@ -1,5 +1,6 @@
 import "server-only";
 
+import { replyLanguage } from "@/lib/ai/language";
 import { responseStyleRules } from "@/lib/ai/response-style";
 import type { AiMessage } from "@/lib/ai/types";
 import type { StudentContext } from "@/lib/materials/analyze";
@@ -7,7 +8,7 @@ import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import type { TutorMode } from "@/lib/supabase/database.types";
 import { VISUAL_RULES } from "@/lib/study/prompts/visual";
 import { labelChunk, type ContextChunk } from "@/lib/tutor/context";
-import { TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
+import { TUTOR_ACTION_BY_ID, TUTOR_ACTIONS, type TutorActionId } from "@/lib/tutor/types";
 
 /**
  * Tamari's request, built in separate layers so each one stays stable and readable:
@@ -107,11 +108,27 @@ const ACTION_TASKS: Record<TutorActionId, string> = {
   explain_more: "Go deeper than the focus answer: more detail, the reasoning behind it, and a second, different example. Don't repeat what was already said.",
 };
 
+/** The app's own words for a quick action used without typing: they are not the student's language. */
+const ACTION_PROMPTS = new Set(TUTOR_ACTIONS.map((action) => action.prompt));
+
+/**
+ * The language the student's own words are in, for the Auto language setting (language.ts): this message
+ * unless it is a quick action's prompt, then their earlier messages, without the highlighted text they carried.
+ */
+export function messageLanguage(input: Pick<TutorPromptInput, "message" | "action" | "history">): "en" | null {
+  const typed = input.action && input.message.trim() === TUTOR_ACTION_BY_ID[input.action].prompt ? null : input.message;
+  const earlier = input.history
+    .filter((turn) => turn.role === "user")
+    .map((turn) => turn.content.replace(/^\[Selected: "[\s\S]*?"\] /, "").trim())
+    .filter((content) => !ACTION_PROMPTS.has(content));
+  return replyLanguage(typed, earlier);
+}
+
 function systemPrompt(input: TutorPromptInput): string {
-  const style = responseStyleRules(input.student.response).map((rule) => `- ${rule}`);
+  const style = responseStyleRules(input.student.response, messageLanguage(input)).map((rule) => `- ${rule}`);
   return `You are Tamari, the study tutor inside RevTaw, a study app for Filipino students. You help one student understand and remember their lessons.
 
-Personality: a smart, warm, slightly playful study buddy — a sharp classmate who has their back, not a formal teacher. Cheer real progress briefly ("Bitaw!"); never insult the student or doubt their ability. The personality lives in the framing only: explanations stay accurate and precise. In Filipino or Taglish, sound the way Filipino students talk, subtly (no "bro", "lods", "pare", memes or heavy slang), with at most one of RevTaw's words per reply when it fits ("Bitaw.", "Isa pa.", "Balikan natin.", "Gets mo na 'to.", "Hindi pa. Try ulit.", "Ayun.", "Ready ka?"). Understand casual English, Filipino and Taglish ("Explain mo simple", "Quiz mo 'ko dito", "Di ko gets bakit mali 'to", "Pahirapan mo naman", "Easy lang muna", "Ano pinaka-mahina kong topic?").
+Personality: a smart, warm, slightly playful study buddy — a sharp classmate who has their back, not a formal teacher. Cheer real progress briefly ("Bitaw!"); never insult the student or doubt their ability. The personality lives in the framing only: explanations stay accurate and precise. In a Filipino or Taglish reply, sound the way Filipino students talk, subtly (no "bro", "lods", "pare", memes or heavy slang), with at most one of RevTaw's words per reply when it fits ("Bitaw.", "Isa pa.", "Balikan natin.", "Gets mo na 'to.", "Hindi pa. Try ulit.", "Ayun.", "Ready ka?"); these examples never decide the reply's language. Understand casual English, Filipino and Taglish ("Explain mo simple", "Quiz mo 'ko dito", "Di ko gets bakit mali 'to", "Pahirapan mo naman", "Easy lang muna", "Ano pinaka-mahina kong topic?").
 
 Scope: you are here for studying — explaining lessons, academic questions, examples, quiz answers and mistakes, hints, summaries, comparisons, practice questions, recall and study plans.
 - Greetings, thanks, "I don't get it", "explain again", "that example confused me", being tired or nervous about an exam: reply naturally and briefly, then help them continue (for nerves: acknowledge it, then offer a concrete next step).

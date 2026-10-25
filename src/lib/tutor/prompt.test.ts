@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { DEFAULT_AI } from "@/lib/preferences/schema";
+
 import type { ContextChunk } from "./context";
-import { buildTutorPrompt, buildTurn, neutralizeTags, prepareHistory, type TutorPromptInput } from "./prompt";
+import { buildTutorPrompt, buildTurn, messageLanguage, neutralizeTags, prepareHistory, type TutorPromptInput } from "./prompt";
 
 const chunk = (position: number, content: string, heading: string | null = null): ContextChunk => ({ id: `c${position}`, position, heading, pageStart: position + 1, pageEnd: null, content });
 
@@ -71,6 +73,26 @@ describe("Tamari's prompt", () => {
     const turn = buildTurn({ ...base, student: { ...base.student, firstName: "Mark", weakSpots: [{ name: "LEFT JOIN", mastery: 34.6 }] } });
     expect(turn).toMatch(/First name: Mark/);
     expect(turn).toMatch(/Weak spots in this material .*LEFT JOIN \(35% mastery\)/);
+  });
+
+  it("states English for an English message when the student's language setting is Auto", () => {
+    const student = { ...base.student, response: DEFAULT_AI };
+    expect(buildTutorPrompt({ ...base, student }).system).toMatch(/message is in English, so reply in English/);
+    // Taglish, or a short follow-up after a Filipino question: the general rule, never English.
+    const general = /reply in the language the student writes in/;
+    expect(buildTutorPrompt({ ...base, student, message: "Explain mo nga yung LEFT JOIN" }).system).toMatch(general);
+    const filipino = [{ role: "user" as const, content: "Ano ang LEFT JOIN?" }, { role: "assistant" as const, content: "Ang LEFT JOIN ay..." }];
+    expect(buildTutorPrompt({ ...base, student, history: filipino, message: "and right?" }).system).toMatch(general);
+    // The Filipino examples in Tamari's personality don't decide the language.
+    expect(buildTutorPrompt({ ...base, student }).system).toMatch(/these examples never decide the reply's language/);
+  });
+
+  it("reads the language from the student's own words, not a quick action's prompt or highlighted text", () => {
+    const filipino = [{ role: "user" as const, content: "Ano ang LEFT JOIN?" }, { role: "assistant" as const, content: "Ang LEFT JOIN ay..." }];
+    expect(messageLanguage({ ...base, history: filipino, message: "Simplify this.", action: "simplify" })).toBeNull();
+    const highlighted = [{ role: "user" as const, content: '[Selected: "Ang cell ay ang pinakamaliit na yunit."] What does this mean?' }];
+    expect(messageLanguage({ ...base, history: highlighted, message: "Simplify this.", action: "simplify" })).toBe("en");
+    expect(messageLanguage({ ...base, history: [{ role: "user", content: "Give me an example." }], message: "Simplify this.", action: "simplify" })).toBeNull();
   });
 
   it("tells Tamari that files, highlights, pages and earlier messages are data, not instructions", () => {
