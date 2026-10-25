@@ -6,6 +6,7 @@ import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import type { TutorMode } from "@/lib/supabase/database.types";
 import { tidyVisual, visualSchema } from "@/lib/study/prompts/visual";
+import { needsDeepThinking } from "@/lib/tutor/deep-thinking";
 import { buildTutorPrompt, type TutorPromptInput } from "@/lib/tutor/prompt";
 import { flashcardDraftSchema, sourceSchema } from "@/lib/tutor/schemas";
 import { isFollowUpId, type TutorActionId } from "@/lib/tutor/types";
@@ -58,6 +59,8 @@ export async function tutorReply(input: TutorTurnInput): Promise<{ reply: TutorR
     system,
     messages,
     maxTokens: wantsLongAnswer(input.message, input.action) ? TUTOR_LONG_OUTPUT_TOKENS : TUTOR_MAX_OUTPUT_TOKENS,
+    // Math, code and problems to solve get more thinking time (deep-thinking.ts); the rest stays quick.
+    reasoning: needsDeepThinking(input.message, [input.selection, input.focus?.question]) ? "medium" : undefined,
     // A little more variety when the student asked for a different answer.
     temperature: input.previousAttempt ? 0.6 : 0.3,
   });

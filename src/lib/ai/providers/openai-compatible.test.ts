@@ -81,6 +81,20 @@ describe("OpenAiCompatibleProvider (Groq)", () => {
     expect(result).toMatchObject({ text: '{"ok":true}', provider: "groq", model: "served-model", usage: { inputTokens: 12, outputTokens: 5 } });
   });
 
+  it("thinks longer when a request asks for it, with room for the longer reasoning", async () => {
+    const calls = mockFetch([chatOk('{"ok":true}')]);
+    const options = { messages: [{ role: "user" as const, content: "Solve 2x + 3 = 11" }], maxTokens: 1000, reasoning: "medium" as const };
+    await groq().generate(options);
+    expect(calls[0].body).toMatchObject({ reasoning_effort: "medium", max_completion_tokens: 1000 + 2048 });
+    expect(groq().requestTokens(options)).toBeGreaterThan(groq().requestTokens({ ...options, reasoning: undefined }) + 1_200);
+    // A model without a reasoning setting ignores the request.
+    const plain = new OpenAiCompatibleProvider({ name: "ollama", baseUrl: "http://localhost:11434/v1", model: "qwen3.5:9b", maxTokensField: "max_tokens" });
+    const plainCalls = mockFetch([chatOk("ok")]);
+    await plain.generate(options);
+    expect(plainCalls[0].body).not.toHaveProperty("reasoning_effort");
+    expect(plainCalls[0].body.max_tokens).toBe(1000);
+  });
+
   it("uses strict json_schema when a schema is given", async () => {
     const calls = mockFetch([chatOk('{"a":1}')]);
     const schema = { type: "object", properties: { a: { type: "number" } }, required: ["a"], additionalProperties: false };

@@ -13,6 +13,9 @@ export type AiMessage = {
   content: string | AiContentPart[];
 };
 
+/** How much a reasoning model (gpt-oss) thinks before it answers. */
+export type ReasoningEffort = "low" | "medium" | "high";
+
 export type AiGenerateOptions = {
   system?: string;
   messages: AiMessage[];
@@ -27,6 +30,11 @@ export type AiGenerateOptions = {
    * additionalProperties: false.
    */
   jsonSchema?: { name: string; schema: Record<string, unknown> };
+  /**
+   * How hard a reasoning model should think about this request ("medium" for hard math, code and problem
+   * solving). Unset keeps the provider's own setting; models without one ignore it.
+   */
+  reasoning?: ReasoningEffort;
   /** Free-form label used for logging, routing, daily limits and by the mock provider. */
   task?: string;
   /** 1 for a first call, 2 for generateJson's repair call (which does not count toward daily limits). */

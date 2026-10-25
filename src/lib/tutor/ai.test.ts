@@ -42,6 +42,17 @@ beforeEach(() => {
   fake.queue.length = 0;
 });
 
+describe("tutorReply's thinking time", () => {
+  it("asks for more reasoning on math, code and problems, and keeps the rest quick", async () => {
+    fake.queue.push(answer("x = 4"), answer("Osmosis is…"), answer("Here is another one."));
+    await tutorReply({ ...input, message: "Solve 2x + 3 = 11" });
+    await tutorReply(input);
+    // A quick action under a math question carries its topic.
+    await tutorReply({ ...input, message: "Give me an example.", action: "example", focus: { question: "Paano i-solve ang 3x - 5 = 10?", answer: "x = 5" } });
+    expect(fake.calls.map((call) => call.reasoning)).toEqual(["medium", undefined, "medium"]);
+  });
+});
+
 describe("tutorReply when the AI gives nothing usable", () => {
   it("asks once more after an empty answer", async () => {
     fake.queue.push(answer(""), answer("Osmosis is water moving across a membrane."));

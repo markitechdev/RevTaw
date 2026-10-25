@@ -3,9 +3,9 @@ import "server-only";
 import { DEFAULT_MAX_TOKENS, estimateRequestTokens, hasImages } from "@/lib/ai/budget";
 import { AiError } from "@/lib/ai/errors";
 import { fetchWithTimeout, statusToAiError } from "@/lib/ai/providers/http";
-import type { AiGenerateOptions, AiGenerateResult, AiMessage, AiProvider } from "@/lib/ai/types";
+import type { AiGenerateOptions, AiGenerateResult, AiMessage, AiProvider, ReasoningEffort } from "@/lib/ai/types";
 
-export type ReasoningEffort = "low" | "medium" | "high";
+export type { ReasoningEffort } from "@/lib/ai/types";
 
 /**
  * Extra output tokens reserved for a reasoning model's thinking, which counts
@@ -27,7 +27,7 @@ export type OpenAiCompatibleConfig = {
   maxTokensField?: "max_completion_tokens" | "max_tokens";
   /** Send text requests to /responses instead of /chat/completions (Cloudflare's gpt-oss models). */
   useResponsesApi?: boolean;
-  /** reasoning_effort for reasoning models such as gpt-oss; leave unset for other models. */
+  /** reasoning_effort for reasoning models such as gpt-oss (a request may ask for more); leave unset for other models. */
   reasoningEffort?: ReasoningEffort;
   /** Whether this model enforces strict json_schema output (Groq's gpt-oss models). */
   strictJsonSchema?: boolean;
@@ -135,11 +135,16 @@ export class OpenAiCompatibleProvider implements AiProvider {
     this.supportsVision = Boolean(config.visionModel);
   }
 
+  /** The reasoning effort for a request: what it asks for, on a model that reasons at all; none otherwise. */
+  private effort(options: Pick<AiGenerateOptions, "reasoning">): ReasoningEffort | undefined {
+    return this.config.reasoningEffort ? (options.reasoning ?? this.config.reasoningEffort) : undefined;
+  }
+
   /** Output tokens a request reserves, including the reasoning allowance. */
-  outputTokens(options: Pick<AiGenerateOptions, "maxTokens" | "messages">): number {
+  outputTokens(options: Pick<AiGenerateOptions, "maxTokens" | "messages" | "reasoning">): number {
     const base = options.maxTokens ?? DEFAULT_MAX_TOKENS;
-    const usesVision = hasImages(options);
-    return usesVision || !this.config.reasoningEffort ? base : base + REASONING_ALLOWANCE[this.config.reasoningEffort];
+    const effort = this.effort(options);
+    return hasImages(options) || !effort ? base : base + REASONING_ALLOWANCE[effort];
   }
 
   /** Estimated input tokens plus the output the request reserves (what a token budget sets aside for it). */
@@ -184,8 +189,9 @@ export class OpenAiCompatibleProvider implements AiProvider {
       [this.config.maxTokensField ?? "max_tokens"]: images ? (options.maxTokens ?? DEFAULT_MAX_TOKENS) : this.outputTokens(options),
       ...(images ? {} : (this.config.extraBody ?? {})),
     };
-    if (!images && this.config.reasoningEffort) {
-      body.reasoning_effort = this.config.reasoningEffort;
+    const effort = this.effort(options);
+    if (!images && effort) {
+      body.reasoning_effort = effort;
     }
     if (options.jsonSchema && this.config.strictJsonSchema && !images) {
       body.response_format = {
@@ -239,7 +245,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
       max_output_tokens: this.outputTokens(options),
       temperature: options.temperature ?? 0.2,
       stream: false,
-      ...(this.config.reasoningEffort ? { reasoning: { effort: this.config.reasoningEffort } } : {}),
+      ...(this.effort(options) ? { reasoning: { effort: this.effort(options) } } : {}),
     };
 
     const response = await fetchWithTimeout(
