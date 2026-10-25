@@ -3,13 +3,14 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getPublicSiteUrl } from "@/lib/env";
+import { renderEmail, siteEmailOptions, type EmailSection } from "@/lib/email/render";
+import { examEmail, reviewReminderEmail, todaysPlanEmail } from "@/lib/email/templates";
 import { sendEmail } from "@/lib/notifications/email";
 import { isEmailConfigured } from "@/lib/notifications/email-config";
 import { unsubscribeHeaders, unsubscribeUrl } from "@/lib/notifications/unsubscribe";
 import { addDays, dateIn, daysBetween, DEFAULT_TIMEZONE, formatDate, hourIn, isValidTimezone } from "@/lib/planner/dates";
 import { formatClock, zonedInstant } from "@/lib/planner/time";
 import { parsePreferences } from "@/lib/preferences/schema";
-import { escapeHtml } from "@/lib/email/html";
 import { routes } from "@/lib/routes";
 import type { Database } from "@/lib/supabase/database.types";
 import { readPages } from "@/lib/supabase/paginate";
@@ -21,6 +22,12 @@ import { readPages } from "@/lib/supabase/paginate";
  * the scheduler between 6 and 11 a.m. in the student's time zone, only to
  * students who turned it on, never twice for the same day, and not at all
  * on a day with nothing to study.
+ *
+ * In RevTaw's email design it leads with the most urgent thing, using that
+ * email type's icon, title and button: an exam within three days (Upcoming
+ * Exam, with its date, subject, plan progress and weak topics), else cards
+ * due (Review Reminder), else today's plan (Planner); the rest is listed
+ * below it.
  */
 
 type Client = SupabaseClient<Database>;
@@ -34,11 +41,22 @@ const SENDING_STALE_MS = 15 * 60_000;
 /** Students with the digest on, read in pages (Supabase returns at most 1,000 rows a request). */
 const DIGEST_STUDENTS_MAX = 20_000;
 const EXAM_HORIZON_DAYS = 14;
+/** An exam this close leads the email. */
+const CLOSE_EXAM_DAYS = 3;
 
 export type DigestTask = { title: string; time: string | null; minutes: number };
-export type DigestExam = { title: string; date: string; daysLeft: number };
+export type DigestExam = {
+  title: string;
+  date: string;
+  daysLeft: number;
+  /** Read only for an exam that leads the email. */
+  subject?: string | null;
+  progress?: { done: number; total: number } | null;
+  weakTopics?: string[];
+};
 export type DigestContent = { day: string; dueReviews: number; tasks: DigestTask[]; exams: DigestExam[] };
 export type DigestMessage = { subject: string; text: string; html: string };
+export type DigestLead = "exam" | "reviews" | "plan";
 
 const clip = (value: string, length: number) => (value.length > length ? `${value.slice(0, length - 1)}…` : value);
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
@@ -53,7 +71,15 @@ export function digestIsEmpty(content: DigestContent): boolean {
   return content.dueReviews === 0 && content.tasks.length === 0 && content.exams.length === 0;
 }
 
-/** What the digest says (pure; everything from the student is escaped in the HTML). */
+/** What the email leads with: an exam within three days, else cards due, else today's plan, else the next exam. */
+export function digestLead(content: DigestContent): DigestLead {
+  if (content.exams[0] && content.exams[0].daysLeft <= CLOSE_EXAM_DAYS) return "exam";
+  if (content.dueReviews > 0) return "reviews";
+  if (content.tasks.length > 0) return "plan";
+  return "exam";
+}
+
+/** What the digest says (pure; the email design escapes everything from the student). */
 export function digestMessage(name: string | null, content: DigestContent, siteUrl: string | null, unsubscribeLink: string | null): DigestMessage {
   // Without a public address (NEXT_PUBLIC_SITE_URL) the digest goes out without links.
   const base = siteUrl ? siteUrl.replace(/\/+$/, "") : null;
@@ -65,38 +91,48 @@ export function digestMessage(name: string | null, content: DigestContent, siteU
   ].filter(Boolean);
   const subject = clip(`Today in RevTaw: ${parts.join(" · ")}`, 160);
 
+  const lead = digestLead(content);
+  const links = base
+    ? { planner: `${base}${routes.planner}?date=${content.day}`, review: `${base}${routes.flashcards}/review`, smartStudy: `${base}${routes.study}?method=smart_study` }
+    : null;
   const taskLines = content.tasks.map((task) => `${task.time ? `${formatClock(task.time)} · ` : ""}${clip(task.title, 120)} (${task.minutes} min)`);
-  const examLines = content.exams.map((exam) => `${clip(exam.title, 120)}: ${countdown(exam.daysLeft)} (${formatDate(exam.date, content.day)})`);
-  const links = base ? { dashboard: `${base}${routes.dashboard}`, planner: `${base}${routes.planner}?date=${content.day}`, flashcards: `${base}${routes.flashcards}` } : null;
+  const otherExams = lead === "exam" ? content.exams.slice(1) : content.exams;
+  const sections: EmailSection[] = [
+    lead !== "reviews" && content.dueReviews > 0
+      ? { title: "Flashcards", items: [`${plural(content.dueReviews, "card is", "cards are")} due today`], link: links ? { label: "Start reviewing", href: links.review } : null }
+      : null,
+    lead !== "plan" && taskLines.length ? { title: "Today's plan", items: taskLines, link: links ? { label: "View planner", href: links.planner } : null } : null,
+    otherExams.length ? { title: "Exams coming up", items: otherExams.map((exam) => `${clip(exam.title, 120)}: ${countdown(exam.daysLeft)} (${formatDate(exam.date, content.day)})`) } : null,
+  ].filter((section): section is EmailSection => section !== null);
 
-  const text = [
+  const shared = {
+    subject,
+    preheader: parts.join(" · "),
     greeting,
-    "",
-    content.dueReviews > 0 ? `Flashcards: ${plural(content.dueReviews, "card is", "cards are")} due today.${links ? ` ${links.flashcards}` : ""}` : null,
-    taskLines.length ? ["Today's plan:", ...taskLines.map((line) => `- ${line}`), ...(links ? [links.planner] : [])].join("\n") : null,
-    examLines.length ? ["Exams coming up:", ...examLines.map((line) => `- ${line}`)].join("\n") : null,
-    ...(links ? ["", `Open RevTaw: ${links.dashboard}`] : []),
-    "",
-    "You get this email because the daily study digest is on in RevTaw → Settings → Notifications.",
-    unsubscribeLink ? `Stop the daily digest: ${unsubscribeLink}` : null,
-  ]
-    .filter((line) => line !== null)
-    .join("\n");
-
-  const section = (title: string, items: string[], link: string | null) =>
-    `<h2 style="margin:20px 0 8px;font-size:15px">${escapeHtml(title)}</h2><ul style="margin:0;padding-left:20px;font-size:14px;line-height:1.6;color:#4b4563">${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>${link ? `<p style="margin:8px 0 0;font-size:13px"><a href="${escapeHtml(link)}" style="color:#6d3fdc">Open</a></p>` : ""}`;
-
-  const html = `<!doctype html><html lang="en"><body style="margin:0;background:#f7f6fb;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#1b1530">
-<div style="max-width:520px;margin:0 auto;padding:24px">
-<p style="margin:0 0 8px;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#6d3fdc">RevTaw · ${escapeHtml(formatDate(content.day))}</p>
-<h1 style="margin:0 0 8px;font-size:20px;line-height:1.3">${escapeHtml(greeting)}</h1>
-${content.dueReviews > 0 ? section("Flashcards", [`${plural(content.dueReviews, "card is", "cards are")} due today`], links?.flashcards ?? null) : ""}
-${taskLines.length ? section("Today's plan", taskLines, links?.planner ?? null) : ""}
-${examLines.length ? section("Exams coming up", examLines, null) : ""}
-${links ? `<p style="margin:24px 0"><a href="${escapeHtml(links.dashboard)}" style="display:inline-block;background:#6d3fdc;color:#ffffff;text-decoration:none;font-weight:600;padding:10px 16px;border-radius:10px">Open RevTaw</a></p>` : `<div style="height:16px"></div>`}
-<p style="margin:0;font-size:12px;color:#77708f">You get this email because the daily study digest is on in RevTaw → Settings → Notifications.${unsubscribeLink ? ` <a href="${escapeHtml(unsubscribeLink)}" style="color:#6d3fdc">Stop the daily digest</a>` : ""}</p>
-</div></body></html>`;
-  return { subject, text, html };
+    sections,
+    reason: "You get this email because the daily study digest is on in RevTaw → Settings → Notifications.",
+    unsubscribe: unsubscribeLink ? { label: "Stop the daily digest", href: unsubscribeLink } : null,
+  };
+  const exam = content.exams[0];
+  const email =
+    lead === "exam" && exam
+      ? examEmail({
+          ...shared,
+          link: links?.smartStudy ?? null,
+          exam: {
+            title: clip(exam.title, 80),
+            daysLeft: exam.daysLeft,
+            date: exam.date,
+            subject: exam.subject ? clip(exam.subject, 80) : null,
+            progress: exam.progress && exam.progress.total > 0 ? `${exam.progress.done} of ${plural(exam.progress.total, "planned activity", "planned activities")} done` : null,
+            weakTopics: (exam.weakTopics ?? []).slice(0, 3).map((topic) => clip(topic, 60)),
+          },
+        })
+      : lead === "reviews"
+        ? reviewReminderEmail({ ...shared, link: links?.review ?? null, dueReviews: content.dueReviews })
+        : todaysPlanEmail({ ...shared, link: links?.planner ?? null, tasks: content.tasks.map((task) => ({ title: clip(task.title, 120), time: task.time ? formatClock(task.time) : null, minutes: task.minutes })) });
+  const rendered = renderEmail(email, siteEmailOptions(siteUrl));
+  return { subject, text: rendered.text, html: rendered.html };
 }
 
 /** Today's reviews, plan and exams for one student, read with the scheduler's client. */
@@ -105,14 +141,42 @@ export async function digestContent(client: Client, userId: string, day: string,
   const [reviews, tasks, exams] = await Promise.all([
     client.from("flashcards").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("suspended", false).lt("due_at", endOfDay),
     client.from("study_tasks").select("title, starts_at, minutes").eq("user_id", userId).eq("scheduled_for", day).eq("status", "pending").order("starts_at", { ascending: true, nullsFirst: false }).limit(8),
-    client.from("exams").select("title, exam_date").eq("user_id", userId).is("archived_at", null).gte("exam_date", day).lte("exam_date", addDays(day, EXAM_HORIZON_DAYS)).order("exam_date").limit(5),
+    client.from("exams").select("id, title, exam_date, subject:subjects!exams_subject_fk(name)").eq("user_id", userId).is("archived_at", null).gte("exam_date", day).lte("exam_date", addDays(day, EXAM_HORIZON_DAYS)).order("exam_date").limit(5),
   ]);
-  return {
+  const examRows = (exams.data ?? []) as unknown as Array<{ id: string; title: string; exam_date: string; subject: { name: string } | null }>;
+  const content: DigestContent = {
     day,
     dueReviews: reviews.count ?? 0,
     tasks: (tasks.data ?? []).map((task) => ({ title: task.title, time: task.starts_at, minutes: task.minutes })),
-    exams: (exams.data ?? []).map((exam) => ({ title: exam.title, date: exam.exam_date, daysLeft: daysBetween(day, exam.exam_date) })),
+    exams: examRows.map((exam) => ({ title: exam.title, date: exam.exam_date, daysLeft: daysBetween(day, exam.exam_date), subject: exam.subject?.name ?? null })),
   };
+  const close = examRows[0];
+  if (close && content.exams[0].daysLeft <= CLOSE_EXAM_DAYS) Object.assign(content.exams[0], await examDetails(client, userId, close.id));
+  return content;
+}
+
+/** For the exam the email leads with: how much of its plan is done, and its weakest topics. */
+async function examDetails(client: Client, userId: string, examId: string): Promise<Pick<DigestExam, "progress" | "weakTopics">> {
+  const [plan, links] = await Promise.all([
+    client.from("study_tasks").select("status").eq("user_id", userId).eq("exam_id", examId).neq("status", "skipped").limit(1000),
+    client.from("exam_materials").select("material_id").eq("user_id", userId).eq("exam_id", examId).limit(50),
+  ]);
+  const statuses = (plan.data ?? []) as Array<{ status: string }>;
+  const materialIds = ((links.data ?? []) as Array<{ material_id: string }>).map((link) => link.material_id);
+  let weakTopics: string[] = [];
+  if (materialIds.length > 0) {
+    const { data } = await client
+      .from("concept_mastery")
+      .select("mastery, concept:concepts!concept_mastery_concept_fk!inner(name, material_id)")
+      .eq("user_id", userId)
+      .in("concept.material_id", materialIds)
+      .in("status", ["weak", "learning"])
+      .gt("attempts", 0)
+      .order("mastery")
+      .limit(3);
+    weakTopics = ((data ?? []) as unknown as Array<{ concept: { name: string } | null }>).map((row) => row.concept?.name ?? "").filter(Boolean);
+  }
+  return { progress: statuses.length ? { done: statuses.filter((task) => task.status === "done").length, total: statuses.length } : null, weakTopics };
 }
 
 /**

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { digestIsEmpty, digestMessage, runDailyDigest, type DigestContent } from "@/lib/notifications/digest";
+import { digestContent, digestIsEmpty, digestLead, digestMessage, runDailyDigest, type DigestContent } from "@/lib/notifications/digest";
 
 const { sendEmail } = vi.hoisted(() => ({ sendEmail: vi.fn() }));
 vi.mock("@/lib/notifications/email", () => ({ sendEmail }));
@@ -27,8 +27,41 @@ describe("daily digest", () => {
     expect(message.html).toContain('href="https://revtaw.example/planner?date=2026-10-22"');
     expect(message.html).toContain("Stop the daily digest");
     expect(message.text).toContain("- 2:30 PM · Biology <reviewer> (25 min)");
-    expect(message.text).toContain("Bio midterm: in 3 days");
     expect(message.text).toContain("Stop the daily digest: https://revtaw.example/api/email/unsubscribe?u=1&k=digest&t=x");
+  });
+
+  it("leads with an exam within three days, then lists the rest", () => {
+    const message = digestMessage("Ana", content, "https://revtaw.example", null);
+    expect(message.text).toContain("Your Bio midterm is in 3 days");
+    expect(message.text).toContain("Exam date: Sunday, October 25");
+    expect(message.text).toContain("Start Smart Study: https://revtaw.example/study?method=smart_study");
+    expect(message.text).toContain("Flashcards\n- 12 cards are due today\nStart reviewing: https://revtaw.example/flashcards/review");
+    expect(message.text).toContain("Today's plan\n- 2:30 PM · Biology <reviewer> (25 min)\n- Read chapter 3 (20 min)\nView planner: https://revtaw.example/planner?date=2026-10-22");
+    expect(message.html).toContain('src="https://revtaw.example/email/icon-calendar-clock.png"');
+  });
+
+  it("shows the leading exam's subject, plan progress and weak topics", () => {
+    const exam = { ...content.exams[0], subject: "Biology", progress: { done: 4, total: 10 }, weakTopics: ["Glycolysis", "ATP yield"] };
+    const message = digestMessage("Ana", { ...content, exams: [exam] }, "https://revtaw.example", null);
+    expect(message.text).toContain("Subject: Biology\nStudy progress: 4 of 10 planned activities done\nWeak topics: Glycolysis, ATP yield");
+  });
+
+  it("leads with reviews, else today's plan, when no exam is close", () => {
+    const later = { ...content, exams: [{ title: "Bio final", date: "2026-11-01", daysLeft: 10 }] };
+    expect(digestLead(later)).toBe("reviews");
+    const reviews = digestMessage("Ana", later, "https://revtaw.example", null);
+    expect(reviews.text).toContain("You have 12 reviews due today");
+    expect(reviews.text).toContain("Start Reviewing: https://revtaw.example/flashcards/review");
+    expect(reviews.text).toContain("Exams coming up\n- Bio final: in 10 days (Sun, Nov 1)");
+
+    const plan = { ...later, dueReviews: 0 };
+    expect(digestLead(plan)).toBe("plan");
+    const planned = digestMessage("Ana", plan, "https://revtaw.example", null);
+    expect(planned.text).toContain("You have 2 activities planned today");
+    expect(planned.text).toContain("2:30 PM: Biology <reviewer> · 25 min\nAny time: Read chapter 3 · 20 min");
+    expect(planned.text).toContain("View Planner: https://revtaw.example/planner?date=2026-10-22");
+
+    expect(digestLead({ ...plan, tasks: [] })).toBe("exam");
   });
 
   it("is skipped on a day with nothing to study", () => {
@@ -40,15 +73,16 @@ describe("daily digest", () => {
     const message = digestMessage(null, { day: "2026-10-22", dueReviews: 0, tasks: [], exams: [{ title: "Quiz", date: "2026-10-22", daysLeft: 0 }, { title: "Exam", date: "2026-10-23", daysLeft: 1 }] }, "https://r.example", null);
     expect(message.subject).toBe("Today in RevTaw: Quiz today");
     expect(message.text).toContain("Good morning!");
+    expect(message.text).toContain("Your Quiz is today");
     expect(message.text).toContain("- Exam: tomorrow");
     expect(message.text).not.toContain("Stop the daily digest");
   });
 
   it("goes out without links when the site has no public address", () => {
     const message = digestMessage("Ana", content, null, null);
-    expect(message.html).not.toMatch(/href=|localhost/);
-    expect(message.text).not.toMatch(/https?:|localhost|Open RevTaw/);
-    expect(message.text).toContain("Flashcards: 12 cards are due today.");
+    expect(message.html).not.toMatch(/href="https?:|localhost|<img/);
+    expect(message.text).not.toMatch(/https?:|localhost|Start Smart Study/);
+    expect(message.text).toContain("Flashcards\n- 12 cards are due today");
     expect(message.text).toContain("- Read chapter 3 (20 min)");
   });
 });
@@ -70,6 +104,9 @@ function fakeClient(reply: (call: Call) => Reply) {
         return builder;
       },
       lt: () => builder,
+      gt: () => builder,
+      neq: () => builder,
+      in: () => builder,
       gte: () => builder,
       lte: () => builder,
       is: () => builder,
@@ -114,6 +151,30 @@ function digestWorld(options: { failClaimFor?: string; existing?: Record<string,
     return { data: [{ user_id: user }] };
   });
 }
+
+describe("digest content", () => {
+  it("reads the subject, plan progress and weak topics of an exam within three days", async () => {
+    const { client, calls } = fakeClient((call) => {
+      if (call.table === "flashcards") return { count: 3 };
+      if (call.table === "exams") return { data: [{ id: "e1", title: "Bio midterm", exam_date: "2026-10-25", subject: { name: "Biology" } }, { id: "e2", title: "Math", exam_date: "2026-11-02", subject: null }] };
+      if (call.table === "study_tasks" && call.filters.exam_id === "e1") return { data: [{ status: "done" }, { status: "pending" }, { status: "done" }] };
+      if (call.table === "study_tasks") return { data: [] };
+      if (call.table === "exam_materials") return { data: [{ material_id: "m1" }] };
+      if (call.table === "concept_mastery") return { data: [{ mastery: 20, concept: { name: "Glycolysis" } }, { mastery: 35, concept: { name: "ATP yield" } }] };
+      return {};
+    });
+    const content = await digestContent(client, "ana", "2026-10-22", "Asia/Manila");
+    expect(content.exams[0]).toEqual({ title: "Bio midterm", date: "2026-10-25", daysLeft: 3, subject: "Biology", progress: { done: 2, total: 3 }, weakTopics: ["Glycolysis", "ATP yield"] });
+    expect(content.exams[1]).toEqual({ title: "Math", date: "2026-11-02", daysLeft: 11, subject: null });
+    expect(calls.filter((call) => call.table === "concept_mastery")).toHaveLength(1);
+  });
+
+  it("doesn't read exam details when no exam is close", async () => {
+    const { client, calls } = fakeClient((call) => (call.table === "exams" ? { data: [{ id: "e2", title: "Math", exam_date: "2026-11-02", subject: null }] } : call.table === "flashcards" ? { count: 0 } : { data: [] }));
+    await digestContent(client, "ana", "2026-10-22", "Asia/Manila");
+    expect(calls.some((call) => call.table === "exam_materials" || call.table === "concept_mastery")).toBe(false);
+  });
+});
 
 describe("daily digest run", () => {
   beforeEach(() => {
