@@ -4,9 +4,60 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-25 (Tamari's chat round and fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
+_Last updated: 2026-10-25 (the email design round, Tamari's chat round and fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
 
 ## Completed
+
+### Email design round (one look for every RevTaw email)
+
+Every email RevTaw sends, and the ones Supabase sends for it, now share one
+transactional design (the user's reference: simple, branded, clear title and
+button), instead of the old purple layouts and Supabase's plain defaults:
+
+- **Design system** (`src/lib/email`) — `theme.ts` (the logo's navy
+  `#002858`, RevTaw blue `#1C69E3`, white, the light page; dark values),
+  `render.ts` (the parts — `emailHeader`, `emailIcon`, `emailButton`,
+  `emailDetails`, `emailNotice`, `emailFooter`, `emailLayout` — and
+  `renderEmail()`, which also writes the plain-text part), `templates.ts`
+  (the content of each email type), `html.ts` (`escapeHtml`). Header: logo,
+  the RevTaw wordmark (live text), "Reviewer Na May Bitaw" and "Developed by:
+  MARK FRANCIS ENTREDICHO"; content: a small icon for the type, a greeting,
+  the title with a blue accent, short text, detail rows, the button, lists
+  and a notice box; footer: RevTaw, support@revtaw.com, the website, why the
+  email came, an unsubscribe link for reminders and the daily email.
+  Email-safe: tables for layout, inline styles, system fonts, no scripts,
+  images with fixed sizes and empty alt text (the title says what the email
+  is), a hidden preview line, stacking under 620 px, Outlook fallbacks
+  (a 600 px card, Arial, button padding), dark colors for Apple Mail, iOS
+  Mail and Outlook.com, and every message far under Gmail's 102 KB clip.
+- **Images** (`public/email`) — the logo and 15 icons (lucide line icons in
+  a soft-blue circle, 48 px at 3x, about 1.5 KB each), served from the site,
+  so they load only after a deploy.
+- **The ten types** — Reset password, Password changed, Confirm sign up and
+  Change email address (Supabase, below); Study Reminder (a study or review
+  activity, or any study-plan task: "Your study session starts in 30
+  minutes", Open RevTaw) and Planner Notification (anything else: "You have
+  an assignment due today", View Planner), with subject, topic, date, time,
+  duration and notes; the daily email, still one a day, led by the most
+  urgent thing — an exam within three days (Upcoming Exam: date, subject,
+  plan progress and weakest topics, Start Smart Study), else cards due
+  (Review Reminder, Start Reviewing), else today's plan (View Planner) —
+  with the rest listed below; Welcome (once, after onboarding); and a
+  general `notificationEmail()` for anything new.
+- **Supabase account emails** (`src/lib/email/auth-templates.ts`) —
+  rendered with Supabase's placeholders into `supabase/templates/` (confirm
+  sign-up, reset password, change email, password changed), linking to
+  `/auth/confirm` with the token hash; `supabase/README.md` has the subjects
+  and paste steps. A test keeps the files in step with the design
+  (`UPDATE_EMAIL_TEMPLATES=1` rewrites them). Go's `text/template` and
+  `html/template` both parse and fill them.
+- **Welcome email** — sent after the response, only the first time
+  onboarding is completed: the update that marks it done now matches only
+  while `onboarding_completed_at` is empty, and Resend's idempotency key
+  covers a retried send. No database change.
+- **The unsubscribe page** takes the same look (it was the old purple).
+- **Previews** — `/dev/emails` lists every email with sample data, as sent
+  and as plain text (development only; 404 in production).
 
 ### Tamari's chat round (a study tutor, not a general chatbot)
 
@@ -1306,15 +1357,17 @@ tables.
 - Nothing in the code. All ten phases of the specification, the UI/UX
   Improvement and Personalization Phase, the Tamari visual AI companion
   integration, the API integrations round, the learning engine round, the
-  Archive round, the performance round, the launch review round and
-  Tamari's chat round are implemented (the chat round needs no database
-  change). Before launch: the hosted database has 0001–0023 and needs
-  0024–0033 (one update file), the scheduler (`supabase/schedules.sql`)
-  after the first deploy, the email templates for `/auth/confirm`, the
-  production environment variables, a monitored mailbox for
-  `BRAND.contactEmail` (support@revtaw.com, named in the Privacy Notice and
-  the Terms) and a legal review of both pages (see `supabase/README.md` and
-  the launch checklist in the review report).
+  Archive round, the performance round, the launch review round, Tamari's
+  chat round and the email design round are implemented (neither of the
+  last two needs a database change). Before launch: the hosted database had
+  0001–0023 and needs 0024–0033 (one update file), the scheduler
+  (`supabase/schedules.sql`) after the first deploy, the four email
+  templates in `supabase/templates` pasted into the dashboard after the
+  deploy that serves `/email/` (and the Password changed notification
+  switched on), the production environment variables and a legal review of
+  the Privacy Notice and Terms (see `supabase/README.md` and the launch
+  checklist in the review report). support@revtaw.com forwards to the
+  owner's inbox (Cloudflare Email Routing).
 
 ## Next (priority order)
 
@@ -1816,6 +1869,14 @@ linked).
   in the chat is graded in the chat only and does not update mastery.
 - Math in answers is plain text (×, ÷, ², √, a/b); there is no LaTeX
   rendering.
+- The Supabase account emails live in the Supabase dashboard: after a change
+  to their design or words, `supabase/templates` is rewritten and the
+  changed files are pasted again; their images load from the deployed site.
+  If Supabase fills templates with Go's `html/template`, the Outlook-only
+  comments are dropped (the card keeps its 600 px through its width).
+- Emails are checked in Chromium (light, dark, phone width), with axe and
+  with markup rules, not in real Outlook or Gmail apps: Outlook desktop
+  shows square corners, and the Gmail apps apply their own dark mode.
 - What the model writes can only be checked against a real model
   (`npm run eval:tamari`); its rules are simple heuristics, so read the
   answers in its report too.
@@ -2186,6 +2247,21 @@ Flows verified end to end against a local Supabase-compatible stack
   neutralization, `finalizeReply()` and quote checks, retrieval queries,
   markdown tables, empty or failed AI replies and the student-facing error
   messages.
+- Email design round: `digest-e2e.mjs` (the shared header with logo, motto
+  and credit; the exam within three days leads with Start Smart Study and
+  today's plan is listed under it; one welcome email after onboarding, with
+  its idempotency key), `calendar-e2e.mjs` and `reminder-cap-check.mjs`
+  (reminder emails through the scheduler in the new design, the daily cap),
+  `auth-e2e.mjs` and `profile-e2e.mjs` (onboarding and preference edits
+  after the onboarding change); axe on every email in light and dark: no
+  WCAG A/AA violations (only the page-landmark best practices, which don't
+  apply inside a mail client); screenshots of every email at 760 and 390 px
+  in both themes. Unit tests: AA contrast of every email color pair in both
+  themes, the layout's parts, escaping and plain text, each type's content,
+  the Supabase files in step with the design, every sample email-safe (only
+  reminders and the daily email carry unsubscribe links), the daily email's
+  leads and the exam details read for it, reminder variants, and the
+  welcome email.
 - Tamari's answers (`npm run eval:tamari`, not part of `npm test`; needs AI
   keys in `.env.local` and is skipped without them): 23 cases sent to the
   real AI with the request the app builds, the chat review's test list

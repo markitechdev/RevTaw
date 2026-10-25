@@ -178,6 +178,11 @@ each job's last run). Errors and slow requests are in Vercel's Logs.
   name per page, a Privacy Notice (with a student version) and Terms of Use
   agreed to at sign-up, link previews, and a health check for uptime
   monitors
+- One look for every email (email design round): sign-up, password and
+  email-change emails, reminders, the daily email and a welcome email share
+  RevTaw's navy-and-blue design, with a small icon per type, one clear
+  button, a plain-text part, phone and dark-mode layouts, and previews at
+  `/dev/emails` while developing
 
 ## Scripts
 
@@ -215,11 +220,14 @@ src/lib               supabase clients, ai providers, materials pipeline,
                       rules), adaptive layer (mastery, recommendations, smart
                       study, the night run),
                       planner (exams, plans, tasks, goals, calendar),
-                      reminders, notifications and email, preferences and
+                      reminders, notifications and the email design system
+                      (src/lib/email), preferences and
                       theme, assistant context, voice, analytics,
                       gamification, export, search, concepts, validation,
                       routes, env
 supabase/migrations   SQL migrations (apply in order)
+supabase/templates    the account emails to paste into the Supabase dashboard
+public/email          the logo and icons the emails load
 supabase/schedules.sql  pg_cron jobs for the scheduler (run once, optional)
 ```
 
