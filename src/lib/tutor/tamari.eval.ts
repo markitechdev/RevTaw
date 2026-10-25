@@ -4,11 +4,12 @@ import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { describeAiSetup, isAiError } from "@/lib/ai";
+import { languageCounts } from "@/lib/ai/language";
 import { DEFAULT_AI } from "@/lib/preferences/options";
 import type { TutorMode } from "@/lib/supabase/database.types";
 import { tutorReply, type TutorReply, type TutorTurnInput } from "@/lib/tutor/ai";
 import type { ContextChunk } from "@/lib/tutor/context";
-import { TUTOR_HISTORY_MESSAGES, type TutorTurn } from "@/lib/tutor/prompt";
+import { messageLanguage, TUTOR_HISTORY_MESSAGES, type TutorTurn } from "@/lib/tutor/prompt";
 import { finalizeReply, type FinalReply } from "@/lib/tutor/reply";
 import { TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
 
@@ -17,14 +18,15 @@ import { TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
  *
  * The cases from the chat review's test list (§27) that depend on what the model writes, the three replies from
  * the screenshots that started the review, and a few promises of the instructions (nerves, guided mode, Answer
- * again). The two cases a model can't show on demand, an AI failure and an empty reply, are tested in
- * ai.test.ts, service.test.ts and the chat e2e suite.
+ * again, the reply's language). The two cases a model can't show on demand, an AI failure and an empty reply,
+ * are tested in ai.test.ts, service.test.ts and the chat e2e suite.
  *
  * Each case builds the same request the app builds (tutorReply), checks the reply the way the app does before
- * saving it (finalizeReply), then applies a few simple rules. The rules are soft, so every one is reported,
- * and they can't judge a whole answer: read the answers too, in .tamari-eval/report.md (not committed).
+ * saving it (finalizeReply), then applies a few simple rules; a case whose message is English also checks that
+ * the reply is. The rules are soft, so every one is reported, and they can't judge a whole answer: read the
+ * answers too, in .tamari-eval/report.md (not committed).
  *
- * Cost: one AI request per case (about 23), each a few thousand tokens. That is a real share of a day's free
+ * Cost: one AI request per case (about 25), each a few thousand tokens. That is a real share of a day's free
  * allowance, so run it when nobody is studying, or a few cases at a time: npm run eval:tamari -- -t "§27.12".
  * Skipped when no AI provider is set up, because the mock would only test itself (TAMARI_EVAL_MOCK=1 runs it
  * against the mock anyway, to try the harness).
@@ -53,6 +55,13 @@ const u = (content: string): TutorTurn => ({ role: "user", content });
 const a = (content: string): TutorTurn => ({ role: "assistant", content });
 const chunk = (position: number, heading: string | null, page: number, content: string): ContextChunk => ({ id: `section-${position}`, position, heading, pageStart: page, pageEnd: page, content });
 const words = (text: string) => text.split(/\s+/).filter(Boolean).length;
+/** The share of the reply's function words that are Filipino (language.ts), from 0 (English) to 1. */
+const filipinoShare = (text: string) => {
+  const { english, filipino } = languageCounts(text);
+  return english + filipino === 0 ? 0 : filipino / (english + filipino);
+};
+/** Added to every case whose message is English: a Filipino tag or two is fine, a Filipino reply is not. */
+const inEnglish = (answer: string): Check => ["replies in English, like the student's message", languageCounts(answer).english >= 2 && filipinoShare(answer) <= 0.15];
 const LATEX = /\\\(|\\\[|\$\$|\\frac|\\times|\\sqrt|\\cdot/;
 const NOT_FOUND = /\b(couldn'?t|could not|can'?t|cannot|didn'?t|did not|doesn'?t|does not|isn'?t|is not|not)\b[^.]{0,60}\b(find|found|mention|mentioned|cover|covered|include|included|in your|material|notes)\b/i;
 
@@ -228,7 +237,7 @@ const CASES: Case[] = [
     check: (_reply, answer) => [
       ["gives the accepted answer (chloroplasts)", /chloroplast/i.test(answer)],
       ["mentions what the notes say", /mitochondri/i.test(answer) && /notes|material/i.test(answer)],
-      ["says which one is accepted", /commonly accepted|actually|however|mistake|typo|incorrect|conflict|contradict|but /i.test(answer)],
+      ["says which one is accepted", /accepted|standard|textbook|actually|however|in fact|mistake|typo|incorrect|wrong|conflict|contradict|but |\bpero\b|\btama|\bmali\b/i.test(answer)],
     ],
   },
   {
@@ -316,7 +325,7 @@ const CASES: Case[] = [
     name: "nervous about an exam",
     message: "I have my biology exam tomorrow and I'm really nervous.",
     check: (_reply, answer) => [
-      ["acknowledges the feeling", /nervous|normal|understand|okay|natural|get it|kaya|got this/i.test(answer)],
+      ["acknowledges the feeling", /nervous|normal|understand|okay|natural|get it|got this|stress|worr|anxi|feel|calm|breath|kaya|kaba|naiintindihan/i.test(answer)],
       ["offers a concrete next step", /review|quiz|practice|plan|start|go over|flashcard|let'?s/i.test(answer)],
       ["short (at most 150 words)", words(answer) <= 150],
     ],
@@ -340,6 +349,24 @@ const CASES: Case[] = [
     check: (_reply, answer) => [
       ["gives 12", /\b12\b/.test(answer)],
       ["with the reasoning", /\b8\b|5%|10%|0\.15/.test(answer)],
+    ],
+  },
+  {
+    id: "Language",
+    name: "a question in Filipino",
+    message: "Ano ang pagkakaiba ng mitosis at meiosis?",
+    check: (_reply, answer) => [
+      ["compares mitosis and meiosis", /mitosis/i.test(answer) && /meiosis/i.test(answer)],
+      ["replies in Filipino (technical terms may stay in English)", filipinoShare(answer) >= 0.5],
+    ],
+  },
+  {
+    id: "Language",
+    name: "a Taglish question",
+    message: "Pwede mo ba i-explain yung LEFT JOIN? Di ko pa gets.",
+    check: (_reply, answer) => [
+      ["explains LEFT JOIN", /LEFT JOIN/i.test(answer) && /NULL|match|left table/i.test(answer)],
+      ["replies in Taglish or Filipino, not plain English", filipinoShare(answer) >= 0.25],
     ],
   },
   {
@@ -448,10 +475,13 @@ describe.skipIf(!live)("Tamari", () => {
         const { reply, provider, model } = await ask(input);
         const final = finalizeReply(reply, input.context, item.material !== undefined);
         const checks = item.check(final, final.answer);
+        // With the Auto language setting the app states English for an English message, so the reply should be in it.
+        if (messageLanguage(input) === "en") checks.push(inEnglish(final.answer));
         results.push({ item, message, ms: Date.now() - started, reply: final, modelGrounding: reply.grounding, provider, model, checks });
         for (const [label, pass] of checks) expect.soft(pass, label).toBe(true);
       } catch (error) {
-        results.push({ item, message, ms: Date.now() - started, checks: [], error: isAiError(error) ? `${error.code}: ${error.message}` : String(error) });
+        // The reason (the error's detail) says what went wrong, for example "Unterminated JSON in model output".
+        results.push({ item, message, ms: Date.now() - started, checks: [], error: isAiError(error) ? `${error.code}: ${error.message}${error.detail ? ` (${error.detail})` : ""}` : String(error) });
         throw error;
       }
     });
