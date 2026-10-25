@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 
 import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
+import { DuplicateSessionDialog } from "@/components/study/duplicate-session-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { deleteRoutineAction, saveRoutineAction, startRoutineAction } from "@/lib/study/actions";
 import { BUILDER_METHOD_IDS, isTestMethod, METHOD_BEHAVIOR, methodName } from "@/lib/study/catalog";
+import { isSessionDuplicate, type SessionDuplicate } from "@/lib/study/session-duplicate";
 
 export type RoutineMaterialOption = { id: string; title: string };
 export type RoutineBlockInput = { method: string; minutes: number; materialId?: string | null; questionCount?: number };
@@ -175,13 +177,22 @@ export function RoutinesCard({ routines, materials }: { routines: RoutineItem[];
   const [busy, setBusy] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const start = (routine: RoutineItem) => {
+  // An unfinished run of the routine, found when Start was pressed: the student picks what to do.
+  const [duplicate, setDuplicate] = useState<{ routine: RoutineItem; found: SessionDuplicate } | null>(null);
+
+  const start = (routine: RoutineItem, allowDuplicate = false) => {
     setError(null);
     setBusy(`start:${routine.id}`);
     startTransition(async () => {
-      const result = await startRoutineAction({ routineId: routine.id, materialId: materialId || null });
+      const result = await startRoutineAction({ routineId: routine.id, materialId: materialId || null, allowDuplicate });
       if (!result.ok) {
+        setDuplicate(null);
         setError(result.message);
+        setBusy(null);
+        return;
+      }
+      if (isSessionDuplicate(result.data)) {
+        setDuplicate({ routine, found: result.data });
         setBusy(null);
         return;
       }
@@ -270,6 +281,12 @@ export function RoutinesCard({ routines, materials }: { routines: RoutineItem[];
         error={deleting ? error : null}
         onConfirm={() => deleting && remove(deleting)}
         onCancel={() => setDeleting(null)}
+      />
+      <DuplicateSessionDialog
+        duplicate={duplicate?.found ?? null}
+        starting={pending && busy === `start:${duplicate?.routine.id}`}
+        onStartNew={() => duplicate && start(duplicate.routine, true)}
+        onCancel={() => setDuplicate(null)}
       />
     </Card>
   );

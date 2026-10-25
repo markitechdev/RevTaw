@@ -7,12 +7,15 @@ import { z } from "zod";
 import { ServiceError } from "@/lib/errors";
 import { reviewCard, type ReviewResult } from "@/lib/flashcards/service";
 import { routes } from "@/lib/routes";
+import { startUnlessDuplicate } from "@/lib/study/duplicates";
+import type { SessionDuplicate } from "@/lib/study/session-duplicate";
 import { completeSession, createSession, sessionTitle, suggestNext, type SessionSummary } from "@/lib/study/sessions";
 import { readPages } from "@/lib/supabase/paginate";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { titleWithSuffix } from "@/lib/text/clamp";
 
-export type FlashcardActionResult<T = undefined> = ({ ok: true } & (T extends undefined ? { data?: undefined } : { data: T })) | { ok: false; message: string };
+/** `[T]` keeps a union of answers whole (a session, or the unfinished one like it) instead of splitting it into one result type per member. */
+export type FlashcardActionResult<T = undefined> = ({ ok: true } & ([T] extends [undefined] ? { data?: undefined } : { data: T })) | { ok: false; message: string };
 
 const uuid = z.uuid();
 
@@ -29,32 +32,49 @@ function failure(error: unknown, fallback: string): { ok: false; message: string
   return { ok: false, message: fallback };
 }
 
-/** Opens a review session (method "flashcards" for one deck, "spaced_repetition" for all due cards). */
-export async function startReviewSessionAction(input: { deckId: string | null; mode: "due" | "all" | "favorites"; cardCount: number; taskId?: string | null }): Promise<FlashcardActionResult<{ sessionId: string }>> {
+/**
+ * Opens a review session (method "flashcards" for one deck, "spaced_repetition" for all due cards). An
+ * unfinished review of the same deck and mode is answered instead (`duplicate: true`), so the page can offer
+ * to continue it, unless `allowDuplicate` asks for a new one. A review a planner task opens is the task's own.
+ */
+export async function startReviewSessionAction(input: {
+  deckId: string | null;
+  mode: "due" | "all" | "favorites";
+  cardCount: number;
+  taskId?: string | null;
+  allowDuplicate?: boolean;
+}): Promise<FlashcardActionResult<{ sessionId: string } | SessionDuplicate>> {
   const user = await getCurrentUser();
   if (!user) redirect(routes.login);
-  const parsed = z.object({ deckId: uuid.nullable(), mode: z.enum(["due", "all", "favorites"]), cardCount: z.number().int().min(0).max(500), taskId: uuid.nullable().optional() }).safeParse(input);
+  const parsed = z
+    .object({ deckId: uuid.nullable(), mode: z.enum(["due", "all", "favorites"]), cardCount: z.number().int().min(0).max(500), taskId: uuid.nullable().optional(), allowDuplicate: z.boolean().optional() })
+    .safeParse(input);
   if (!parsed.success) return { ok: false, message: "Invalid review." };
+  const { deckId, mode, cardCount, taskId } = parsed.data;
   try {
     const supabase = await createClient();
     let materialId: string | null = null;
     let title = sessionTitle("spaced_repetition", null);
-    if (parsed.data.deckId) {
-      const { data: deck } = await supabase.from("flashcard_decks").select("id, title, material_id").eq("id", parsed.data.deckId).maybeSingle();
+    if (deckId) {
+      const { data: deck } = await supabase.from("flashcard_decks").select("id, title, material_id").eq("id", deckId).maybeSingle();
       if (!deck) return { ok: false, message: "Deck not found." };
       materialId = deck.material_id;
       title = titleWithSuffix(deck.title, "Review");
     }
-    const { id } = await createSession(supabase, user.id, {
-      method: parsed.data.deckId ? "flashcards" : "spaced_repetition",
-      materialId,
-      goal: "memorize",
-      plannedMinutes: null,
-      title,
-      state: { deckId: parsed.data.deckId, mode: parsed.data.mode, cardCount: parsed.data.cardCount, ...(parsed.data.taskId ? { taskId: parsed.data.taskId } : {}) },
-    });
-    if (parsed.data.taskId) await supabase.from("study_tasks").update({ session_id: id }).eq("id", parsed.data.taskId).eq("status", "pending");
-    return { ok: true, data: { sessionId: id } };
+    const open = async () => {
+      const { id } = await createSession(supabase, user.id, {
+        method: deckId ? "flashcards" : "spaced_repetition",
+        materialId,
+        goal: "memorize",
+        plannedMinutes: null,
+        title,
+        state: { deckId, mode, cardCount, ...(taskId ? { taskId } : {}) },
+      });
+      if (taskId) await supabase.from("study_tasks").update({ session_id: id }).eq("id", taskId).eq("status", "pending");
+      return { sessionId: id };
+    };
+    const result = taskId ? await open() : await startUnlessDuplicate(supabase, user.id, { method: deckId ? "flashcards" : "spaced_repetition", deckId, mode }, Boolean(parsed.data.allowDuplicate), open);
+    return { ok: true, data: result };
   } catch (error) {
     return failure(error, "The review could not be started.");
   }

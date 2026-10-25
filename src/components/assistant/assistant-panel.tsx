@@ -341,7 +341,7 @@ export default function AssistantPanel() {
     if (list && (messages.length > 0 || sending)) list.scrollTop = list.scrollHeight;
   }, [messages.length, sending, view, open, restoring]);
 
-  const { run: runMove } = useTamariMove({ ask: (prompt, material) => void send({ content: prompt, action: null, materialId: material }), setActivity });
+  const { run: runMove, dialog: moveDialog } = useTamariMove({ ask: (prompt, material) => void send({ content: prompt, action: null, materialId: material }), setActivity });
 
   /** Says a short line in the chat (and aloud when the student is talking to Tamari). */
   const tell = (line: string, aloud: boolean) => {
@@ -355,9 +355,10 @@ export default function AssistantPanel() {
     switch (command.kind) {
       case "plan": {
         tell(commandLines.plan(lang, command.minutes), aloud);
-        void runMove({ kind: "plan", minutes: command.minutes, materialId: wantedMaterial?.id ?? conversation?.material?.id ?? null }).then((problem) => {
-          if (problem) setError(problem);
-          else if (!desktop) hide();
+        void runMove({ kind: "plan", minutes: command.minutes, materialId: wantedMaterial?.id ?? conversation?.material?.id ?? null }).then((result) => {
+          if (!result.ok) {
+            if (result.message) setError(result.message);
+          } else if (!desktop) hide();
         });
         return true;
       }
@@ -378,9 +379,9 @@ export default function AssistantPanel() {
             tell(commandLines.quizNeedsMaterial(lang), aloud);
             return;
           }
-          const problem = await runMove({ kind: "session", method: "practice_testing", materialId: id, minutes: 10, focus: command.topic });
-          if (problem) {
-            setError(problem);
+          const result = await runMove({ kind: "session", method: "practice_testing", materialId: id, minutes: 10, focus: command.topic });
+          if (!result.ok) {
+            if (result.message) setError(result.message);
             return;
           }
           // The quiz is ready: say so, then get out of the way (a quiz is never interrupted).
@@ -860,7 +861,7 @@ export default function AssistantPanel() {
   const shownMaterials = (materials ?? []).filter((material) => !filter.trim() || `${material.title} ${material.subject ?? ""}`.toLowerCase().includes(filter.trim().toLowerCase()));
   const contextLine = includeContext && page ? page.label : (conversation?.material?.title ?? attached?.title ?? null);
 
-  return (
+  const panel = (
     <dialog
       ref={dialogRef}
       id="ask-revtaw"
@@ -1338,5 +1339,13 @@ export default function AssistantPanel() {
         </>
       )}
     </dialog>
+  );
+
+  return (
+    <>
+      {panel}
+      {/* Beside the panel, not in it: the warning's Escape and clicks stay its own. */}
+      {moveDialog}
+    </>
   );
 }

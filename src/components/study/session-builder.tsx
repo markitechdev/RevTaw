@@ -6,6 +6,7 @@ import { useId, useMemo, useState, useTransition } from "react";
 
 import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
+import { DuplicateSessionDialog } from "@/components/study/duplicate-session-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +21,7 @@ import { startSessionAction } from "@/lib/study/actions";
 import { BUILDER_METHOD_IDS, isBuilderMethod, isTestMethod, METHOD_BEHAVIOR, RAPID_REVIEW_MINUTES, recommendMethods, TIME_PRESETS, type BuilderMethodId } from "@/lib/study/catalog";
 import { STUDY_METHOD_BY_ID } from "@/lib/study/methods";
 import { PROBLEM_DIFFICULTIES, PROBLEM_DIFFICULTY_LABEL, type ProblemDifficulty } from "@/lib/study/problem-options";
+import { isSessionDuplicate, type SessionDuplicate } from "@/lib/study/session-duplicate";
 import type { SessionGoal } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
 
@@ -113,6 +115,8 @@ export function SessionBuilder({
   const [showAllMethods, setShowAllMethods] = useState(false);
   const [methodFilter, setMethodFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // An unfinished session like this one, found when Start was pressed: the student picks what to do.
+  const [duplicate, setDuplicate] = useState<SessionDuplicate | null>(null);
   const [pending, startTransition] = useTransition();
   const allMethodsId = useId();
 
@@ -123,7 +127,7 @@ export function SessionBuilder({
   const isTest = isTestMethod(method);
   const timePresets: readonly number[] = method === "rapid_review" ? RAPID_REVIEW_MINUTES : TIME_PRESETS;
 
-  const start = () => {
+  const start = (allowDuplicate = false) => {
     setError(null);
     if (needsMaterial && (!materialId || materialId === "none")) {
       setError(`${STUDY_METHOD_BY_ID[method].name} needs a material. Upload one first or pick another method.`);
@@ -150,11 +154,18 @@ export function SessionBuilder({
         workMinutes: method === "pomodoro" ? pomodoro.work : undefined,
         breakMinutes: method === "pomodoro" ? pomodoro.rest : undefined,
         topic: method === "pomodoro" ? topic || null : undefined,
+        allowDuplicate,
       });
       if (!result.ok) {
+        setDuplicate(null);
         setError(result.message);
         return;
       }
+      if (isSessionDuplicate(result.data)) {
+        setDuplicate(result.data);
+        return;
+      }
+      // The dialog (if any) stays open, busy, until the session's page takes over.
       router.push(result.data.redirect);
     });
   };
@@ -426,6 +437,7 @@ export function SessionBuilder({
             </Button>
           </div>
         </form>
+        <DuplicateSessionDialog duplicate={duplicate} starting={pending} onStartNew={() => start(true)} onCancel={() => setDuplicate(null)} />
       </CardContent>
     </Card>
   );

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
+import { DuplicateSessionDialog } from "@/components/study/duplicate-session-dialog";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { finishReviewSessionAction, reviewCardAction, startReviewSessionAction, 
 import type { ReviewQueueCard } from "@/lib/flashcards/queries";
 import { BOX_LABELS, RATING_LABELS, REPEAT_WITHIN_MINUTES } from "@/lib/flashcards/labels";
 import { routes } from "@/lib/routes";
+import { isSessionDuplicate, type SessionDuplicate } from "@/lib/study/session-duplicate";
 import type { SessionSummary } from "@/lib/study/sessions";
 import type { FlashcardRating } from "@/lib/supabase/database.types";
 import { cn } from "@/lib/utils";
@@ -82,19 +84,44 @@ export function FlashcardReview({
   const card = entry ? cards[entry.card.id] : null;
   const reviewedCount = progress.reviewed;
 
+  // An unfinished review of the same cards, found when this one opened: continue it, start anew, or leave.
+  const [duplicate, setDuplicate] = useState<SessionDuplicate | null>(null);
+  const [startingNew, setStartingNew] = useState(false);
+
   // Open a session row once (unless this page resumes one); the server stores every rating against it.
   useEffect(() => {
     startedAt.current = Date.now();
     if (resumeSessionId || queue.length === 0) return;
     let canceled = false;
     startReviewSessionAction({ deckId, mode, cardCount: queue.length, taskId }).then((result) => {
-      if (!canceled && result.ok) setSessionId(result.data.sessionId);
+      if (canceled || !result.ok) return;
+      if (isSessionDuplicate(result.data)) setDuplicate(result.data);
+      else setSessionId(result.data.sessionId);
     });
     return () => {
       canceled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const startNew = () => {
+    setStartingNew(true);
+    startReviewSessionAction({ deckId, mode, cardCount: queue.length, taskId, allowDuplicate: true })
+      .then((result) => {
+        if (!result.ok) {
+          // The review still works; its ratings are saved, only not as one session.
+          setDuplicate(null);
+          setError(result.message);
+        } else if (isSessionDuplicate(result.data)) setDuplicate(result.data);
+        else {
+          setDuplicate(null);
+          setSessionId(result.data.sessionId);
+          startedAt.current = Date.now();
+        }
+      })
+      .catch(() => setError("The review could not be started. Check your connection and try again."))
+      .finally(() => setStartingNew(false));
+  };
 
   useEffect(() => {
     shownAt.current = Date.now();
@@ -209,10 +236,10 @@ export function FlashcardReview({
     [card, entry, entries, pending, sessionId, progress, finishWith],
   );
 
-  // Keyboard: Space/Enter flips, 1-4 rate, F favorites, H hint.
+  // Keyboard: Space/Enter flips, 1-4 rate, F favorites, H hint (not while the warning is open).
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
-      if (!card || summary) return;
+      if (!card || summary || duplicate) return;
       const target = event.target as HTMLElement | null;
       if (target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName) && event.key !== " ") return;
       if (event.key === " " || event.key === "Enter") {
@@ -227,7 +254,7 @@ export function FlashcardReview({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [card, flipped, rate, summary]);
+  }, [card, flipped, rate, summary, duplicate]);
 
   const toggleFavorite = () => {
     if (!card) return;
@@ -428,6 +455,15 @@ export function FlashcardReview({
           </p>
         )}
       </div>
+      <DuplicateSessionDialog
+        duplicate={duplicate}
+        starting={startingNew}
+        onStartNew={startNew}
+        onCancel={() => {
+          setDuplicate(null);
+          router.push(backHref);
+        }}
+      />
     </div>
   );
 }

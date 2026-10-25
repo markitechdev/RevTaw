@@ -71,7 +71,7 @@ export function TamariHome({ line, today, pending = false, size, lgSize }: Props
   const root = useRef<HTMLDivElement>(null);
   const bubbleId = useId();
   const noteId = useId();
-  const { run } = useTamariMove({ ask: (prompt, materialId) => show({ prompt, send: true, ...(materialId !== undefined ? { materialId } : {}) }), setActivity });
+  const { run, dialog } = useTamariMove({ ask: (prompt, materialId) => show({ prompt, send: true, ...(materialId !== undefined ? { materialId } : {}) }), setActivity });
   // A line from the provider (back from a nap: "Uy, buhay ka pa pala. Review?") comes first, then Home's own.
   const own = line && line.id !== putOff && !pending ? line : null;
   const shown = tamari?.suggestions ? (tamari.bubble ?? own) : null;
@@ -124,9 +124,9 @@ export function TamariHome({ line, today, pending = false, size, lgSize }: Props
   const go = async (key: string, move: TamariMove, fromProvider: boolean) => {
     setError(null);
     setBusy(key);
-    const message = fromProvider ? await tamari.runBubbleAction() : await run(move);
-    if (message) {
-      setError(message);
+    const result = fromProvider ? await tamari.runBubbleAction() : await run(move);
+    if (!result.ok) {
+      setError(result.message);
       setBusy(null);
     }
   };
@@ -222,6 +222,7 @@ export function TamariHome({ line, today, pending = false, size, lgSize }: Props
           )}
         </div>
       )}
+      {dialog}
     </div>
   );
 }

@@ -9,7 +9,8 @@ import { routes } from "@/lib/routes";
 
 /** Helpers shared by the study Server Action modules. */
 
-export type StudyActionResult<T = undefined> = ({ ok: true } & (T extends undefined ? { data?: undefined } : { data: T })) | { ok: false; message: string };
+/** `[T]` keeps a union of answers whole (a session, or the unfinished one like it) instead of splitting it into one result type per member. */
+export type StudyActionResult<T = undefined> = ({ ok: true } & ([T] extends [undefined] ? { data?: undefined } : { data: T })) | { ok: false; message: string };
 
 export const uuid = z.uuid();
 

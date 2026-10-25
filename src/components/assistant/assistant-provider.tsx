@@ -6,7 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 import { ChatLauncher } from "@/components/assistant/chat-launcher";
 import type { ServerVoice } from "@/components/assistant/use-voice";
-import { useTamariMove } from "@/components/tamari/use-tamari-move";
+import { useTamariMove, type MoveResult } from "@/components/tamari/use-tamari-move";
 import type { PageContextRef } from "@/lib/assistant/context-schema";
 import type { AiPreferences, AssistantPreferences } from "@/lib/preferences/options";
 import { napBubble, tamariLanguage, type TamariBubble, type TamariLanguage } from "@/lib/tamari/lines";
@@ -77,8 +77,8 @@ export type TamariContextValue = {
   seat: () => () => void;
   react: (kind: TamariReaction) => void;
   dismissBubble: () => void;
-  /** Runs the shown line's action; resolves to an error message, or null. */
-  runBubbleAction: () => Promise<string | null>;
+  /** Runs the shown line's action (see `useTamariMove`). */
+  runBubbleAction: () => Promise<MoveResult>;
   openChat: () => void;
 };
 
@@ -281,10 +281,10 @@ export function AssistantProvider({ ai, assistant, voiceServer, children }: { ai
   }, [withTamari, assistant.reactions, assistant.suggestions, napLanguage]);
 
   const { run: runMove } = move;
-  const runBubbleAction = useCallback(async () => {
+  const runBubbleAction = useCallback(async (): Promise<MoveResult> => {
     const action = bubble?.action;
     setBubble(null);
-    return action ? runMove(action) : null;
+    return action ? runMove(action) : { ok: false, message: null };
   }, [bubble, runMove]);
   const dismissBubble = useCallback(() => setBubble(null), []);
   const openChat = useCallback(() => show(), [show]);
@@ -345,6 +345,7 @@ export function AssistantProvider({ ai, assistant, voiceServer, children }: { ai
           {loaded && <AssistantPanel />}
         </aside>
       )}
+      {move.dialog}
       </TamariContext.Provider>
     </AssistantContext.Provider>
   );

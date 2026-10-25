@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { smartPlanSchema, type SmartBlock } from "@/lib/adaptive/smart";
 import { BUILDER_METHOD_IDS, methodName } from "@/lib/study/catalog";
+import { startUnlessDuplicate, type SessionDuplicate } from "@/lib/study/duplicates";
 import { createSession, SessionError } from "@/lib/study/sessions";
 import type { Routine, SessionGoal } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -74,13 +75,24 @@ export async function deleteRoutine(routineId: string): Promise<void> {
   if (error) throw new Error(`routines: delete failed: ${error.message}`);
 }
 
-/** Starts a routine as a parent session whose blocks run like Smart Study blocks. */
-export async function startRoutine(userId: string, routineId: string, options: { materialId: string | null; goal: SessionGoal | null }): Promise<{ sessionId: string }> {
+/**
+ * Starts a routine as a parent session whose blocks run like Smart Study blocks. An unfinished run of the
+ * same routine (on the same material) is answered instead, unless `allowDuplicate` asks for another.
+ */
+export async function startRoutine(userId: string, routineId: string, options: { materialId: string | null; goal: SessionGoal | null; allowDuplicate?: boolean }): Promise<{ sessionId: string } | SessionDuplicate> {
   const supabase = await createClient();
   const { data: routine } = await supabase.from("routines").select("*").eq("id", routineId).maybeSingle();
   if (!routine) throw new SessionError("Routine not found.", 404);
   const blocks = parseRoutineBlocks(routine.blocks);
   if (blocks.length === 0) throw new SessionError("This routine has no blocks.", 400);
+  return startUnlessDuplicate(supabase, userId, { method: "custom_routine", materialId: options.materialId, routineId }, Boolean(options.allowDuplicate), () =>
+    createRoutineSession(supabase, userId, { id: routine.id, title: routine.title, blocks }, options),
+  );
+}
+
+async function createRoutineSession(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, routine: { id: string; title: string; blocks: RoutineBlock[] }, options: { materialId: string | null; goal: SessionGoal | null }): Promise<{ sessionId: string }> {
+  const routineId = routine.id;
+  const blocks = routine.blocks;
   const materialIds = [...new Set([options.materialId, ...blocks.map((block) => block.materialId ?? null)].filter((id): id is string => Boolean(id)))];
   const { data: materials } = materialIds.length ? await supabase.from("materials").select("id, title, status").in("id", materialIds) : { data: [] };
   const titles = new Map((materials ?? []).map((material) => [material.id, material.title]));

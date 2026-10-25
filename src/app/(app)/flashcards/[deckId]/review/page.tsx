@@ -26,7 +26,9 @@ export default async function DeckReviewPage({ params, searchParams }: PageProps
       {/* Phones keep the rating buttons clear: the floating button is desktop-only here. */}
       <AssistantPage context={{ kind: "deck", id: deck.id }} label={`Flashcards → ${deck.title}`} materialId={deck.material_id} launcher="desktop" />
       <FlashcardReview
-      key={`${mode}-${shuffle}`}
+      // Picking up an unfinished review ("Resume it" adds ?session=) starts the runner afresh; finishing it
+      // (the page refreshes, the session no longer resumable) keeps the summary on screen.
+      key={`${mode}-${shuffle}-${typeof query.session === "string" ? query.session : "new"}`}
       resumeSessionId={resumeSessionId}
       // Shuffled on the server, so the first render and hydration agree.
       queue={shuffle ? shuffled(queue) : queue}

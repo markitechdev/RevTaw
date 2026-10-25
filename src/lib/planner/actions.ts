@@ -14,7 +14,7 @@ import { archiveExam, completeTask, createExam, deleteExam, deleteTask, moveTask
 import type { ActivityInput, ExamFormInput, GoalFormInput } from "@/lib/planner/schemas";
 import { routes } from "@/lib/routes";
 import { isBuilderMethod, isTestMethod, type BuilderMethodId } from "@/lib/study/catalog";
-import { startSession } from "@/lib/study/service";
+import { startPlannedSession } from "@/lib/study/service";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
 export type PlannerActionResult<T = undefined> = ({ ok: true } & (T extends undefined ? { data?: undefined } : { data: T })) | { ok: false; message: string };
@@ -155,7 +155,7 @@ export async function startTaskAction(taskId: string): Promise<PlannerActionResu
     if (!isBuilderMethod(candidate) || candidate === "smart_study") return { ok: false, message: "This task's method cannot be started yet. Mark it done when you have studied it." };
     const method: BuilderMethodId = candidate;
     const minutes = Math.max(1, Math.min(480, task.minutes));
-    const result = await startSession(user.id, {
+    const result = await startPlannedSession(user.id, {
       method,
       materialId: task.material_id,
       goal: task.method === "review" ? "quick_review" : isTestMethod(method) || method === "rapid_review" ? "exam_prep" : "practice",

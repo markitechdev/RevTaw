@@ -21,6 +21,9 @@ export default async function ReviewAllPage({ searchParams }: PageProps<"/flashc
     <>
       <AssistantLauncher mode="desktop" />
       <FlashcardReview
+        // Picking up an unfinished review ("Resume it" adds ?session=) starts the runner afresh; finishing it
+        // (the page refreshes, the session no longer resumable) keeps the summary on screen.
+        key={typeof params.session === "string" ? params.session : "new"}
         queue={queue}
         deckId={null}
         mode="due"

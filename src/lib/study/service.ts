@@ -18,6 +18,7 @@ import { startDualCoding } from "@/lib/study/flows/visual";
 import { startFadedExamples, startPracticeProblems, startWorkedExamples } from "@/lib/study/flows/problems";
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
 import { isTutorMethod, METHOD_BEHAVIOR, TEST_METHOD_IDS, type BuilderMethodId, type TestMethodId } from "@/lib/study/catalog";
+import { signatureForStart, startUnlessDuplicate, type SessionDuplicate } from "@/lib/study/duplicates";
 import { loadOpenItem, recordItemResult, reloadItem, settleAnsweredItem, storeItemAttempt } from "@/lib/study/items";
 import type { StudyMethodId } from "@/lib/study/methods";
 import type { ProblemDifficulty } from "@/lib/study/prompts/problems";
@@ -59,6 +60,8 @@ export type StartSessionInput = {
   parentBlockKey?: string | null;
   /** Set when the session was started from a planner task; completing it closes the task. */
   taskId?: string | null;
+  /** Start even though an unfinished session like it exists (the student chose "Start a new one"). */
+  allowDuplicate?: boolean;
 };
 
 export type StartSessionResult = { sessionId: string; redirect: string };
@@ -86,9 +89,22 @@ async function weakConceptNames(materialId: string | null = null, limit = 6): Pr
 /**
  * Starts a session of the chosen method: generates its items (active recall,
  * Feynman), gathers open mistakes (error review), creates a quiz and attempt
- * (practice testing) or just records the timer settings (Pomodoro).
+ * (practice testing) or just records the timer settings (Pomodoro). When the
+ * student already has an unfinished session like it, nothing starts and the
+ * answer says so (duplicates.ts), unless `allowDuplicate` asks for another.
  */
-export async function startSession(userId: string, input: StartSessionInput): Promise<StartSessionResult> {
+export async function startSession(userId: string, input: StartSessionInput): Promise<StartSessionResult | SessionDuplicate> {
+  // Flashcard reviews only open their page here; the review page starts (and checks) the session itself.
+  if (input.method === "flashcards" || input.method === "spaced_repetition" || input.parentSessionId || input.taskId) return startPlannedSession(userId, input);
+  const supabase = await createClient();
+  return startUnlessDuplicate(supabase, userId, signatureForStart(input), Boolean(input.allowDuplicate), () => startPlannedSession(userId, input));
+}
+
+/**
+ * Starts a session without looking for unfinished copies: a block of a plan or a planner task's session,
+ * which their plan or task opens again while it is unfinished, so there is nothing to ask.
+ */
+export async function startPlannedSession(userId: string, input: StartSessionInput): Promise<StartSessionResult> {
   const result = await startSessionInner(userId, input);
   if (input.parentSessionId && result.sessionId) {
     const supabase = await createClient();

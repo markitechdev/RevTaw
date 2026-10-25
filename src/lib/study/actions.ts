@@ -18,11 +18,13 @@ import {
   completeItemSession,
   completePomodoro,
   savePomodoro,
+  startPlannedSession,
   startSession,
   type FeynmanRoundResult,
   type RecallItemResult,
   type StartSessionResult,
 } from "@/lib/study/service";
+import { isSessionDuplicate, type SessionDuplicate } from "@/lib/study/session-duplicate";
 import { loadSession, type SessionSummary } from "@/lib/study/sessions";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -50,16 +52,19 @@ const startSchema = z.object({
   workMinutes: z.number().int().min(1).max(120).optional(),
   breakMinutes: z.number().int().min(1).max(60).optional(),
   topic: z.string().trim().max(120).nullable().optional(),
+  /** The student saw the warning about an unfinished session like this one and chose to start another. */
+  allowDuplicate: z.boolean().optional(),
 });
 
-export async function startSessionAction(input: z.input<typeof startSchema>): Promise<StudyActionResult<StartSessionResult>> {
+/** Starts a session, or answers with the unfinished one like it (`duplicate: true`) without starting anything. */
+export async function startSessionAction(input: z.input<typeof startSchema>): Promise<StudyActionResult<StartSessionResult | SessionDuplicate>> {
   const user = await getCurrentUser();
   if (!user) redirect(routes.login);
   const parsed = startSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the session settings." };
   try {
     const result = await startSession(user.id, parsed.data);
-    revalidate();
+    if (!isSessionDuplicate(result)) revalidate();
     return { ok: true, data: result };
   } catch (error) {
     return failure(error, "The session could not be started. Please try again.");
@@ -112,15 +117,16 @@ export async function deleteRoutineAction(routineId: string): Promise<StudyActio
   }
 }
 
-export async function startRoutineAction(input: { routineId: string; materialId: string | null }): Promise<StudyActionResult<{ redirect: string }>> {
+export async function startRoutineAction(input: { routineId: string; materialId: string | null; allowDuplicate?: boolean }): Promise<StudyActionResult<{ redirect: string } | SessionDuplicate>> {
   const user = await getCurrentUser();
   if (!user) redirect(routes.login);
-  const parsed = z.object({ routineId: uuid, materialId: uuid.nullable() }).safeParse(input);
+  const parsed = z.object({ routineId: uuid, materialId: uuid.nullable(), allowDuplicate: z.boolean().optional() }).safeParse(input);
   if (!parsed.success) return { ok: false, message: "Invalid routine." };
   try {
-    const { sessionId } = await startRoutine(user.id, parsed.data.routineId, { materialId: parsed.data.materialId, goal: null });
-    revalidate(sessionId);
-    return { ok: true, data: { redirect: `${routes.study}/${sessionId}` } };
+    const result = await startRoutine(user.id, parsed.data.routineId, { materialId: parsed.data.materialId, goal: null, allowDuplicate: Boolean(parsed.data.allowDuplicate) });
+    if (isSessionDuplicate(result)) return { ok: true, data: result };
+    revalidate(result.sessionId);
+    return { ok: true, data: { redirect: `${routes.study}/${result.sessionId}` } };
   } catch (error) {
     return failure(error, "The routine could not be started.");
   }
@@ -246,7 +252,7 @@ export async function startSmartBlockAction(input: { sessionId: string; key: str
       const missed = [...new Set((view?.blocks ?? []).flatMap((item) => item.childSummary?.weakConcepts ?? []))].slice(0, 4);
       if (missed.length > 0) focus = missed.join(", ");
     }
-    const result = await startSession(user.id, {
+    const result = await startPlannedSession(user.id, {
       method: block.method,
       materialId: block.materialId ?? plan.materialId,
       goal: session.goal,

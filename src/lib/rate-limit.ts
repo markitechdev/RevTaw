@@ -96,6 +96,23 @@ export async function rateLimit(key: string, limit: number, windowMs: number): P
   return localRateLimit(key, limit, windowMs);
 }
 
+/**
+ * Ends a key's window early. With a limit of one, `rateLimit()` works as a short lock (only the first caller
+ * gets through) and this releases it once the work is done; the window still frees it if the release never
+ * comes.
+ */
+export async function releaseRateLimit(key: string): Promise<void> {
+  store.delete(key);
+  const admin = createAdminClient();
+  if (!admin) return;
+  try {
+    const { error } = await admin.from("rate_limits").delete().eq("key", storedKey(key));
+    if (error) console.warn("rate limits: release failed", error.message);
+  } catch (error) {
+    console.warn("rate limits: release failed", error instanceof Error ? error.message : error);
+  }
+}
+
 /** Best-effort client address for keying limits behind common proxies. */
 export async function getClientAddress(): Promise<string> {
   const headerStore = await headers();
