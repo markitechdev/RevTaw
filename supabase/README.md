@@ -86,21 +86,44 @@ would cut those reads short.
   sign-in. RevTaw itself sets a new password without the old one only from a
   session that signed in through an email link in the last 15 minutes.
 
-**Authentication → Email Templates** (recommended)
+**Authentication → Emails** (RevTaw's email templates)
+
+RevTaw's branded account emails are in `supabase/templates/`, made with the
+same design system as the app's own emails (`src/lib/email`). Deploy RevTaw
+first: their logo and icons load from `{{ .SiteURL }}/email/`. Then, for each
+template below, open it in the dashboard, set the subject, replace the whole
+message body (source view) with the file's contents, and save:
+
+| Dashboard template | File | Subject |
+| --- | --- | --- |
+| Confirm sign up | `confirm-signup.html` | Confirm your RevTaw account |
+| Reset password | `reset-password.html` | Reset your RevTaw password |
+| Change email address | `change-email.html` | Confirm your new RevTaw email |
+| Password changed (a security notification: switch it on) | `password-changed.html` | Your RevTaw password was changed |
 
 The default templates work with the `/auth/callback` route, but their links are
 used as soon as they are opened, and school or work mail scanners (Microsoft
 Safe Links and the like) open every link first, so students find them already
-used. Point the templates at RevTaw's confirm page instead. Opening the link
-only shows a button; the link is used when the student presses it, and it
+used. RevTaw's templates point at RevTaw's confirm page instead. Opening the
+link only shows a button; the link is used when the student presses it, and it
 works in any browser or device:
 
-- Confirm signup:
+- Confirm sign up:
   `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup`
 - Reset password:
   `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery`
 - Change email address:
   `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email_change`
+
+"This link will expire in 1 hour" matches Supabase's default **Email OTP
+Expiration** (3600 seconds); if you change it, change `LINK_EXPIRY` in
+`src/lib/email/auth-templates.ts` too. After changing an email's design or
+words, write the files again and paste the changed ones:
+
+```bash
+UPDATE_EMAIL_TEMPLATES=1 npx vitest run src/lib/email/auth-templates.test.ts
+# PowerShell: $env:UPDATE_EMAIL_TEMPLATES=1; npx vitest run src/lib/email/auth-templates.test.ts
+```
 
 These links always open the Site URL, so during local development a
 confirmation link opens the live site; sign in locally afterwards.
