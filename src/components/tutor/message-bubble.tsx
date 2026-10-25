@@ -1,8 +1,8 @@
 "use client";
 
-import { BookOpen, Layers, NotebookPen, Pencil, Quote, RotateCcw } from "lucide-react";
+import { BookOpen, Check, Copy, Layers, NotebookPen, Pencil, Quote, RotateCcw, ThumbsDown, ThumbsUp } from "lucide-react";
 import Link from "next/link";
-import { memo } from "react";
+import { memo, useState } from "react";
 
 import { Markdown } from "@/components/content/markdown";
 import { VisualView } from "@/components/study/visual-view";
@@ -16,7 +16,29 @@ import { FOLLOW_UPS, groundingLabel, TUTOR_ACTION_BY_ID, type FollowUpId, type T
 import { cn } from "@/lib/utils";
 import { textLang } from "@/lib/voice/speech-text";
 
-export type MessageExtras = { notesReviewerId?: string; flashcardDeckId?: string; busy?: FollowUpId | null };
+export type MessageExtras = { notesReviewerId?: string; flashcardDeckId?: string; busy?: FollowUpId | null; feedback?: "up" | "down" };
+
+const TOOL = "inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60 aria-pressed:text-primary";
+
+/** Copies an answer's text; says "Copied" for a moment. */
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    void navigator.clipboard
+      ?.writeText(text)
+      .then(() => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {});
+  };
+  return (
+    <button type="button" onClick={copy} className={TOOL}>
+      {copied ? <Check className="h-3 w-3" aria-hidden="true" /> : <Copy className="h-3 w-3" aria-hidden="true" />}
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
 
 /** One chat turn: the student's question (with highlight) or the tutor's grounded answer with sources and actions. */
 /**
@@ -31,6 +53,7 @@ export const MessageBubble = memo(function MessageBubble({
   disabled,
   onFollowUp,
   onRegenerate,
+  onFeedback,
   onEdit,
   saveable = true,
 }: {
@@ -41,6 +64,8 @@ export const MessageBubble = memo(function MessageBubble({
   onFollowUp?: (id: FollowUpId, action: TutorActionId | undefined, message: MessageView) => void;
   /** The latest answer only: answer the same question again, another way. */
   onRegenerate?: () => void;
+  /** Helpful / not helpful on a saved answer. */
+  onFeedback?: (message: MessageView, helpful: boolean) => void;
   /** The latest question only: put it back in the box to change and resend. */
   onEdit?: (message: MessageView) => void;
   /** Offer "Add to notes" and "Create flashcard" (they need a material to save into). */
@@ -129,18 +154,39 @@ export const MessageBubble = memo(function MessageBubble({
             </ul>
           </details>
         )}
-        {onRegenerate && (
-          <div className="flex flex-wrap items-center gap-1">
+        {(onFeedback || onRegenerate) && (
+          <div role="group" aria-label="Answer tools" className="-mx-1.5 flex flex-wrap items-center gap-0.5">
+            <CopyButton text={message.content} />
+            {onRegenerate && (
+              <button type="button" disabled={disabled} onClick={onRegenerate} className={TOOL}>
+                <RotateCcw className="h-3 w-3" aria-hidden="true" />
+                Answer again
+              </button>
+            )}
+            {onFeedback && (
+              <>
+                <button type="button" aria-label="Helpful" aria-pressed={extras?.feedback === "up"} onClick={() => onFeedback(message, true)} className={TOOL}>
+                  <ThumbsUp className={cn("h-3.5 w-3.5", extras?.feedback === "up" && "fill-current")} aria-hidden="true" />
+                </button>
+                <button type="button" aria-label="Not helpful" aria-pressed={extras?.feedback === "down"} onClick={() => onFeedback(message, false)} className={TOOL}>
+                  <ThumbsDown className={cn("h-3.5 w-3.5", extras?.feedback === "down" && "fill-current")} aria-hidden="true" />
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        {extras?.feedback === "down" && onFollowUp && (
+          <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+            Sorry it didn&apos;t help.
             <button
               type="button"
               disabled={disabled}
-              onClick={onRegenerate}
-              className="inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
+              onClick={() => (onRegenerate ? onRegenerate() : onFollowUp("simplify", "simplify", message))}
+              className="cursor-pointer font-semibold text-primary hover:underline disabled:opacity-60"
             >
-              <RotateCcw className="h-3 w-3" aria-hidden="true" />
-              Answer again
+              Explain it differently
             </button>
-          </div>
+          </p>
         )}
         {onFollowUp && followUps.length > 0 && (
           <div className="flex flex-wrap gap-1.5 border-t border-border pt-2">

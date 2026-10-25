@@ -163,6 +163,12 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
     }
   };
 
+  /** Helpful / not helpful: shown at once; recorded as a usage event (with the student's consent, no text). */
+  const giveFeedback = useStableCallback((message: MessageView, helpful: boolean) => {
+    setExtras((state) => ({ ...state, [message.id]: { ...state[message.id], feedback: helpful ? "up" : "down" } }));
+    void fetch(`/api/tutor/messages/${message.id}/feedback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ helpful }) }).catch(() => {});
+  });
+
   /** "Edit question": the latest question goes back in the box; sending it replaces that question and its answer. */
   const startEdit = useStableCallback((message: MessageView) => {
     setEditing(message);
@@ -281,6 +287,7 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
               disabled={sending || locked}
               onFollowUp={message.role === "assistant" && !locked ? followUp : undefined}
               onRegenerate={message.role === "assistant" && saved && !locked && !sending && index === messages.length - 1 ? () => void retry() : undefined}
+              onFeedback={message.role === "assistant" && saved ? giveFeedback : undefined}
               onEdit={message.role === "user" && saved && !locked && !sending && !editing && index === lastQuestionIndex ? startEdit : undefined}
             />
           );

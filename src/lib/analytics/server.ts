@@ -34,6 +34,7 @@ export const ANALYTICS_EVENTS = {
   flashcards_created: ["cards"],
   reviewer_created: ["format"],
   tamari_message: ["mode", "grounding", "provider"],
+  tamari_feedback: ["helpful", "mode", "grounding", "provider"],
   study_session_completed: ["minutes", "questions"],
   voice_transcribed: ["provider"],
   calendar_connected: [],

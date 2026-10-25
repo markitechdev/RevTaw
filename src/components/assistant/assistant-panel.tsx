@@ -571,6 +571,12 @@ export default function AssistantPanel() {
     }
   };
 
+  /** Helpful / not helpful: shown at once; recorded as a usage event (with the student's consent, no text). */
+  const giveFeedback = useStableCallback((message: MessageView, helpful: boolean) => {
+    setExtras((state) => ({ ...state, [message.id]: { ...state[message.id], feedback: helpful ? "up" : "down" } }));
+    void fetch(`/api/tutor/messages/${message.id}/feedback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ helpful }) }).catch(() => {});
+  });
+
   /** "Edit question": the latest question goes back in the box; sending it replaces that question and its answer. */
   const startEdit = useStableCallback((message: MessageView) => {
     setEditing(message);
@@ -1053,6 +1059,7 @@ export default function AssistantPanel() {
                     saveable={Boolean(conversation?.material)}
                     onFollowUp={message.role === "assistant" && saved ? followUp : undefined}
                     onRegenerate={message.role === "assistant" && saved && latest && !sending ? () => void retry() : undefined}
+                    onFeedback={message.role === "assistant" && saved ? giveFeedback : undefined}
                     onEdit={message.role === "user" && saved && index === lastQuestionIndex && !sending && !editing ? startEdit : undefined}
                   />
                 );
