@@ -33,10 +33,13 @@ runs `npm install`, starts the dev server and opens the app in your browser
 
 AI features (material analysis, image transcription, reviewer and quiz
 generation, grading, Tamari) run on the server through a router: Groq first,
-then Cloudflare Workers AI (both have free tiers), then Anthropic or OpenAI
-if you add a paid key, then a local Ollama. Put `GROQ_API_KEY`,
-`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in `.env.local`; each
-student gets a daily AI allowance (`AI_DAILY_LIMITS`, migration 0016).
+then Cloudflare Workers AI (both have free tiers), then Ollama Cloud if you
+add `OLLAMA_API_KEY` (a backup with token budgets, so the free monthly
+allowance every student shares is never used up: `OLLAMA_CLOUD_LIMITS`,
+migration 0034), then Anthropic or OpenAI if you add a paid key, then a
+local Ollama. Put `GROQ_API_KEY`, `CLOUDFLARE_ACCOUNT_ID` and
+`CLOUDFLARE_API_TOKEN` in `.env.local`; each student gets a daily AI
+allowance (`AI_DAILY_LIMITS`, migration 0016).
 Without any key, development uses a built-in mock provider so the rest of
 the app keeps working. While signed in to `npm run dev`, open
 `/api/system/services?live=1` to check each configured service.

@@ -1,8 +1,9 @@
 import "server-only";
 
-import { buildProvider, describeAiSetup } from "@/lib/ai";
+import { buildProvider, describeAiSetup, ollamaCloudBudget } from "@/lib/ai";
 import { EMBEDDING_DIMENSIONS, EMBEDDING_MODEL, embeddingsConfigured, embedTexts } from "@/lib/ai/embeddings";
 import { isAiError } from "@/lib/ai/errors";
+import { providerBudgetSummary } from "@/lib/ai/provider-budget";
 import { getDailyLimits, parseVoiceAllowance } from "@/lib/ai/quota";
 import { cooldownSnapshot, recentRoutes } from "@/lib/ai/router";
 import type { AiTier } from "@/lib/ai/types";
@@ -60,6 +61,8 @@ export async function checkAiProviders(): Promise<LiveCheck[]> {
     for (const tier of ["fast", "strong"] as AiTier[]) {
       const provider = buildProvider(name, tier);
       if (!provider) continue;
+      // One call when both tiers use the same model (Ollama Cloud's default).
+      if (tier === "strong" && provider.model === buildProvider(name, "fast")?.model) continue;
       checks.push(
         timed(`ai text (${tier})`, provider.name, provider.model, async () => {
           const result = await provider.generate({
@@ -96,6 +99,12 @@ export async function checkAiProviders(): Promise<LiveCheck[]> {
     }
   }
   return Promise.all(checks);
+}
+
+/** How much of each token budget is used, for the providers that have one (totals only; no student is named). */
+export async function aiBudgets() {
+  if (!describeAiSetup().providers.includes("ollama_cloud")) return {};
+  return { ollama_cloud: await providerBudgetSummary("ollama_cloud", ollamaCloudBudget()) };
 }
 
 export function aiSummary() {

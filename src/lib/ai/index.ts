@@ -5,6 +5,7 @@ import { AnthropicProvider } from "@/lib/ai/providers/anthropic";
 import { GoogleProvider } from "@/lib/ai/providers/google";
 import { MockProvider } from "@/lib/ai/providers/mock";
 import { OpenAiProvider } from "@/lib/ai/providers/openai";
+import { BudgetedProvider, parseProviderBudget, type ProviderBudget } from "@/lib/ai/provider-budget";
 import { OpenAiCompatibleProvider } from "@/lib/ai/providers/openai-compatible";
 import { MeteredProvider } from "@/lib/ai/quota";
 import { AiRouter } from "@/lib/ai/router";
@@ -14,18 +15,19 @@ import { getServerEnv, type ServerEnv } from "@/lib/env";
 export type { AiProvider, AiTier } from "@/lib/ai/types";
 export { AiError, isAiError } from "@/lib/ai/errors";
 
-export type AiProviderName = "groq" | "cloudflare" | "ollama" | "anthropic" | "openai" | "google" | "mock";
+export type AiProviderName = "groq" | "cloudflare" | "ollama_cloud" | "ollama" | "anthropic" | "openai" | "google" | "mock";
 
-const PROVIDER_NAMES: readonly AiProviderName[] = ["groq", "cloudflare", "ollama", "anthropic", "openai", "google", "mock"];
+const PROVIDER_NAMES: readonly AiProviderName[] = ["groq", "cloudflare", "ollama_cloud", "ollama", "anthropic", "openai", "google", "mock"];
 
 /**
  * Automatic order: the free tiers first (Groq, then Cloudflare Workers AI,
- * which has no per-minute token cap and takes the long requests), the paid
- * tiers next, a local Ollama last. Google is never chosen automatically:
- * Gemini's terms bar apps likely used by students under 18. Change the order
- * with AI_PROVIDER_ORDER.
+ * which has no per-minute token cap and takes the long requests, then Ollama
+ * Cloud, whose small free monthly allowance is kept for when those are busy
+ * or a request is too long for them), the paid tiers next, a local Ollama
+ * last. Google is never chosen automatically: Gemini's terms bar apps likely
+ * used by students under 18. Change the order with AI_PROVIDER_ORDER.
  */
-export const DEFAULT_PROVIDER_ORDER: readonly AiProviderName[] = ["groq", "cloudflare", "anthropic", "openai", "ollama"];
+export const DEFAULT_PROVIDER_ORDER: readonly AiProviderName[] = ["groq", "cloudflare", "ollama_cloud", "anthropic", "openai", "ollama"];
 
 /**
  * Default models per provider and tier. "fast" is for short, simple tasks
@@ -35,6 +37,9 @@ export const DEFAULT_PROVIDER_ORDER: readonly AiProviderName[] = ["groq", "cloud
 export const DEFAULT_MODELS: Record<Exclude<AiProviderName, "mock">, Record<AiTier, string>> = {
   groq: { fast: "openai/gpt-oss-20b", strong: "openai/gpt-oss-120b" },
   cloudflare: { fast: "@cf/openai/gpt-oss-20b", strong: "@cf/openai/gpt-oss-120b" },
+  // Free Ollama accounts can call only "starter" models, which Ollama doesn't list; gpt-oss:120b answered on a
+  // free key in September 2026 and is the model Groq and Cloudflare use, so answers stay alike.
+  ollama_cloud: { fast: "gpt-oss:120b", strong: "gpt-oss:120b" },
   ollama: { fast: "qwen3.5:4b", strong: "qwen3.5:9b" },
   anthropic: { fast: "claude-haiku-4-5", strong: "claude-sonnet-4-5" },
   openai: { fast: "gpt-4.1-mini", strong: "gpt-4.1" },
@@ -51,6 +56,23 @@ const GROQ_DEFAULT_MAX_REQUEST_TOKENS = 7_500;
 const CLOUDFLARE_MAX_REQUEST_TOKENS = 110_000;
 /** Ollama's context is set in a Modelfile (num_ctx), not per request. */
 const OLLAMA_DEFAULT_CONTEXT_TOKENS = 8_192;
+
+const OLLAMA_CLOUD_BASE_URL = "https://ollama.com/v1";
+/** gpt-oss has a 128K context; the budget usually stops a request well before this. */
+const OLLAMA_CLOUD_MAX_REQUEST_TOKENS = 100_000;
+
+/**
+ * Ollama Cloud's free plan includes a small monthly allowance (Ollama doesn't
+ * publish the amount; it is counted in tokens at each model's rates and
+ * resets on the day the account signed up). These budgets are a cautious
+ * start: compare /api/system/services with ollama.com/settings/usage after a
+ * few days and set OLLAMA_CLOUD_LIMITS.
+ */
+export const DEFAULT_OLLAMA_CLOUD_BUDGET: ProviderBudget = { total: 300_000, student: 30_000 };
+
+export function ollamaCloudBudget(env: ServerEnv = getServerEnv()): ProviderBudget {
+  return parseProviderBudget(env.OLLAMA_CLOUD_LIMITS, DEFAULT_OLLAMA_CLOUD_BUDGET);
+}
 
 function isGptOss(model: string): boolean {
   return /gpt-oss/i.test(model);
@@ -103,6 +125,28 @@ export function buildProvider(name: AiProviderName, tier: AiTier, env: ServerEnv
         maxRequestTokens: CLOUDFLARE_MAX_REQUEST_TOKENS,
         timeoutMs: 100_000,
       });
+    }
+    case "ollama_cloud": {
+      if (!env.OLLAMA_API_KEY) return null;
+      const model = modelOverride ?? (tier === "fast" ? env.OLLAMA_CLOUD_MODEL_FAST : env.OLLAMA_CLOUD_MODEL_STRONG) ?? DEFAULT_MODELS.ollama_cloud[tier];
+      const gptOss = isGptOss(model);
+      return new BudgetedProvider(
+        new OpenAiCompatibleProvider({
+          name: "ollama_cloud",
+          baseUrl: env.OLLAMA_CLOUD_BASE_URL ?? OLLAMA_CLOUD_BASE_URL,
+          apiKey: env.OLLAMA_API_KEY,
+          model,
+          maxTokensField: "max_tokens",
+          reasoningEffort: gptOss ? "low" : undefined,
+          // As on Cloudflare, JSON mode is left off for gpt-oss: the prompts ask for JSON, and every answer is
+          // validated (and repaired once) anyway.
+          jsonObject: !gptOss,
+          maxRequestTokens: OLLAMA_CLOUD_MAX_REQUEST_TOKENS,
+          // The free plan runs one request at a time and queues the rest.
+          timeoutMs: 90_000,
+        }),
+        ollamaCloudBudget(env),
+      );
     }
     case "ollama": {
       if (!env.OLLAMA_BASE_URL) return null;

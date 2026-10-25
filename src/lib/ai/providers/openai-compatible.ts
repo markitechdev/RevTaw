@@ -14,16 +14,16 @@ export type ReasoningEffort = "low" | "medium" | "high";
 const REASONING_ALLOWANCE: Record<ReasoningEffort, number> = { low: 768, medium: 2_048, high: 6_144 };
 
 export type OpenAiCompatibleConfig = {
-  /** Provider label stored with results and used by the router: "groq", "cloudflare" or "ollama". */
+  /** Provider label stored with results and used by the router: "groq", "cloudflare", "ollama_cloud" or "ollama". */
   name: string;
   /** API base ending in /v1, e.g. https://api.groq.com/openai/v1. */
   baseUrl: string;
-  /** Bearer token. Ollama ignores it, so it may be empty there. */
+  /** Bearer token. A local Ollama ignores it, so it may be empty there. */
   apiKey?: string;
   model: string;
   /** Model for requests that contain images. Without one, the provider takes text only. */
   visionModel?: string;
-  /** Output cap field: Groq uses max_completion_tokens; Cloudflare and Ollama use max_tokens. */
+  /** Output cap field: Groq uses max_completion_tokens; Cloudflare and Ollama (cloud or local) use max_tokens. */
   maxTokensField?: "max_completion_tokens" | "max_tokens";
   /** Send text requests to /responses instead of /chat/completions (Cloudflare's gpt-oss models). */
   useResponsesApi?: boolean;
@@ -116,8 +116,9 @@ export function responsesText(data: ResponsesApiResponse): string {
 
 /**
  * One adapter for every OpenAI-compatible API RevTaw uses: Groq, Cloudflare
- * Workers AI and a local Ollama. Each instance is set by base URL, key and
- * model; the router (src/lib/ai/router.ts) decides which one a request uses.
+ * Workers AI, Ollama Cloud and a local Ollama. Each instance is set by base
+ * URL, key and model; the router (src/lib/ai/router.ts) decides which one a
+ * request uses.
  */
 export class OpenAiCompatibleProvider implements AiProvider {
   readonly name: string;

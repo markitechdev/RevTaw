@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { isAiError } from "@/lib/ai/errors";
+import { type AiError, isAiError } from "@/lib/ai/errors";
 import { OpenAiCompatibleProvider, responsesText } from "@/lib/ai/providers/openai-compatible";
+import { cooldownFor } from "@/lib/ai/router";
 
 type Call = { url: string; body: Record<string, unknown>; headers: Record<string, string> };
 
@@ -110,6 +111,15 @@ describe("OpenAiCompatibleProvider (Groq)", () => {
       .catch((caught: unknown) => caught);
     expect(isAiError(error) && error.code).toBe("rate_limited");
     expect(isAiError(error) && error.retryAfterSeconds).toBe(7);
+  });
+
+  it("maps 402 (out of credit) to rate_limited with the longest cool-down", async () => {
+    mockFetch([{ status: 402, body: { error: "this model requires a subscription or usage credits" } }]);
+    const error = await groq()
+      .generate({ messages: [{ role: "user", content: "x" }] })
+      .catch((caught: unknown) => caught);
+    expect(error).toMatchObject({ code: "rate_limited", retryAfterSeconds: 3_600 });
+    expect(cooldownFor(error as AiError)).toBe(3_600_000);
   });
 
   it("maps 413 (request too large) to content_too_large", async () => {

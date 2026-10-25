@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { describeAiSetup, getAiProvider, providerOrder } from "@/lib/ai";
+import { buildProvider, DEFAULT_OLLAMA_CLOUD_BUDGET, describeAiSetup, getAiProvider, providerOrder } from "@/lib/ai";
 import { estimateInputTokens } from "@/lib/ai/budget";
+import { BudgetedProvider } from "@/lib/ai/provider-budget";
 import { MeteredProvider } from "@/lib/ai/quota";
 import { AiRouter } from "@/lib/ai/router";
 import { getServerEnv } from "@/lib/env";
@@ -13,6 +14,11 @@ const KEYS = [
   "CLOUDFLARE_ACCOUNT_ID",
   "CLOUDFLARE_API_TOKEN",
   "OLLAMA_BASE_URL",
+  "OLLAMA_API_KEY",
+  "OLLAMA_CLOUD_BASE_URL",
+  "OLLAMA_CLOUD_MODEL_FAST",
+  "OLLAMA_CLOUD_MODEL_STRONG",
+  "OLLAMA_CLOUD_LIMITS",
   "ANTHROPIC_API_KEY",
   "OPENAI_API_KEY",
   "GOOGLE_AI_API_KEY",
@@ -41,6 +47,28 @@ describe("getAiProvider", () => {
     expect(names(getAiProvider("strong"))).toEqual(["groq:openai/gpt-oss-120b", "cloudflare:@cf/openai/gpt-oss-120b"]);
     expect(names(getAiProvider("fast"))).toEqual(["groq:openai/gpt-oss-20b", "cloudflare:@cf/openai/gpt-oss-20b"]);
     expect(getAiProvider("fast").supportsVision).toBe(true);
+  });
+
+  it("keeps Ollama Cloud for after Groq and Cloudflare, behind its token budget", () => {
+    vi.stubEnv("GROQ_API_KEY", "gsk_test");
+    vi.stubEnv("OLLAMA_API_KEY", "ollama_test");
+    expect(names(getAiProvider("strong"))).toEqual(["groq:openai/gpt-oss-120b", "ollama_cloud:gpt-oss:120b"]);
+    expect(names(getAiProvider("fast"))).toEqual(["groq:openai/gpt-oss-20b", "ollama_cloud:gpt-oss:120b"]);
+    expect(describeAiSetup().providers).toEqual(["groq", "ollama_cloud"]);
+
+    const ollama = buildProvider("ollama_cloud", "strong", getServerEnv());
+    expect(ollama).toBeInstanceOf(BudgetedProvider);
+    expect((ollama as BudgetedProvider).budget).toEqual(DEFAULT_OLLAMA_CLOUD_BUDGET);
+    expect(ollama?.supportsVision).toBe(false);
+    vi.stubEnv("OLLAMA_CLOUD_LIMITS", "total=2m");
+    vi.stubEnv("OLLAMA_CLOUD_MODEL_FAST", "gemma4:31b");
+    expect((buildProvider("ollama_cloud", "strong", getServerEnv()) as BudgetedProvider).budget).toEqual({ total: 2_000_000, student: 200_000 });
+    expect(buildProvider("ollama_cloud", "fast", getServerEnv())?.model).toBe("gemma4:31b");
+  });
+
+  it("sends Ollama Cloud's key only over https", () => {
+    vi.stubEnv("OLLAMA_CLOUD_BASE_URL", "http://ollama.example.com/v1");
+    expect(() => getServerEnv()).toThrow(/OLLAMA_CLOUD_BASE_URL must start with https/);
   });
 
   it("never picks Google automatically", () => {

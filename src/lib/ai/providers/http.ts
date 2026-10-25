@@ -3,6 +3,8 @@ import "server-only";
 import { AiError } from "@/lib/ai/errors";
 
 const DEFAULT_TIMEOUT_MS = 90_000;
+/** How long to wait after a 402 without Retry-After (the router caps cool-downs at an hour). */
+const OUT_OF_CREDIT_SECONDS = 3_600;
 
 /** fetch with a hard timeout, merged with the caller's abort signal. */
 export async function fetchWithTimeout(
@@ -56,6 +58,11 @@ export async function statusToAiError(provider: string, response: Response): Pro
   }
   if (response.status === 429) {
     return new AiError("rate_limited", detail, true, { retryAfterSeconds });
+  }
+  // 402: out of credit, such as a used-up free allowance or a model it doesn't cover. That won't change
+  // within minutes, so the router leaves the provider alone for the longest cool-down.
+  if (response.status === 402) {
+    return new AiError("rate_limited", detail, true, { retryAfterSeconds: retryAfterSeconds ?? OUT_OF_CREDIT_SECONDS });
   }
   if (response.status === 413) {
     return new AiError("content_too_large", detail, false);

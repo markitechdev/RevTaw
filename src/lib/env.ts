@@ -51,7 +51,7 @@ const serverSchema = z.object({
   // AI provider selection (see src/lib/ai). Keys never leave the server.
   // "auto" (or empty) routes each request through every configured provider
   // in order; naming one provider pins every request to it.
-  AI_PROVIDER: z.enum(["auto", "groq", "cloudflare", "ollama", "anthropic", "openai", "google", "mock"]).optional(),
+  AI_PROVIDER: z.enum(["auto", "groq", "cloudflare", "ollama_cloud", "ollama", "anthropic", "openai", "google", "mock"]).optional(),
   AI_PROVIDER_ORDER: z.string().min(1).optional(),
   AI_DAILY_LIMITS: z.string().min(1).optional(),
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
@@ -73,6 +73,13 @@ const serverSchema = z.object({
   CLOUDFLARE_MODEL_STRONG: z.string().min(1).optional(),
   CLOUDFLARE_VISION_MODEL: z.string().min(1).optional(),
   CLOUDFLARE_AI_BASE_URL: keyedEndpoint("CLOUDFLARE_AI_BASE_URL").optional(),
+  // Ollama Cloud (ollama.com): a backup whose free monthly allowance every student shares, so it has token budgets.
+  OLLAMA_API_KEY: z.string().min(1).optional(),
+  OLLAMA_CLOUD_BASE_URL: keyedEndpoint("OLLAMA_CLOUD_BASE_URL").optional(),
+  OLLAMA_CLOUD_MODEL_FAST: z.string().min(1).optional(),
+  OLLAMA_CLOUD_MODEL_STRONG: z.string().min(1).optional(),
+  OLLAMA_CLOUD_LIMITS: z.string().min(1).optional(),
+  // Your own Ollama server (no key, no budget).
   OLLAMA_BASE_URL: z.url().optional(),
   OLLAMA_MODEL_FAST: z.string().min(1).optional(),
   OLLAMA_MODEL_STRONG: z.string().min(1).optional(),
@@ -168,6 +175,11 @@ export function getServerEnv(): ServerEnv {
     CLOUDFLARE_MODEL_STRONG: process.env.CLOUDFLARE_MODEL_STRONG || undefined,
     CLOUDFLARE_VISION_MODEL: process.env.CLOUDFLARE_VISION_MODEL || undefined,
     CLOUDFLARE_AI_BASE_URL: process.env.CLOUDFLARE_AI_BASE_URL || undefined,
+    OLLAMA_API_KEY: process.env.OLLAMA_API_KEY?.trim() || undefined,
+    OLLAMA_CLOUD_BASE_URL: process.env.OLLAMA_CLOUD_BASE_URL || undefined,
+    OLLAMA_CLOUD_MODEL_FAST: process.env.OLLAMA_CLOUD_MODEL_FAST || undefined,
+    OLLAMA_CLOUD_MODEL_STRONG: process.env.OLLAMA_CLOUD_MODEL_STRONG || undefined,
+    OLLAMA_CLOUD_LIMITS: process.env.OLLAMA_CLOUD_LIMITS || undefined,
     OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL || undefined,
     OLLAMA_MODEL_FAST: process.env.OLLAMA_MODEL_FAST || undefined,
     OLLAMA_MODEL_STRONG: process.env.OLLAMA_MODEL_STRONG || undefined,

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { hasCronSecret } from "@/lib/server/cron-auth";
-import { aiSummary, checkAiProviders, checkEmbeddings, checkVoice, embeddingsSummary, otherServicesSummary, voiceSummary } from "@/lib/server/service-check";
+import { aiBudgets, aiSummary, checkAiProviders, checkEmbeddings, checkVoice, embeddingsSummary, otherServicesSummary, voiceSummary } from "@/lib/server/service-check";
 import { getCurrentUser } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -10,8 +10,8 @@ export const maxDuration = 60;
 
 /**
  * Service check for whoever runs this RevTaw server: which AI providers it
- * uses, their cool-downs and recent routing, and with ?live=1 a tiny live
- * request to each one. Open it while signed in during development
+ * uses, their cool-downs, token budgets and recent routing, and with ?live=1
+ * a tiny live request to each one. Open it while signed in during development
  * (`npm run dev`), or anywhere with `Authorization: Bearer <CRON_SECRET>`.
  * It never returns keys, prompts or student data.
  */
@@ -22,15 +22,16 @@ export async function GET(request: Request) {
   }
 
   const live = new URL(request.url).searchParams.get("live") === "1";
-  const [aiLive, embeddingLive, voiceLive, embeddings] = await Promise.all([
+  const [aiLive, embeddingLive, voiceLive, embeddings, budgets] = await Promise.all([
     live ? checkAiProviders() : null,
     live ? checkEmbeddings() : null,
     live ? checkVoice() : null,
     embeddingsSummary(),
+    aiBudgets(),
   ]);
   const body = {
     checkedAt: new Date().toISOString(),
-    ai: { ...aiSummary(), ...(aiLive ? { live: aiLive } : {}) },
+    ai: { ...aiSummary(), budgets, ...(aiLive ? { live: aiLive } : {}) },
     search: { ...embeddings, ...(embeddingLive ? { live: embeddingLive } : {}) },
     voice: { ...voiceSummary(), ...(voiceLive ? { live: voiceLive } : {}) },
     ...otherServicesSummary(),
