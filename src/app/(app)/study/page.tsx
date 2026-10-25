@@ -45,6 +45,11 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
     getPreferences(),
   ]);
   const readyMaterials = materials.filter((material) => material.status === "ready").map((material) => ({ id: material.id, title: material.title, subject: material.subject?.name ?? null }));
+  // Uploads not processed yet, so the session builder can say why most methods are locked.
+  const waitingMaterials = {
+    preparing: materials.filter((material) => material.status === "uploading" || material.status === "extracting" || material.status === "analyzing").length,
+    failed: materials.filter((material) => material.status === "failed").length,
+  };
   // A plan's unfinished blocks continue from the plan, which has its own row.
   const openPlans = new Set(unfinished.filter((session) => isPlanMethod(session.method)).map((session) => session.id));
   const inProgress: UnfinishedSessionView[] = unfinished
@@ -93,6 +98,7 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
           <SessionBuilder
             preferredMethods={preferences.study.preferredMethods}
             materials={readyMaterials}
+            waitingMaterials={waitingMaterials}
             defaultMinutes={profile?.preferred_session_minutes ?? 30}
             openMistakes={openMistakes}
             dueCards={dueCards}

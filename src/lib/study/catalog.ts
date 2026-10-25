@@ -445,6 +445,31 @@ export function recommendMethods(goal: SessionGoal, hasMaterial: boolean): Build
   return fits.length ? [...fits] : [...BUILDER_METHOD_IDS.filter((id) => hasMaterial || !METHOD_BEHAVIOR[id].requiresMaterial)];
 }
 
+/** What the session builder knows about the student: processed materials, open mistakes, due flashcards. */
+export type MethodCounts = { materials: number; openMistakes: number; dueCards: number };
+export type MethodLock = "material" | "two-materials" | "mistakes" | "due";
+
+/** Why a method can't start yet, or null when it can. Most methods build their questions from a processed material. */
+export function methodLock(id: BuilderMethodId, counts: MethodCounts): MethodLock | null {
+  if (id === "error_review") return counts.openMistakes === 0 ? "mistakes" : null;
+  if (id === "spaced_repetition") return counts.dueCards === 0 ? "due" : null;
+  if (id === "interleaving") return counts.materials < 2 ? "two-materials" : null;
+  return METHOD_BEHAVIOR[id].requiresMaterial && counts.materials === 0 ? "material" : null;
+}
+
+export const LOCK_REASON: Record<MethodLock, string> = {
+  material: "Needs a processed material.",
+  "two-materials": "Needs at least two processed materials.",
+  mistakes: "No open mistakes to retest yet.",
+  due: "No flashcards are due right now.",
+};
+
+/** The builder's first pick: Active Recall, or while it is locked, the first suggestion that can start now. */
+export function defaultBuilderMethod(counts: MethodCounts): BuilderMethodId {
+  if (!methodLock("active_recall", counts)) return "active_recall";
+  return recommendMethods("practice", false).find((id) => !methodLock(id, counts)) ?? "pomodoro";
+}
+
 export function methodName(id: string): string {
   return (STUDY_METHOD_BY_ID as Record<string, { name: string } | undefined>)[id]?.name ?? id;
 }

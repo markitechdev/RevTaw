@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronDown, Play, Sparkles, Star } from "lucide-react";
+import { ChevronDown, Lock, Play, Sparkles, Star } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useMemo, useState, useTransition } from "react";
 
@@ -8,7 +9,7 @@ import { Field, fieldA11y } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
 import { DuplicateSessionDialog } from "@/components/study/duplicate-session-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChipGroup } from "@/components/ui/chip-group";
 import { Input } from "@/components/ui/input";
@@ -17,8 +18,10 @@ import { SearchInput } from "@/components/ui/search-input";
 import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { TINT } from "@/components/ui/tint";
+import { routes } from "@/lib/routes";
 import { startSessionAction } from "@/lib/study/actions";
-import { BUILDER_METHOD_IDS, isBuilderMethod, isTestMethod, METHOD_BEHAVIOR, RAPID_REVIEW_MINUTES, recommendMethods, TIME_PRESETS, type BuilderMethodId } from "@/lib/study/catalog";
+import { BUILDER_METHOD_IDS, defaultBuilderMethod, isBuilderMethod, isTestMethod, LOCK_REASON, METHOD_BEHAVIOR, methodLock, RAPID_REVIEW_MINUTES, recommendMethods, TIME_PRESETS, type BuilderMethodId, type MethodCounts } from "@/lib/study/catalog";
 import { STUDY_METHOD_BY_ID } from "@/lib/study/methods";
 import { PROBLEM_DIFFICULTIES, PROBLEM_DIFFICULTY_LABEL, type ProblemDifficulty } from "@/lib/study/problem-options";
 import { isSessionDuplicate, type SessionDuplicate } from "@/lib/study/session-duplicate";
@@ -67,6 +70,9 @@ const PREPARING: Partial<Record<BuilderMethodId, string>> = {
   pre_testing: "writing the pre-test",
 };
 
+/** The student's materials that aren't processed yet, counted by the Study page: still being prepared, or failed. */
+export type WaitingMaterials = { preparing: number; failed: number };
+
 const POMODORO_PRESETS: ReadonlyArray<{ work: number; rest: number }> = [
   { work: 15, rest: 5 },
   { work: 25, rest: 5 },
@@ -85,6 +91,7 @@ export function SessionBuilder({
   initialMaterialId,
   savedMnemonics = {},
   preferredMethods = [],
+  waitingMaterials = { preparing: 0, failed: 0 },
 }: {
   materials: BuilderMaterial[];
   defaultMinutes: number;
@@ -96,13 +103,17 @@ export function SessionBuilder({
   savedMnemonics?: Record<string, number>;
   /** Settings → Study: the student's favorite methods, listed with the recommendations. */
   preferredMethods?: BuilderMethodId[];
+  /** Uploads not processed yet: what the note over the locked methods says while there is no processed material. */
+  waitingMaterials?: WaitingMaterials;
 }) {
   const router = useRouter();
+  const counts: MethodCounts = { materials: materials.length, openMistakes, dueCards };
+  const lockOf = (id: BuilderMethodId) => methodLock(id, counts);
   const [materialId, setMaterialId] = useState<string>(initialMaterialId && materials.some((m) => m.id === initialMaterialId) ? initialMaterialId : (materials[0]?.id ?? ""));
   const [minutes, setMinutes] = useState<number>(initialMethod === "rapid_review" ? 10 : defaultMinutes);
   const [customMinutes, setCustomMinutes] = useState(initialMethod !== "rapid_review" && !(TIME_PRESETS as readonly number[]).includes(defaultMinutes));
   const [goal, setGoal] = useState<SessionGoal>("practice");
-  const [method, setMethod] = useState<BuilderMethodId>(initialMethod && isBuilderMethod(initialMethod) ? initialMethod : "active_recall");
+  const [method, setMethod] = useState<BuilderMethodId>(() => (initialMethod && isBuilderMethod(initialMethod) ? initialMethod : defaultBuilderMethod(counts)));
   const [questionCount, setQuestionCount] = useState(10);
   const [timed, setTimed] = useState(true);
   const [problemDifficulty, setProblemDifficulty] = useState<ProblemDifficulty | "adaptive">("adaptive");
@@ -178,27 +189,43 @@ export function SessionBuilder({
     }
   };
 
-  const methodDisabled = (id: BuilderMethodId) => {
-    if (id === "error_review") return openMistakes === 0;
-    if (id === "spaced_repetition") return dueCards === 0;
-    if (id === "interleaving") return materials.length < 2;
-    if (METHOD_BEHAVIOR[id].requiresMaterial && materials.length === 0) return true;
-    return false;
-  };
-
   const sectionTitle = "text-sm font-semibold";
+
+  // Without a processed material, most methods are locked: one note says why and how to unlock them, instead
+  // of the same line on every card.
+  const waitingCount = waitingMaterials.preparing || waitingMaterials.failed;
+  const your = waitingCount === 1 ? "Your material" : "Your materials";
+  const lockedNote =
+    materials.length > 0
+      ? null
+      : waitingMaterials.preparing > 0
+        ? { text: `Most methods build their questions from your notes, so they unlock when ${your.toLowerCase()} ${waitingCount === 1 ? "is" : "are"} ready.`, action: null }
+        : waitingMaterials.failed > 0
+          ? { text: `Most methods build their questions from your notes. ${your} couldn't be prepared, so they're locked for now.`, action: { href: routes.materials, label: "Open Materials" } }
+          : { text: "Most methods build their questions from your notes. Upload a material to unlock them.", action: { href: `${routes.materials}?upload=1`, label: "Upload a material" } };
+  const worksWithout = BUILDER_METHOD_IDS.filter((id) => !METHOD_BEHAVIOR[id].requiresMaterial && !lockOf(id)).map((id) => STUDY_METHOD_BY_ID[id].name);
+  const materialHint =
+    materials.length > 0
+      ? undefined
+      : waitingMaterials.preparing > 0
+        ? `${your} ${waitingCount === 1 ? "is" : "are"} still being prepared and will show up here when ready.`
+        : waitingMaterials.failed > 0
+          ? `${your} couldn't be prepared. Try again from Materials.`
+          : `No materials yet. ${new Intl.ListFormat("en", { type: "conjunction" }).format(worksWithout)} ${worksWithout.length === 1 ? "works" : "work"} without one.`;
 
   // Progressive disclosure (UI phase §7): the methods that fit the goal and the
   // student's favorites first; every other method behind "Show all methods".
-  // The chosen method always stays in view (e.g. when it came from a link).
-  const shortList = [...new Set([...recommended.slice(0, 4), ...preferredMethods.filter((id) => BUILDER_METHOD_IDS.includes(id)), method])];
+  // Only methods that can start now are recommended. The chosen method always
+  // stays in view (e.g. when it came from a link).
+  const recommendedNow = recommended.filter((id) => !lockOf(id)).slice(0, 4);
+  const shortList = [...new Set([...recommendedNow, ...preferredMethods.filter((id) => BUILDER_METHOD_IDS.includes(id)), method])];
   const needle = methodFilter.trim().toLowerCase();
   const otherMethods = BUILDER_METHOD_IDS.filter((id) => !shortList.includes(id) && (!needle || STUDY_METHOD_BY_ID[id].name.toLowerCase().includes(needle) || STUDY_METHOD_BY_ID[id].summary.toLowerCase().includes(needle)));
 
   const methodCard = (id: BuilderMethodId) => {
     const info = STUDY_METHOD_BY_ID[id];
-    const disabled = methodDisabled(id);
-    const isRecommended = recommended.slice(0, 4).includes(id);
+    const lock = lockOf(id);
+    const isRecommended = recommendedNow.includes(id);
     const isPreferred = preferredMethods.includes(id);
     return (
       <OptionCard
@@ -206,11 +233,12 @@ export function SessionBuilder({
         name="session-method"
         value={id}
         checked={method === id}
-        disabled={disabled}
+        disabled={lock !== null}
         onChange={() => chooseMethod(id)}
         label={
           <span className="flex flex-wrap items-center gap-1.5">
             {info.name}
+            {lock && <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />}
             {/* Ringed: on a picked (tinted) card a plain tinted badge would disappear. */}
             {isRecommended && (
               <Badge tone="primary" className="ring-1 ring-inset ring-primary/40">
@@ -228,11 +256,8 @@ export function SessionBuilder({
         hint={
           <>
             {info.summary}
-            {disabled && (
-              <span className="block">
-                {id === "error_review" ? "No open mistakes to retest yet." : id === "spaced_repetition" ? "No flashcards are due right now." : id === "interleaving" ? "Needs at least two processed materials." : "Needs a processed material."}
-              </span>
-            )}
+            {/* The note over the cards already says why for the methods that need a material; screen readers get it per card. */}
+            {lock === "material" ? <span className="sr-only"> Locked: {LOCK_REASON.material}</span> : lock && <span className="block">{LOCK_REASON[lock]}</span>}
           </>
         }
       />
@@ -256,8 +281,8 @@ export function SessionBuilder({
         >
           {error && <Alert tone="error">{error}</Alert>}
 
-          <Field id="session-material" label="1 · What are you studying?" hint={materials.length === 0 ? "No processed materials yet — Pomodoro and Error Review still work without one." : undefined}>
-            <Select {...fieldA11y("session-material")} value={materialId || "none"} disabled={pending} onChange={(event) => setMaterialId(event.target.value)}>
+          <Field id="session-material" label="1 · What are you studying?" hint={materialHint}>
+            <Select {...fieldA11y("session-material", undefined, materialHint)} value={materialId || "none"} disabled={pending} onChange={(event) => setMaterialId(event.target.value)}>
               {materials.map((material) => (
                 <option key={material.id} value={material.id}>
                   {material.title}
@@ -312,6 +337,19 @@ export function SessionBuilder({
 
           <fieldset disabled={pending}>
             <legend className={cn(sectionTitle, "mb-1.5")}>4 · Study method</legend>
+            {lockedNote && (
+              <div className={cn("mb-2 flex flex-col items-start gap-2 rounded-xl border px-3 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between", TINT.info)}>
+                <p className="flex items-start gap-2">
+                  <Lock className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
+                  {lockedNote.text}
+                </p>
+                {lockedNote.action && (
+                  <Link href={lockedNote.action.href} className={cn(buttonClasses({ variant: "secondary", size: "sm" }), "shrink-0")}>
+                    {lockedNote.action.label}
+                  </Link>
+                )}
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{shortList.map(methodCard)}</div>
             <button
               type="button"
