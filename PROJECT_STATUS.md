@@ -4,9 +4,82 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-25 (the Ollama Cloud round, Tamari's evaluation round, the unfinished sessions round, the email design round, Tamari's chat round and fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
+_Last updated: 2026-10-26 (Tamari's smarter round, the Ollama Cloud round, Tamari's evaluation round, the unfinished sessions round, the email design round, Tamari's chat round and fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
 
 ## Completed
+
+### Tamari's smarter round (the chat button on Home, answers from all notes)
+
+The owner asked for the chat button on Home too, and for a smarter Tamari.
+Of the four ways offered, the owner chose all four: answers from all of
+the student's notes, knowing where the student stands, a longer memory and
+more thinking on hard questions.
+
+- **The chat button on Home** (`assistant-provider.tsx`, `globals.css`) —
+  Home now has the round "Ask Tamari" button in the bottom-right corner
+  like every other page, so the way into the chat is in the same place
+  everywhere; Tamari in the Continue studying card still opens it too. The
+  CSS rule that hid the button wherever Tamari is seated is gone. "Show the
+  chat button" and the pages that hide it (a quiz in progress) work as
+  before, and the two settings' descriptions say so.
+- **Answers from all of the student's notes** (`notesPassages()` in
+  `src/lib/tutor/service.ts`, `src/lib/tutor/context.ts`) — in a chat
+  without a material (Home, and pages without one), a question searches all
+  of the student's own materials with the hybrid search a material chat
+  uses: `match_material_chunks()` with no material, run as the student
+  (security invoker), so row-level security keeps it to their own chunks.
+  No database change. Greetings and thanks don't search, and materials in
+  the Archive are left out. A passage must share a topic word with the
+  question, its heading or its material's title (`topicWords()`,
+  `sharesTopic()`: English and Filipino function words and asking words
+  such as "explain" or "ipaliwanag" don't count), so a question the notes
+  don't cover doesn't carry unrelated passages; when the student asks
+  about their notes ("what do my notes say…", "sa reviewer ko", "the PDF I
+  uploaded", `asksAboutNotes()`), the best matches count anyway. Up to four
+  passages and 5,000 characters, each cut to the paragraphs about the
+  question (`excerpt()`), the best match first with the most room.
+  Positions repeat across materials, so the prompt numbers the passages
+  (`[Passage 1 — "Biology Notes", Osmosis, page 6]`); sources are matched
+  by that number, keep their material, and their quotes are still checked
+  against the passage. When nothing matches, the prompt says so, and
+  Tamari tells a student who asked that it isn't in their notes. Labels in
+  that chat: "Based on your notes", "Based on your notes + general
+  knowledge", "Not found in your notes" and "General knowledge". The
+  sources say "Sources in your notes", name each material and open it at
+  the passage (each link named "Open … in <material>").
+- **Where the student stands, on every question**
+  (`studySnapshot()` in `src/lib/assistant/snapshot.ts`) — every question
+  carries a `<study_status>` section: the weakest concepts (mastery and
+  material), today's planned tasks, flashcards due and fading concepts,
+  the next exam (days left, readiness) and the open mistakes with the
+  latest three. Before, only questions a keyword check took for
+  study-data questions got it (`asksAboutStudyData()`, removed), so "quiz
+  me on my weak spots" in other words, or an explanation pitched at a
+  concept the student keeps missing, didn't. Rule 10 says when to use it;
+  it is data like the other sections, read with the student's session,
+  capped at 1,600 characters, and left out if it fails. The mock keeps
+  the old keyword check, so it answers from the summary only when asked,
+  as a real model would. The Privacy Notice and its student version
+  (dated October 26, 2026) say Tamari's AI services get this summary.
+- **A longer memory** (`src/lib/tutor/prompt.ts`) — the latest 20 messages
+  within 10,000 characters (was 10 within 5,000), the last two fuller.
+- **More thinking on hard questions** (`src/lib/tutor/deep-thinking.ts`) —
+  math to work out, code to read or fix, and problems to solve (word
+  problems, physics and chemistry with numbers, proofs, algorithm
+  analysis), in English, Filipino or Taglish, get "medium" reasoning
+  instead of "low" on gpt-oss (Groq, Cloudflare and Ollama Cloud), with
+  room for it (2,048 reasoning tokens instead of 768). The highlight, or
+  the question a follow-up is under, counts too. Models without a
+  reasoning setting ignore it.
+- **Passage headings are guarded too** — a heading from an uploaded
+  material went into the prompt's passage label without the tag guard
+  its text had; the whole label now goes through `neutralizeTags()`.
+- **Token use** — every question now carries the study summary, a chat
+  without a material can carry up to 5,000 characters of notes, and hard
+  questions think longer. A first question still fits Groq's free
+  per-minute allowance (`ai.test.ts` checks the largest case: 7,346 of
+  7,500 tokens); later turns of a long chat, and hard questions with
+  notes, usually go to Cloudflare or Ollama Cloud.
 
 ### Ollama Cloud round (a backup AI with token budgets)
 
@@ -62,7 +135,7 @@ resets on the day the account signed up; Ollama doesn't publish the amount.
   Gemini's terms, there is no clause about apps used by people under 18.
   This goes to the legal review with Groq's, which says the same.
 
- (code blocks, reply language, guided mode, Simplify, short follow-ups)
+### Tamari's evaluation round (code blocks, reply language, guided mode, Simplify, short follow-ups)
 
 The first `npm run eval:tamari` against the real AI passed 15 of 23 cases.
 The eight failures had five causes, each fixed on its own:
@@ -272,7 +345,8 @@ model that uploaded text is data. What changed:
   the JSON reply), then the recent conversation as alternating turns, then
   this turn in tagged sections in a fixed order (`<student>`,
   `<page_context>`, `<material>`, `<focus>`, `<highlight>`,
-  `<previous_attempt>`, `<task>`, `<student_message>` last). Each quick
+  `<previous_attempt>`, `<task>`, `<student_message>` last; since Tamari's
+  smarter round, `<study_status>` follows `<student>`). Each quick
   action has its own task: "Example" gives a different example from the
   one already given and says why it fits; "Why am I wrong?" starts with
   "Not quite." and gives **Correct answer:** and **Remember:**.
@@ -281,15 +355,18 @@ model that uploaded text is data. What changed:
   question as `<focus>`; a quick action with nothing typed is about the
   latest answer; the material is searched with the focus's words too
   (`retrievalQuery()`). History is the latest 10 messages within 5,000
-  characters (the last two fuller), with same-role neighbors merged and a
-  question that got no answer marked as such.
+  characters (20 within 10,000 since Tamari's smarter round; the last two
+  fuller), with same-role neighbors merged and a question that got no
+  answer marked as such.
 - **The student** — the first name (only the first word of the display
   name) and, in a material's chat, up to four weak spots in that material
   with their mastery, to use only when they help.
 - **Honest labels** (`src/lib/tutor/reply.ts`, `finalizeReply()`) — small
   talk and off-topic redirects are saved with no label, no sources and no
   follow-up buttons; a chat without a material is always "General
-  knowledge", with no second general-knowledge box; a source is kept only
+  knowledge", with no second general-knowledge box (since Tamari's smarter
+  round it answers from all of the student's notes, with their own
+  labels); a source is kept only
   when it points at a passage that was sent and its quote really is in it
   (a run of six words), and "Based on your material" needs one such quote.
 - **Uploaded text is data** — passages, highlights, the focus answer, the
@@ -1267,7 +1344,8 @@ Tamari — the provided pixel-art bull in a hoodie — is the face and voice of
 RevTaw's one assistant (the same chat, AI, voice, page context, study data,
 Smart Study engine, planner, materials, quizzes, mastery and mistake
 notebook; not a second AI). Its picture lives on Home only, in the layout
-instead of a circle; every other page has a round chat button.
+instead of a circle; every page has a round chat button (Home too, since
+Tamari's smarter round).
 
 - **On Home** — the whole character leads the "Continue studying" card:
   Tamari, then what to continue, then the buttons (on phones Tamari sits
@@ -1299,9 +1377,9 @@ instead of a circle; every other page has a round chat button.
   bottom-right corner, above the tab bar on phones and fully on screen
   (`ChatLauncher`, `src/components/assistant/chat-launcher.tsx`). It opens
   the chat, steps aside while the chat is open, and is hidden during a quiz,
-  on the AI Tutor and on phones where the page has bottom actions. Home,
-  where Tamari opens the chat, hides it from the first paint
-  (`[data-tamari-seat]`); with Tamari turned off, Home gets it too. Plans
+  on the AI Tutor and on phones where the page has bottom actions. Home has
+  it too since Tamari's smarter round (before, Home hid it from the first
+  paint, since Tamari opens the chat there). Plans
   keep Tamari's words without the picture (`TamariSays`), and no line pops
   up on its own anywhere.
 - **The chat** — simply "Ask Tamari", with what Tamari is doing in words in
@@ -1608,14 +1686,14 @@ tables.
   integration, the API integrations round, the learning engine round, the
   Archive round, the performance round, the launch review round, Tamari's
   chat round, the email design round, the unfinished sessions round,
-  Tamari's evaluation round and the Ollama Cloud round are implemented (of
-  the last five, only the Ollama Cloud round needs a database change, 0034);
-  the re-run of `npm run eval:tamari` passed all 25 cases. The hosted
-  database has 0001–0033 (the health check reads `job_runs`); 0034 (Ollama
-  Cloud's budgets) waits to be run. To turn on Ollama Cloud: create a key at
-  ollama.com/settings/keys, set `OLLAMA_API_KEY` in `.env.local` and on
-  Vercel (it also needs `SUPABASE_SECRET_KEY`), run 0034, check
-  `/api/system/services?live=1`, and after a few days compare
+  Tamari's evaluation round, the Ollama Cloud round and Tamari's smarter
+  round are implemented (of the last six, only the Ollama Cloud round
+  needed a database change, 0034). The re-run of `npm run eval:tamari`
+  passed all 25 cases; the three cases added for answers from all notes
+  (28 now) haven't run against the real AI yet. The hosted database has
+  0001–0034. Ollama Cloud is on: `OLLAMA_API_KEY` is in `.env.local` and on
+  Vercel (a Secret, Production), and the live service check answered with
+  `gpt-oss:120b`. After a few days, compare
   `ai.budgets.ollama_cloud.used` with ollama.com/settings/usage to set
   `OLLAMA_CLOUD_LIMITS`. The four email templates in `supabase/templates`
   are in the dashboard with their RevTaw subjects, checked byte for byte
@@ -1842,8 +1920,9 @@ linked).
   for any button. Page context is a discriminated union of ids
   (`src/lib/assistant/context-schema.ts`, now with planner tasks) resolved
   by `resolvePageContext()` with the student's session and added to the
-  tutor prompt inside `<page_context>` as data, with a study snapshot when
-  `asksAboutStudyData()` matches. Tamari's pieces: `src/lib/tamari/`
+  tutor prompt inside `<page_context>` as data; the study summary
+  (`studySnapshot()`) goes with every question inside `<study_status>`.
+  Tamari's pieces: `src/lib/tamari/`
   (`states.ts` registry, `lines.ts` bubbles and replies in three languages,
   `coach.ts` Home lines, `hints.ts` picks them, `plan.ts` the time-boxed
   plan, `commands.ts` natural commands) and `src/components/tamari/`
@@ -1971,8 +2050,10 @@ linked).
   keys, placed concepts) goes in `model_answer` as JSON.
 - **Tutor** — `src/lib/tutor/`: `types.ts` (actions, follow-ups, modes,
   grounding labels), `context.ts` (keyword-scored passage selection with a
-  character budget; `retrievalQuery()` for follow-ups), `prompt.ts` (the
-  layered request: system prompt, history, tagged turn), `ai.ts` (the reply
+  character budget; `retrievalQuery()` for follow-ups; for the chat across
+  all notes, topic words, `excerpt()` and `asksAboutNotes()`),
+  `deep-thinking.ts` (which questions get "medium" reasoning), `prompt.ts`
+  (the layered request: system prompt, history, tagged turn), `ai.ts` (the reply
   schema and call; session evaluation), `reply.ts` (`finalizeReply()`:
   labels and verified quotes), `service.ts` (conversations, `respond()` =
   history + focus + context + model + `finalizeReply()` + storage, Answer
@@ -1982,7 +2063,9 @@ linked).
   Replies use the strong tier within Groq's free budget (see the API
   integrations round) and are not streamed (one validated JSON object per
   turn). Passages come from `rankMaterialChunks()` (hybrid search) when it
-  is available, else from keyword scoring.
+  is available, else from keyword scoring; a chat without a material ranks
+  all of the student's chunks the same way (`notesPassages()`), with no
+  keyword fallback.
 - **Learning engine** — `src/lib/engine/` (pure, client-safe): `config.ts`
   (every tunable number), `answers.ts` (reading an answer), `bkt.ts`,
   `fsrs.ts` (ts-fsrs wrapper: replay, review, preview, recall, Leitner
@@ -2482,6 +2565,19 @@ Flows verified end to end against a local Supabase-compatible stack
   material with reviews, phone layout, axe light/dark); migrations 0012,
   0013, 0014 and 0015 tested in SQL (RLS, cross-student references,
   claiming)
+- Tamari's smarter round: `chat-e2e.mjs` (a new chat on Home answers "What
+  is chlorophyll?" from the uploaded material: "Based on your notes", the
+  answer naming the material, "Sources in your notes (1)" with the
+  material's title and a link to the passage, stored with the material;
+  "What is the capital of France?" stays "General knowledge" with no
+  sources); `assistant-e2e.mjs` and `tamari-e2e.mjs` (the chat button on
+  Home in the bottom-right corner with Tamari in the Continue card, on
+  desktop and on a phone above the tab bar); unit tests for the notes
+  search's parts (topic words, asking about notes, excerpts, passage
+  labels, sources by passage number, the labels), the study summary in the
+  prompt, the 20-message history, the deep-thinking check and the request
+  it makes, the guard on passage headings, the mock, and a first question
+  with the most notes and study data fitting Groq (104 files, 770 tests)
 - Ollama Cloud round: `ollama-budget-e2e.mjs` against stand-ins for Groq
   and Ollama Cloud (29 checks: Groq's 429 → Ollama with its own key and
   request shape; the reservation set aside during the call and swapped for

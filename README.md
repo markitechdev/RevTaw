@@ -103,7 +103,10 @@ each job's last run). Errors and slow requests are in Vercel's Logs.
   continued, renamed, ended or deleted, and starting a copy of one asks
   first
 - AI tutor grounded in your materials: answers cite their sources and say
-  when the material does not cover a question; quick actions (explain,
+  when the material does not cover a question, and a chat without a
+  material searches all of your notes; it knows your weak spots, what is due and
+  your next exam, and thinks longer on math, code and problems; quick
+  actions (explain,
   simplify, example, analogy, quiz me, guide me…), highlight-and-ask inside
   materials and notes, Socratic / elaborative / self-explanation sessions
   (Phase 5)
@@ -146,7 +149,7 @@ each job's last run). Errors and slow requests are in Vercel's Logs.
   **Tamari** — RevTaw's pixel-art study companion, at the start of your
   "Continue studying" card on Home with a line from your own data when you
   click it ("May 3 reviews ka today. Unahin natin Binary Trees?"), a chat
-  button on every other page, planning your free minutes ("20 minutes lang
+  button on every page, planning your free minutes ("20 minutes lang
   ako. Bahala ka na." →
   Tamari's 20-Minute Bitaw) and taking typed or **voice** requests in
   English, Filipino or Taglish ("Quiz me about Chapter 4", "Move this to
