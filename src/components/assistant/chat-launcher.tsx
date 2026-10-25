@@ -42,9 +42,9 @@ function useStepsAside(): boolean {
 }
 
 /**
- * The way into the chat on every page except Home, where Tamari itself opens
- * it: a round chat button in the bottom-right corner, above the tab bar on
- * phones, fully on screen. Tamari's picture lives on Home only. `desktop`
+ * The way into the chat on every page (on Home, Tamari opens it too): a
+ * round chat button in the bottom-right corner, above the tab bar on phones,
+ * fully on screen. Tamari's picture lives on Home only. `desktop`
  * keeps it off phones where the corner belongs to the page (flashcard
  * ratings); the provider leaves it out while the chat is open. On phones and
  * tablets it steps aside while the page scrolls down; it comes back when it

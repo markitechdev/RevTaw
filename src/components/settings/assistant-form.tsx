@@ -72,13 +72,13 @@ export function TamariPreferencesForm({ initial, ai }: { initial: AssistantPrefe
         checked={shown.mascot}
         onChange={(mascot) => save({ ...shown, mascot })}
         label="Show Tamari"
-        description="Tamari sits in your Continue studying card on Home and talks when you click it; it opens the chat from there too. Off: no Tamari, and Home gets the chat button like every other page."
+        description="Tamari sits in your Continue studying card on Home and talks when you click it; it opens the chat from there too. Off: no Tamari on Home."
       />
       <Switch
         checked={shown.launcher}
         onChange={(launcher) => save({ ...shown, launcher })}
         label="Show the chat button"
-        description={`The round chat button in the corner of every other page. Off: open the chat from ${modifier}+K or the “Ask Tamari why” buttons.`}
+        description={`The round chat button in the corner of every page. Off: open the chat from ${modifier}+K, Tamari on Home or the “Ask Tamari why” buttons.`}
       />
       <Switch
         checked={shown.idleAnimations}

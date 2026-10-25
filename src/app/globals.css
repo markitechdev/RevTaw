@@ -790,14 +790,6 @@
   }
 }
 
-/*
- * The chat button steps aside where Tamari is seated (Home), from the first
- * paint: there Tamari opens the chat. Unlayered, so it wins over the utility
- * classes that place the button.
- */
-body:has([data-tamari-seat]) [data-chat-button] {
-  display: none;
-}
 /* While Home's Tamari talks, its bubble takes the place of the words beside it (the card's, or the greeting's). */
 [data-tamari-row]:has([data-tamari-line]) > [data-tamari-lead] {
   visibility: hidden;

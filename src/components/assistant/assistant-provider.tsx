@@ -73,7 +73,7 @@ export type TamariContextValue = {
   suggestions: boolean;
   /** Contextual reactions (Settings → Tamari): off keeps Tamari calm — no poses from lines, answer reactions or naps. */
   reactions: boolean;
-  /** Seats Tamari on this page (Home). While a seat is mounted the chat button steps aside (Tamari opens the chat) and the provider's lines go to the seat. */
+  /** Seats Tamari on this page (Home). While a seat is mounted the provider's lines go to the seat; the chat button stays in its corner. */
   seat: () => () => void;
   react: (kind: TamariReaction) => void;
   dismissBubble: () => void;
@@ -128,7 +128,8 @@ function focusable(element: Element | null): element is HTMLElement {
  * for the whole app. It lives in the signed-in layout, so the conversation
  * survives navigation; pages tell it what the student is looking at with
  * <AssistantPage>. Tamari's picture is on Home only (seated in the Continue
- * studying card); every other page has a round chat button in the corner.
+ * studying card); every page, Home included, has a round chat button in the
+ * corner.
  * Everything about how Tamari looks right now is decided here.
  */
 export function AssistantProvider({ ai, assistant, voiceServer, children }: { ai: AiPreferences; assistant: AssistantPreferences; voiceServer: ServerVoice; children: ReactNode }) {
@@ -229,9 +230,10 @@ export function AssistantProvider({ ai, assistant, voiceServer, children }: { ai
 
   // The strictest wish wins: any registered part saying "hidden" (a quiz in progress) hides the chat button.
   const launcher: LauncherMode = pages.some((item) => item.launcher === "hidden") ? "hidden" : pages.some((item) => item.launcher === "desktop") ? "desktop" : "visible";
-  // Tamari is on screen only where a page seats it (Home); there Tamari opens the chat, so the chat button steps aside.
+  // Tamari is on screen only where a page seats it (Home). Tamari opens the chat there too, but the chat
+  // button stays, so the way into the chat is in the same corner on every page.
   const seated = seats > 0 && assistant.mascot;
-  const showLauncher = assistant.launcher && launcher !== "hidden" && !seated;
+  const showLauncher = assistant.launcher && launcher !== "hidden";
   const withTamari = seated;
   const hintsOn = withTamari && assistant.suggestions;
 
