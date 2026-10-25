@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ContextChunk } from "./context";
-import { finalizeReply, type DraftReply } from "./reply";
+import { finalizeReply, quoteInPassage, type DraftReply } from "./reply";
 import { groundingLabel } from "./types";
 
 const chunk: ContextChunk = { id: "c1", position: 1, heading: "Light reactions", pageStart: 2, pageEnd: 3, content: "Chlorophyll is a pigment that absorbs light most strongly in the blue and red wavelengths." };
@@ -42,5 +42,30 @@ describe("groundingLabel", () => {
     expect(groundingLabel("general", true)).toBe("General knowledge (not from your material)");
     expect(groundingLabel("general", false)).toBe("General knowledge");
     expect(groundingLabel(null, true)).toBeNull();
+  });
+});
+
+describe("quotes from the material", () => {
+  const passage = "Chlorophyll is a pigment that absorbs light most strongly in the blue and red wavelengths.";
+
+  it("accepts an exact, trimmed or re-punctuated quote", () => {
+    expect(quoteInPassage("Chlorophyll is a pigment that absorbs light", passage)).toBe(true);
+    expect(quoteInPassage("“absorbs light most strongly in the BLUE and red”", passage)).toBe(true);
+    expect(quoteInPassage("Chlorophyll is a pigment", passage)).toBe(true);
+  });
+
+  it("rejects an invented or paraphrased quote", () => {
+    expect(quoteInPassage("Chlorophyll reflects green light so leaves look green", passage)).toBe(false);
+    expect(quoteInPassage("a pigment absorbing mostly blue and red light", passage)).toBe(false);
+    expect(quoteInPassage("", passage)).toBe(false);
+    expect(quoteInPassage("pigment", passage)).toBe(false);
+  });
+
+  it("drops invented quotes and stops calling an unquoted answer material-based", () => {
+    const invented = finalizeReply(draft({ sources: [{ position: 1, heading: null, pages: null, quote: "Chlorophyll was discovered in 1817 by Pelletier." }] }), [chunk], true);
+    expect(invented.sources).toEqual([]);
+    expect(invented.grounding).toBe("general");
+    expect(finalizeReply(draft({ grounding: "partial", sources: [] }), [chunk], true).grounding).toBe("general");
+    expect(finalizeReply(draft({ grounding: "not_found", sources: [] }), [chunk], true).grounding).toBe("not_found");
   });
 });
