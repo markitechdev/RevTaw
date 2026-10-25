@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
 import { authErrorMessage } from "@/lib/auth/errors";
 import { revokeCalendarGrant } from "@/lib/calendar/sync";
@@ -14,6 +15,7 @@ import {
 import { aiInput, DEFAULT_AI } from "@/lib/preferences/schema";
 import { describeRetry, getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { listUserObjectPaths, removeMaterialObjects } from "@/lib/materials/storage";
+import { sendWelcomeEmail } from "@/lib/notifications/welcome";
 import { routes } from "@/lib/routes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { EducationLevel, StudyGoal } from "@/lib/supabase/database.types";
@@ -63,7 +65,6 @@ async function saveOnboardingLanguage(formData: FormData): Promise<void> {
 async function savePreferences(
   userId: string,
   input: ReturnType<typeof readPreferences>,
-  completeOnboarding: boolean,
 ): Promise<ActionState | null> {
   const parsed = studyPreferencesSchema.safeParse(input);
   if (!parsed.success) {
@@ -79,7 +80,6 @@ async function savePreferences(
       education_level: parsed.data.educationLevel as EducationLevel,
       main_goal: parsed.data.mainGoal as StudyGoal,
       preferred_session_minutes: parsed.data.session,
-      ...(completeOnboarding ? { onboarding_completed_at: new Date().toISOString() } : {}),
     })
     .eq("id", userId);
 
@@ -90,6 +90,25 @@ async function savePreferences(
   return null;
 }
 
+/**
+ * Marks onboarding as done. `first` is true only the first time (the update matches while the date is still
+ * empty, even if the form is sent twice at once), so the welcome email goes out once per account.
+ */
+async function markOnboarded(userId: string): Promise<{ failed: boolean; first: boolean; displayName: string | null }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ onboarding_completed_at: new Date().toISOString() })
+    .eq("id", userId)
+    .is("onboarding_completed_at", null)
+    .select("display_name");
+  if (error) {
+    console.error("profiles: failed to complete onboarding", error.message);
+    return { failed: true, first: false, displayName: null };
+  }
+  return { failed: false, first: (data?.length ?? 0) > 0, displayName: data?.[0]?.display_name ?? null };
+}
+
 export async function completeOnboardingAction(
   _previous: ActionState,
   formData: FormData,
@@ -97,10 +116,14 @@ export async function completeOnboardingAction(
   const user = await getCurrentUser();
   if (!user) redirect(routes.login);
 
-  const failure = await savePreferences(user.id, readPreferences(formData), true);
+  const failure = await savePreferences(user.id, readPreferences(formData));
   if (failure) return { ...failure, values: preferenceValues(formData) };
+  const onboarded = await markOnboarded(user.id);
+  if (onboarded.failed) return { ...errorState("We could not save your preferences. Please try again."), values: preferenceValues(formData) };
   await saveOnboardingLanguage(formData);
 
+  // After the response: the student goes on to the dashboard without waiting for the email.
+  if (onboarded.first) after(() => sendWelcomeEmail({ id: user.id, email: user.email }, onboarded.displayName));
   redirect(`${routes.dashboard}?notice=welcome`);
 }
 
@@ -111,7 +134,7 @@ export async function updatePreferencesAction(
   const user = await getCurrentUser();
   if (!user) redirect(routes.login);
 
-  const failure = await savePreferences(user.id, readPreferences(formData), false);
+  const failure = await savePreferences(user.id, readPreferences(formData));
   if (failure) return { ...failure, values: preferenceValues(formData) };
 
   revalidatePath(routes.settingsPreferences);
