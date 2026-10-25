@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { AssistantPage } from "@/components/assistant/assistant-provider";
 import { FlashcardReview } from "@/components/flashcards/flashcard-review";
-import { getDeck, getReviewQueue } from "@/lib/flashcards/queries";
+import { getDeck, getResumableReview, getReviewQueue } from "@/lib/flashcards/queries";
 import { shuffled } from "@/lib/random";
 import { routes } from "@/lib/routes";
 
@@ -18,7 +18,8 @@ export default async function DeckReviewPage({ params, searchParams }: PageProps
   if (!deck) notFound();
   const mode = query.mode === "all" || query.mode === "favorites" ? query.mode : "due";
   const shuffle = query.shuffle === "1";
-  const queue = await getReviewQueue({ deckId: deck.id, mode, limit: 200 });
+  // "Continue" on an unfinished review of this deck picks up that session instead of opening a new one.
+  const [queue, resumeSessionId] = await Promise.all([getReviewQueue({ deckId: deck.id, mode, limit: 200 }), getResumableReview(query.session, { deckId: deck.id, mode })]);
 
   return (
     <>
@@ -26,6 +27,7 @@ export default async function DeckReviewPage({ params, searchParams }: PageProps
       <AssistantPage context={{ kind: "deck", id: deck.id }} label={`Flashcards → ${deck.title}`} materialId={deck.material_id} launcher="desktop" />
       <FlashcardReview
       key={`${mode}-${shuffle}`}
+      resumeSessionId={resumeSessionId}
       // Shuffled on the server, so the first render and hydration agree.
       queue={shuffle ? shuffled(queue) : queue}
       deckId={deck.id}

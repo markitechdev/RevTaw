@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { resumesReview, type ReviewMode } from "@/lib/flashcards/resume";
 import { currentSnapshot, ratingWaits } from "@/lib/flashcards/scheduler";
 import { settleGenerationStatus } from "@/lib/generation/stale";
 import { pageOf, type Page } from "@/lib/pagination";
@@ -172,6 +173,20 @@ export async function getReviewQueue(options: { deckId?: string; mode: "due" | "
   }
   const now = new Date();
   return cards.map((card) => ({ ...card, waits: ratingWaits(currentSnapshot(card, history.get(card.id) ?? []), now) }));
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The unfinished review session (`?session=` on a review page) this page picks up again, or null to open a new one:
+ * only the student's own session (RLS), still in progress, for the same deck (or every due card) and mode.
+ */
+export async function getResumableReview(sessionId: unknown, page: { deckId: string | null; mode: ReviewMode }): Promise<string | null> {
+  if (typeof sessionId !== "string" || !UUID.test(sessionId)) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("study_sessions").select("id, method, status, state").eq("id", sessionId).maybeSingle();
+  if (error) console.error("flashcards: resumable review failed", error.message);
+  return data && resumesReview(data, page) ? data.id : null;
 }
 
 export const countDueCards = cache(async (): Promise<number> => {

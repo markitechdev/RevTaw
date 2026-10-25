@@ -40,6 +40,7 @@ export function FlashcardReview({
   backLabel,
   title,
   taskId = null,
+  resumeSessionId = null,
 }: {
   /** Already ordered (and shuffled when asked) by the server so hydration matches. */
   queue: ReviewQueueCard[];
@@ -51,13 +52,17 @@ export function FlashcardReview({
   title: string;
   /** Planner task this review completes, when started from the plan. */
   taskId?: string | null;
+  /** An unfinished review session to pick up ("Continue"), checked by the page; null opens a new one. */
+  resumeSessionId?: string | null;
 }) {
   const router = useRouter();
   const [entries, setEntries] = useState<QueueEntry[]>(() => queue.map((card) => ({ card, requeues: 0 })));
   const [cards, setCards] = useState<Record<string, ReviewQueueCard>>(() => Object.fromEntries(queue.map((card) => [card.id, card])));
   const [flipped, setFlipped] = useState(false);
   const [showHint, setShowHint] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(resumeSessionId);
+  // Kept from the first render: the page stops offering the session once it is finished and refreshed.
+  const [resumed] = useState(resumeSessionId !== null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [summary, setSummary] = useState<SessionSummary | null>(null);
@@ -77,10 +82,10 @@ export function FlashcardReview({
   const card = entry ? cards[entry.card.id] : null;
   const reviewedCount = progress.reviewed;
 
-  // Open a session row once; the server stores every rating against it.
+  // Open a session row once (unless this page resumes one); the server stores every rating against it.
   useEffect(() => {
     startedAt.current = Date.now();
-    if (queue.length === 0) return;
+    if (resumeSessionId || queue.length === 0) return;
     let canceled = false;
     startReviewSessionAction({ deckId, mode, cardCount: queue.length, taskId }).then((result) => {
       if (!canceled && result.ok) setSessionId(result.data.sessionId);
@@ -143,6 +148,16 @@ export function FlashcardReview({
   );
 
   const finish = useCallback(() => finishWith(progress), [finishWith, progress]);
+
+  // A resumed review with nothing left to show closes at once, with the ratings it already has, so it stops
+  // waiting under "Continue". The ref keeps it to one call when effects run twice in development.
+  const closedEmpty = useRef(false);
+  useEffect(() => {
+    if (!resumed || queue.length > 0 || closedEmpty.current) return;
+    closedEmpty.current = true;
+    finishWith({ reviewed: 0, again: 0, promoted: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const rate = useCallback(
     (rating: FlashcardRating) => {
@@ -231,7 +246,8 @@ export function FlashcardReview({
         <SessionSummaryCard
           title="Review complete"
           summary={summary}
-          extraStats={[{ label: "Moved up a box", value: String(progress.promoted) }]}
+          // A resumed review only saw part of its cards move here, so the count would be short.
+          extraStats={resumed ? undefined : [{ label: "Moved up a box", value: String(progress.promoted) }]}
           actions={
             <>
               <Link href={backHref} className={buttonClasses({ size: "sm" })}>
@@ -244,6 +260,22 @@ export function FlashcardReview({
             </>
           }
         />
+      </div>
+    );
+  }
+
+  if (queue.length === 0 && resumed) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="sr-only">{title}</h1>
+        <BackLink href={backHref} label={backLabel} />
+        {error ? (
+          <Alert tone="error">{error}</Alert>
+        ) : (
+          <p className="text-sm text-muted-foreground" role="status">
+            Saving your session…
+          </p>
+        )}
       </div>
     );
   }

@@ -4,9 +4,25 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-24 (the launch review round, after the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
+_Last updated: 2026-10-25 (fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
 
 ## Completed
+
+### After launch (fixes from the live site)
+
+- **Unfinished flashcard reviews** — a deck review (`flashcards`) or a
+  due-card review (`spaced_repetition`) left before the end stays in
+  progress, so Home's "Continue" and the Study page's "Resume" offered it,
+  but `/study/[id]` had no runner for those methods and showed "This method
+  has no runner yet". Now `/study/[id]` sends an unfinished review to its
+  review page with `?session=` (`reviewResumeHref()`,
+  `src/lib/flashcards/resume.ts`); the page picks up that same session when
+  it is the student's own, still in progress, for the same deck (or every
+  due card) and mode (`getResumableReview()`), instead of opening a new one,
+  and the summary counts every rating of the session. A resumed review with
+  nothing left to review closes at once with the ratings it already has. The
+  study page's last-resort message now says to start a new session from the
+  Study page, with a link there.
 
 ### Launch review round (security, correctness, accessibility, consistency, launch polish)
 
@@ -1858,7 +1874,10 @@ Flows verified end to end against a local Supabase-compatible stack
   difficulty, boxes/due dates from FSRS (Medium → 2 days, Easy → 8 days,
   Don't know → tomorrow), review-all
   empty state, dashboard due count, study-all with shuffle, favorites mode,
-  rename, delete keeps sessions
+  rename, delete keeps sessions; an unfinished review (`resume-review`):
+  Home's Continue and Study's Resume pick up the same session (no second
+  one, summary counts both visits), a resumed review with nothing left
+  closes itself, another student's or a malformed `?session=` is ignored
 - Study sessions: builder from the methods page, active recall (prompt
   matching, hidden model answers, correct/missing comparison, confidence and
   time, summary, mistake filed, refresh resumes, early end), error review

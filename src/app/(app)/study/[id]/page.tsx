@@ -26,6 +26,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
 import { BackLink } from "@/components/ui/page-header";
 import { getSmartSessionView, tamariPlanNote } from "@/lib/adaptive/smart";
+import { reviewResumeHref } from "@/lib/flashcards/resume";
 import { planReaction } from "@/lib/tamari/plan";
 import { routes } from "@/lib/routes";
 import { isPlanMethod, isRecallMethod, isTestMethod, isTutorMethod, methodName } from "@/lib/study/catalog";
@@ -109,6 +110,10 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
     if (conversationId) redirect(`${routes.tutor}/${conversationId}`);
   }
 
+  // An unfinished flashcard review continues on its review page, in the same session.
+  const review = reviewResumeHref(session);
+  if (review) redirect(review);
+
   if (session.status !== "in_progress") {
     const summary = session.parsedSummary;
     const extraStats = extraStatsFor(session.method, summary?.extra);
@@ -183,6 +188,17 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
     case "pomodoro":
       return <PomodoroRunner key={session.id} session={session} methodName={name} parentSessionId={parentId} parentLabel={parentLabel} />;
     default:
-      return <ErrorState title="This method has no runner yet" description={`${name} sessions arrive in a later phase.`} />;
+      return (
+        <ErrorState
+          titleAs="h1"
+          title="This session can't be continued here"
+          description="Start a new one from the Study page."
+          action={
+            <Link href={routes.study} className={buttonClasses({ size: "sm" })}>
+              Go to Study
+            </Link>
+          }
+        />
+      );
   }
 }
