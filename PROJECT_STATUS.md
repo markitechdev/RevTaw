@@ -41,9 +41,12 @@ more thinking on hard questions.
   Positions repeat across materials, so the prompt numbers the passages
   (`[Passage 1 — "Biology Notes", Osmosis, page 6]`); sources are matched
   by that number, keep their material, and their quotes are still checked
-  against the passage. When nothing matches, the prompt says so, and
-  Tamari tells a student who asked that it isn't in their notes. Labels in
-  that chat: "Based on your notes", "Based on your notes + general
+  against the passage. When nothing matches, the prompt says so; a student
+  who asked what their notes say hears first that Tamari couldn't find it
+  in their materials, never a guess at what they "probably" say, and the
+  answer is labeled "Not found in your notes" whatever the reply claims
+  (the first live run of the eval caught "Your reviewer likely describes
+  the Krebs cycle…"). Labels in that chat: "Based on your notes", "Based on your notes + general
   knowledge", "Not found in your notes" and "General knowledge". The
   sources say "Sources in your notes", name each material and open it at
   the passage (each link named "Open … in <material>").
@@ -77,7 +80,7 @@ more thinking on hard questions.
 - **Token use** — every question now carries the study summary, a chat
   without a material can carry up to 5,000 characters of notes, and hard
   questions think longer. A first question still fits Groq's free
-  per-minute allowance (`ai.test.ts` checks the largest case: 7,346 of
+  per-minute allowance (`ai.test.ts` checks the largest case: 7,427 of
   7,500 tokens); later turns of a long chat, and hard questions with
   notes, usually go to Cloudflare or Ollama Cloud.
 
@@ -1689,8 +1692,10 @@ tables.
   Tamari's evaluation round, the Ollama Cloud round and Tamari's smarter
   round are implemented (of the last six, only the Ollama Cloud round
   needed a database change, 0034). The re-run of `npm run eval:tamari`
-  passed all 25 cases; the three cases added for answers from all notes
-  (28 now) haven't run against the real AI yet. The hosted database has
+  passed all 25 cases. The first live run of the three cases added for
+  answers from all notes (28 now) passed two; the third caught Tamari
+  guessing what a student's reviewer says, fixed since. Re-run those with
+  `npm run eval:tamari -- -t "Notes|27.10"`. The hosted database has
   0001–0034. Ollama Cloud is on: `OLLAMA_API_KEY` is in `.env.local` and on
   Vercel (a Secret, Production), and the live service check answered with
   `gpt-oss:120b`. After a few days, compare
@@ -2570,14 +2575,16 @@ Flows verified end to end against a local Supabase-compatible stack
   answer naming the material, "Sources in your notes (1)" with the
   material's title and a link to the passage, stored with the material;
   "What is the capital of France?" stays "General knowledge" with no
-  sources); `assistant-e2e.mjs` and `tamari-e2e.mjs` (the chat button on
+  sources; "What does my reviewer say about the French Revolution?" is
+  "Not found in your notes"); `assistant-e2e.mjs` and `tamari-e2e.mjs` (the chat button on
   Home in the bottom-right corner with Tamari in the Continue card, on
   desktop and on a phone above the tab bar); unit tests for the notes
   search's parts (topic words, asking about notes, excerpts, passage
   labels, sources by passage number, the labels), the study summary in the
   prompt, the 20-message history, the deep-thinking check and the request
   it makes, the guard on passage headings, the mock, and a first question
-  with the most notes and study data fitting Groq (104 files, 770 tests)
+  with the most notes and study data fitting Groq (104 files, 771 tests);
+  `npm run eval:tamari -- -t "Notes"` against the real AI
 - Ollama Cloud round: `ollama-budget-e2e.mjs` against stand-ins for Groq
   and Ollama Cloud (29 checks: Groq's 429 → Ollama with its own key and
   request shape; the reservation set aside during the call and swapped for
