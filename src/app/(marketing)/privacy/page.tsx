@@ -86,7 +86,7 @@ export default function PrivacyPage() {
           <li>
             <strong className="font-semibold text-foreground">What {BRAND.name} makes and records while you study:</strong> reviewers, quizzes, flashcards,
             memory aids, exams, plans and tasks, your answers and scores, your mistake notebook, study sessions and study time, how well you know each topic, XP
-            and badges, notifications, and your conversations with Tamari.
+            and badges, notifications, your conversations with Tamari, and how much you use the AI each day (for the AI limits).
           </li>
           <li>
             <strong className="font-semibold text-foreground">Your voice, only when you press the microphone:</strong> the words you say. If your browser

@@ -63,6 +63,7 @@ export default function StudentPrivacyPage() {
           <li>What {BRAND.name} makes for you: reviewers, quizzes, flashcards and study plans.</li>
           <li>How you&apos;re doing: your answers, scores, study time, XP and badges.</li>
           <li>Your chats with Tamari.</li>
+          <li>How much you use the AI, so everyone gets a fair share.</li>
         </LegalList>
         <p>{BRAND.name} never asks for your school, address, phone number, birthday or location.</p>
       </LegalSection>

@@ -4,8 +4,8 @@
  * Change LEGAL_VERSION and LEGAL_UPDATED together whenever either page changes in substance.
  */
 
-export const LEGAL_VERSION = "2026-10-24";
-export const LEGAL_UPDATED = "October 24, 2026";
+export const LEGAL_VERSION = "2026-10-25";
+export const LEGAL_UPDATED = "October 25, 2026";
 
 export type Processor = {
   name: string;
@@ -37,6 +37,13 @@ export const PROCESSORS: Processor[] = [
       { label: "Groq's privacy policy", href: "https://groq.com/privacy-policy" },
       { label: "Cloudflare's privacy policy", href: "https://www.cloudflare.com/privacypolicy/" },
     ],
+  },
+  {
+    name: "Ollama",
+    only: "Only when RevTaw's main AI services are busy, or a request is too long for them.",
+    does: "A backup for the AI above: it reads your materials, writes reviewers, quizzes and flashcards, grades written answers and answers as Tamari.",
+    receives: "The part of your material, question or answer being worked on.",
+    policies: [{ label: "Ollama's privacy policy", href: "https://ollama.com/privacy" }],
   },
   {
     name: "Microsoft Azure AI Speech",
