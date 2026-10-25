@@ -1,8 +1,9 @@
 # RevTaw
 
-**Reviewer na may Bitaw.** A reviewer that delivers.
+RevTaw is an AI-powered study and reviewer platform developed by Mark
+Francis B. Entredicho.
 
-RevTaw is an AI-powered personal learning system for students: upload class
+**Reviewer na may Bitaw.** A reviewer that delivers. Upload your class
 materials, turn them into reviewers, quizzes, flashcards and guided study
 sessions, and let RevTaw track what you know, what you keep getting wrong,
 and what to study next.
