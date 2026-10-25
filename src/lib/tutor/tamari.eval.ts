@@ -8,7 +8,7 @@ import { languageCounts } from "@/lib/ai/language";
 import { DEFAULT_AI } from "@/lib/preferences/options";
 import type { TutorMode } from "@/lib/supabase/database.types";
 import { tutorReply, type TutorReply, type TutorTurnInput } from "@/lib/tutor/ai";
-import type { ContextChunk } from "@/lib/tutor/context";
+import { asksAboutNotes, type ContextChunk } from "@/lib/tutor/context";
 import { messageLanguage, TUTOR_HISTORY_MESSAGES, type TutorTurn } from "@/lib/tutor/prompt";
 import { finalizeReply, type FinalReply } from "@/lib/tutor/reply";
 import { TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
@@ -523,7 +523,7 @@ describe.skipIf(!live)("Tamari", () => {
       const started = Date.now();
       try {
         const { reply, provider, model } = await ask(input);
-        const final = finalizeReply(reply, input.context, item.material ? "material" : item.notes ? "notes" : "none");
+        const final = finalizeReply(reply, input.context, item.material ? "material" : item.notes ? "notes" : "none", { askedAboutNotes: asksAboutNotes(message) });
         const checks = item.check(final, final.answer);
         // With the Auto language setting the app states English for an English message, so the reply should be in it.
         if (messageLanguage(input) === "en") checks.push(inEnglish(final.answer));

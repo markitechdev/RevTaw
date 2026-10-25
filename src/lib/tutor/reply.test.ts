@@ -61,6 +61,17 @@ describe("finalizeReply across all of the student's materials", () => {
     expect(finalizeReply(draft({ grounding: "not_found", sources: [] }), [bio, chem], "notes").grounding).toBe("not_found");
     expect(finalizeReply(draft({ grounding: "material", sources: [] }), [], "notes").grounding).toBe("general");
   });
+
+  it("says “not found” when the student asked about their notes and the search found nothing, whatever the reply claims", () => {
+    const asked = { askedAboutNotes: true };
+    expect(finalizeReply(draft({ grounding: "general", sources: [] }), [], "notes", asked).grounding).toBe("not_found");
+    expect(finalizeReply(draft({ grounding: "material", sources: [{ position: 1, heading: null, pages: null, quote: "Chlorophyll is a pigment" }] }), [], "notes", asked)).toMatchObject({ grounding: "not_found", sources: [] });
+    // A question that isn't about their notes stays general knowledge, and small talk keeps no label.
+    expect(finalizeReply(draft({ grounding: "not_found", sources: [] }), [], "notes").grounding).toBe("general");
+    expect(finalizeReply(draft({ grounding: "conversation", sources: [] }), [], "notes", asked).grounding).toBeNull();
+    // With passages, the reply's own label stands (checked against its quotes as always).
+    expect(finalizeReply(draft({ grounding: "general", sources: [] }), [bio, chem], "notes", asked).grounding).toBe("general");
+  });
 });
 
 describe("groundingLabel", () => {

@@ -80,9 +80,12 @@ describe("Tamari's prompt", () => {
     // A title can't close the section early.
     expect(turn).toMatch(/\[Passage 2 — "Chem 'Reviewer' ‹\/material>", Unit 1, page 11\]\nBonds share electrons\./);
     expect(turn.match(/<\/material>/g)).toHaveLength(1);
-    expect(buildTurn({ ...base, notes: true })).toMatch(/\(nothing in their materials matches this question — answer from general knowledge\)/);
+    // Nothing matched: a student who asked about their notes hears so first, and Tamari never guesses what they say.
+    expect(buildTurn({ ...base, notes: true })).toMatch(/\(A search of all their materials found nothing that matches this question\. If the student asked what their notes or materials say, first tell them you couldn't find it there; then answer from general knowledge\.\)/);
     const { system } = buildTutorPrompt(base);
-    expect(system).toMatch(/In a chat without a material, <material> may hold the passages from all of the student's materials/);
+    expect(system).toMatch(/In a chat without a material, <material> holds what a search of all the student's materials found/);
+    expect(system).toMatch(/start by saying plainly that you couldn't find it in their materials/);
+    expect(system).toMatch(/never guess what it "probably" says/);
     expect(system).toMatch(/its Passage number in a chat across materials/);
   });
 

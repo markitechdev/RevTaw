@@ -10,7 +10,8 @@ import type { FlashcardDraft, FollowUpId, TutorSource } from "@/lib/tutor/types"
  *
  * Where the passages came from (`scope`): the chat's material; the best matches across all the student's
  * materials ("notes", a chat without one), where a source is found by its passage number and keeps its
- * material; or nothing ("none").
+ * material; or nothing ("none"). When the student asked about their notes (`askedAboutNotes`) and that
+ * search found nothing, the label says "Not found in your notes" whatever the reply claims.
  */
 
 export type PassageScope = "material" | "notes" | "none";
@@ -64,10 +65,16 @@ function pagesOf(chunk: ContextChunk): string | null {
   return chunk.pageEnd && chunk.pageEnd !== chunk.pageStart ? `${chunk.pageStart}-${chunk.pageEnd}` : String(chunk.pageStart);
 }
 
-export function finalizeReply<Visual>(reply: DraftReply<Visual>, chunks: ContextChunk[], scope: PassageScope): FinalReply<Visual> {
+export function finalizeReply<Visual>(
+  reply: DraftReply<Visual>,
+  chunks: ContextChunk[],
+  scope: PassageScope,
+  options: { askedAboutNotes?: boolean } = {},
+): FinalReply<Visual> {
   const smallTalk = reply.grounding === "conversation";
   const notes = scope === "notes" && chunks.length > 0;
   const hasPassages = scope === "material" || notes;
+  const notFound = scope === "notes" && chunks.length === 0 && options.askedAboutNotes === true;
   // Across materials a passage is cited by its number in the turn; in a material chat, by its position.
   const known = new Map(chunks.map((chunk) => [notes ? (chunk.ref ?? -1) : chunk.position, chunk]));
   // Only passages that were sent, quoted for real, with their heading and pages filled in from the material.
@@ -81,7 +88,7 @@ export function finalizeReply<Visual>(reply: DraftReply<Visual>, chunks: Context
           return notes && chunk.materialId ? { ...found, heading: chunk.heading, materialId: chunk.materialId, materialTitle: chunk.materialTitle ?? "" } : found;
         });
 
-  let grounding: StoredGrounding = smallTalk ? null : hasPassages ? (reply.grounding as Exclude<ReplyGrounding, "conversation">) : "general";
+  let grounding: StoredGrounding = smallTalk ? null : notFound ? "not_found" : hasPassages ? (reply.grounding as Exclude<ReplyGrounding, "conversation">) : "general";
   // "From your material" needs at least one real quote from it; without one, it is not shown as such.
   if ((grounding === "material" || grounding === "partial") && sources.length === 0) grounding = "general";
 

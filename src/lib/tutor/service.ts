@@ -325,7 +325,8 @@ async function respond(
   // a question (not small talk) searches all of the student's materials.
   const ranked = conversation.material_id ? await rankMaterialChunks(supabase, { materialId: conversation.material_id, query, selection: input.selection }) : null;
   const searched = !conversation.material_id && searchableQuestion(`${input.content} ${input.selection ?? ""}`);
-  const notes = searched ? await notesPassages(supabase, query, input.selection, asksAboutNotes(input.content)) : [];
+  const aboutNotes = asksAboutNotes(input.content);
+  const notes = searched ? await notesPassages(supabase, query, input.selection, aboutNotes) : [];
   const history = [...rows].reverse().map((row) => ({ role: row.role as "user" | "assistant", content: row.role === "user" ? asked(row) : row.content }));
 
   let userMessageId: string | null = input.answering?.id ?? null;
@@ -372,7 +373,7 @@ async function respond(
   }
 
   // Honest labels and sources before anything is saved (small talk, no material, passages actually sent).
-  const final = finalizeReply(reply, context.chunks, material ? "material" : searched ? "notes" : "none");
+  const final = finalizeReply(reply, context.chunks, material ? "material" : searched ? "notes" : "none", { askedAboutNotes: aboutNotes });
 
   const { data: assistantMessage, error: assistantError } = await supabase
     .from("tutor_messages")

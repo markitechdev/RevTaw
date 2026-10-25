@@ -798,7 +798,7 @@ export function tutorReplyHeuristically(material: string, prompt: string, system
   const selection = extractTag(prompt, "highlight") ?? "";
   const action = prompt.match(/^Requested action:\s*([^—\n]+)/m)?.[1]?.trim().toLowerCase() ?? "";
   // No material, or a search of all the student's materials that found nothing.
-  const noMaterial = /\(no material attached|\(nothing in their materials matches/.test(material) || material.trim().length === 0;
+  const noMaterial = /\(no material attached|found nothing that matches this question/.test(material) || material.trim().length === 0;
   // Passages from all the student's materials (a chat without one): when none answers, a general answer.
   const acrossNotes = /^\[Passage \d+ — /m.test(material);
   // A follow-up names the answer it is about; its words stand in for the topic.

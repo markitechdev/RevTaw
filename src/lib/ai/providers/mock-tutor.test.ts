@@ -26,7 +26,7 @@ describe("the mock Tamari", () => {
     expect(reply).toMatchObject({ grounding: "material", sources: [{ position: 2, heading: null, pages: "6" }] });
     expect(reply.answer).toMatch(/^From your “Biology Notes”: Osmosis moves water/);
     expect(tutorReplyHeuristically(notes, prompt("What is recursion?", notes), "")).toMatchObject({ grounding: "general", sources: [] });
-    const none = "(nothing in their materials matches this question — answer from general knowledge)";
+    const none = "(A search of all their materials found nothing that matches this question. If the student asked what their notes or materials say, first tell them you couldn't find it there; then answer from general knowledge.)";
     expect(tutorReplyHeuristically(none, prompt("What is recursion?", none), "")).toMatchObject({ grounding: "general", sources: [] });
   });
 });
