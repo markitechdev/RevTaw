@@ -196,7 +196,7 @@ each job's last run). Errors and slow requests are in Vercel's Logs.
 | `npm run start` | Serve the production build |
 | `npm run lint` | ESLint |
 | `npm test` | Unit tests (vitest) |
-| `npm run eval:tamari` | Checks Tamari's answers against the real AI in `.env.local` (about 23 requests; see PROJECT_STATUS.md) |
+| `npm run eval:tamari` | Checks Tamari's answers against the real AI in `.env.local` (about 25 requests; see PROJECT_STATUS.md) |
 
 ## Structure
 

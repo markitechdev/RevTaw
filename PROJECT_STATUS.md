@@ -4,9 +4,62 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-25 (the unfinished sessions round, the email design round, Tamari's chat round and fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
+_Last updated: 2026-10-25 (Tamari's evaluation round, the unfinished sessions round, the email design round, Tamari's chat round and fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
 
 ## Completed
+
+### Tamari's evaluation round (code blocks, reply language, guided mode, Simplify, short follow-ups)
+
+The first `npm run eval:tamari` against the real AI passed 15 of 23 cases.
+The eight failures had five causes, each fixed on its own:
+
+- **Answers with a code block couldn't be read** (`src/lib/ai/json.ts`) —
+  another example, the Java question and the math steps ended in "RevTaw
+  could not understand the AI response": the reader took the first ```
+  inside the JSON's answer string for a fence around the JSON, and the
+  repair came back the same way. `extractJson()` now parses the reply as a
+  whole first, then scans it bracket by bracket with strings skipped, so a
+  fence or bracket inside a string is never taken for the wrapper (an
+  object wins over a stray `[1]` in a sentence). It also reads almost-JSON
+  from models without JSON mode: raw line breaks and stray backslashes
+  inside strings, and trailing commas. The repair request and the server
+  log get the reason (`AiError.detail`, such as "Unterminated JSON in model
+  output") instead of the student-facing message. Every AI feature uses
+  this reader.
+- **English questions got Filipino answers** (`src/lib/ai/language.ts`) —
+  exam nerves, the conflicting notes and a plain definition came back in
+  Filipino under the Auto language setting ("Answer in the language I
+  write in"), because the instructions are full of
+  Filipino examples. A deterministic check now reads the student's own
+  words: two or more English function words and no Filipino ones make the
+  message English, and the prompt states it ("the student's message is in
+  English, so reply in English", `responseStyleRules(response, written)`).
+  A message too short to tell ("and right?") goes by the student's latest
+  messages; a quick action's own prompt and highlighted text don't count
+  (`messageLanguage()` in `prompt.ts`). Only English is ever stated: any
+  Filipino word (Filipino, Taglish, or Cebuano, which shares them) keeps
+  the general rule, so a miscount can't push a student into English.
+  Tamari's personality now says its Filipino examples never decide the
+  reply's language.
+- **Guided mode gave the answer away** — "What is 15% of 80?" got 12 and
+  its working. The guided rule now says what to do on a new question: no
+  final answer anywhere in the reply, one hint or the first step, and a
+  question to end on. Asking a question is not asking for the answer;
+  "just tell me" is. The general rules point to the mode, and every
+  coaching mode wins over them where they differ.
+- **Simplify came out longer** — 143 words for a 60-word answer. Its task
+  now gives the word count of what is being simplified (the highlight, the
+  answer it follows up on, or the last reply; about 40 words for something
+  short).
+- **"and right?" after LEFT JOIN was read as "am I right?"** — the rule for
+  short follow-ups now covers one that names a counterpart of the topic. Its
+  examples come from other subjects (the brain's hemispheres, mitosis and
+  meiosis), so the SQL case still tests the rule.
+- **The evaluation** — 25 cases: a Filipino and a Taglish question added;
+  every case whose message is English also checks that the reply is; a
+  reply that can't be read shows its reason; two checks accept more
+  wordings (the language is checked separately). Run it again on the laptop
+  to confirm the fixes with the real models.
 
 ### Unfinished sessions round (no duplicate sessions; rename, end and delete)
 
@@ -1431,8 +1484,10 @@ tables.
   Improvement and Personalization Phase, the Tamari visual AI companion
   integration, the API integrations round, the learning engine round, the
   Archive round, the performance round, the launch review round, Tamari's
-  chat round, the email design round and the unfinished sessions round are
-  implemented (none of the last three needs a database change). Before launch: the hosted database had
+  chat round, the email design round, the unfinished sessions round and
+  Tamari's evaluation round are implemented (none of the last four needs a
+  database change); `npm run eval:tamari` should be run again on the
+  laptop to confirm the evaluation round with the real models. Before launch: the hosted database had
   0001–0023 and needs 0024–0033 (one update file), the scheduler
   (`supabase/schedules.sql`) after the first deploy, the four email
   templates in `supabase/templates` pasted into the dashboard after the
@@ -1966,6 +2021,10 @@ linked).
 - What the model writes can only be checked against a real model
   (`npm run eval:tamari`); its rules are simple heuristics, so read the
   answers in its report too.
+- The reply-language check (`src/lib/ai/language.ts`) counts everyday
+  English and Filipino words. It only ever states English; a message with
+  any Filipino word, or in another language, is left to the general "reply
+  in the language the student writes in" rule.
 - Problems, scenarios, cases, stories and mnemonics are generated once per
   session from the material's transcript; AI-graded answers (working,
   justifications, case fields, retellings) use the fast tier. A device that
@@ -2380,16 +2439,19 @@ Flows verified end to end against a local Supabase-compatible stack
   leads and the exam details read for it, reminder variants, and the
   welcome email.
 - Tamari's answers (`npm run eval:tamari`, not part of `npm test`; needs AI
-  keys in `.env.local` and is skipped without them): 23 cases sent to the
+  keys in `.env.local` and is skipped without them): 25 cases sent to the
   real AI with the request the app builds, the chat review's test list
   (definition, follow-up, simpler, another example, Java, math, a quiz
   explanation, a wrong answer, the material, not in the material,
   contradicting notes, off-topic, a greeting, "and right?", a long chat,
   changing topics, coming back, an instruction hidden in the notes), the
-  screenshot replies, exam nerves, guided mode and Answer again. Each answer
-  is checked with simple rules and written to `.tamari-eval/report.md` (not
-  committed). It sends about 23 AI requests, a real share of a day's free
-  allowance, so run it when nobody is studying, or a few cases at a time:
+  screenshot replies, exam nerves, guided mode, Answer again, and a
+  question in Filipino and one in Taglish. Each answer is checked with
+  simple rules (every case whose message is English also checks that the
+  reply is) and written to `.tamari-eval/report.md` (not committed), with
+  the reason when a reply couldn't be read. It sends about 25 AI requests,
+  a real share of a day's free allowance, so run it when nobody is
+  studying, or a few cases at a time:
   `npm run eval:tamari -- -t "§27.12"`. An AI failure and an empty reply
   are covered by the unit tests and the `chat` suite instead.
 - Accessibility: `~/preview/a11y-audit.mjs` (axe-core, 43 states incl. the
@@ -2397,8 +2459,10 @@ Flows verified end to end against a local Supabase-compatible stack
   `a11y-dark.mjs` (dark) report no violations; keyboard paths are
   exercised by the suites above (flashcard flip with Space, rating keys,
   Escape on dialogs and menus)
-- Unit tests (`npm test`): JSON extraction, chunking, content helpers,
-  analysis transcript, markdown renderer, quiz distribution/grading/config,
+- Unit tests (`npm test`): JSON extraction (code blocks inside answers,
+  fenced and almost-JSON replies), reply-language detection, chunking,
+  content helpers, analysis transcript, markdown renderer, quiz
+  distribution/grading/config,
   the mock quiz generator, the flashcard scheduler, the tutor context
   selector, the mastery model, the planner date helpers, the plan
   generator and the mock study-method heuristics (retrieval formats, blurt
