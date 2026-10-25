@@ -1,10 +1,12 @@
 import "server-only";
 
+import { unstable_rethrow } from "next/navigation";
+
+import { getMasterySummary } from "@/lib/adaptive/engine";
 import { isAiError } from "@/lib/ai";
 import { track } from "@/lib/analytics/server";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { ServiceError } from "@/lib/errors";
-import type { StudentContext } from "@/lib/materials/analyze";
 import { parsePreferences } from "@/lib/preferences/schema";
 import { completeSession, createSession, loadSession, SessionError, type SessionSummary } from "@/lib/study/sessions";
 import type { Json, StudySession, TutorMode } from "@/lib/supabase/database.types";
@@ -12,7 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 import { evaluateTutorSession, tutorReply, type TutorReply } from "@/lib/tutor/ai";
 import { rankMaterialChunks } from "@/lib/search/hybrid";
 import { retrievalQuery, selectContext, type ContextChunk } from "@/lib/tutor/context";
-import { TUTOR_HISTORY_MESSAGES, type TutorFocus } from "@/lib/tutor/prompt";
+import { TUTOR_HISTORY_MESSAGES, type TutorFocus, type TutorStudent, type WeakSpot } from "@/lib/tutor/prompt";
 import { flashcardDraftSchema } from "@/lib/tutor/schemas";
 import { TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
 import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
@@ -25,9 +27,41 @@ const HISTORY_LIMIT = TUTOR_HISTORY_MESSAGES;
 /** About two and a half of RevTaw's ~3,200-character chunks of the material per message. */
 const TUTOR_CONTEXT_CHARS = 8_000;
 
-async function studentContext(supabase: Client): Promise<StudentContext> {
-  const { data: profile } = await supabase.from("profiles").select("education_level, main_goal, preferences").maybeSingle();
-  return { educationLevel: profile?.education_level ?? null, mainGoal: profile?.main_goal ?? null, response: parsePreferences(profile?.preferences ?? {}).ai };
+/**
+ * Who Tamari is talking to: only the first name (as Home greets them), their level and goal, the answer
+ * settings, and — in a chat about a material — the concepts of it they have been getting wrong.
+ */
+async function studentContext(supabase: Client, materialId: string | null): Promise<TutorStudent> {
+  const [{ data: profile }, weakSpots] = await Promise.all([
+    supabase.from("profiles").select("display_name, education_level, main_goal, preferences").maybeSingle(),
+    materialWeakSpots(materialId),
+  ]);
+  return {
+    firstName: profile?.display_name?.trim().split(/\s+/)[0] || null,
+    educationLevel: profile?.education_level ?? null,
+    mainGoal: profile?.main_goal ?? null,
+    response: parsePreferences(profile?.preferences ?? {}).ai,
+    weakSpots,
+  };
+}
+
+/** Up to four concepts of the material the student needs work on, weakest signal first; none when unknown. */
+async function materialWeakSpots(materialId: string | null): Promise<WeakSpot[]> {
+  if (!materialId) return [];
+  try {
+    const summary = await getMasterySummary({ materialId });
+    const spots: WeakSpot[] = [];
+    for (const row of [...summary.needsWork, ...summary.misconceptions, ...summary.learning]) {
+      const name = row.concept?.name;
+      if (name && !spots.some((spot) => spot.name === name)) spots.push({ name, mastery: Number(row.mastery) });
+      if (spots.length >= 4) break;
+    }
+    return spots;
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("tutor: weak spots failed", error);
+    return [];
+  }
 }
 
 async function materialChunks(supabase: Client, materialId: string): Promise<{ title: string; chunks: ContextChunk[] }> {
@@ -169,7 +203,7 @@ async function respond(
       .eq("conversation_id", conversation.id)
       .order("created_at", { ascending: false })
       .limit(HISTORY_LIMIT),
-    studentContext(supabase),
+    studentContext(supabase, conversation.material_id),
     conversation.material_id ? materialChunks(supabase, conversation.material_id) : Promise.resolve(null),
   ]);
   const rows = (historyData ?? []) as HistoryRow[];

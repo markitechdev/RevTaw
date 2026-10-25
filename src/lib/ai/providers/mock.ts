@@ -761,6 +761,19 @@ export function tutorReplyHeuristically(material: string, prompt: string, system
   const priorAnswer = focus && focus !== "(your last reply above)" ? focus : previousAnswer;
   const mode = /Socratic mode/.test(system) ? "socratic" : /Guided mode/.test(system) ? "guided" : /Elaborative interrogation mode/.test(system) ? "elaborative" : /Self-explanation mode/.test(system) ? "self_explanation" : /Teach-back mode/.test(system) ? "teach_back" : "tutor";
 
+  // "What is my name?": the first name Tamari's request carries.
+  if (/\bwhat(?:'s| is) my name\b|\bano(?:ng)? pangalan ko\b/i.test(message)) {
+    const firstName = prompt.match(/^First name: (.+)$/m)?.[1]?.trim();
+    return {
+      answer: firstName ? `You're ${firstName}! What are we studying today?` : "I don't see your name in RevTaw. What should I call you?",
+      grounding: "general",
+      sources: [],
+      additional_explanation: null,
+      follow_ups: [],
+      flashcard: null,
+    };
+  }
+
   // A question about the student's own study data: answer from the snapshot Tamari's request carries.
   const snapshot = prompt.match(/The student's study data in RevTaw right now:\n((?:- .*(?:\n|$))+)/)?.[1]?.trim();
   if (snapshot) {
