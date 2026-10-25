@@ -29,6 +29,7 @@ describe("Tamari's prompt", () => {
     expect(system).toMatch(/Clearly unrelated requests/);
     expect(system).toMatch(/Examples must truly demonstrate the concept/);
     expect(system).toMatch(/Never invent definitions, formulas/);
+    expect(system).toMatch(/One that names a counterpart of the topic asks the same question about it/);
     expect(system).toMatch(/Tutor mode \(default\)/);
     expect(buildTutorPrompt({ ...base, mode: "socratic" }).system).toMatch(/Socratic mode/);
   });
