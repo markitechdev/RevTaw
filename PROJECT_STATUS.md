@@ -58,8 +58,17 @@ The eight failures had five causes, each fixed on its own:
 - **The evaluation** — 25 cases: a Filipino and a Taglish question added;
   every case whose message is English also checks that the reply is; a
   reply that can't be read shows its reason; two checks accept more
-  wordings (the language is checked separately). Run it again on the laptop
-  to confirm the fixes with the real models.
+  wordings (the language is checked separately).
+- **Confirmed with the real models** — the re-run on the laptop
+  (2026-10-25) passed all 25 cases (Groq answered 9, Cloudflare 16). One
+  slip the rules can't catch: the Filipino mitosis answer said mitosis has
+  "isang meiosis I at II". The model can still be wrong, so read the
+  answers in the report, not only the count.
+- **Gemini stays off** — asked whether Gemini could be added: the Gemini API
+  terms (effective March 23, 2026) bar apps likely to be used by people
+  under 18, whatever the plan, and its free tier uses what is sent to
+  improve Google's products. RevTaw is for all ages, so the owner chose to
+  stay on Groq and Cloudflare.
 
 ### Unfinished sessions round (no duplicate sessions; rename, end and delete)
 
@@ -1486,8 +1495,8 @@ tables.
   Archive round, the performance round, the launch review round, Tamari's
   chat round, the email design round, the unfinished sessions round and
   Tamari's evaluation round are implemented (none of the last four needs a
-  database change); `npm run eval:tamari` should be run again on the
-  laptop to confirm the evaluation round with the real models. Before launch: the hosted database had
+  database change); the re-run of `npm run eval:tamari` passed all 25
+  cases. Before launch: the hosted database had
   0001–0023 and needs 0024–0033 (one update file), the scheduler
   (`supabase/schedules.sql`) after the first deploy, the four email
   templates in `supabase/templates` pasted into the dashboard after the
