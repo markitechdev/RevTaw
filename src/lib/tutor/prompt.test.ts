@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_AI } from "@/lib/preferences/schema";
 
 import type { ContextChunk } from "./context";
-import { buildTutorPrompt, buildTurn, messageLanguage, neutralizeTags, prepareHistory, type TutorPromptInput } from "./prompt";
+import { buildTutorPrompt, buildTurn, messageLanguage, neutralizeTags, prepareHistory, TUTOR_HISTORY_MESSAGES, type TutorPromptInput } from "./prompt";
 
 const chunk = (position: number, content: string, heading: string | null = null): ContextChunk => ({ id: `c${position}`, position, heading, pageStart: position + 1, pageEnd: null, content });
 
@@ -173,6 +173,14 @@ describe("Tamari's conversation history", () => {
     expect(history.at(-1)!.content.length).toBeLessThanOrEqual(2_000);
     expect(history.some((turn) => turn.content.startsWith("q1"))).toBe(false);
     expect(history[0].role).toBe("user");
+  });
+
+  it("remembers the last twenty messages of a long chat", () => {
+    const turns = Array.from({ length: 20 }, (_, index) => ({ role: index % 2 === 0 ? ("user" as const) : ("assistant" as const), content: `turn ${index + 1}: ${"y".repeat(400)}` }));
+    const history = prepareHistory(turns);
+    expect(history).toHaveLength(20);
+    expect(history[0].content.startsWith("turn 1:")).toBe(true);
+    expect(TUTOR_HISTORY_MESSAGES).toBe(20);
   });
 
   it("puts the history before the new turn", () => {

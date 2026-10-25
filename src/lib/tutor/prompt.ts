@@ -48,11 +48,12 @@ export type TutorPromptInput = {
 };
 
 /**
- * Budget (about 6K tokens in, so a turn usually fits Groq's free per-minute allowance; bigger turns go to the
- * next provider). The material passages are capped by the service; these cap the rest.
+ * Budget. The material passages are capped by the service; these cap the rest. A chat's first turns fit Groq's
+ * free per-minute allowance; a long chat brings up to 20 earlier messages (10,000 characters, older ones
+ * shortened), so Tamari keeps the thread, and its turns usually go to the next provider.
  */
-export const TUTOR_HISTORY_MESSAGES = 10;
-const HISTORY_CHARS = 5_000;
+export const TUTOR_HISTORY_MESSAGES = 20;
+const HISTORY_CHARS = 10_000;
 const RECENT_TURN_CHARS = 2_000;
 const OLDER_TURN_CHARS = 800;
 const FOCUS_CHARS = 1_800;
