@@ -49,6 +49,7 @@ export default function MarketingLayout({ children }: LayoutProps<"/"> ) {
           <nav aria-label="Footer" className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link href={routes.login} className="hover:text-foreground">Sign in</Link>
             <Link href={routes.register} className="hover:text-foreground">Create account</Link>
+            <Link href={routes.about} className="hover:text-foreground">About</Link>
             <Link href={routes.privacy} className="hover:text-foreground">Privacy</Link>
             <Link href={routes.terms} className="hover:text-foreground">Terms</Link>
             <ThemeToggle className="sm:hidden" />

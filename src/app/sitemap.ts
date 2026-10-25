@@ -10,6 +10,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const legal = new Date(`${LEGAL_VERSION}T00:00:00+08:00`);
   return [
     { url: `${site}${routes.home}`, changeFrequency: "monthly", priority: 1 },
+    { url: `${site}${routes.about}`, changeFrequency: "yearly", priority: 0.8 },
     { url: `${site}${routes.register}`, changeFrequency: "yearly", priority: 0.6 },
     { url: `${site}${routes.login}`, changeFrequency: "yearly", priority: 0.4 },
     { url: `${site}${routes.privacy}`, lastModified: legal, changeFrequency: "yearly", priority: 0.3 },

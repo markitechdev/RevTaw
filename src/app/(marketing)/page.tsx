@@ -9,9 +9,12 @@ import { MotionToggle } from "@/components/marketing/motion-toggle";
 import { Reveal } from "@/components/marketing/reveal";
 import { StudyDesk } from "@/components/marketing/study-desk";
 import { TypingHeadline } from "@/components/marketing/typing-headline";
+import { JsonLd } from "@/components/seo/json-ld";
 import { buttonClasses } from "@/components/ui/button";
 import { BRAND } from "@/lib/brand";
+import { getSiteUrl } from "@/lib/env";
 import { routes } from "@/lib/routes";
+import { websiteJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
   alternates: { canonical: routes.home },
@@ -32,6 +35,8 @@ const HEADLINE = [BRAND.motto, BRAND.tagline] as const;
 export default function LandingPage() {
   return (
     <>
+      {/* For search engines: the website and who made it (the creator links to the About page). */}
+      <JsonLd data={websiteJsonLd(getSiteUrl())} />
       {/* Hero: the RevTaw line, typed out, next to a desk you can actually use. */}
       <section className="relative overflow-x-clip">
         <div className="mx-auto grid w-full max-w-6xl gap-14 px-4 pb-20 pt-12 sm:px-6 sm:pt-20 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center lg:gap-10">

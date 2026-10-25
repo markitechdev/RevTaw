@@ -43,6 +43,8 @@ export const routes = {
   /** The Privacy Notice in plain words, for students under 18. */
   privacyStudents: "/privacy/students",
   terms: "/terms",
+  /** Who develops RevTaw: the creator's page, for people (and search engines) looking them up. */
+  about: "/about",
 } as const;
 
 /** Path prefixes that require a signed-in user. */

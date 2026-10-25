@@ -8,6 +8,8 @@ export const BRAND = {
   motto: "Reviewer na may Bitaw.",
   tagline: "A reviewer that delivers.",
   creator: "Mark Francis Entredicho",
+  /** The creator's full name, as the About page and search engines get it (the README uses it too). */
+  creatorFullName: "Mark Francis B. Entredicho",
   /** RevTaw's website, as people read it (emails link to it). */
   domain: "revtaw.com",
   /** Where privacy requests and questions about the Terms go (the Privacy Notice and Terms name it). */

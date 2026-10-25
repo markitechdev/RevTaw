@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "@/components/theme/theme-provider";
 import { BRAND } from "@/lib/brand";
 import { getSiteUrl } from "@/lib/env";
+import { routes } from "@/lib/routes";
 import { APPEARANCE_COOKIE, decodeAppearance, themeColorAttributes } from "@/lib/theme/appearance";
 import "./globals.css";
 
@@ -15,6 +16,9 @@ export const metadata: Metadata = {
   },
   description: BRAND.description,
   applicationName: BRAND.name,
+  // Who made the site, on every page (<meta name="author">, <link rel="author">, <meta name="creator">).
+  authors: [{ name: BRAND.creatorFullName, url: routes.about }],
+  creator: BRAND.creatorFullName,
   // The preview a link gets on Messenger, Facebook, X and in chats; the image is app/opengraph-image.png.
   openGraph: {
     type: "website",
