@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, BookOpen, Check, ChevronDown, FileText, History, Languages, Maximize2, MessageCircle, Mic, Minimize2, Minus, Paperclip, Plus, Quote, SendHorizontal, Square, Volume2, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Check, ChevronDown, FileText, History, Languages, Maximize2, MessageCircle, Mic, Minimize2, Minus, Paperclip, Pencil, Plus, Quote, SendHorizontal, Square, Volume2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useEffectEvent, useId, useOptimistic, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
@@ -52,6 +52,8 @@ type SendInput = {
   fromVoice?: boolean;
   /** The answer a follow-up button was pressed under, so the follow-up is about it. */
   replyTo?: string | null;
+  /** "Edit question": this message replaces the latest question and its answer. */
+  replaceLast?: boolean;
 };
 type PendingSave = { kind: "save_note" | "save_flashcard"; message: MessageView };
 type PendingMove = { taskId: string; title: string; date: string };
@@ -229,6 +231,8 @@ export default function AssistantPanel() {
   const [error, setError] = useState<string | null>(null);
   /** Why the last question has no answer (shown with "Try again"); null when unknown. */
   const [failure, setFailure] = useState<string | null>(null);
+  /** The question being edited ("Edit question"); sending replaces it and its answer. */
+  const [editing, setEditing] = useState<MessageView | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [view, setView] = useState<"chat" | "history">("chat");
   const [history, setHistory] = useState<HistoryItem[] | null>(null);
@@ -441,12 +445,13 @@ export default function AssistantPanel() {
     setExtras({});
     setError(null);
     setFailure(null);
+    setEditing(null);
     setSelection(null);
     setView("chat");
     storeConversation(null);
   };
 
-  const send = async ({ content, action, selection: quoted = selection, materialId, continueThread = false, fromVoice = false, replyTo = null }: SendInput) => {
+  const send = async ({ content, action, selection: quoted = selection, materialId, continueThread = false, fromVoice = false, replyTo = null, replaceLast = false }: SendInput) => {
     const text = content.trim();
     if (sending || (!text && !action)) return;
     // "20 minutes lang ako", "quiz me about Chapter 4", "may exam ako Friday", "move this to Friday": Tamari does it.
@@ -480,7 +485,11 @@ export default function AssistantPanel() {
       visual: null,
       created_at: "",
     };
-    const base = current ? messages : [];
+    // An edited question takes the place of the latest one and its answer.
+    const replacing = replaceLast && current !== null;
+    const editedAt = replacing ? messages.map((message) => message.role).lastIndexOf("user") : -1;
+    const base = current ? (editedAt >= 0 ? messages.slice(0, editedAt) : messages) : [];
+    setEditing(null);
     setError(null);
     setFailure(null);
     setNotice(null);
@@ -500,7 +509,7 @@ export default function AssistantPanel() {
         headers: { "content-type": "application/json", accept: "application/json" },
         body: JSON.stringify(
           current
-            ? { message: text, action, selection: quoted ?? null, context, replyTo }
+            ? { message: text, action, selection: quoted ?? null, context, replyTo, replaceLast: replacing }
             : { materialId: target, mode: "tutor", message: text || null, action, selection: quoted ?? null, context, reuse: continueThread },
         ),
       });
@@ -560,6 +569,20 @@ export default function AssistantPanel() {
       setSending(false);
       if (refocus) textareaRef.current?.focus();
     }
+  };
+
+  /** "Edit question": the latest question goes back in the box; sending it replaces that question and its answer. */
+  const startEdit = useStableCallback((message: MessageView) => {
+    setEditing(message);
+    setDraft(message.content);
+    setSelection(message.selection ?? null);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  });
+
+  const cancelEdit = () => {
+    setEditing(null);
+    setDraft("");
+    setSelection(null);
   };
 
   /** Answers the latest question again: after a failure, or in place of the last answer. */
@@ -772,6 +795,8 @@ export default function AssistantPanel() {
     if (conversation?.id === id) return;
     touched.current = true;
     setError(null);
+    setFailure(null);
+    setEditing(null);
     setNotice(null);
     setRestoring(true);
     const data = await fetchConversation(id);
@@ -824,6 +849,8 @@ export default function AssistantPanel() {
 
   const suggestions = suggestionsFor(page, includeContext);
   const tamariState: TamariState = voice.status === "listening" ? "listening" : sending || voice.status === "transcribing" ? "thinking" : voice.status === "speaking" ? "speaking" : "idle";
+  // The question "Edit question" can change: the latest one.
+  const lastQuestionIndex = messages.map((message) => message.role).lastIndexOf("user");
   const shownMaterials = (materials ?? []).filter((material) => !filter.trim() || `${material.title} ${material.subject ?? ""}`.toLowerCase().includes(filter.trim().toLowerCase()));
   const contextLine = includeContext && page ? page.label : (conversation?.material?.title ?? attached?.title ?? null);
 
@@ -1013,17 +1040,23 @@ export default function AssistantPanel() {
                 )}
               </div>
             ) : (
-              messages.map((message) => (
-                <MessageBubble
-                  key={message.id}
-                  message={message}
-                  materialId={conversation?.material?.id ?? null}
-                  extras={extras[message.id]}
-                  disabled={sending}
-                  saveable={Boolean(conversation?.material)}
-                  onFollowUp={message.role === "assistant" && !message.id.startsWith("pending-") ? followUp : undefined}
-                />
-              ))
+              messages.map((message, index) => {
+                const saved = !message.id.startsWith("pending-");
+                const latest = index === messages.length - 1;
+                return (
+                  <MessageBubble
+                    key={message.id}
+                    message={message}
+                    materialId={conversation?.material?.id ?? null}
+                    extras={extras[message.id]}
+                    disabled={sending}
+                    saveable={Boolean(conversation?.material)}
+                    onFollowUp={message.role === "assistant" && saved ? followUp : undefined}
+                    onRegenerate={message.role === "assistant" && saved && latest && !sending ? () => void retry() : undefined}
+                    onEdit={message.role === "user" && saved && index === lastQuestionIndex && !sending && !editing ? startEdit : undefined}
+                  />
+                );
+              })
             )}
             {!sending && !restoring && endsUnanswered(messages) && <ReplyRetry message={failure} onRetry={() => void retry()} />}
             {sending && (
@@ -1042,10 +1075,21 @@ export default function AssistantPanel() {
             className="flex flex-col gap-2 border-t border-border p-3"
             onSubmit={(event) => {
               event.preventDefault();
-              void send({ content: draft, action: null });
+              void send({ content: draft, action: null, replaceLast: editing !== null });
             }}
           >
             {error && <Alert tone="error">{error}</Alert>}
+            {editing && (
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-primary-soft px-3 py-2 text-xs text-foreground">
+                <span>
+                  <Pencil className="mr-1 inline h-3 w-3 text-primary" aria-hidden="true" />
+                  Editing your last question — sending replaces it and its answer.
+                </span>
+                <button type="button" onClick={cancelEdit} className="shrink-0 cursor-pointer rounded-md px-1.5 py-1 font-semibold text-primary hover:bg-primary-soft">
+                  Cancel
+                </button>
+              </div>
+            )}
             {pendingSave && (
               <div role="group" aria-labelledby={confirmId} className="flex flex-col gap-2 rounded-xl border border-primary/30 bg-primary-soft p-3">
                 <p id={confirmId} className="text-sm font-medium text-foreground">
@@ -1123,7 +1167,7 @@ export default function AssistantPanel() {
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                     event.preventDefault();
-                    void send({ content: draft, action: null });
+                    void send({ content: draft, action: null, replaceLast: editing !== null });
                   }
                 }}
                 className="field-sizing-content max-h-36 min-h-9 flex-1 resize-none bg-transparent py-2 text-sm leading-5 text-foreground outline-none placeholder:text-muted-foreground"

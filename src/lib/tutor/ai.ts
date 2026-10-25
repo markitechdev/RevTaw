@@ -58,7 +58,8 @@ export async function tutorReply(input: TutorTurnInput): Promise<{ reply: TutorR
     system,
     messages,
     maxTokens: wantsLongAnswer(input.message, input.action) ? TUTOR_LONG_OUTPUT_TOKENS : TUTOR_MAX_OUTPUT_TOKENS,
-    temperature: 0.3,
+    // A little more variety when the student asked for a different answer.
+    temperature: input.previousAttempt ? 0.6 : 0.3,
   });
   return { reply: result.data, provider: result.raw.provider, model: result.raw.model };
 }

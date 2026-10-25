@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Layers, NotebookPen, Quote } from "lucide-react";
+import { BookOpen, Layers, NotebookPen, Pencil, Quote, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { memo } from "react";
 
@@ -30,6 +30,8 @@ export const MessageBubble = memo(function MessageBubble({
   extras,
   disabled,
   onFollowUp,
+  onRegenerate,
+  onEdit,
   saveable = true,
 }: {
   message: MessageView;
@@ -37,12 +39,16 @@ export const MessageBubble = memo(function MessageBubble({
   extras?: MessageExtras;
   disabled?: boolean;
   onFollowUp?: (id: FollowUpId, action: TutorActionId | undefined, message: MessageView) => void;
+  /** The latest answer only: answer the same question again, another way. */
+  onRegenerate?: () => void;
+  /** The latest question only: put it back in the box to change and resend. */
+  onEdit?: (message: MessageView) => void;
   /** Offer "Add to notes" and "Create flashcard" (they need a material to save into). */
   saveable?: boolean;
 }) {
   if (message.role === "user") {
     return (
-      <div className="flex justify-end">
+      <div className="flex flex-col items-end gap-1">
         <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-4 py-3 text-sm text-primary-foreground">
           {message.selection && (
             <blockquote className="mb-2 flex gap-2 rounded-lg bg-primary-foreground/15 px-3 py-2 text-xs italic">
@@ -55,6 +61,17 @@ export const MessageBubble = memo(function MessageBubble({
             {message.content}
           </p>
         </div>
+        {onEdit && (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onEdit(message)}
+            className="inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
+          >
+            <Pencil className="h-3 w-3" aria-hidden="true" />
+            Edit question
+          </button>
+        )}
       </div>
     );
   }
@@ -111,6 +128,19 @@ export const MessageBubble = memo(function MessageBubble({
               ))}
             </ul>
           </details>
+        )}
+        {onRegenerate && (
+          <div className="flex flex-wrap items-center gap-1">
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={onRegenerate}
+              className="inline-flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
+            >
+              <RotateCcw className="h-3 w-3" aria-hidden="true" />
+              Answer again
+            </button>
+          </div>
         )}
         {onFollowUp && followUps.length > 0 && (
           <div className="flex flex-wrap gap-1.5 border-t border-border pt-2">

@@ -42,6 +42,8 @@ export type TutorPromptInput = {
   student: TutorStudent;
   /** What the student is looking at in RevTaw, and their study data when the question is about it. */
   pageNote?: string | null;
+  /** "Answer again": the answer the student wanted replaced, so the new one takes another angle. */
+  previousAttempt?: string | null;
 };
 
 /**
@@ -57,7 +59,7 @@ const PAGE_NOTE_CHARS = 3_000;
 const SELECTION_CHARS = 3_000;
 const MESSAGE_CHARS = 6_000;
 
-const TAGS = "student|page_context|material|focus|highlight|task|student_message";
+const TAGS = "student|page_context|material|focus|highlight|previous_attempt|task|student_message";
 const TAG_PATTERN = new RegExp(`<(\\/?)(${TAGS})\\b`, "gi");
 
 /** Breaks this prompt's own tag names inside untrusted text, so it cannot end a section early. */
@@ -192,6 +194,9 @@ export function buildTurn(input: TutorPromptInput): string {
     materialSection(input),
     input.focus ? focusSection(input.focus, [...input.history].reverse().find((turn) => turn.role === "assistant")?.content ?? null) : null,
     input.selection ? `<highlight>\n${neutralizeTags(clip(input.selection, SELECTION_CHARS))}\n</highlight>` : null,
+    input.previousAttempt
+      ? `<previous_attempt>\nThe student asked for a different answer than this one. Answer the same message again from another angle — a clearer explanation or a different example — and fix anything that may have been unclear or wrong. Don't repeat it.\n${neutralizeTags(clip(input.previousAttempt, 1_200))}\n</previous_attempt>`
+      : null,
     taskSection(input),
     `<student_message>\n${neutralizeTags(clip(input.message, MESSAGE_CHARS))}\n</student_message>`,
   ]

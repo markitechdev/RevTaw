@@ -26,6 +26,8 @@ const bodySchema = z.object({
   replyTo: z.uuid().nullable().default(null),
   /** Answer the latest question again ("Try again", or a new answer in place of the last one). */
   regenerate: z.boolean().default(false),
+  /** "Edit": this message replaces the latest question and its answer. */
+  replaceLast: z.boolean().default(false),
 });
 
 /** The conversation's messages, for reopening it in Ask RevTaw. */
@@ -76,7 +78,7 @@ export async function POST(request: Request, context: RouteContext<"/api/tutor/c
     const pageNote = [page.note, snapshot].filter(Boolean).join("\n\n") || null;
     const result = body.data.regenerate
       ? await regenerateReply({ conversationId: params.data.id, pageNote })
-      : await sendMessage({ conversationId: params.data.id, content: body.data.message, action: body.data.action, selection: body.data.selection, pageNote, replyTo: body.data.replyTo });
+      : await sendMessage({ conversationId: params.data.id, content: body.data.message, action: body.data.action, selection: body.data.selection, pageNote, replyTo: body.data.replyTo, replaceLast: body.data.replaceLast });
     return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     if (error instanceof TutorUnavailableError) {

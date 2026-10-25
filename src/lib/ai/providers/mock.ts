@@ -70,7 +70,10 @@ export class MockProvider implements AiProvider {
       case "tutor_reply": {
         const previous = [...options.messages].reverse().find((message) => message.role === "assistant");
         const previousText = previous ? (typeof previous.content === "string" ? previous.content : previous.content.map((part) => (part.type === "text" ? part.text : "")).join(" ")) : "";
-        text = JSON.stringify(tutorReplyHeuristically(rawMaterial, userText, options.system ?? "", previousText));
+        const reply = tutorReplyHeuristically(rawMaterial, userText, options.system ?? "", previousText);
+        // "Answer again": a visibly different answer.
+        if (extractTag(userText, "previous_attempt")) reply.answer = `Another way to see it: ${reply.answer}`;
+        text = JSON.stringify(reply);
         break;
       }
       case "tutor_evaluate":

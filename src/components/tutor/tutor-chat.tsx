@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Flag, SendHorizontal, Sparkles } from "lucide-react";
+import { BookOpen, Flag, Pencil, SendHorizontal, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -30,6 +30,8 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
   const [error, setError] = useState<string | null>(null);
   /** Why the last question has no answer (shown with "Try again"); null when unknown. */
   const [failure, setFailure] = useState<string | null>(null);
+  /** The question being edited ("Edit question"); sending replaces it and its answer. */
+  const [editing, setEditing] = useState<MessageView | null>(null);
   const [sending, setSending] = useState(false);
   const [extras, setExtras] = useState<Record<string, MessageExtras>>({});
   const [mode, setMode] = useState(conversation.mode);
@@ -39,6 +41,8 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
   const textarea = useRef<HTMLTextAreaElement>(null);
   const optimisticCounter = useRef(0);
 
+  // The question "Edit question" can change: the latest one.
+  const lastQuestionIndex = messages.map((message) => message.role).lastIndexOf("user");
   const session = conversation.session;
   const sessionActive = session?.status === "in_progress";
   const locked = Boolean(session) && !sessionActive;
@@ -47,11 +51,16 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
     bottom.current?.scrollIntoView({ block: "end" });
   }, [messages.length, sending]);
 
-  /** `replyTo` is the answer a follow-up button was pressed under, so the follow-up is about it. */
-  const send = async (content: string, action: TutorActionId | null, selection: string | null = null, replyTo: string | null = null) => {
+  /**
+   * `replyTo` is the answer a follow-up button was pressed under, so the follow-up is about it; `replaceLast`
+   * ("Edit question") makes this message replace the latest question and its answer.
+   */
+  const send = async (content: string, action: TutorActionId | null, selection: string | null = null, replyTo: string | null = null, replaceLast = false) => {
     if (sending || locked) return;
+    const previous = messages;
     setError(null);
     setFailure(null);
+    setEditing(null);
     setSending(true);
     optimisticCounter.current += 1;
     const optimistic: MessageView = {
@@ -68,13 +77,13 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
       visual: null,
       created_at: "",
     };
-    setMessages((state) => [...state, optimistic]);
+    setMessages((state) => (replaceLast ? [...state.slice(0, Math.max(0, state.map((message) => message.role).lastIndexOf("user"))), optimistic] : [...state, optimistic]));
     setDraft("");
     try {
       const response = await fetch(`/api/tutor/conversations/${conversation.id}/messages`, {
         method: "POST",
         headers: { "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify({ message: content, action, selection, replyTo }),
+        body: JSON.stringify({ message: content, action, selection, replyTo, replaceLast }),
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string; userMessageId?: string; assistantMessageId?: string; reply?: MessageView & { answer: string }; retryable?: boolean };
       // The AI failed, but the question is saved: keep it on screen with "Try again" instead of retyping.
@@ -84,7 +93,7 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
         return;
       }
       if (!response.ok || !body.reply || !body.assistantMessageId) {
-        setMessages((state) => state.filter((message) => message.id !== optimistic.id));
+        setMessages((state) => (replaceLast ? previous : state.filter((message) => message.id !== optimistic.id)));
         setDraft(content);
         setError(body.error ?? "Tamari could not reply.");
         return;
@@ -153,6 +162,13 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
       setSending(false);
     }
   };
+
+  /** "Edit question": the latest question goes back in the box; sending it replaces that question and its answer. */
+  const startEdit = useStableCallback((message: MessageView) => {
+    setEditing(message);
+    setDraft(message.content);
+    requestAnimationFrame(() => textarea.current?.focus());
+  });
 
   // Stable, so the memoized message bubbles stay put while the student types.
   const followUp = useStableCallback((id: FollowUpId, action: TutorActionId | undefined, message: MessageView) => {
@@ -254,16 +270,21 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
             description={`Explain, simplify, give an example, quiz me, or guide me without the answer.${conversation.material ? " Answers cite the passages they come from." : ""}`}
           />
         )}
-        {messages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            message={message}
-            materialId={conversation.material?.id ?? null}
-            extras={extras[message.id]}
-            disabled={sending || locked}
-            onFollowUp={message.role === "assistant" && !locked ? followUp : undefined}
-          />
-        ))}
+        {messages.map((message, index) => {
+          const saved = !message.id.startsWith("pending-");
+          return (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              materialId={conversation.material?.id ?? null}
+              extras={extras[message.id]}
+              disabled={sending || locked}
+              onFollowUp={message.role === "assistant" && !locked ? followUp : undefined}
+              onRegenerate={message.role === "assistant" && saved && !locked && !sending && index === messages.length - 1 ? () => void retry() : undefined}
+              onEdit={message.role === "user" && saved && !locked && !sending && !editing && index === lastQuestionIndex ? startEdit : undefined}
+            />
+          );
+        })}
         {!sending && !locked && endsUnanswered(messages) && <ReplyRetry message={failure} onRetry={() => void retry()} />}
         {sending && (
           <div className="flex justify-start">
@@ -285,9 +306,27 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
           className="sticky bottom-2 flex flex-col gap-2 rounded-xl border border-border bg-card p-3 shadow-sm"
           onSubmit={(event) => {
             event.preventDefault();
-            if (draft.trim()) void send(draft.trim(), null);
+            if (draft.trim()) void send(draft.trim(), null, editing?.selection ?? null, null, editing !== null);
           }}
         >
+          {editing && (
+            <div className="flex items-center justify-between gap-2 rounded-lg bg-primary-soft px-3 py-2 text-xs text-foreground">
+              <span>
+                <Pencil className="mr-1 inline h-3 w-3 text-primary" aria-hidden="true" />
+                Editing your last question — sending replaces it and its answer.
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(null);
+                  setDraft("");
+                }}
+                className="shrink-0 cursor-pointer rounded-md px-1.5 py-1 font-semibold text-primary hover:bg-primary-soft"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
           <div className="flex flex-wrap gap-1.5">
             {COMPOSER_ACTIONS.map((id) => {
               const action = TUTOR_ACTIONS.find((item) => item.id === id)!;
@@ -318,7 +357,7 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
-                  if (draft.trim()) void send(draft.trim(), null);
+                  if (draft.trim()) void send(draft.trim(), null, editing?.selection ?? null, null, editing !== null);
                 }
               }}
               className="min-h-0 flex-1 resize-none"

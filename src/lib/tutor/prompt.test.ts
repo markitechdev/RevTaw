@@ -60,6 +60,13 @@ describe("Tamari's prompt", () => {
     expect(buildTurn({ ...base, action: "simplify" })).toMatch(/"It" is the current topic of the conversation/);
   });
 
+  it("asks for another angle when the student wants a different answer", () => {
+    const turn = buildTurn({ ...base, previousAttempt: "A LEFT JOIN keeps all rows from the left table." });
+    expect(sections(turn)).toEqual(["student", "material", "previous_attempt", "student_message"]);
+    expect(turn).toMatch(/asked for a different answer than this one/);
+    expect(turn).toMatch(/A LEFT JOIN keeps all rows from the left table\./);
+  });
+
   it("gives the student's first name and weak spots when known", () => {
     const turn = buildTurn({ ...base, student: { ...base.student, firstName: "Mark", weakSpots: [{ name: "LEFT JOIN", mastery: 34.6 }] } });
     expect(turn).toMatch(/First name: Mark/);

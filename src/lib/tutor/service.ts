@@ -241,6 +241,8 @@ async function respond(
     typed?: boolean;
     /** Answering a saved question again: the history is what came before it, and its id is the reply's question. */
     answering?: { id: string; createdAt: string } | null;
+    /** The answer the student asked to replace ("Answer again"). */
+    previousAttempt?: string | null;
   },
 ): Promise<SentMessage> {
   let historyQuery = supabase
@@ -291,6 +293,7 @@ async function respond(
       focus,
       student,
       pageNote: input.pageNote ?? null,
+      previousAttempt: input.previousAttempt ?? null,
     });
     reply = result.reply;
     provider = result.provider;
@@ -360,6 +363,8 @@ export async function regenerateReply(input: { conversationId: string; pageNote?
   const question = rows[0]?.role === "user" ? rows[0] : rows[1]?.role === "user" ? rows[1] : null;
   if (!question) throw new ServiceError("There is no question to answer again yet.", 409);
   let count = conversation.message_count;
+  // "Answer again": the answer being replaced goes, and the new one is asked to take another angle.
+  const previousAttempt = rows[0]?.role === "assistant" ? rows[0].content : null;
   if (rows[0]?.role === "assistant") {
     const { error } = await supabase.from("tutor_messages").delete().eq("id", rows[0].id);
     if (error) throw new Error(`tutor_messages: delete failed: ${error.message}`);
@@ -377,6 +382,7 @@ export async function regenerateReply(input: { conversationId: string; pageNote?
     typed,
     pageNote: [input.pageNote, snapshot].filter(Boolean).join("\n\n") || null,
     answering: { id: question.id, createdAt: question.created_at },
+    previousAttempt,
   });
 }
 
@@ -384,13 +390,35 @@ export async function regenerateReply(input: { conversationId: string; pageNote?
  * Stores the student's message and the tutor's grounded reply. `pageNote` describes the page Ask RevTaw was
  * opened on; `replyTo` is the answer a follow-up button was pressed under.
  */
-export async function sendMessage(input: { conversationId: string; content: string; action: TutorActionId | null; selection: string | null; pageNote?: string | null; replyTo?: string | null }): Promise<SentMessage> {
+export async function sendMessage(input: {
+  conversationId: string;
+  content: string;
+  action: TutorActionId | null;
+  selection: string | null;
+  pageNote?: string | null;
+  replyTo?: string | null;
+  /** "Edit": the edited question replaces the latest one and its answer. */
+  replaceLast?: boolean;
+}): Promise<SentMessage> {
   const supabase = await createClient();
-  const conversation = await loadConversation(supabase, input.conversationId);
+  let conversation = await loadConversation(supabase, input.conversationId);
   const typed = input.content.trim();
   const content = typed || (input.action ? TUTOR_ACTION_BY_ID[input.action].prompt : "");
   if (!content) throw new ServiceError("Type a question or pick an action.", 400);
+  if (input.replaceLast) conversation = await removeLatestExchange(supabase, conversation);
   return respond(supabase, conversation, { content, action: input.action, selection: input.selection, storeUser: true, pageNote: input.pageNote ?? null, replyTo: input.replyTo ?? null, typed: Boolean(typed) });
+}
+
+/** Deletes the latest question and the answer after it (only those), so an edited question takes their place. */
+async function removeLatestExchange(supabase: Client, conversation: ConversationRow): Promise<ConversationRow> {
+  const { data: latest } = await supabase.from("tutor_messages").select("id, role, created_at").eq("conversation_id", conversation.id).order("created_at", { ascending: false }).limit(2);
+  const rows = latest ?? [];
+  const question = rows[0]?.role === "user" ? rows[0] : rows[1]?.role === "user" ? rows[1] : null;
+  if (!question) throw new ServiceError("There is no question to edit.", 409);
+  const ids = rows[0].id === question.id ? [question.id] : [question.id, rows[0].id];
+  const { error } = await supabase.from("tutor_messages").delete().in("id", ids);
+  if (error) throw new Error(`tutor_messages: delete failed: ${error.message}`);
+  return { ...conversation, message_count: Math.max(0, conversation.message_count - ids.length) };
 }
 
 /** "Add to notes": appends the answer as a section of the material's tutor-notes reviewer (created on demand). */
