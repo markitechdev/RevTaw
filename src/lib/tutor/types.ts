@@ -89,8 +89,11 @@ export const TUTOR_MODE_BY_ID: Record<TutorMode, { id: TutorMode; label: string;
   { id: TutorMode; label: string; description: string }
 >;
 
-/** A passage of the material a tutor answer is grounded in (validated by `sourceSchema`). */
-export type TutorSource = { position: number; heading: string | null; pages: string | null; quote: string };
+/**
+ * A passage of the material a tutor answer is grounded in (the model's part is validated by `sourceSchema`).
+ * In a chat across all the student's materials, RevTaw adds the material it came from.
+ */
+export type TutorSource = { position: number; heading: string | null; pages: string | null; quote: string; materialId?: string; materialTitle?: string };
 
 /** A flashcard the tutor offers to add (validated by `flashcardDraftSchema`). */
 export type FlashcardDraft = { front: string; back: string };
@@ -104,12 +107,19 @@ export const GROUNDING_LABEL: Record<GroundingId, string> = {
   not_found: "Not covered by your material",
 };
 
+/** The same labels in a chat without a material, whose answers come from all of the student's notes. */
+const NOTES_LABEL: Record<GroundingId, string> = {
+  material: "Based on your notes",
+  partial: "Based on your notes + general knowledge",
+  general: "General knowledge",
+  not_found: "Not found in your notes",
+};
+
 /**
- * The label above one of Tamari's answers: none for small talk (no grounding), and plain "General knowledge"
- * in a chat without a material, where there is no material for it to differ from.
+ * The label above one of Tamari's answers: none for small talk (no grounding), and the notes wording in a
+ * chat without a material (plain "General knowledge" there, with no material for it to differ from).
  */
 export function groundingLabel(grounding: string | null, hasMaterial: boolean): string | null {
   if (!grounding || !(grounding in GROUNDING_LABEL)) return null;
-  if (!hasMaterial && grounding === "general") return "General knowledge";
-  return GROUNDING_LABEL[grounding as GroundingId];
+  return (hasMaterial ? GROUNDING_LABEL : NOTES_LABEL)[grounding as GroundingId];
 }

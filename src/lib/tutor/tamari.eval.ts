@@ -26,7 +26,7 @@ import { TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
  * the reply is. The rules are soft, so every one is reported, and they can't judge a whole answer: read the
  * answers too, in .tamari-eval/report.md (not committed).
  *
- * Cost: one AI request per case (about 25), each a few thousand tokens. That is a real share of a day's free
+ * Cost: one AI request per case (about 30), each a few thousand tokens. That is a real share of a day's free
  * allowance, so run it when nobody is studying, or a few cases at a time: npm run eval:tamari -- -t "§27.12".
  * Skipped when no AI provider is set up, because the mock would only test itself (TAMARI_EVAL_MOCK=1 runs it
  * against the mock anyway, to try the harness).
@@ -45,6 +45,8 @@ type Case = {
   mode?: TutorMode;
   history?: TutorTurn[];
   material?: Material;
+  /** A chat without a material: the passages its search found in all of the student's materials ([] for none). */
+  notes?: ContextChunk[];
   previousAttempt?: string;
   check: (reply: Reply, answer: string) => Check[];
 };
@@ -109,6 +111,19 @@ const PLANT_CELLS: Material = {
     chunk(1, "Photosynthesis", 2, "Photosynthesis takes place in the mitochondria of plant cells, where light energy is used to make glucose from carbon dioxide and water."),
   ],
 };
+
+/** What a search of all of a student's materials might find: each passage numbered and naming its material. */
+const passage = (ref: number, materialTitle: string, heading: string, page: number, content: string): ContextChunk => ({
+  ...chunk(ref * 4, heading, page, content),
+  id: `passage-${ref}`,
+  materialId: `material-${ref}`,
+  materialTitle,
+  ref,
+});
+const MIXED_NOTES = [
+  passage(1, "Biology Notes", "Transport across membranes", 6, "Osmosis is the diffusion of water through a selectively permeable membrane, from a dilute solution to a concentrated one. It needs no energy from the cell."),
+  passage(2, "Economics Reviewer", "Inflation", 2, "Inflation is a general rise in prices over time, which lowers what each peso can buy."),
+];
 
 const MEMBRANE_WITH_INJECTION: Material = {
   title: "Biology — The cell membrane",
@@ -311,6 +326,40 @@ const CASES: Case[] = [
     ],
   },
   {
+    id: "Notes",
+    name: "a question their notes answer, in the chat without a material",
+    notes: MIXED_NOTES,
+    message: "What do my notes say about osmosis?",
+    check: (reply, answer) => [
+      ["labeled as from their notes, with a quote that is really there", (reply.grounding === "material" || reply.grounding === "partial") && reply.sources.length > 0],
+      ["cites the Biology Notes passage only", reply.sources.length > 0 && reply.sources.every((source) => source.materialTitle === "Biology Notes")],
+      ["says which material", /Biology Notes/i.test(answer)],
+      ["water across a membrane, needing no energy", /water/i.test(answer) && /membrane/i.test(answer)],
+    ],
+  },
+  {
+    id: "Notes",
+    name: "a question their notes don't cover, in the chat without a material",
+    notes: MIXED_NOTES,
+    message: "What is supply and demand?",
+    check: (reply, answer) => [
+      ["labeled general knowledge", reply.grounding === "general"],
+      ["no sources", reply.sources.length === 0],
+      ["doesn't bring up the unrelated notes", !/Biology Notes|Economics Reviewer|osmosis|your notes|your material/i.test(answer)],
+      ["explains supply, demand and price", /supply/i.test(answer) && /demand/i.test(answer) && /price/i.test(answer)],
+    ],
+  },
+  {
+    id: "Notes",
+    name: "asked about their notes, but nothing in them matches",
+    notes: [],
+    message: "What does my reviewer say about the Krebs cycle?",
+    check: (reply, answer) => [
+      ["says it isn't in their notes", NOT_FOUND.test(answer)],
+      ["not labeled as from their notes", reply.grounding !== "material" && reply.grounding !== "partial"],
+    ],
+  },
+  {
     id: "Screenshot",
     name: "what is my name",
     message: "Hello what is my name",
@@ -393,7 +442,8 @@ function requestFor(item: Case): { input: TutorTurnInput; message: string } {
     input: {
       mode: item.mode ?? "tutor",
       materialTitle: item.material?.title ?? null,
-      context: item.material?.chunks ?? [],
+      context: item.material?.chunks ?? item.notes ?? [],
+      notes: item.notes !== undefined,
       truncated: false,
       history,
       message,
@@ -437,7 +487,7 @@ function writeReport(results: Result[], providers: string): void {
   for (const result of results) {
     const ok = !result.error && result.checks.every(([, pass]) => pass);
     lines.push("", `## ${ok ? "PASS" : "FAIL"} · ${result.item.id} ${result.item.name}`, "");
-    const setting = [result.item.mode && result.item.mode !== "tutor" ? `${result.item.mode} mode` : null, result.item.action ? `action: ${result.item.action}` : null, result.item.material ? `material: ${result.item.material.title}` : null, result.item.history?.length ? `${result.item.history.length} earlier messages` : null].filter(Boolean);
+    const setting = [result.item.mode && result.item.mode !== "tutor" ? `${result.item.mode} mode` : null, result.item.action ? `action: ${result.item.action}` : null, result.item.material ? `material: ${result.item.material.title}` : null, result.item.notes ? `${result.item.notes.length} passages from all their notes` : null, result.item.history?.length ? `${result.item.history.length} earlier messages` : null].filter(Boolean);
     lines.push(`**Student:** ${result.message.replace(/\n/g, " / ")}${setting.length ? ` (${setting.join(", ")})` : ""}`, "");
     if (result.error) {
       lines.push(`**No answer:** ${result.error}`);
@@ -473,7 +523,7 @@ describe.skipIf(!live)("Tamari", () => {
       const started = Date.now();
       try {
         const { reply, provider, model } = await ask(input);
-        const final = finalizeReply(reply, input.context, item.material !== undefined);
+        const final = finalizeReply(reply, input.context, item.material ? "material" : item.notes ? "notes" : "none");
         const checks = item.check(final, final.answer);
         // With the Auto language setting the app states English for an English message, so the reply should be in it.
         if (messageLanguage(input) === "en") checks.push(inEnglish(final.answer));

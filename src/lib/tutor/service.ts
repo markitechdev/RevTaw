@@ -15,7 +15,7 @@ import type { Json, StudySession, TutorMode } from "@/lib/supabase/database.type
 import { createClient } from "@/lib/supabase/server";
 import { evaluateTutorSession, tutorReply, type TutorReply } from "@/lib/tutor/ai";
 import { rankMaterialChunks } from "@/lib/search/hybrid";
-import { retrievalQuery, selectContext, type ContextChunk } from "@/lib/tutor/context";
+import { asksAboutNotes, excerpt, retrievalQuery, searchableQuestion, selectContext, sharesTopic, topicWords, type ContextChunk } from "@/lib/tutor/context";
 import { TUTOR_HISTORY_MESSAGES, type TutorFocus, type TutorStudent, type WeakSpot } from "@/lib/tutor/prompt";
 import { finalizeReply, type FinalReply } from "@/lib/tutor/reply";
 import { flashcardDraftSchema } from "@/lib/tutor/schemas";
@@ -29,6 +29,15 @@ type Client = Awaited<ReturnType<typeof createClient>>;
 const HISTORY_LIMIT = TUTOR_HISTORY_MESSAGES;
 /** About two and a half of RevTaw's ~3,200-character chunks of the material per message. */
 const TUTOR_CONTEXT_CHARS = 8_000;
+/**
+ * A chat without a material searches all of the student's materials: up to four passages, each cut to the
+ * part about the question, the best match first with the most room, so a first question still fits Groq's
+ * free per-minute allowance (tested in ai.test.ts). A passage that would get less than the minimum isn't sent.
+ */
+const NOTES_CONTEXT_CHARS = 5_000;
+const NOTES_PASSAGE_CHARS = 1_800;
+const NOTES_MIN_PASSAGE_CHARS = 400;
+const NOTES_PASSAGES = 4;
 
 /**
  * Who Tamari is talking to: only the first name (as Home greets them), their level and goal, the answer
@@ -84,6 +93,49 @@ async function materialChunks(supabase: Client, materialId: string): Promise<{ t
       content: chunk.content,
     })),
   };
+}
+
+/**
+ * For a chat without a material: the passages of the student's own materials (their session, so RLS keeps
+ * them to their own) that best match the question, best first, numbered for citing. A passage must share a
+ * topic word with the question (or its heading or material title must), so a question their notes don't
+ * cover doesn't carry unrelated passages; when the student asks about their notes (`aboutNotes`), the best
+ * matches count anyway. Materials in the Archive are left out. Empty when nothing matches or search is
+ * unavailable.
+ */
+async function notesPassages(supabase: Client, query: string, selection: string | null, aboutNotes: boolean): Promise<ContextChunk[]> {
+  const ranked = await rankMaterialChunks(supabase, { materialId: null, query, selection, limit: 10 });
+  if (!ranked || ranked.ids.length === 0) return [];
+  const terms = topicWords(`${query} ${selection ?? ""}`);
+  const { data } = await supabase
+    .from("material_chunks")
+    .select("id, material_id, position, heading, page_start, page_end, content, material:materials!material_chunks_material_fk(title, archived_at)")
+    .in("id", ranked.ids);
+  const rows = new Map((data ?? []).map((row) => [row.id, row]));
+  const passages: ContextChunk[] = [];
+  let used = 0;
+  for (const id of ranked.ids) {
+    const room = Math.min(NOTES_PASSAGE_CHARS, NOTES_CONTEXT_CHARS - used);
+    if (room < NOTES_MIN_PASSAGE_CHARS || passages.length >= NOTES_PASSAGES) break;
+    const row = rows.get(id);
+    const material = row?.material as { title: string; archived_at: string | null } | null | undefined;
+    if (!row || !material || material.archived_at) continue;
+    if (!aboutNotes && !sharesTopic(terms, `${material.title}\n${row.heading ?? ""}\n${row.content}`)) continue;
+    const content = excerpt(row.content, `${query} ${selection ?? ""}`, room);
+    passages.push({
+      id: row.id,
+      position: row.position,
+      heading: row.heading,
+      pageStart: row.page_start,
+      pageEnd: row.page_end,
+      content,
+      materialId: row.material_id,
+      materialTitle: material.title,
+      ref: passages.length + 1,
+    });
+    used += content.length;
+  }
+  return passages;
 }
 
 export async function createConversation(input: { materialId: string | null; mode: TutorMode; title?: string | null; sessionId?: string | null }): Promise<{ id: string }> {
@@ -269,8 +321,11 @@ async function respond(
   const focus = await resolveFocus(supabase, conversation.id, rows, { replyTo: input.replyTo, action: input.action, typed: input.typed ?? true, selection: input.selection });
   const lastQuestion = rows.find((row) => row.role === "user");
   const query = retrievalQuery(input.content, focus, lastQuestion ? asked(lastQuestion) : null);
-  // Tamari's search: the passages that best match the question (null → keyword scoring).
+  // Tamari's search: the passages that best match the question (null → keyword scoring). Without a material,
+  // a question (not small talk) searches all of the student's materials.
   const ranked = conversation.material_id ? await rankMaterialChunks(supabase, { materialId: conversation.material_id, query, selection: input.selection }) : null;
+  const searched = !conversation.material_id && searchableQuestion(`${input.content} ${input.selection ?? ""}`);
+  const notes = searched ? await notesPassages(supabase, query, input.selection, asksAboutNotes(input.content)) : [];
   const history = [...rows].reverse().map((row) => ({ role: row.role as "user" | "assistant", content: row.role === "user" ? asked(row) : row.content }));
 
   let userMessageId: string | null = input.answering?.id ?? null;
@@ -284,7 +339,9 @@ async function respond(
     userMessageId = userMessage.id;
   }
 
-  const context = material ? selectContext(material.chunks, query, input.selection, TUTOR_CONTEXT_CHARS, ranked?.ids ?? null) : { chunks: [], totalChunks: 0, truncated: false };
+  const context = material
+    ? selectContext(material.chunks, query, input.selection, TUTOR_CONTEXT_CHARS, ranked?.ids ?? null)
+    : { chunks: notes, totalChunks: notes.length, truncated: false };
   let reply: TutorReply;
   let provider: string | null = null;
   let model: string | null = null;
@@ -293,6 +350,7 @@ async function respond(
       mode: conversation.mode,
       materialTitle: material?.title ?? null,
       context: context.chunks,
+      notes: searched,
       truncated: context.truncated,
       history,
       message: input.content,
@@ -314,7 +372,7 @@ async function respond(
   }
 
   // Honest labels and sources before anything is saved (small talk, no material, passages actually sent).
-  const final = finalizeReply(reply, context.chunks, material !== null);
+  const final = finalizeReply(reply, context.chunks, material ? "material" : searched ? "notes" : "none");
 
   const { data: assistantMessage, error: assistantError } = await supabase
     .from("tutor_messages")

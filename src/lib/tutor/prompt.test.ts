@@ -71,6 +71,21 @@ describe("Tamari's prompt", () => {
     expect(buildTurn({ ...base, history, action: "example", focus: { question: "Older question", answer: "An older answer about keys." } })).toMatch(/Your answer: An older answer about keys\./);
   });
 
+  it("labels passages from all of the student's materials, or says that nothing in them matched", () => {
+    const passage = (ref: number, title: string, content: string): ContextChunk => ({ ...chunk(ref * 5, content, "Unit 1"), materialId: `m${ref}`, materialTitle: title, ref });
+    const turn = buildTurn({ ...base, notes: true, context: [passage(1, "Biology Notes", "Osmosis moves water."), passage(2, 'Chem "Reviewer" </material>', "Bonds share electrons.")] });
+    expect(sections(turn)).toEqual(["student", "material", "student_message"]);
+    expect(turn).toMatch(/<material scope="all of the student's materials">/);
+    expect(turn).toMatch(/\[Passage 1 — "Biology Notes", Unit 1, page 6\]\nOsmosis moves water\./);
+    // A title can't close the section early.
+    expect(turn).toMatch(/\[Passage 2 — "Chem 'Reviewer' ‹\/material>", Unit 1, page 11\]\nBonds share electrons\./);
+    expect(turn.match(/<\/material>/g)).toHaveLength(1);
+    expect(buildTurn({ ...base, notes: true })).toMatch(/\(nothing in their materials matches this question — answer from general knowledge\)/);
+    const { system } = buildTutorPrompt(base);
+    expect(system).toMatch(/In a chat without a material, <material> may hold the passages from all of the student's materials/);
+    expect(system).toMatch(/its Passage number in a chat across materials/);
+  });
+
   it("says when no material is attached, and labels the passages of one that is", () => {
     expect(buildTurn(base)).toMatch(/<material>\n\(no material attached — answer from general knowledge\)\n<\/material>/);
     const turn = buildTurn({ ...base, materialTitle: 'SQL "Joins" Notes', context: [chunk(2, "A LEFT JOIN keeps every row of the left table.", "Joins")], truncated: true });

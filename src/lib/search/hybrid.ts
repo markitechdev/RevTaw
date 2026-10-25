@@ -4,11 +4,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { EMBEDDING_BATCH, EMBEDDING_MODEL, embeddingsConfigured, embedTexts, toVectorLiteral } from "@/lib/ai/embeddings";
 import type { Database } from "@/lib/supabase/database.types";
-import { tokenize } from "@/lib/tutor/context";
+import { FILIPINO_STOPWORDS, tokenize } from "@/lib/tutor/context";
 
 /**
  * Tamari's search (migration 0017): hybrid retrieval over a material's
- * chunks. The question is embedded with BGE-M3 and matched three ways in
+ * chunks, or over all of the student's in a chat without a material. The
+ * question is embedded with BGE-M3 and matched three ways in
  * Postgres — words ('simple' full-text, so Filipino and Taglish match as
  * written), trigram similarity for short queries, and embedding distance —
  * then fused with reciprocal rank fusion. When embeddings are unavailable it
@@ -17,17 +18,6 @@ import { tokenize } from "@/lib/tutor/context";
  */
 
 type Client = SupabaseClient<Database>;
-
-/** Common Filipino function words, so "Ano ang ginagawa ng chlorophyll?" searches for "ginagawa" and "chlorophyll". */
-const FILIPINO_STOPWORDS = new Set(
-  (
-    "ang ng nang mga sa na at ay si ni kay sina nina kina ko mo niya namin natin ninyo nila ako ikaw siya kami tayo kayo sila " +
-    "ito iyan iyon yan yun yung ung dito diyan doon ano sino saan kailan bakit paano ilan alin po opo naman lang lamang din rin " +
-    "pa ba kasi kung para pag kapag nga hindi oo wala may mayroon meron isang isa pero kaya daw raw muna pala sana diba " +
-    "ganito ganyan ganoon iba lahat bawat tungkol gaya tulad mula hanggang habang dahil upang nito niyan noon ngayon ating " +
-    "aming kanilang kaniyang kanyang iyong aking ninyong sakin sayo samin satin ganun talaga parang mas pinaka"
-  ).split(" "),
-);
 
 const MAX_TERMS = 12;
 
@@ -57,12 +47,14 @@ export type RankedChunks = {
 let warnedUnavailable = false;
 
 /**
- * Ranks one material's chunks for a question. Returns null when the
- * database function is unavailable, so callers can fall back to keywords.
+ * Ranks one material's chunks for a question, or (materialId null) the
+ * chunks of all the student's materials that their session can read (RLS).
+ * Returns null when the database function is unavailable, so callers can
+ * fall back to keywords.
  */
 export async function rankMaterialChunks(
   supabase: Client,
-  input: { materialId: string; query: string; selection?: string | null; limit?: number },
+  input: { materialId: string | null; query: string; selection?: string | null; limit?: number },
 ): Promise<RankedChunks | null> {
   const text = [input.query, input.selection ?? ""].join("\n").trim();
   if (!text) return null;

@@ -3,11 +3,17 @@ import type { FlashcardDraft, FollowUpId, TutorSource } from "@/lib/tutor/types"
 
 /**
  * Checks a reply before it is saved and shown, so its labels say honestly where it came from:
- * small talk carries no source label, a chat with no material never claims to use one, general knowledge
+ * small talk carries no source label, a chat with no passages never claims to use any, general knowledge
  * added to a material answer stays apart only when there is a material to tell it apart from, sources point
  * only at passages that were actually sent and quote them for real, and an answer with no real quote is not
  * labeled as coming from the material.
+ *
+ * Where the passages came from (`scope`): the chat's material; the best matches across all the student's
+ * materials ("notes", a chat without one), where a source is found by its passage number and keeps its
+ * material; or nothing ("none").
  */
+
+export type PassageScope = "material" | "notes" | "none";
 
 export type ReplyGrounding = "material" | "partial" | "general" | "not_found" | "conversation";
 /** What is stored and shown: null for small talk (no label). */
@@ -58,9 +64,12 @@ function pagesOf(chunk: ContextChunk): string | null {
   return chunk.pageEnd && chunk.pageEnd !== chunk.pageStart ? `${chunk.pageStart}-${chunk.pageEnd}` : String(chunk.pageStart);
 }
 
-export function finalizeReply<Visual>(reply: DraftReply<Visual>, chunks: ContextChunk[], hasMaterial: boolean): FinalReply<Visual> {
+export function finalizeReply<Visual>(reply: DraftReply<Visual>, chunks: ContextChunk[], scope: PassageScope): FinalReply<Visual> {
   const smallTalk = reply.grounding === "conversation";
-  const known = new Map(chunks.map((chunk) => [chunk.position, chunk]));
+  const notes = scope === "notes" && chunks.length > 0;
+  const hasPassages = scope === "material" || notes;
+  // Across materials a passage is cited by its number in the turn; in a material chat, by its position.
+  const known = new Map(chunks.map((chunk) => [notes ? (chunk.ref ?? -1) : chunk.position, chunk]));
   // Only passages that were sent, quoted for real, with their heading and pages filled in from the material.
   const sources: TutorSource[] = smallTalk
     ? []
@@ -68,20 +77,21 @@ export function finalizeReply<Visual>(reply: DraftReply<Visual>, chunks: Context
         .filter((source) => known.has(source.position) && quoteInPassage(source.quote, known.get(source.position)!.content))
         .map((source) => {
           const chunk = known.get(source.position)!;
-          return { position: source.position, heading: source.heading ?? chunk.heading, pages: source.pages ?? pagesOf(chunk), quote: source.quote.slice(0, 400) };
+          const found = { position: chunk.position, heading: source.heading ?? chunk.heading, pages: source.pages ?? pagesOf(chunk), quote: source.quote.slice(0, 400) };
+          return notes && chunk.materialId ? { ...found, heading: chunk.heading, materialId: chunk.materialId, materialTitle: chunk.materialTitle ?? "" } : found;
         });
+
+  let grounding: StoredGrounding = smallTalk ? null : hasPassages ? (reply.grounding as Exclude<ReplyGrounding, "conversation">) : "general";
+  // "From your material" needs at least one real quote from it; without one, it is not shown as such.
+  if ((grounding === "material" || grounding === "partial") && sources.length === 0) grounding = "general";
 
   let answer = reply.answer;
   let additional = smallTalk ? null : reply.additional_explanation;
-  // With no material, the whole answer is general knowledge: a separate "general knowledge" box would repeat it.
-  if (!hasMaterial && additional) {
+  // An answer that isn't from passages is all general knowledge: a separate "general knowledge" box would repeat it.
+  if (additional && (!hasPassages || (notes && grounding !== "material" && grounding !== "partial"))) {
     if (!answer.includes(additional.slice(0, 80))) answer = `${answer.trimEnd()}\n\n${additional}`;
     additional = null;
   }
-
-  let grounding: StoredGrounding = smallTalk ? null : hasMaterial ? (reply.grounding as Exclude<ReplyGrounding, "conversation">) : "general";
-  // "From your material" needs at least one real quote from it; without one, it is not shown as such.
-  if ((grounding === "material" || grounding === "partial") && sources.length === 0) grounding = "general";
   return {
     ...reply,
     answer,

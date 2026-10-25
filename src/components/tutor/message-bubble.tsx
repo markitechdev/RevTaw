@@ -103,6 +103,8 @@ export const MessageBubble = memo(function MessageBubble({
 
   const grounding = message.grounding;
   const label = groundingLabel(grounding, materialId !== null);
+  // A chat without a material answers from all of the student's notes: each source names its material.
+  const fromNotes = message.sources.some((source) => source.materialId);
   // Small talk (no grounding) has nothing to save or build on.
   const followUps = grounding === null ? [] : FOLLOW_UPS.filter((item) => (item.id === "add_to_notes" || item.id === "create_flashcard" ? saveable : message.follow_ups.includes(item.id)));
 
@@ -134,23 +136,32 @@ export const MessageBubble = memo(function MessageBubble({
         {message.sources.length > 0 && (
           <details className="rounded-lg bg-muted/40 px-3 py-2 text-xs">
             <summary className="cursor-pointer font-medium text-muted-foreground">
-              Sources in your material ({message.sources.length})
+              Sources in your {fromNotes ? "notes" : "material"} ({message.sources.length})
             </summary>
             <ul className="mt-2 flex flex-col gap-2">
-              {message.sources.map((source, index) => (
-                <li key={`${source.position}-${index}`} className="border-l-2 border-primary/40 pl-2">
-                  <p className="font-medium">
-                    {source.heading ?? `Section ${source.position + 1}`}
-                    {source.pages ? ` · p. ${source.pages}` : ""}
-                    {materialId && (
-                      <Link href={`${withPage(`${routes.materials}/${materialId}`, { tab: "content" }, pageOfIndex(source.position, CONTENT_PAGE_SIZE))}#chunk-${source.position + 1}`} className={cn("ml-2", TEXT_LINK)}>
-                        open
-                      </Link>
-                    )}
-                  </p>
-                  {source.quote && <p className="italic text-muted-foreground">“{source.quote}”</p>}
-                </li>
-              ))}
+              {message.sources.map((source, index) => {
+                const sourceMaterial = source.materialId ?? materialId;
+                const section = source.heading ?? `Section ${source.position + 1}`;
+                return (
+                  <li key={`${source.materialId ?? ""}-${source.position}-${index}`} className="border-l-2 border-primary/40 pl-2">
+                    <p className="font-medium wrap-anywhere">
+                      {source.materialTitle ? `${source.materialTitle} · ` : ""}
+                      {section}
+                      {source.pages ? ` · p. ${source.pages}` : ""}
+                      {sourceMaterial && (
+                        <Link
+                          href={`${withPage(`${routes.materials}/${sourceMaterial}`, { tab: "content" }, pageOfIndex(source.position, CONTENT_PAGE_SIZE))}#chunk-${source.position + 1}`}
+                          aria-label={`Open ${section}${source.materialTitle ? ` in ${source.materialTitle}` : ""}`}
+                          className={cn("ml-2", TEXT_LINK)}
+                        >
+                          open
+                        </Link>
+                      )}
+                    </p>
+                    {source.quote && <p className="italic text-muted-foreground">“{source.quote}”</p>}
+                  </li>
+                );
+              })}
             </ul>
           </details>
         )}

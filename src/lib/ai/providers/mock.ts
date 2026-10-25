@@ -741,15 +741,20 @@ export function feynmanAnalysisHeuristically(prompt: string) {
 // AI tutor
 // ---------------------------------------------------------------------------
 
-type MockPassage = { position: number; heading: string | null; pages: string | null; sentences: string[] };
+/** A passage of the prompt: a section of the chat's material, or (with `title`) a numbered passage from all the student's materials. */
+type MockPassage = { position: number; heading: string | null; pages: string | null; sentences: string[]; title?: string };
 
 function parsePassages(material: string): MockPassage[] {
   const passages: MockPassage[] = [];
   let current: MockPassage | null = null;
   for (const line of material.split("\n")) {
     const label = line.match(/^\[Section (\d+)(?::\s*([^,\]]+))?(?:,\s*pages?\s([^\]]+))?\]$/);
-    if (label) {
-      current = { position: Number(label[1]), heading: label[2]?.trim() ?? null, pages: label[3]?.trim() ?? null, sentences: [] };
+    // [Passage 2 — "Biology Notes", Osmosis, pages 3-4]: cited by its number.
+    const across = line.match(/^\[Passage (\d+) — "([^"]*)"(?:, (?!pages? )(.+?))?(?:, pages? ([^\]]+))?\]$/);
+    if (label || across) {
+      current = across
+        ? { position: Number(across[1]), heading: across[3]?.trim() ?? null, pages: across[4]?.trim() ?? null, sentences: [], title: across[2] }
+        : { position: Number(label![1]), heading: label![2]?.trim() ?? null, pages: label![3]?.trim() ?? null, sentences: [] };
       passages.push(current);
       continue;
     }
@@ -792,7 +797,10 @@ export function tutorReplyHeuristically(material: string, prompt: string, system
   const message = extractTag(prompt, "student_message") ?? "";
   const selection = extractTag(prompt, "highlight") ?? "";
   const action = prompt.match(/^Requested action:\s*([^—\n]+)/m)?.[1]?.trim().toLowerCase() ?? "";
-  const noMaterial = /\(no material attached/.test(material) || material.trim().length === 0;
+  // No material, or a search of all the student's materials that found nothing.
+  const noMaterial = /\(no material attached|\(nothing in their materials matches/.test(material) || material.trim().length === 0;
+  // Passages from all the student's materials (a chat without one): when none answers, a general answer.
+  const acrossNotes = /^\[Passage \d+ — /m.test(material);
   // A follow-up names the answer it is about; its words stand in for the topic.
   const focus = extractTag(prompt, "focus")?.match(/Your answer: ([\s\S]*)$/)?.[1]?.trim() ?? "";
   const priorAnswer = focus && focus !== "(your last reply above)" ? focus : previousAnswer;
@@ -896,13 +904,14 @@ export function tutorReplyHeuristically(material: string, prompt: string, system
   }
 
   if (!best) {
+    const general = noMaterial || acrossNotes;
     return {
-      answer: noMaterial
+      answer: general
         ? `Here is a general explanation of "${message.slice(0, 80)}": the mock tutor cannot look anything up, so configure a real AI provider for full answers.`
         : "I couldn't verify this from your uploaded material. The passages I have do not mention it — try rephrasing, or ask about a section you can see in the Content tab.",
-      grounding: noMaterial ? "general" : "not_found",
+      grounding: general ? "general" : "not_found",
       sources: [],
-      additional_explanation: noMaterial ? "This answer comes from general knowledge, not from an uploaded material." : null,
+      additional_explanation: general ? "This answer comes from general knowledge, not from an uploaded material." : null,
       follow_ups: ["simplify", "example"],
       flashcard: null,
     };
@@ -929,7 +938,8 @@ export function tutorReplyHeuristically(material: string, prompt: string, system
                     ? `According to the material: ${best.sentence}\n\nNow you: why do you think that is the case?`
                     : best.sentence;
   return {
-    answer: lead,
+    // Across materials, say which one it came from.
+    answer: best.passage.title ? `From your “${best.passage.title}”: ${lead}` : lead,
     grounding: "material",
     sources,
     additional_explanation: /analogy/.test(action) ? "The analogy is a general illustration, not part of your material." : null,

@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AiError } from "@/lib/ai/errors";
+import { OpenAiCompatibleProvider } from "@/lib/ai/providers/openai-compatible";
 import type { AiGenerateOptions, AiProvider } from "@/lib/ai/types";
+import { DEFAULT_AI } from "@/lib/preferences/schema";
 import { tutorReply, tutorReplySchema, type TutorTurnInput } from "@/lib/tutor/ai";
+import type { ContextChunk } from "@/lib/tutor/context";
 
 /** A provider that answers with the queued texts (or throws the queued errors), recording every call. */
 const fake = vi.hoisted(() => ({ calls: [] as AiGenerateOptions[], queue: [] as Array<string | Error> }));
@@ -50,6 +53,45 @@ describe("tutorReply's thinking time", () => {
     // A quick action under a math question carries its topic.
     await tutorReply({ ...input, message: "Give me an example.", action: "example", focus: { question: "Paano i-solve ang 3x - 5 = 10?", answer: "x = 5" } });
     expect(fake.calls.map((call) => call.reasoning)).toEqual(["medium", undefined, "medium"]);
+  });
+});
+
+describe("tutorReply's size", () => {
+  it("fits a first question from Home, with notes and where the student stands, in Groq's free per-minute allowance", async () => {
+    fake.queue.push(answer("Plants make food through photosynthesis."));
+    // The most the service sends: four passages of 5,000 characters in all (NOTES_CONTEXT_CHARS in service.ts) and a full study status.
+    const passages: ContextChunk[] = [1, 2, 3, 4].map((ref) => ({
+      id: `p${ref}`,
+      position: ref,
+      heading: "Photosynthesis",
+      pageStart: ref,
+      pageEnd: ref + 1,
+      content: "Chlorophyll absorbs light and plants turn it into glucose. ".repeat(30).slice(0, 1_250),
+      materialId: `m${ref}`,
+      materialTitle: `Biology Notes ${ref}`,
+      ref,
+    }));
+    const studyStatus = `The student's study data in RevTaw right now:\n- Weakest concepts: ${"osmosis (35%, in \"Biology Notes\"); ".repeat(60)}`.slice(0, 1_600);
+    await tutorReply({
+      ...input,
+      message: "How do plants make their own food, and what does chlorophyll do in the leaves? Please keep it simple.",
+      notes: true,
+      context: passages,
+      studyStatus,
+      student: { firstName: "Mark", educationLevel: "college", mainGoal: "review_lessons", response: DEFAULT_AI, weakSpots: [] },
+    });
+    // Groq as src/lib/ai/index.ts sets it up for gpt-oss.
+    const groq = new OpenAiCompatibleProvider({
+      name: "groq",
+      baseUrl: "https://api.groq.com/openai/v1",
+      apiKey: "test-key",
+      model: "openai/gpt-oss-120b",
+      maxTokensField: "max_completion_tokens",
+      reasoningEffort: "low",
+      strictJsonSchema: true,
+      maxRequestTokens: 7_500,
+    });
+    expect(groq.fits(fake.calls[0])).toBe(true);
   });
 });
 
