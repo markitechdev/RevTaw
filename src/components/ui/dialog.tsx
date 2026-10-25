@@ -7,6 +7,13 @@ import { SECTION_TITLE } from "@/components/ui/typography";
 import { cn } from "@/lib/utils";
 
 /**
+ * A dialog's buttons. On phones they stack, full width, with the main action on top and Cancel at the
+ * bottom; from `sm` up they sit in a row at the end, Cancel first. Put Cancel first and the main action
+ * last in the markup.
+ */
+export const DIALOG_ACTIONS = "flex flex-col-reverse gap-2 *:w-full sm:flex-row sm:flex-wrap sm:justify-end sm:*:w-auto";
+
+/**
  * Modal built on the native <dialog> element: focus is trapped, Escape closes
  * it and the backdrop click dismisses it. `open` is controlled by the parent.
  */
