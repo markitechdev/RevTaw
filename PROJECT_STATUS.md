@@ -4,9 +4,82 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-25 (the email design round, Tamari's chat round and fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
+_Last updated: 2026-10-25 (the unfinished sessions round, the email design round, Tamari's chat round and fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
 
 ## Completed
+
+### Unfinished sessions round (no duplicate sessions; rename, end and delete)
+
+Study's "Continue where you left off" filled up with copies of the same
+session (every start, Tamari's offer and every visit to a review page made a
+new one), squeezed its Resume buttons on phones, and had no way to clear a
+session out. Now:
+
+- **One unfinished copy at a time, unless the student asks**
+  (`src/lib/study/duplicates.ts`) — before a session is created the server
+  looks for the student's unfinished sessions like it: the same method on
+  the same material and, where the title says more, the same deck and review
+  mode, routine, plan length ("Tamari's 20-Minute Bitaw"; any material when
+  Tamari picks it) or typed Pomodoro topic, compared without case, extra
+  spaces or look-alike characters. A plan's blocks belong to their plan and
+  never count. One copy: "You already have this session in progress"
+  (Resume it / Start a new one / Cancel); from two: "You already have N
+  unfinished copies" (See unfinished sessions / Start another copy /
+  Cancel); at five no new copy starts, even when asked for
+  (`SESSION_DUPLICATES`: `strongWarningAt`, `maxUnfinishedCopies`). The
+  answer is `{ duplicate, duplicateCount, level, existingItem: { id, title,
+  startedAt, href } }`, never a row. Checked in the session builder,
+  routines, Tamari's offers and chat commands (`useTamariMove`), and when a
+  flashcard review page opens (Resume it picks the review up on the same
+  page). A planner task's session and a plan's block are their own and are
+  not checked.
+- **Double clicks, two tabs, retries** — each start holds a short lock per
+  student and kind of session (the shared rate limiter with a limit of one,
+  `releaseRateLimit()` when done, 120 s at most), taken before the check:
+  the same start from a second tab or a retried request is told it is
+  already starting (409), so it cannot slip past the check. A planner task
+  starts once the same way. Buttons stay busy until the new page takes over.
+- **Rename, End session, Delete** (`src/lib/study/manage.ts`,
+  `session-actions.ts`) — the student's own sessions only (every query
+  filters by the student on top of RLS; another student's id is "not found",
+  or for a delete, nothing happens and nothing tells it apart). Rename: 1–160
+  characters, spaces tidied, checked on both sides. End keeps what was
+  answered and moves the session to Recent sessions as Stopped, the way its
+  own End would: a plan's unfinished blocks first, a tutor conversation
+  without Tamari's grading, a review with its server-counted ratings, a timer
+  with its saved focus time, an unsubmitted practice test with its attempt's
+  time (the attempt stays in Quizzes); the time counted is the span it was
+  active, at most three hours. Delete removes an unfinished session with its
+  answers and a plan's unfinished blocks; finished blocks, card ratings, the
+  conversation, the quiz attempt and a planner task stay; the concepts the
+  answers covered get their mastery worked out again after the response. A
+  finished session cannot be deleted here (409).
+- **The list** (`src/components/study/unfinished-sessions.tsx`) — the same
+  row on every screen: the name (two lines at most, long words broken), what
+  it is and how far, then Continue and ⋯ (Rename, End session, Delete). On
+  phones the buttons sit under the name, Continue across the row and ⋯
+  beside it, both 44 px; from `sm` up they sit at the row's end, Continue
+  the same width in every row. A plan's unfinished blocks are under their
+  plan. End and Delete take the row away at once (`useOptimistic`); if the
+  server refuses, it comes back with the reason ("We couldn't delete this
+  session. Please try again."). The focus moves to the next row's Continue,
+  a status line says what happened, the count updates, and when the last
+  one goes the card says "You're all caught up" instead of vanishing.
+- **Shared parts** — `ActionMenu` (`src/components/ui/action-menu.tsx`, the
+  ⋯ menu button: arrows, Home/End, Escape back to the button, Tab or a click
+  outside closes, opens upward near the bottom of a phone screen; Delete
+  last, after a divider), `session-dialogs.tsx` (Rename / End / Delete for any
+  unfinished session, worded by kind: what goes, what stays and where),
+  `DuplicateSessionDialog`, `DIALOG_ACTIONS` (dialog buttons stack full
+  width on phones with the main action on top) and `useFocusAfterClose`.
+  Only the confirmation's Delete is red; End is the primary color, since it
+  keeps the student's work. Dialogs are 480 px at most with 16 px margins.
+- **Home** — the Continue card for an unfinished session has Continue and
+  the same ⋯ (Open material, Rename, End session, Delete); ending or deleting
+  takes it away at once and Home shows what comes next with a note.
+- **The chat button** steps aside while a phone or tablet page scrolls down
+  (it sat on the rows' buttons) and comes back on the way up, near the top,
+  at the end of the page or when it gets the keyboard focus.
 
 ### Email design round (one look for every RevTaw email)
 
@@ -1358,8 +1431,8 @@ tables.
   Improvement and Personalization Phase, the Tamari visual AI companion
   integration, the API integrations round, the learning engine round, the
   Archive round, the performance round, the launch review round, Tamari's
-  chat round and the email design round are implemented (neither of the
-  last two needs a database change). Before launch: the hosted database had
+  chat round, the email design round and the unfinished sessions round are
+  implemented (none of the last three needs a database change). Before launch: the hosted database had
   0001–0023 and needs 0024–0033 (one update file), the scheduler
   (`supabase/schedules.sql`) after the first deploy, the four email
   templates in `supabase/templates` pasted into the dashboard after the
@@ -1678,7 +1751,11 @@ linked).
   session), `service.ts` (method dispatch, recall/Feynman/error-review item
   flows, Pomodoro state, practice-test sync for single sessions and plan
   blocks), `queries.ts` (sessions with hidden answers, activity stats:
-  streak and focus time), `actions.ts`. The part-2 methods follow one
+  streak and focus time), `actions.ts`, `duplicates.ts` (unfinished copies
+  of a session before a start, the start lock; `session-duplicate.ts` is the
+  client-safe answer type), `manage.ts` + `session-actions.ts` (rename, end
+  and delete an unfinished session; `unfinished.ts` is the list's
+  client-safe row type). The part-2 methods follow one
   layout: `items.ts` (shared session/item plumbing: open a session, insert
   items, `recordItemResult` = store + counters + mistake + mastery, drafts),
   `prompts/*.ts` (server-only prompts and zod schemas per method family:
@@ -1776,6 +1853,15 @@ linked).
   adjustment before reading the data they display.
 
 ## Known Issues / Limitations
+
+- Duplicate sessions are told apart by what makes their titles: method and
+  material, plus deck and mode, routine, plan length or typed Pomodoro
+  topic. Two sessions of one method on one material with different focus
+  (a general practice test and Tamari's "quiz me about recursion") count as
+  copies, so the second asks first; Start a new one goes ahead. Home's
+  Continue card shows the session worked on last, which can be a block of a
+  plan: deleting it there deletes that block only (the plan starts it
+  afresh), and ending it marks the block done.
 
 - The Privacy Notice and the Terms name `support@revtaw.com`
   (`BRAND.contactEmail`), which needs a monitored mailbox before launch
@@ -2034,6 +2120,37 @@ Flows verified end to end against a local Supabase-compatible stack
   revealed only at the end), practice testing (timed test through the quiz
   runner, summary from the attempt), Pomodoro (countdown, pause/resume,
   refresh restore, focus time), study page and dashboard streak/focus
+- Unfinished sessions (`sessions`, 127 checks): a first start goes straight
+  in; the same start warns (names the session and when it started; Cancel,
+  Start a new one, Resume it; nothing created by the warned start); Cancel
+  keeps the focus on Start; Resume it opens the same session; Start a new
+  one makes a second copy; two copies get the strong warning and See
+  unfinished sessions moves to the list; five copies refuse a sixth, also
+  from a direct Server Action call, whose answer carries only id, title,
+  start and link; a double click and two simultaneous requests start one
+  session; a flashcard review page warns about an unfinished review of the
+  same deck and mode (keys do nothing behind it; Resume it continues it on
+  the page; Cancel goes back; due ≠ all); a plan's block is hidden under its
+  plan; Delete asks (cannot be undone; Cancel/Escape keep it and return the
+  focus to ⋯; Tab stays in the dialog), removes the row before the server
+  answers, moves the focus on and deletes for good; a failed delete brings
+  the row back with the reason; Rename refuses an empty name next to the
+  field and tidies spaces; End keeps the answer, is not red and lists the
+  session under Recent sessions; another student's delete, rename and end
+  change nothing (not found; a delete tells nothing apart); malformed and
+  too-long input refused on the server; deleting a plan deletes its
+  unfinished block; at 320, 375, 390, 430, 768, 1024, 1280 and 1440 px no
+  sideways scroll, names in two lines at most, Continue the same width in
+  every row with ⋯ aligned, 44 px targets on phones; the chat button steps
+  aside while scrolling down and comes back; the ⋯ menu from the keyboard
+  (Enter, ↓, End, wrap, Escape back to ⋯, ↑ opens on the last, Tab and a
+  click outside close); Home's ⋯ (Open material, rename, delete with a
+  note; Continue spans a 320 px card); Tamari's second 10-minute plan warns
+  and Cancel leaves Home ready; emptying the list shows "You're all caught
+  up" with the focus on the heading, gone after a reload. axe clean (WCAG
+  2.1 AA and best practice) on the warning, the open menu, the Delete and
+  End confirmations, the Rename dialog, the list and the empty state, in
+  light and dark
 - Tutor: anonymous API rejected; grounded answer with sources; follow-ups
   (simplify, create flashcard → tutor deck, add to notes → tutor notes
   reviewer); "not covered by your material" answer; guide-me mode; highlight

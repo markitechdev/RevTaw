@@ -94,7 +94,10 @@ each job's last run). Errors and slow requests are in Vercel's Logs.
 - Study sessions: builder by material, time, goal and method; active recall,
   Feynman, practice testing, error review and Pomodoro, each with a saved
   summary; flashcards with spaced repetition (now FSRS, shown as Leitner
-  boxes), streak and focus-time tracking (Phase 4)
+  boxes), streak and focus-time tracking (Phase 4); unfinished sessions wait
+  under "Continue where you left off" (Study and Home), where each can be
+  continued, renamed, ended or deleted, and starting a copy of one asks
+  first
 - AI tutor grounded in your materials: answers cite their sources and say
   when the material does not cover a question; quick actions (explain,
   simplify, example, analogy, quiz me, guide me…), highlight-and-ask inside
