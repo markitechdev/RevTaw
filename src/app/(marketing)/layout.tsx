@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SkipLink } from "@/components/app/skip-link";
 import { Logo } from "@/components/brand/logo";
+import { HeaderNavLink } from "@/components/marketing/header-nav-link";
 import { SocialLinks } from "@/components/marketing/social-links";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { buttonClasses } from "@/components/ui/button";
@@ -14,10 +15,12 @@ export default function MarketingLayout({ children }: LayoutProps<"/"> ) {
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <Logo />
-          <nav aria-label="Primary" className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
+          {/* From 1024 px: below that the four links and the buttons don't fit on one line (the footer has About too). */}
+          <nav aria-label="Primary" className="hidden items-center gap-6 whitespace-nowrap text-sm font-medium text-muted-foreground lg:flex">
             <Link href="/#features" className="hover:text-foreground">What it does</Link>
             <Link href="/#how-it-works" className="hover:text-foreground">How it works</Link>
             <Link href="/#study-methods" className="hover:text-foreground">Study methods</Link>
+            <HeaderNavLink href={routes.about}>About</HeaderNavLink>
           </nav>
           <div className="flex items-center gap-2">
             <ThemeToggle className="hidden sm:inline-flex" />
