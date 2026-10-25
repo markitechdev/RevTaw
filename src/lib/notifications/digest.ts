@@ -9,7 +9,7 @@ import { unsubscribeHeaders, unsubscribeUrl } from "@/lib/notifications/unsubscr
 import { addDays, dateIn, daysBetween, DEFAULT_TIMEZONE, formatDate, hourIn, isValidTimezone } from "@/lib/planner/dates";
 import { formatClock, zonedInstant } from "@/lib/planner/time";
 import { parsePreferences } from "@/lib/preferences/schema";
-import { escapeHtml } from "@/lib/reminders/message";
+import { escapeHtml } from "@/lib/email/html";
 import { routes } from "@/lib/routes";
 import type { Database } from "@/lib/supabase/database.types";
 import { readPages } from "@/lib/supabase/paginate";

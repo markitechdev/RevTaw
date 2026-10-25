@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { escapeHtml } from "@/lib/reminders/message";
+import { escapeHtml } from "@/lib/email/html";
 import { UNSUBSCRIBE_KINDS, verifyUnsubscribe, type UnsubscribeKind } from "@/lib/notifications/unsubscribe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";

@@ -93,9 +93,12 @@ export async function cancelTaskReminder(supabase: Client, taskId: string): Prom
 
 export type DeliveredReminder = { id: string; title: string; body: string; href: string };
 
-type ReminderTask = Pick<StudyTask, "id" | "user_id" | "status" | "title" | "scheduled_for" | "starts_at" | "minutes" | "notes"> & { material: { title: string } | null };
+type ReminderTask = Pick<StudyTask, "id" | "user_id" | "status" | "title" | "scheduled_for" | "starts_at" | "minutes" | "notes" | "kind" | "category" | "concepts"> & {
+  material: { title: string } | null;
+  subject: { name: string } | null;
+};
 
-const TASK_FIELDS = "id, user_id, status, title, scheduled_for, starts_at, minutes, notes, material:materials!study_tasks_material_fk(title)";
+const TASK_FIELDS = "id, user_id, status, title, scheduled_for, starts_at, minutes, notes, kind, category, concepts, material:materials!study_tasks_material_fk(title), subject:subjects!study_tasks_subject_fk(name)";
 
 type Channels = {
   prefs: NotificationPreferences;
@@ -132,6 +135,10 @@ async function deliverOne(client: Client, reminder: Reminder, task: ReminderTask
       notes: task.notes,
       remindAt: new Date(reminder.remind_at),
       timeZone: channels.timeZone,
+      category: task.category,
+      planned: task.kind !== "custom",
+      subject: task.subject?.name ?? null,
+      concepts: task.concepts ?? [],
     },
     channels.siteUrl,
     unsubscribe,

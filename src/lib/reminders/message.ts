@@ -1,10 +1,15 @@
-import { routes } from "@/lib/routes";
+import { renderEmail, siteEmailOptions } from "@/lib/email/render";
+import { isStudyActivity, plannerNotificationEmail, studyReminderEmail, type ReminderActivity } from "@/lib/email/templates";
+import { formatClock } from "@/lib/planner/time";
 import { startPhrase } from "@/lib/reminders/time";
+import { routes } from "@/lib/routes";
 
 /**
  * What a reminder says, on every channel: the bell, the browser and email
- * (UI phase §27–§29). Pure (unit-tested); the email HTML escapes everything
- * that comes from the student.
+ * (UI phase §27–§29). Pure (unit-tested). The email uses RevTaw's shared
+ * design: a study session's reminder (Study Reminder) or any other
+ * activity's (Planner Notification), with the activity's details; the
+ * renderer escapes everything that comes from the student.
  */
 
 export type ReminderContent = {
@@ -16,15 +21,18 @@ export type ReminderContent = {
   notes: string | null;
   remindAt: Date;
   timeZone: string | null;
+  /** The activity's planner category; null for activities a study plan made. */
+  category?: ReminderActivity["category"];
+  /** Made by a study plan (a plan or review task) rather than added by hand. */
+  planned?: boolean;
+  subject?: string | null;
+  /** The concepts the activity covers, shown as its topic. */
+  concepts?: string[];
 };
 
 export type ReminderMessage = { title: string; body: string; href: string; subject: string; text: string; html: string };
 
 const clip = (value: string, length: number) => (value.length > length ? `${value.slice(0, length - 1)}…` : value);
-
-export function escapeHtml(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
 
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -46,25 +54,28 @@ export function reminderMessage(content: ReminderContent, siteUrl: string | null
   const href = `${routes.planner}?date=${content.date}`;
   const link = siteUrl ? `${siteUrl.replace(/\/+$/, "")}${href}` : null;
   const subject = clip(`Reminder: ${name} — ${when.charAt(0).toLowerCase()}${when.slice(1)}`, 160);
-  const text = [
-    `${name}`,
-    details,
-    notes ? `Notes: ${notes}` : null,
-    link ? `Open your planner: ${link}` : null,
-    "",
-    "You get this email because email reminders are on in RevTaw → Settings → Notifications.",
-    unsubscribeLink ? `Stop reminder emails: ${unsubscribeLink}` : null,
-  ]
-    .filter((line) => line !== null)
-    .join("\n");
-  const html = `<!doctype html><html><body style="margin:0;background:#f7f6fb;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#1b1530">
-<div style="max-width:480px;margin:0 auto;padding:24px">
-<p style="margin:0 0 8px;font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#6d3fdc">RevTaw reminder</p>
-<h1 style="margin:0 0 8px;font-size:20px;line-height:1.3">${escapeHtml(name)}</h1>
-<p style="margin:0 0 16px;font-size:15px;color:#4b4563">${escapeHtml(details)}</p>
-${notes ? `<p style="margin:0 0 16px;font-size:14px;color:#4b4563">${escapeHtml(notes)}</p>` : ""}
-${link ? `<p style="margin:0 0 24px"><a href="${escapeHtml(link)}" style="display:inline-block;background:#6d3fdc;color:#ffffff;text-decoration:none;font-weight:600;padding:10px 16px;border-radius:10px">Open my planner</a></p>` : ""}
-<p style="margin:0;font-size:12px;color:#77708f">You get this email because email reminders are on in RevTaw → Settings → Notifications.${unsubscribeLink ? ` <a href="${escapeHtml(unsubscribeLink)}" style="color:#6d3fdc">Stop reminder emails</a>` : ""}</p>
-</div></body></html>`;
-  return { title: clip(`Reminder: ${name}`, 160), body: clip(notes ? `${details}. ${notes}` : details, 600), href, subject, text, html };
+
+  const concepts = (content.concepts ?? []).map((concept) => concept.trim()).filter(Boolean);
+  const activity: ReminderActivity = {
+    title: name,
+    category: content.category ?? null,
+    planned: content.planned ?? false,
+    subject: content.subject?.trim() ? clip(content.subject.trim(), 80) : null,
+    topic: concepts.length ? clip(concepts.slice(0, 3).join(", "), 120) : content.materialTitle ? clip(content.materialTitle, 120) : null,
+    date: content.date,
+    time: content.time ? formatClock(content.time) : null,
+    minutes: content.minutes,
+    notes,
+  };
+  const input = {
+    activity,
+    timing: { phrase: startPhrase(content) },
+    subject,
+    preheader: details,
+    link,
+    reason: "You get this email because email reminders are on in RevTaw → Settings → Notifications.",
+    unsubscribe: unsubscribeLink ? { label: "Stop reminder emails", href: unsubscribeLink } : null,
+  };
+  const email = renderEmail(isStudyActivity(activity) ? studyReminderEmail(input) : plannerNotificationEmail(input), siteEmailOptions(siteUrl));
+  return { title: clip(`Reminder: ${name}`, 160), body: clip(notes ? `${details}. ${notes}` : details, 600), href, subject, text: email.text, html: email.html };
 }
