@@ -202,7 +202,8 @@ function materialSection(input: TutorPromptInput): string {
   }
   if (!input.materialTitle) return "<material>\n(no material attached — answer from general knowledge)\n</material>";
   const title = neutralizeTags(clip(input.materialTitle, 160)).replace(/"/g, "'");
-  const passages = input.context.map((chunk) => `${labelChunk(chunk)}\n${neutralizeTags(chunk.content)}`).join("\n\n");
+  // A heading comes from the material too, so its label gets the same guard as the text.
+  const passages = input.context.map((chunk) => `${neutralizeTags(labelChunk(chunk))}\n${neutralizeTags(chunk.content)}`).join("\n\n");
   return `<material title="${title}">\n${input.truncated ? "(Only the passages most relevant to this question are included.)\n\n" : ""}${passages || "(no passages)"}\n</material>`;
 }
 
