@@ -11,9 +11,9 @@ const ICONS: Record<SocialId, SimpleIcon> = { facebook: siFacebook, instagram: s
  * The contact icons: the creator's Facebook, Instagram and GitHub. Plain links that open in a new tab, with
  * no embeds, widgets or scripts from those sites, so nothing reaches them until a visitor clicks.
  */
-export function SocialLinks({ className }: { className?: string }) {
+export function SocialLinks({ id, className }: { id?: string; className?: string }) {
   return (
-    <ul aria-label="Contact" className={cn("flex items-center gap-1", className)}>
+    <ul id={id} aria-label="Contact" className={cn("flex items-center gap-1", className)}>
       {BRAND.social.map((link) => (
         <li key={link.id}>
           <a

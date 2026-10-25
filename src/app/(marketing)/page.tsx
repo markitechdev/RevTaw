@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpenCheck, Brain, CalendarCheck, FileUp, Gauge, Lightbulb, Lock, Smartphone, Target } from "lucide-react";
+import { ArrowDown, ArrowRight, BookOpenCheck, Brain, CalendarCheck, FileUp, Gauge, Lightbulb, Lock, Smartphone, Target } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -37,12 +37,19 @@ export default function LandingPage() {
         <div className="mx-auto grid w-full max-w-6xl gap-14 px-4 pb-20 pt-12 sm:px-6 sm:pt-20 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center lg:gap-10">
           {/* Rises in without fading, so the headline and the line under it are visible (and count for LCP) from the first paint. */}
           <div className="animate-rise">
-            <p className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+            {/* The credit takes visitors to the creator's contact icons in the footer. */}
+            <a
+              href="#contact"
+              className="group inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:border-input hover:bg-muted pointer-coarse:min-h-11"
+            >
+              <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
               <span>
-                Created by <span className="text-foreground">{BRAND.creator}</span>
+                Created by{" "}
+                <span className="text-foreground underline decoration-foreground/30 underline-offset-4 transition-colors group-hover:decoration-foreground">{BRAND.creator}</span>
+                <span className="sr-only"> (contact links)</span>
               </span>
-            </p>
+              <ArrowDown className="h-3.5 w-3.5 motion-safe:transition-transform motion-safe:group-hover:translate-y-0.5" aria-hidden="true" />
+            </a>
             <h1 className="mt-5 font-display text-[clamp(2.4rem,6.2vw,4.25rem)] font-extrabold leading-display tracking-tight text-foreground">
               <TypingHeadline phrases={HEADLINE} langs={["fil", undefined]} />
             </h1>
