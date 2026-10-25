@@ -238,7 +238,7 @@ export function AttemptResults({ view, questionCount }: { view: AttemptResultsVi
                 )}
                 {question.isCorrect === false && (
                   <div className="mt-3">
-                    <AskWhyWrongButton materialId={quiz.material_id} question={question.prompt} studentAnswer={question.studentAnswer} correctAnswer={question.correctAnswer} />
+                    <AskWhyWrongButton materialId={quiz.material_id} question={question.prompt} options={question.options} studentAnswer={question.studentAnswer} correctAnswer={question.correctAnswer} />
                   </div>
                 )}
               </li>

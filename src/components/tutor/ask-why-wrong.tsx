@@ -5,26 +5,32 @@ import { MessageCircle } from "lucide-react";
 import { openAssistant } from "@/components/assistant/assistant-provider";
 import { Button } from "@/components/ui/button";
 
-/** "Why is my answer wrong?" — asks RevTaw right here, with the question, the student's answer and the correct one, grounded in the quiz's material. */
+/**
+ * "Why is my answer wrong?" — asks RevTaw right here, with the question, its options (so Tamari can say why
+ * each wrong one is wrong), the student's answer and the correct one, grounded in the quiz's material.
+ */
 export function AskWhyWrongButton({
   materialId,
   question,
+  options = null,
   studentAnswer,
   correctAnswer,
   size = "sm",
 }: {
   materialId: string | null;
   question: string;
+  options?: ReadonlyArray<{ id: string; text: string }> | null;
   studentAnswer: string | null;
   correctAnswer: string;
   size?: "sm" | "md";
 }) {
+  const choices = options?.length ? `\nOptions:\n${options.map((option) => `${option.id.toUpperCase()}. ${option.text.slice(0, 300)}`).join("\n")}` : "";
   const ask = () =>
     openAssistant({
       action: "why_wrong",
       materialId,
       send: true,
-      prompt: `Question: ${question.slice(0, 1500)}\nMy answer: ${studentAnswer ?? "(no answer)"}\nCorrect answer: ${correctAnswer.slice(0, 1500)}\nWhy is my answer wrong?`,
+      prompt: `Question: ${question.slice(0, 1500)}${choices}\nMy answer: ${studentAnswer ?? "(no answer)"}\nCorrect answer: ${correctAnswer.slice(0, 1500)}\nWhy is my answer wrong?`,
     });
 
   return (
