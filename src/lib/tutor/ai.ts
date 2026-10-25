@@ -16,7 +16,7 @@ import { isFollowUpId, type TutorActionId } from "@/lib/tutor/types";
  */
 export const tutorReplySchema = z.object({
   answer: z.string().trim().min(1).max(12_000),
-  grounding: z.enum(["material", "partial", "general", "not_found"]).catch("general"),
+  grounding: z.enum(["material", "partial", "general", "not_found", "conversation"]).catch("general"),
   sources: z
     .array(z.unknown())
     .catch([])

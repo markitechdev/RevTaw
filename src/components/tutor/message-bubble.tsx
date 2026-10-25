@@ -12,7 +12,7 @@ import { TEXT_LINK } from "@/components/ui/text-link";
 import { CONTENT_PAGE_SIZE, pageOfIndex, withPage } from "@/lib/pagination";
 import { routes } from "@/lib/routes";
 import type { MessageView } from "@/lib/tutor/queries";
-import { FOLLOW_UPS, GROUNDING_LABEL, TUTOR_ACTION_BY_ID, type FollowUpId, type TutorActionId } from "@/lib/tutor/types";
+import { FOLLOW_UPS, groundingLabel, TUTOR_ACTION_BY_ID, type FollowUpId, type TutorActionId } from "@/lib/tutor/types";
 import { cn } from "@/lib/utils";
 import { textLang } from "@/lib/voice/speech-text";
 
@@ -59,18 +59,22 @@ export const MessageBubble = memo(function MessageBubble({
     );
   }
 
-  const grounding = message.grounding ?? "general";
-  const followUps = FOLLOW_UPS.filter((item) => (item.id === "add_to_notes" || item.id === "create_flashcard" ? saveable : message.follow_ups.includes(item.id)));
+  const grounding = message.grounding;
+  const label = groundingLabel(grounding, materialId !== null);
+  // Small talk (no grounding) has nothing to save or build on.
+  const followUps = grounding === null ? [] : FOLLOW_UPS.filter((item) => (item.id === "add_to_notes" || item.id === "create_flashcard" ? saveable : message.follow_ups.includes(item.id)));
 
   return (
     <div className="flex justify-start">
       <div className="flex max-w-[92%] flex-col gap-3 rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-3 text-sm">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge tone={grounding === "material" ? "success" : grounding === "partial" ? "primary" : grounding === "not_found" ? "warning" : "neutral"}>
-            <BookOpen className="h-3 w-3" aria-hidden="true" />
-            {GROUNDING_LABEL[grounding]}
-          </Badge>
-        </div>
+        {label && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={grounding === "material" ? "success" : grounding === "partial" ? "primary" : grounding === "not_found" ? "warning" : "neutral"}>
+              <BookOpen className="h-3 w-3" aria-hidden="true" />
+              {label}
+            </Badge>
+          </div>
+        )}
         <Markdown source={message.content} lang={textLang(message.content)} className="text-sm" />
         {message.visual && (
           <div className="rounded-lg border border-border bg-background p-3">
@@ -108,7 +112,7 @@ export const MessageBubble = memo(function MessageBubble({
             </ul>
           </details>
         )}
-        {onFollowUp && (
+        {onFollowUp && followUps.length > 0 && (
           <div className="flex flex-wrap gap-1.5 border-t border-border pt-2">
             {followUps.map((item) => {
               const saved = (item.id === "add_to_notes" && extras?.notesReviewerId) || (item.id === "create_flashcard" && extras?.flashcardDeckId);

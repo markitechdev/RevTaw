@@ -15,6 +15,7 @@ import { evaluateTutorSession, tutorReply, type TutorReply } from "@/lib/tutor/a
 import { rankMaterialChunks } from "@/lib/search/hybrid";
 import { retrievalQuery, selectContext, type ContextChunk } from "@/lib/tutor/context";
 import { TUTOR_HISTORY_MESSAGES, type TutorFocus, type TutorStudent, type WeakSpot } from "@/lib/tutor/prompt";
+import { finalizeReply, type FinalReply } from "@/lib/tutor/reply";
 import { flashcardDraftSchema } from "@/lib/tutor/schemas";
 import { TUTOR_ACTION_BY_ID, type TutorActionId } from "@/lib/tutor/types";
 import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
@@ -132,7 +133,7 @@ export async function conversationHeader(conversationId: string): Promise<Conver
 export type SentMessage = {
   userMessageId: string | null;
   assistantMessageId: string;
-  reply: TutorReply;
+  reply: FinalReply<TutorReply["visual"]>;
 };
 
 type ConversationRow = { id: string; user_id: string; material_id: string | null; mode: TutorMode; title: string; message_count: number };
@@ -260,19 +261,8 @@ async function respond(
     };
   }
 
-  // Keep only sources that point at passages we actually sent.
-  const known = new Map(context.chunks.map((chunk) => [chunk.position, chunk]));
-  const sources = reply.sources
-    .filter((source) => known.has(source.position))
-    .map((source) => {
-      const chunk = known.get(source.position)!;
-      return {
-        position: source.position,
-        heading: source.heading ?? chunk.heading,
-        pages: source.pages ?? (chunk.pageStart ? (chunk.pageEnd && chunk.pageEnd !== chunk.pageStart ? `${chunk.pageStart}-${chunk.pageEnd}` : String(chunk.pageStart)) : null),
-        quote: source.quote.slice(0, 400),
-      };
-    });
+  // Honest labels and sources before anything is saved (small talk, no material, passages actually sent).
+  const final = finalizeReply(reply, context.chunks, material !== null);
 
   const { data: assistantMessage, error: assistantError } = await supabase
     .from("tutor_messages")
@@ -280,20 +270,20 @@ async function respond(
       conversation_id: conversation.id,
       user_id: conversation.user_id,
       role: "assistant",
-      content: reply.answer.slice(0, 16000),
-      grounding: material ? reply.grounding : "general",
-      sources: sources as unknown as Json,
-      additional_explanation: reply.additional_explanation,
-      follow_ups: reply.follow_ups as unknown as Json,
-      flashcard: reply.flashcard as unknown as Json | null,
-      visual: (reply.visual ?? null) as unknown as Json | null,
+      content: final.answer.slice(0, 16000),
+      grounding: final.grounding,
+      sources: final.sources as unknown as Json,
+      additional_explanation: final.additional_explanation,
+      follow_ups: final.follow_ups as unknown as Json,
+      flashcard: final.flashcard as unknown as Json | null,
+      visual: (final.visual ?? null) as unknown as Json | null,
       provider,
       model,
     })
     .select("id")
     .single();
   if (assistantError || !assistantMessage) throw new Error(`tutor_messages: insert failed: ${assistantError?.message}`);
-  track(conversation.user_id, "tamari_message", { mode: conversation.mode, grounding: material ? reply.grounding : "general", provider: provider ?? "none" });
+  track(conversation.user_id, "tamari_message", { mode: conversation.mode, grounding: final.grounding ?? "conversation", provider: provider ?? "none" });
 
   const now = new Date().toISOString();
   await supabase
@@ -306,7 +296,7 @@ async function respond(
     })
     .eq("id", conversation.id);
 
-  return { userMessageId, assistantMessageId: assistantMessage.id, reply: { ...reply, sources } };
+  return { userMessageId, assistantMessageId: assistantMessage.id, reply: final };
 }
 
 /**

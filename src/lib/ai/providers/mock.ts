@@ -766,12 +766,20 @@ export function tutorReplyHeuristically(material: string, prompt: string, system
     const firstName = prompt.match(/^First name: (.+)$/m)?.[1]?.trim();
     return {
       answer: firstName ? `You're ${firstName}! What are we studying today?` : "I don't see your name in RevTaw. What should I call you?",
-      grounding: "general",
+      grounding: "conversation",
       sources: [],
       additional_explanation: null,
       follow_ups: [],
       flashcard: null,
     };
+  }
+
+  // Small talk and off-topic requests: a short, friendly reply that steers back to studying, with no source label.
+  if (!action && /^(hi|hello|hey|thanks|thank you|salamat|good (morning|afternoon|evening))\b[!.\s]*$/i.test(message)) {
+    return { answer: "Hi! What are we studying today?", grounding: "conversation", sources: [], additional_explanation: null, follow_ups: [], flashcard: null };
+  }
+  if (!action && /\b(cook|recipe|fry|boil)\b/i.test(message)) {
+    return { answer: "I'm mainly here for your studies — want to get back to your lesson, or connect this to it?", grounding: "conversation", sources: [], additional_explanation: null, follow_ups: [], flashcard: null };
   }
 
   // A question about the student's own study data: answer from the snapshot Tamari's request carries.

@@ -95,9 +95,21 @@ export type TutorSource = { position: number; heading: string | null; pages: str
 /** A flashcard the tutor offers to add (validated by `flashcardDraftSchema`). */
 export type FlashcardDraft = { front: string; back: string };
 
-export const GROUNDING_LABEL: Record<"material" | "partial" | "general" | "not_found", string> = {
+export type GroundingId = "material" | "partial" | "general" | "not_found";
+
+export const GROUNDING_LABEL: Record<GroundingId, string> = {
   material: "Based on your material",
-  partial: "Based on your material + additional explanation",
-  general: "Additional explanation (not from your material)",
+  partial: "Based on your material + general knowledge",
+  general: "General knowledge (not from your material)",
   not_found: "Not covered by your material",
 };
+
+/**
+ * The label above one of Tamari's answers: none for small talk (no grounding), and plain "General knowledge"
+ * in a chat without a material, where there is no material for it to differ from.
+ */
+export function groundingLabel(grounding: string | null, hasMaterial: boolean): string | null {
+  if (!grounding || !(grounding in GROUNDING_LABEL)) return null;
+  if (!hasMaterial && grounding === "general") return "General knowledge";
+  return GROUNDING_LABEL[grounding as GroundingId];
+}

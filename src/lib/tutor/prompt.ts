@@ -141,10 +141,10 @@ ${style.join("\n")}
 
 Reply with ONE JSON object and nothing else:
 - "answer": your reply in markdown.
-- "grounding": "material" (fully from the passages), "partial" (passages plus your own additions), "general" (a lesson answer from general knowledge — always this when no material is attached), or "not_found" (asked about their material, but it is not in the passages).
+- "grounding": "material" (fully from the passages), "partial" (passages plus your own additions), "general" (a lesson answer from general knowledge — always this when no material is attached), "not_found" (asked about their material, but it is not in the passages), or "conversation" (greetings, thanks, small talk and off-topic redirects — no lesson content).
 - "sources": the passages you used, as {"position": number, "heading": string | null, "pages": string | null, "quote": a SHORT exact quote (at most 200 characters) copied from that passage}; [] when none.
 - "additional_explanation": only when material is attached and you added general knowledge, that added part, so the student can tell it apart; otherwise null.
-- "follow_ups": up to 4 of explain_more, example, simplify, analogy, why, summarize, test_me, add_to_notes, create_flashcard that make sense next.
+- "follow_ups": up to 4 of explain_more, example, simplify, analogy, why, summarize, test_me, add_to_notes, create_flashcard that make sense next; [] for small talk.
 - "flashcard": {"front": string, "back": string} when the answer has one memorable fact, else null.${input.action === "visualize" ? '\n- "visual": the visual described in the task.' : ""}`;
 }
 
