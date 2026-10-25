@@ -161,8 +161,8 @@ export function getPreTestView(session: Pick<StudySession, "state">): PreTestVie
   return { pretest, posttest, changes: conceptChanges(pretest, posttest), plan: parseSmartPlan(session.state) };
 }
 
-/** Closes the pre-testing session with the combined summary and the before-and-after figures. */
-export async function completePreTesting(sessionId: string): Promise<SessionSummary> {
+/** Closes the pre-testing session with the combined summary and the before-and-after figures (`stopped`: ended early from the list of unfinished sessions). */
+export async function completePreTesting(sessionId: string, options: { stopped?: boolean } = {}): Promise<SessionSummary> {
   await syncPreTestPlan(sessionId);
   const supabase = await createClient();
   const session = await loadSession(supabase, sessionId);
@@ -196,6 +196,6 @@ export async function completePreTesting(sessionId: string): Promise<SessionSumm
             : "No gain yet — the study block did not reach the concepts you missed. Try a Feynman or error-review session on them, then test again.",
     nextReviewAt: summaries.map((summary) => summary.nextReviewAt).filter((value): value is string => Boolean(value)).sort()[0] ?? null,
     extra: { blocksDone: done, blocksTotal: view.blocks.length, ...(pretest ? { preScore: pretest.preScore } : {}), ...(posttest ? { postScore: posttest.postScore } : {}), ...(improvement !== null ? { improvement } : {}), changes },
-    abandoned: done === 0,
+    abandoned: Boolean(options.stopped) || done === 0,
   });
 }

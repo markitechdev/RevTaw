@@ -10,6 +10,7 @@ import { claimForRetry, retryRefusal } from "@/lib/generation/retry";
 import { friendlyGenerationFailure, loadMaterialContext } from "@/lib/reviewers/service";
 import { countSessionAnswer } from "@/lib/study/sessions";
 import type { FlashcardRating } from "@/lib/supabase/database.types";
+import { readPages } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
 import { clampTitle, titleWithSuffix } from "@/lib/text/clamp";
 
@@ -95,6 +96,21 @@ export type ReviewResult = {
   /** What each rating would do the next time the card is shown. */
   waits: Record<FlashcardRating, string>;
 };
+
+/**
+ * A review session's counts from the ratings the server saved during it, not from what the browser reports:
+ * cards reviewed, and cards whose first rating in the session was "Don't know" (a card that comes back later in
+ * the session counts once, as the review screen shows it).
+ */
+export async function sessionReviewCounts(supabase: Client, sessionId: string): Promise<{ reviewed: number; again: number }> {
+  const rows = await readPages(
+    (from, to) => supabase.from("flashcard_reviews").select("card_id, rating").eq("session_id", sessionId).order("reviewed_at").order("id").range(from, to),
+    5000,
+  );
+  const first = new Map<string, string>();
+  for (const row of rows) if (!first.has(row.card_id)) first.set(row.card_id, row.rating);
+  return { reviewed: first.size, again: [...first.values()].filter((rating) => rating === "again").length };
+}
 
 /** Applies a rating: updates the card's schedule, logs the review and updates the session counters. */
 export async function reviewCard(input: { cardId: string; rating: FlashcardRating; responseMs: number | null; sessionId: string | null }): Promise<ReviewResult> {

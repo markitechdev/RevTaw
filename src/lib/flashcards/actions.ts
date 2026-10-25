@@ -5,12 +5,11 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { ServiceError } from "@/lib/errors";
-import { reviewCard, type ReviewResult } from "@/lib/flashcards/service";
+import { reviewCard, sessionReviewCounts, type ReviewResult } from "@/lib/flashcards/service";
 import { routes } from "@/lib/routes";
 import { startUnlessDuplicate } from "@/lib/study/duplicates";
 import type { SessionDuplicate } from "@/lib/study/session-duplicate";
 import { completeSession, createSession, sessionTitle, suggestNext, type SessionSummary } from "@/lib/study/sessions";
-import { readPages } from "@/lib/supabase/paginate";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { titleWithSuffix } from "@/lib/text/clamp";
 
@@ -93,21 +92,6 @@ export async function reviewCardAction(input: { cardId: string; rating: "again" 
   } catch (error) {
     return failure(error, "The rating could not be saved. Check your connection and try again.");
   }
-}
-
-/**
- * A review session's counts from the ratings the server saved during it, not from what the browser reports:
- * cards reviewed, and cards whose first rating in the session was "Don't know" (a card that comes back later in
- * the session counts once, as the review screen shows it).
- */
-async function sessionReviewCounts(supabase: Awaited<ReturnType<typeof createClient>>, sessionId: string): Promise<{ reviewed: number; again: number }> {
-  const rows = await readPages(
-    (from, to) => supabase.from("flashcard_reviews").select("card_id, rating").eq("session_id", sessionId).order("reviewed_at").order("id").range(from, to),
-    5000,
-  );
-  const first = new Map<string, string>();
-  for (const row of rows) if (!first.has(row.card_id)) first.set(row.card_id, row.rating);
-  return { reviewed: first.size, again: [...first.values()].filter((rating) => rating === "again").length };
 }
 
 /** Closes a review session and writes its summary. */

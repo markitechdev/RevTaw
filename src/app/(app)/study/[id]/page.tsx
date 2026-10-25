@@ -49,9 +49,10 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
   const session = await getSession(id);
   if (!session) notFound();
   const name = methodName(session.method);
-  // Blocks of a smart session link back to their plan.
-  const parentId = (session.state as { parentId?: string } | null)?.parentId ?? null;
-  const parentMethod = parentId ? await getSessionMethod(parentId) : null;
+  // Blocks of a smart session link back to their plan, while the plan is there (it can be deleted from Study).
+  const storedParentId = (session.state as { parentId?: string } | null)?.parentId ?? null;
+  const parentMethod = storedParentId ? await getSessionMethod(storedParentId) : null;
+  const parentId = parentMethod ? storedParentId : null;
   const parentLabel = parentMethod === "custom_routine" ? "Back to routine" : parentMethod === "pre_testing" ? "Back to the plan" : "Back to Tamari's plan";
   const parentLink = parentId ? (
     <Link href={`${routes.study}/${parentId}`} className={buttonClasses({ size: "sm" })}>

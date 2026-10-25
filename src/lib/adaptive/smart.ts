@@ -242,8 +242,11 @@ export async function markSmartBlock(sessionId: string, key: string, patch: { ch
   await updateSessionState(supabase, sessionId, { plan: { ...plan, blocks } as unknown as Json });
 }
 
-/** Closes the smart session with the combined summary of its blocks. */
-export async function completeSmartSession(sessionId: string): Promise<SessionSummary> {
+/**
+ * Closes the smart session with the combined summary of its blocks. `stopped`: the student ended it from
+ * the list of unfinished sessions, so it is kept as stopped early whatever its blocks reached.
+ */
+export async function completeSmartSession(sessionId: string, options: { stopped?: boolean } = {}): Promise<SessionSummary> {
   const supabase = await createClient();
   const view = await getSmartSessionView(sessionId);
   if (!view) throw new SessionError("This session has no plan.", 400);
@@ -276,6 +279,6 @@ export async function completeSmartSession(sessionId: string): Promise<SessionSu
       firstAccuracy: view.blocks.find((block) => block.key === "quiz")?.childSummary?.accuracy ?? null,
       lastAccuracy: view.blocks.find((block) => block.key === "retest")?.childSummary?.accuracy ?? null,
     },
-    abandoned: done === 0,
+    abandoned: Boolean(options.stopped) || done === 0,
   });
 }

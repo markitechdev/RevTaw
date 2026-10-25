@@ -607,15 +607,37 @@ export async function startTutorSession(userId: string, input: { method: keyof t
   return { sessionId, conversationId };
 }
 
-/** Ends a tutor-based session: the model evaluates the student's reasoning and the §29 summary is stored. */
-export async function completeTutorSession(sessionId: string): Promise<SessionSummary> {
+/**
+ * Ends a tutor-based session: the model evaluates the student's reasoning and the §29 summary is stored.
+ * `stopped`: the student ended it from the list of unfinished sessions, so nothing is evaluated (no score
+ * is made up), it counts the time up to the last message, and it is kept as stopped early.
+ */
+export async function completeTutorSession(sessionId: string, options: { stopped?: boolean } = {}): Promise<SessionSummary> {
   const supabase = await createClient();
   const session = await loadSession(supabase, sessionId);
   const state = session.state as { mode?: TutorMode; conversationId?: string } | null;
   if (!state?.conversationId) throw new SessionError("This session has no conversation.", 400);
-  const { data: rows } = await supabase.from("tutor_messages").select("role, content").eq("conversation_id", state.conversationId).order("created_at").limit(60);
+  const { data: rows } = await supabase.from("tutor_messages").select("role, content, created_at").eq("conversation_id", state.conversationId).order("created_at").limit(60);
   const history = (rows ?? []).map((row) => ({ role: row.role as "user" | "assistant", content: row.content }));
   const studentTurns = history.filter((turn) => turn.role === "user").length;
+
+  if (options.stopped) {
+    const last = rows?.at(-1)?.created_at;
+    const span = last ? Math.round((new Date(last).getTime() - new Date(session.started_at).getTime()) / 1000) : 0;
+    return completeSession(supabase, sessionId, {
+      focusSeconds: Math.max(0, Math.min(span, 3 * 3600)),
+      topics: [],
+      questionsAnswered: 0,
+      correct: 0,
+      incorrect: 0,
+      weakConcepts: [],
+      strongConcepts: [],
+      suggestedNext: "Ended before Tamari evaluated it. The conversation is still in Ask Tamari if you want to read it again.",
+      nextReviewAt: null,
+      extra: { conversationId: state.conversationId, studentTurns },
+      abandoned: true,
+    });
+  }
 
   let evaluation = { score: 0, strengths: [] as string[], missing_concepts: [] as string[], suggestion: "Answer Tamari's questions in your own words next time; the evaluation needs your reasoning.", concepts_covered: [] as string[] };
   if (studentTurns > 0) {
