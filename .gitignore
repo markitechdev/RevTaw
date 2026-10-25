@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# npm run eval:tamari (answers from the real AI)
+/.tamari-eval
+
 # next.js
 /.next/
 /out/
