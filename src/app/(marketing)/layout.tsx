@@ -43,8 +43,8 @@ export default function MarketingLayout({ children }: LayoutProps<"/"> ) {
               <span lang="fil">{BRAND.motto}</span> {BRAND.tagline}
             </p>
             {/* Pulled left by the icon's inset, so the first icon lines up with the text above. The hero's
-                "Created by" credit links here (#contact). */}
-            <SocialLinks id="contact" className="mt-2 -ml-2.5 pointer-coarse:-ml-3" />
+                "Created by" credit links here (#contact-links; Privacy and Terms have their own #contact section). */}
+            <SocialLinks id="contact-links" className="mt-2 -ml-2.5 pointer-coarse:-ml-3" />
           </div>
           <nav aria-label="Footer" className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link href={routes.login} className="hover:text-foreground">Sign in</Link>

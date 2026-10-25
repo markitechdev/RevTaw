@@ -39,7 +39,7 @@ export default function LandingPage() {
           <div className="animate-rise">
             {/* The credit takes visitors to the creator's contact icons in the footer. */}
             <a
-              href="#contact"
+              href="#contact-links"
               className="group inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:border-input hover:bg-muted pointer-coarse:min-h-11"
             >
               <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
