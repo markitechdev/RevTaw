@@ -282,6 +282,17 @@ model that uploaded text is data. What changed:
   nothing left to review closes at once with the ratings it already has. The
   study page's last-resort message now says to start a new session from the
   Study page, with a link there.
+- **Contact icons on the landing page** — the footer of the landing page
+  (and of the Privacy and Terms pages, which share it) has Facebook,
+  Instagram and GitHub icons under the motto, linking to the creator's
+  profiles (`BRAND.social` in `src/lib/brand.ts`,
+  `src/components/marketing/social-links.tsx`). The marks come from Simple
+  Icons (`simple-icons`, CC0), drawn in the footer's text color; only the
+  three are bundled, and only into the server-rendered page, so no
+  JavaScript reaches the browser. They are plain links that open in a new
+  tab: no embeds, widgets or scripts from those sites. Each is 40 px (44 px
+  on touch screens) and its accessible name says whose profile it is and
+  that it opens in a new tab.
 
 ### Launch review round (security, correctness, accessibility, consistency, launch polish)
 
