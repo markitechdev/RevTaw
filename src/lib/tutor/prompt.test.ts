@@ -72,6 +72,17 @@ describe("Tamari's prompt", () => {
     expect(buildTurn({ ...base, action: "simplify" })).toMatch(/"It" is the current topic of the conversation/);
   });
 
+  it("keeps Simplify within the length of what it simplifies", () => {
+    const technical = Array.from({ length: 64 }, (_, index) => `word${index}`).join(" ");
+    const focus = { question: "What is glycolysis?", answer: technical };
+    expect(buildTurn({ ...base, action: "simplify", focus })).toMatch(/don't make it longer than before\. Keep it to 64 words or fewer, the length of what you are simplifying\.\n/);
+    expect(buildTurn({ ...base, action: "simplify", selection: "mitochondria", focus })).toMatch(/Keep it to about 40 words or fewer\./);
+    const history = [{ role: "user" as const, content: "What is glycolysis?" }, { role: "assistant" as const, content: technical }];
+    expect(buildTurn({ ...base, action: "simplify", history })).toMatch(/Keep it to 64 words or fewer/);
+    expect(buildTurn({ ...base, action: "simplify" })).not.toMatch(/Keep it to/);
+    expect(buildTurn({ ...base, action: "example", focus })).not.toMatch(/Keep it to/);
+  });
+
   it("asks for another angle when the student wants a different answer", () => {
     const turn = buildTurn({ ...base, previousAttempt: "A LEFT JOIN keeps all rows from the left table." });
     expect(sections(turn)).toEqual(["student", "material", "previous_attempt", "student_message"]);

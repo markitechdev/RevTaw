@@ -196,10 +196,21 @@ function focusSection(focus: TutorFocus, lastReply: string | null): string {
   return `<focus>\nThe student is following up on this earlier exchange. "It", "this" and "that" refer to it.\n${focus.question ? `Question: ${neutralizeTags(clip(focus.question, 600))}\n` : ""}Your answer: ${answer}\n</focus>`;
 }
 
+const wordCount = (text: string) => text.split(/\s+/).filter(Boolean).length;
+
+/** Simplify comes out no longer than what it simplifies: the highlight, else the focus answer, else the last reply. */
+function simplifyLength(input: TutorPromptInput): string {
+  const source = input.selection ?? input.focus?.answer ?? [...input.history].reverse().find((turn) => turn.role === "assistant")?.content;
+  if (!source?.trim()) return "";
+  const count = wordCount(source);
+  return count > 40 ? ` Keep it to ${count} words or fewer, the length of what you are simplifying.` : " Keep it to about 40 words or fewer.";
+}
+
 function taskSection(input: TutorPromptInput): string | null {
   if (!input.action) return null;
   const target = input.selection ? "the highlighted text" : input.focus ? "the <focus> answer's topic" : "the current topic of the conversation (or the material)";
-  return `<task>\nRequested action: ${TUTOR_ACTION_BY_ID[input.action].label} — ${ACTION_TASKS[input.action]}\n"It" is ${target}.\n</task>`;
+  const length = input.action === "simplify" ? simplifyLength(input) : "";
+  return `<task>\nRequested action: ${TUTOR_ACTION_BY_ID[input.action].label} — ${ACTION_TASKS[input.action]}${length}\n"It" is ${target}.\n</task>`;
 }
 
 /** The current turn: tagged sections in a fixed order, the student's message last. */
