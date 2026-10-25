@@ -2,8 +2,10 @@ import { ArrowRight, BookOpen, CalendarClock, CheckCircle2, Clock, Hourglass, La
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { ContinueSessionActions, HeroSession, HeroSessionError } from "@/components/dashboard/continue-session-actions";
 import { StartTaskButton } from "@/components/dashboard/start-task-button";
 import { formatRelativeDate } from "@/components/materials/material-card";
+import type { SessionTarget } from "@/components/study/session-dialogs";
 import { buttonClasses } from "@/components/ui/button";
 import { TEXT_LINK } from "@/components/ui/text-link";
 import { getRecommendations } from "@/lib/adaptive/recommend";
@@ -13,7 +15,7 @@ import { countMaterials } from "@/lib/materials/queries";
 import { getDueToday } from "@/lib/planner/queries";
 import { countOpenMistakes } from "@/lib/quizzes/queries";
 import { routes } from "@/lib/routes";
-import { methodName } from "@/lib/study/catalog";
+import { methodName, unfinishedKind } from "@/lib/study/catalog";
 import { cn } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
@@ -33,6 +35,8 @@ export async function ContinueWidget({ tamari }: { tamari?: ReactNode }) {
   let progress: { value: number; label: string } | null = null;
   let primary: { href: string; label: string };
   let secondary: { href: string; label: string } | null = null;
+  // An unfinished session can also be renamed, ended or deleted from here, as on Study.
+  let session: SessionTarget | null = null;
 
   if (!item) {
     return (
@@ -63,7 +67,8 @@ export async function ContinueWidget({ tamari }: { tamari?: ReactNode }) {
       progress = { value, label: `${Math.min(item.answered, item.total)} of ${item.total} done` };
     }
     primary = { href: item.href, label: "Continue" };
-    secondary = item.material ? { href: `${routes.materials}/${item.material.id}`, label: "Open material" } : null;
+    // Continue and ⋯, as on Study's list; the material opens from the menu.
+    session = { id: item.id, title: item.title, kind: unfinishedKind(item.method), answered: item.answered };
   } else if (item.kind === "quiz") {
     title = item.title;
     meta = ["Quiz in progress", `${item.questionCount} question${item.questionCount === 1 ? "" : "s"}`, `active ${formatRelativeDate(item.lastActiveAt)}`].join(" · ");
@@ -77,11 +82,12 @@ export async function ContinueWidget({ tamari }: { tamari?: ReactNode }) {
     secondary = material.status === "ready" ? { href: `${routes.study}?material=${material.id}`, label: "Start a session" } : null;
   }
 
-  return (
+  const hero = (
     <HeroFrame
       tamari={tamari}
       eyebrow="Continue studying"
       title={title}
+      menu={session ? <ContinueSessionActions session={session} materialHref={item.kind === "session" && item.material ? `${routes.materials}/${item.material.id}` : null} /> : undefined}
       details={
         <>
           <p className="line-clamp-2 text-sm text-muted-foreground">{meta}</p>
@@ -93,6 +99,7 @@ export async function ContinueWidget({ tamari }: { tamari?: ReactNode }) {
               <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">{progress.label}</span>
             </div>
           )}
+          {session && <HeroSessionError />}
         </>
       }
       actions={
@@ -109,6 +116,14 @@ export async function ContinueWidget({ tamari }: { tamari?: ReactNode }) {
         </>
       }
     />
+  );
+  // Keyed by the session, so what Home shows next starts out visible.
+  return session ? (
+    <HeroSession key={session.id} title={session.title}>
+      {hero}
+    </HeroSession>
+  ) : (
+    hero
   );
 }
 
@@ -129,7 +144,7 @@ function keepNumberWords(text: string): string {
  * Nothing is clipped, so the bubble can reach past the card's edge, and the
  * card sits above the cards after it.
  */
-function HeroFrame({ tamari, eyebrow, title, details, actions }: { tamari?: ReactNode; eyebrow: string; title: string; details: ReactNode; actions: ReactNode }) {
+function HeroFrame({ tamari, eyebrow, title, details, actions, menu }: { tamari?: ReactNode; eyebrow: string; title: string; details: ReactNode; actions: ReactNode; menu?: ReactNode }) {
   return (
     <section aria-labelledby="w-continue" className="@container relative z-10 h-full rounded-xl border border-border bg-card">
       {/* Decoration: lined paper fading in from the right, and a bookmark ribbon. */}
@@ -146,7 +161,10 @@ function HeroFrame({ tamari, eyebrow, title, details, actions }: { tamari?: Reac
             {details}
           </div>
         </div>
-        <div className="flex gap-2 *:flex-1 @2xl:*:flex-none">{actions}</div>
+        <div className="flex gap-2">
+          <div className="flex min-w-0 flex-1 gap-2 *:flex-1 @2xl:flex-none @2xl:*:flex-none">{actions}</div>
+          {menu}
+        </div>
       </div>
     </section>
   );

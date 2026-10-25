@@ -32,6 +32,8 @@ export const metadata: Metadata = {
 const NOTICES: Record<string, string> = {
   "password-updated": "Your password has been updated. Other devices have been signed out.",
   welcome: "You're all set. Upload your first material and RevTaw turns it into reviewers, quizzes and flashcards.",
+  "session-deleted": "Session deleted.",
+  "session-ended": "Session ended. It's under Recent sessions on Study.",
 };
 
 /** A short line under the greeting; changes daily, Filipino now and then (UI phase §3), marked so screen readers say it right. */
