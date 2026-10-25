@@ -4,7 +4,6 @@ import { unstable_rethrow } from "next/navigation";
 
 import { getMasterySummary } from "@/lib/adaptive/engine";
 import { studySnapshot } from "@/lib/assistant/snapshot";
-import { asksAboutStudyData } from "@/lib/assistant/study-question";
 import { isAiError } from "@/lib/ai";
 import type { AiError } from "@/lib/ai/errors";
 import { track } from "@/lib/analytics/server";
@@ -259,10 +258,12 @@ async function respond(
     .order("created_at", { ascending: false })
     .limit(HISTORY_LIMIT);
   if (input.answering) historyQuery = historyQuery.lt("created_at", input.answering.createdAt);
-  const [{ data: historyData }, student, material] = await Promise.all([
+  const [{ data: historyData }, student, material, studyStatus] = await Promise.all([
     historyQuery,
     studentContext(supabase, conversation.material_id),
     conversation.material_id ? materialChunks(supabase, conversation.material_id) : Promise.resolve(null),
+    // Where the student stands, with every question: Tamari uses it only when it helps (prompt rule 10).
+    studySnapshot(),
   ]);
   const rows = (historyData ?? []) as HistoryRow[];
   const focus = await resolveFocus(supabase, conversation.id, rows, { replyTo: input.replyTo, action: input.action, typed: input.typed ?? true, selection: input.selection });
@@ -300,6 +301,7 @@ async function respond(
       focus,
       student,
       pageNote: input.pageNote ?? null,
+      studyStatus,
       previousAttempt: input.previousAttempt ?? null,
     });
     reply = result.reply;
@@ -380,15 +382,13 @@ export async function regenerateReply(input: { conversationId: string; pageNote?
   }
   const action = (question.action as TutorActionId | null) ?? null;
   const typed = !(action && question.content === TUTOR_ACTION_BY_ID[action]?.prompt);
-  // A question about their own study data ("what am I weak at?") gets the same snapshot as when it was asked.
-  const snapshot = asksAboutStudyData(question.content) ? await studySnapshot() : null;
   return respond(supabase, { ...conversation, message_count: count }, {
     content: question.content,
     action,
     selection: question.selection,
     storeUser: false,
     typed,
-    pageNote: [input.pageNote, snapshot].filter(Boolean).join("\n\n") || null,
+    pageNote: input.pageNote ?? null,
     answering: { id: question.id, createdAt: question.created_at },
     previousAttempt,
   });

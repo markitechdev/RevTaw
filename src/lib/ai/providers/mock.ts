@@ -764,6 +764,29 @@ function parsePassages(material: string): MockPassage[] {
   return passages;
 }
 
+/**
+ * Questions that need the student's own study data ("what am I weak at?", "ano ang dapat kong aralin?"): only
+ * these get the mock's answer from <study_status>, which every question carries, as a real model would use it.
+ */
+const STUDY_DATA_QUESTION = [
+  /\b(weak(est)?|struggl\w*|nahihirapan|mahina)\b/,
+  /\bwhat (should|do|can) i (study|review|focus on|work on|do)( first| next| today| now)?\b/,
+  /\b(ano(ng)?|ano ang) (ba )?(dapat|pwede|kailangan)? ?(kong |ko |kung )?(aralin|aaralin|i ?review|ireview|gawin|unahin)\b/,
+  /\b(study|review|aral) (plan|today|tonight|now|ngayon|mamaya)\b/,
+  /\b(my|ko|aking|kong) (mistakes?|mali|exams?|plan|schedule|progress|mastery|streak|scores?|grades?|reviews?)\b/,
+  /\b(mistake notebook|due today|next exam|upcoming exams?|exam prep|ready for (my|the) exam)\b/,
+];
+
+function asksAboutStudyData(message: string): boolean {
+  const text = message
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9ñ\s]/g, " ")
+    .replace(/\s+/g, " ");
+  return STUDY_DATA_QUESTION.some((pattern) => pattern.test(text));
+}
+
 /** Deterministic tutor: finds the sentences that share keywords with the question and answers from them. */
 export function tutorReplyHeuristically(material: string, prompt: string, system: string, previousAnswer = "") {
   const message = extractTag(prompt, "student_message") ?? "";
@@ -798,7 +821,7 @@ export function tutorReplyHeuristically(material: string, prompt: string, system
 
   // A question about the student's own study data: answer from the snapshot Tamari's request carries.
   const snapshot = prompt.match(/The student's study data in RevTaw right now:\n((?:- .*(?:\n|$))+)/)?.[1]?.trim();
-  if (snapshot) {
+  if (snapshot && asksAboutStudyData(message)) {
     const facts = snapshot.split("\n").map((line) => line.replace(/^- /, "").trim()).filter(Boolean);
     return {
       answer: `Here's what RevTaw shows for you right now:\n\n${facts.map((fact) => `- ${fact}`).join("\n")}\n\nStart with the first weak concept on that list — a short active recall round on it moves it fastest.`,

@@ -3,8 +3,6 @@ import { z } from "zod";
 
 import { pageContextSchema } from "@/lib/assistant/context-schema";
 import { resolvePageContext } from "@/lib/assistant/context";
-import { studySnapshot } from "@/lib/assistant/snapshot";
-import { asksAboutStudyData } from "@/lib/assistant/study-question";
 import { ServiceError } from "@/lib/errors";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/supabase/server";
@@ -73,9 +71,9 @@ export async function POST(request: Request, context: RouteContext<"/api/tutor/c
     return NextResponse.json({ error: "You have sent a lot of messages. Please wait a little." }, { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } });
   }
   try {
-    // The page the student asked from, plus their study data when the question is about it ("what am I weak at?").
-    const [page, snapshot] = await Promise.all([resolvePageContext(body.data.context), asksAboutStudyData(body.data.message) ? studySnapshot() : null]);
-    const pageNote = [page.note, snapshot].filter(Boolean).join("\n\n") || null;
+    // The page the student asked from (where they stand in RevTaw goes with every question: tutor/service.ts).
+    const page = await resolvePageContext(body.data.context);
+    const pageNote = page.note || null;
     const result = body.data.regenerate
       ? await regenerateReply({ conversationId: params.data.id, pageNote })
       : await sendMessage({ conversationId: params.data.id, content: body.data.message, action: body.data.action, selection: body.data.selection, pageNote, replyTo: body.data.replyTo, replaceLast: body.data.replaceLast });

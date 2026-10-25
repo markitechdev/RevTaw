@@ -4,8 +4,8 @@
  * Change LEGAL_VERSION and LEGAL_UPDATED together whenever either page changes in substance.
  */
 
-export const LEGAL_VERSION = "2026-10-25";
-export const LEGAL_UPDATED = "October 25, 2026";
+export const LEGAL_VERSION = "2026-10-26";
+export const LEGAL_UPDATED = "October 26, 2026";
 
 export type Processor = {
   name: string;
@@ -32,7 +32,8 @@ export const PROCESSORS: Processor[] = [
   {
     name: "Groq and Cloudflare Workers AI",
     does: "The AI behind RevTaw: it writes reviewers, quizzes and flashcards, grades written answers, reads photos of notes, answers as Tamari, powers search, and turns short voice recordings into text.",
-    receives: "The part of your material, question or answer being worked on, and a voice recording when your browser can't turn speech into text by itself.",
+    receives:
+      "The part of your material, question or answer being worked on; when you ask Tamari, a short summary of where you stand (your weakest topics, what's due, your next exam and your latest mistakes); and a voice recording when your browser can't turn speech into text by itself.",
     policies: [
       { label: "Groq's privacy policy", href: "https://groq.com/privacy-policy" },
       { label: "Cloudflare's privacy policy", href: "https://www.cloudflare.com/privacypolicy/" },
@@ -42,7 +43,8 @@ export const PROCESSORS: Processor[] = [
     name: "Ollama",
     only: "Only when RevTaw's main AI services are busy, or a request is too long for them.",
     does: "A backup for the AI above: it reads your materials, writes reviewers, quizzes and flashcards, grades written answers and answers as Tamari.",
-    receives: "The part of your material, question or answer being worked on.",
+    receives:
+      "The part of your material, question or answer being worked on, and, when you ask Tamari, a short summary of where you stand (your weakest topics, what's due, your next exam and your latest mistakes).",
     policies: [{ label: "Ollama's privacy policy", href: "https://ollama.com/privacy" }],
   },
   {

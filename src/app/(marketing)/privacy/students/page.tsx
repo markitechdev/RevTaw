@@ -92,7 +92,9 @@ export default function StudentPrivacyPage() {
 
       <LegalSection heading={SECTIONS.ai}>
         <p>
-          The AI reads your notes to make quizzes and flashcards, and it answers you as Tamari. It can be wrong, so check with your notes and your teachers.{" "}
+          The AI reads your notes to make quizzes and flashcards, and it answers you as Tamari. When you ask Tamari something, it also gets a short
+          summary of how you&apos;re doing (like your weakest topics and your next exam), so it can help you study. It can be wrong, so check with your
+          notes and your teachers.{" "}
           {BRAND.name} doesn&apos;t use your work to train AI.
         </p>
       </LegalSection>
