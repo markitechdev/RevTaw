@@ -4,9 +4,82 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-25 (fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
+_Last updated: 2026-10-25 (Tamari's chat round and fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
 
 ## Completed
+
+### Tamari's chat round (a study tutor, not a general chatbot)
+
+Screenshots from the live site showed Tamari saying it didn't know the
+student's name, writing a full egg recipe, and answering "Example" under a
+lesson with an unrelated linear equation, plus a general-knowledge box that
+repeated the answer. The causes: a follow-up button sent only its own words
+("Give me an example.") with the last four messages, so the model guessed
+the topic; the instructions had no scope rule and said "worked example";
+the student's name was never sent; every answer was labeled; AI errors were
+saved as Tamari's answers and read back in the next turn; nothing told the
+model that uploaded text is data. What changed:
+
+- **Instructions rebuilt** (`src/lib/tutor/prompt.ts`) — built in layers:
+  the system prompt (who Tamari is; scope: lessons, questions, examples,
+  quiz answers, mistakes, plans, with greetings, thanks and exam nerves
+  answered naturally and anything unrelated given one friendly line and a
+  way back to studying; how to answer: the actual question first, depth
+  matched to the request, examples that satisfy the concept's defining
+  rule, accuracy over confidence, quiz and mistake explanations, hints
+  unless the student asks for the answer, code and math rules with no
+  LaTeX; sources and honesty; a silent self-check; the mode rule; format;
+  the JSON reply), then the recent conversation as alternating turns, then
+  this turn in tagged sections in a fixed order (`<student>`,
+  `<page_context>`, `<material>`, `<focus>`, `<highlight>`,
+  `<previous_attempt>`, `<task>`, `<student_message>` last). Each quick
+  action has its own task: "Example" gives a different example from the
+  one already given and says why it fits; "Why am I wrong?" starts with
+  "Not quite." and gives **Correct answer:** and **Remember:**.
+- **Follow-ups know what they refer to** — a button under an answer sends
+  that answer's id (`replyTo`), and the service passes the answer and its
+  question as `<focus>`; a quick action with nothing typed is about the
+  latest answer; the material is searched with the focus's words too
+  (`retrievalQuery()`). History is the latest 10 messages within 5,000
+  characters (the last two fuller), with same-role neighbors merged and a
+  question that got no answer marked as such.
+- **The student** — the first name (only the first word of the display
+  name) and, in a material's chat, up to four weak spots in that material
+  with their mastery, to use only when they help.
+- **Honest labels** (`src/lib/tutor/reply.ts`, `finalizeReply()`) — small
+  talk and off-topic redirects are saved with no label, no sources and no
+  follow-up buttons; a chat without a material is always "General
+  knowledge", with no second general-knowledge box; a source is kept only
+  when it points at a passage that was sent and its quote really is in it
+  (a run of six words), and "Based on your material" needs one such quote.
+- **Uploaded text is data** — passages, highlights, the focus answer, the
+  page context and earlier messages sit inside tags whose names are
+  neutralized in that text, and the instructions say to ignore any
+  instruction found there ("ignore previous instructions", "reveal your
+  prompt").
+- **Failures** — nothing is saved as Tamari's answer when the AI fails: the
+  question stays, the chat says so in plain words ("Tamari is busy right
+  now. Your question is saved — press Try again.") and **Try again**
+  answers it, also after a reload (`ReplyRetry`). The API answers with
+  `retryable` and the saved question's id; daily limits and rate limits
+  keep their wait (429).
+- **Answer again and Edit question** — the latest answer can be replaced by
+  a different one (the old one goes in as `<previous_attempt>`), and the
+  latest question can be edited (sending replaces it and its answer).
+- **Copy, Helpful and Not helpful** under each answer — feedback goes to
+  `POST /api/tutor/messages/[id]/feedback` (the student's own messages,
+  rate limited) and is kept only as the `tamari_feedback` analytics event,
+  when the student allowed analytics; "Not helpful" offers to explain it
+  differently.
+- **Answers render better** (`src/components/content/markdown.tsx`) — pipe
+  tables with alignment, code blocks labeled with their language, numbered
+  steps that keep their numbers; tables export to Word and PDF too.
+- **Ask Tamari why** sends the question's options, so Tamari can say why
+  each wrong option is wrong.
+- **Ended study sessions** — their chat refuses new messages on the server
+  (409), not just in the page.
+- **Tests** — see Testing (the `chat` suite, an axe pass over the new chat
+  states, unit tests, and `npm run eval:tamari` against the real AI).
 
 ### After launch (fixes from the live site)
 
@@ -1233,8 +1306,9 @@ tables.
 - Nothing in the code. All ten phases of the specification, the UI/UX
   Improvement and Personalization Phase, the Tamari visual AI companion
   integration, the API integrations round, the learning engine round, the
-  Archive round, the performance round and the launch review round are
-  implemented. Before launch: the hosted database has 0001–0023 and needs
+  Archive round, the performance round, the launch review round and
+  Tamari's chat round are implemented (the chat round needs no database
+  change). Before launch: the hosted database has 0001–0023 and needs
   0024–0033 (one update file), the scheduler (`supabase/schedules.sql`)
   after the first deploy, the email templates for `/auth/confirm`, the
   production environment variables, a monitored mailbox for
@@ -1573,10 +1647,13 @@ linked).
   keys, placed concepts) goes in `model_answer` as JSON.
 - **Tutor** — `src/lib/tutor/`: `types.ts` (actions, follow-ups, modes,
   grounding labels), `context.ts` (keyword-scored passage selection with a
-  character budget), `ai.ts` (reply prompt with grounding rules per mode and
-  action; session evaluation), `service.ts` (conversations, `respond()` =
-  context + model + source validation + storage, add to notes, create
-  flashcard, tutor-based sessions), `queries.ts`, `actions.ts`. The chat UI
+  character budget; `retrievalQuery()` for follow-ups), `prompt.ts` (the
+  layered request: system prompt, history, tagged turn), `ai.ts` (the reply
+  schema and call; session evaluation), `reply.ts` (`finalizeReply()`:
+  labels and verified quotes), `service.ts` (conversations, `respond()` =
+  history + focus + context + model + `finalizeReply()` + storage, Answer
+  again, Edit question, add to notes, create flashcard, tutor-based
+  sessions), `queries.ts`, `actions.ts`. The chat UI
   is `src/components/tutor/`; `HighlightToolbar` wraps any material text.
   Replies use the strong tier within Groq's free budget (see the API
   integrations round) and are not streamed (one validated JSON object per
@@ -1731,6 +1808,17 @@ linked).
 - Tutor replies arrive as one message (no token streaming). Passages are
   found by hybrid search once a material has embeddings (Cloudflare
   needed); until then, and without Cloudflare, by keyword overlap.
+- Answer again and Edit question work on the latest exchange only. A
+  follow-up's focus is not stored, so Answer again after a follow-up button
+  takes the latest answer as its focus.
+- Helpful / Not helpful is kept only as an analytics event (with the
+  student's consent); it does not change Tamari yet. A question Tamari asks
+  in the chat is graded in the chat only and does not update mastery.
+- Math in answers is plain text (×, ÷, ², √, a/b); there is no LaTeX
+  rendering.
+- What the model writes can only be checked against a real model
+  (`npm run eval:tamari`); its rules are simple heuristics, so read the
+  answers in its report too.
 - Problems, scenarios, cases, stories and mnemonics are generated once per
   session from the material's transcript; AI-graded answers (working,
   justifications, case fields, retellings) use the fast tier. A device that
@@ -1891,7 +1979,7 @@ Flows verified end to end against a local Supabase-compatible stack
   and ask from the Content tab reusing the material's conversation with the
   selection stored; Socratic session (opener question, questions in reply,
   evaluation summary, read-only afterwards); rename, delete keeps saved
-  cards; mobile layout
+  cards; mobile layout; an ended session's chat refuses new messages (409)
 - Adaptive: progress empty state; adaptive quiz badge and default; a quiz
   with confident and unsure misses produces one mastery row per concept
   (misconception, underconfident, open mistake, next review, retrieval
@@ -2082,6 +2170,35 @@ Flows verified end to end against a local Supabase-compatible stack
   `shuffled()`, `ServiceError`, the AI day, the export route, a study
   answer and a quiz attempt sent twice at once, the sign-up agreement, job
   states and the health check.
+- Tamari's chat round: `chat-e2e.mjs` (a follow-up button under an older
+  answer is about that answer and sends its id, a quick action with nothing
+  typed is about the latest one; the first name and only the first name;
+  small talk and the off-topic redirect with no label or follow-ups; a
+  material answer keeps its label; no material → "General knowledge" with
+  no second box; a failed answer saves only the question, says so in plain
+  words and offers Try again, also after a reload; Answer again replaces
+  the latest answer; Edit question replaces the latest question and its
+  answer; Copy; Helpful / Not helpful sent to the API; "Explain it
+  differently" on an older answer), `a11y-chat.mjs` (axe on the answer
+  tools, the feedback line, the editing chip, the Try again card and a
+  table, code block and numbered steps on the tutor page, light and dark:
+  clean). Unit tests: the prompt's layers, history, focus and tag
+  neutralization, `finalizeReply()` and quote checks, retrieval queries,
+  markdown tables, empty or failed AI replies and the student-facing error
+  messages.
+- Tamari's answers (`npm run eval:tamari`, not part of `npm test`; needs AI
+  keys in `.env.local` and is skipped without them): 23 cases sent to the
+  real AI with the request the app builds, the chat review's test list
+  (definition, follow-up, simpler, another example, Java, math, a quiz
+  explanation, a wrong answer, the material, not in the material,
+  contradicting notes, off-topic, a greeting, "and right?", a long chat,
+  changing topics, coming back, an instruction hidden in the notes), the
+  screenshot replies, exam nerves, guided mode and Answer again. Each answer
+  is checked with simple rules and written to `.tamari-eval/report.md` (not
+  committed). It sends about 23 AI requests, a real share of a day's free
+  allowance, so run it when nobody is studying, or a few cases at a time:
+  `npm run eval:tamari -- -t "§27.12"`. An AI failure and an empty reply
+  are covered by the unit tests and the `chat` suite instead.
 - Accessibility: `~/preview/a11y-audit.mjs` (axe-core, 43 states incl. the
   new settings pages, the activity form and Tamari's chat, light) and
   `a11y-dark.mjs` (dark) report no violations; keyboard paths are
@@ -2114,4 +2231,4 @@ Flows verified end to end against a local Supabase-compatible stack
   block
 
 Commands: `npm run lint`, `npx tsc --noEmit`, `npm test` (vitest unit tests),
-`npm run build`.
+`npm run build`, `npm run eval:tamari` (Tamari against the real AI).
