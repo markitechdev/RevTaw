@@ -9,7 +9,7 @@ import { ServiceError } from "@/lib/errors";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { getConversation } from "@/lib/tutor/queries";
-import { sendMessage } from "@/lib/tutor/service";
+import { regenerateReply, sendMessage, TutorUnavailableError } from "@/lib/tutor/service";
 import { TUTOR_ACTION_IDS } from "@/lib/tutor/types";
 
 export const maxDuration = 120;
@@ -24,6 +24,8 @@ const bodySchema = z.object({
   context: pageContextSchema.nullable().default(null),
   /** The answer a follow-up button was pressed under ("Example", "Simplify"…), so the follow-up is about it. */
   replyTo: z.uuid().nullable().default(null),
+  /** Answer the latest question again ("Try again", or a new answer in place of the last one). */
+  regenerate: z.boolean().default(false),
 });
 
 /** The conversation's messages, for reopening it in Ask RevTaw. */
@@ -60,7 +62,7 @@ export async function POST(request: Request, context: RouteContext<"/api/tutor/c
   if (!body.success) {
     return NextResponse.json({ error: "Type a question or pick an action." }, { status: 400 });
   }
-  if (!body.data.message && !body.data.action) {
+  if (!body.data.regenerate && !body.data.message && !body.data.action) {
     return NextResponse.json({ error: "Type a question or pick an action." }, { status: 400 });
   }
   const ip = await getClientAddress();
@@ -72,9 +74,17 @@ export async function POST(request: Request, context: RouteContext<"/api/tutor/c
     // The page the student asked from, plus their study data when the question is about it ("what am I weak at?").
     const [page, snapshot] = await Promise.all([resolvePageContext(body.data.context), asksAboutStudyData(body.data.message) ? studySnapshot() : null]);
     const pageNote = [page.note, snapshot].filter(Boolean).join("\n\n") || null;
-    const result = await sendMessage({ conversationId: params.data.id, content: body.data.message, action: body.data.action, selection: body.data.selection, pageNote, replyTo: body.data.replyTo });
+    const result = body.data.regenerate
+      ? await regenerateReply({ conversationId: params.data.id, pageNote })
+      : await sendMessage({ conversationId: params.data.id, content: body.data.message, action: body.data.action, selection: body.data.selection, pageNote, replyTo: body.data.replyTo });
     return NextResponse.json(result, { headers: { "cache-control": "no-store" } });
   } catch (error) {
+    if (error instanceof TutorUnavailableError) {
+      return NextResponse.json(
+        { error: error.message, userMessageId: error.userMessageId, retryable: true },
+        { status: error.status, headers: { "cache-control": "no-store", ...(error.retryAfterSeconds ? { "retry-after": String(error.retryAfterSeconds) } : {}) } },
+      );
+    }
     if (error instanceof ServiceError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }

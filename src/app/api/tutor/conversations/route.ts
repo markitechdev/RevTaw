@@ -9,7 +9,7 @@ import { ServiceError } from "@/lib/errors";
 import { getClientAddress, rateLimit } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { listConversations } from "@/lib/tutor/queries";
-import { conversationHeader, createConversation, latestMaterialConversation, sendMessage } from "@/lib/tutor/service";
+import { conversationHeader, createConversation, latestMaterialConversation, sendMessage, TutorUnavailableError } from "@/lib/tutor/service";
 import { TUTOR_ACTION_IDS } from "@/lib/tutor/types";
 
 export const maxDuration = 120;
@@ -63,9 +63,19 @@ export async function POST(request: Request) {
     const materialId = body.data.materialId ?? page.materialId;
     const existing = body.data.reuse && materialId ? await latestMaterialConversation(materialId) : null;
     const id = existing ?? (await createConversation({ materialId, mode: body.data.mode })).id;
-    const result = body.data.message || body.data.action ? await sendMessage({ conversationId: id, content: body.data.message ?? "", action: body.data.action, selection: body.data.selection, pageNote }) : null;
-    const conversation = await conversationHeader(id);
-    return NextResponse.json({ id, conversation, reused: existing !== null, ...(result ?? {}) }, { headers: { "cache-control": "no-store" } });
+    try {
+      const result = body.data.message || body.data.action ? await sendMessage({ conversationId: id, content: body.data.message ?? "", action: body.data.action, selection: body.data.selection, pageNote }) : null;
+      const conversation = await conversationHeader(id);
+      return NextResponse.json({ id, conversation, reused: existing !== null, ...(result ?? {}) }, { headers: { "cache-control": "no-store" } });
+    } catch (error) {
+      // The chat and the question exist: say so, so "Try again" can answer it there.
+      if (!(error instanceof TutorUnavailableError)) throw error;
+      const conversation = await conversationHeader(id);
+      return NextResponse.json(
+        { error: error.message, id, conversation, reused: existing !== null, userMessageId: error.userMessageId, retryable: true },
+        { status: error.status, headers: { "cache-control": "no-store", ...(error.retryAfterSeconds ? { "retry-after": String(error.retryAfterSeconds) } : {}) } },
+      );
+    }
   } catch (error) {
     if (error instanceof ServiceError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

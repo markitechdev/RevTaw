@@ -1,5 +1,6 @@
 import { associationsHeuristically, caseEvaluationHeuristically, casesHeuristically, conceptMapHeuristically, mindMapHeuristically, mnemonicsHeuristically, problemEvaluationHeuristically, problemsHeuristically, readingAnswersHeuristically, reflectQuestionsHeuristically, retellCheckHeuristically, scenarioEvaluationHeuristically, scenariosHeuristically, storiesHeuristically, visualForSection, visualsHeuristically } from "@/lib/ai/providers/mock-study";
 import { collectFacts, isHeadingLike, keywordsOf, overlap, parseTranscriptSections, sentencesOf, splitInlineSections } from "@/lib/ai/providers/mock-text";
+import { AiError } from "@/lib/ai/errors";
 import type { AiGenerateOptions, AiGenerateResult, AiProvider } from "@/lib/ai/types";
 
 export { parseTranscriptSections } from "@/lib/ai/providers/mock-text";
@@ -12,6 +13,8 @@ export { parseTranscriptSections } from "@/lib/ai/providers/mock-text";
  *
  * Never enabled in production unless AI_PROVIDER=mock is set explicitly.
  */
+const failedOnce = new Set<string>();
+
 export class MockProvider implements AiProvider {
   readonly name = "mock";
   readonly model = "mock-heuristics-1";
@@ -23,6 +26,14 @@ export class MockProvider implements AiProvider {
     // Drop the transcript's bracketed section labels so they don't leak into "facts".
     const material = rawMaterial.replace(/^\[(?:Section|Not included)[^\]]*\]\s*$/gm, "");
     const task = options.task ?? inferTask(options);
+    // Test hook: a tutor question containing MOCK_FAIL_ONCE fails the first time it is asked, then works.
+    if (task === "tutor_reply" && userText.includes("MOCK_FAIL_ONCE")) {
+      const key = extractTag(userText, "student_message") ?? userText;
+      if (!failedOnce.has(key)) {
+        failedOnce.add(key);
+        throw new AiError("provider_error", "mock: failing once on purpose", true);
+      }
+    }
 
     let text: string;
     switch (task) {

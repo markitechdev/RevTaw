@@ -3,7 +3,10 @@ import "server-only";
 import { unstable_rethrow } from "next/navigation";
 
 import { getMasterySummary } from "@/lib/adaptive/engine";
+import { studySnapshot } from "@/lib/assistant/snapshot";
+import { asksAboutStudyData } from "@/lib/assistant/study-question";
 import { isAiError } from "@/lib/ai";
+import type { AiError } from "@/lib/ai/errors";
 import { track } from "@/lib/analytics/server";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { ServiceError } from "@/lib/errors";
@@ -144,6 +147,39 @@ async function loadConversation(supabase: Client, conversationId: string): Promi
   return data;
 }
 
+/** What the student reads when Tamari could not answer: plain words, never a technical error. */
+function tutorErrorMessage(error: AiError): string {
+  switch (error.code) {
+    // A reached daily limit says when it refills; "try again in a moment" would mislead.
+    case "quota_exceeded":
+      return error.message;
+    case "not_configured":
+      return "Tamari isn't set up on this server yet.";
+    case "content_too_large":
+      return "That's too much for Tamari in one go. Ask about a smaller part, or highlight less text.";
+    case "invalid_output":
+      return "Tamari's answer came out garbled. Your question is saved — press Try again.";
+    default:
+      return "Tamari is busy right now. Your question is saved — press Try again.";
+  }
+}
+
+/**
+ * The AI could not answer. Nothing is saved as Tamari's reply (an error is not an answer, and it would be read
+ * back as one in the next turn); the student's question stays saved, so "Try again" answers it as it is.
+ */
+export class TutorUnavailableError extends ServiceError {
+  constructor(
+    message: string,
+    status: number,
+    readonly userMessageId: string | null,
+    readonly retryAfterSeconds?: number,
+  ) {
+    super(message, status);
+    this.name = "TutorUnavailableError";
+  }
+}
+
 type HistoryRow = { id: string; role: string; content: string; selection: string | null; created_at: string };
 
 /** A student message as the model sees it: with the text they highlighted, when there was one. */
@@ -195,15 +231,27 @@ async function resolveFocus(
 async function respond(
   supabase: Client,
   conversation: ConversationRow,
-  input: { content: string; action: TutorActionId | null; selection: string | null; storeUser: boolean; pageNote?: string | null; replyTo?: string | null; typed?: boolean },
+  input: {
+    content: string;
+    action: TutorActionId | null;
+    selection: string | null;
+    storeUser: boolean;
+    pageNote?: string | null;
+    replyTo?: string | null;
+    typed?: boolean;
+    /** Answering a saved question again: the history is what came before it, and its id is the reply's question. */
+    answering?: { id: string; createdAt: string } | null;
+  },
 ): Promise<SentMessage> {
+  let historyQuery = supabase
+    .from("tutor_messages")
+    .select("id, role, content, selection, created_at")
+    .eq("conversation_id", conversation.id)
+    .order("created_at", { ascending: false })
+    .limit(HISTORY_LIMIT);
+  if (input.answering) historyQuery = historyQuery.lt("created_at", input.answering.createdAt);
   const [{ data: historyData }, student, material] = await Promise.all([
-    supabase
-      .from("tutor_messages")
-      .select("id, role, content, selection, created_at")
-      .eq("conversation_id", conversation.id)
-      .order("created_at", { ascending: false })
-      .limit(HISTORY_LIMIT),
+    historyQuery,
     studentContext(supabase, conversation.material_id),
     conversation.material_id ? materialChunks(supabase, conversation.material_id) : Promise.resolve(null),
   ]);
@@ -215,7 +263,7 @@ async function respond(
   const ranked = conversation.material_id ? await rankMaterialChunks(supabase, { materialId: conversation.material_id, query, selection: input.selection }) : null;
   const history = [...rows].reverse().map((row) => ({ role: row.role as "user" | "assistant", content: row.role === "user" ? asked(row) : row.content }));
 
-  let userMessageId: string | null = null;
+  let userMessageId: string | null = input.answering?.id ?? null;
   if (input.storeUser) {
     const { data: userMessage, error: userError } = await supabase
       .from("tutor_messages")
@@ -249,16 +297,8 @@ async function respond(
     model = result.model;
   } catch (error) {
     if (!isAiError(error)) throw error;
-    reply = {
-      // A reached daily limit says when it refills; "try again in a moment" would mislead.
-      answer: error.code === "quota_exceeded" ? `${error.message} Your question is saved.` : `${error.message} Your question is saved — try again in a moment.`,
-      grounding: "general",
-      sources: [],
-      additional_explanation: null,
-      follow_ups: [],
-      flashcard: null,
-      visual: null,
-    };
+    if (input.storeUser) await touchConversation(supabase, conversation, 1, input.content);
+    throw new TutorUnavailableError(tutorErrorMessage(error), error.code === "quota_exceeded" || error.code === "rate_limited" ? 429 : 503, userMessageId, error.retryAfterSeconds);
   }
 
   // Honest labels and sources before anything is saved (small talk, no material, passages actually sent).
@@ -285,18 +325,59 @@ async function respond(
   if (assistantError || !assistantMessage) throw new Error(`tutor_messages: insert failed: ${assistantError?.message}`);
   track(conversation.user_id, "tamari_message", { mode: conversation.mode, grounding: final.grounding ?? "conversation", provider: provider ?? "none" });
 
-  const now = new Date().toISOString();
+  await touchConversation(supabase, conversation, input.storeUser ? 2 : 1, input.storeUser ? input.content : null);
+
+  return { userMessageId, assistantMessageId: assistantMessage.id, reply: final };
+}
+
+/** Counts new messages on the conversation and, for its first question without a material, names it. */
+async function touchConversation(supabase: Client, conversation: ConversationRow, added: number, question: string | null): Promise<void> {
   await supabase
     .from("tutor_conversations")
     .update({
-      message_count: conversation.message_count + (input.storeUser ? 2 : 1),
-      last_message_at: now,
+      message_count: Math.max(0, conversation.message_count + added),
+      last_message_at: new Date().toISOString(),
       // The first question names a conversation that has no material.
-      ...(conversation.message_count === 0 && !conversation.material_id && input.storeUser ? { title: input.content.slice(0, 80) } : {}),
+      ...(conversation.message_count === 0 && !conversation.material_id && question ? { title: question.slice(0, 80) } : {}),
     })
     .eq("id", conversation.id);
+}
 
-  return { userMessageId, assistantMessageId: assistantMessage.id, reply: final };
+/**
+ * Answers the latest question again ("Try again" after a failure, or a new answer to replace the last one):
+ * the reply after it, if any, is deleted, and the question is answered from the conversation before it.
+ */
+export async function regenerateReply(input: { conversationId: string; pageNote?: string | null }): Promise<SentMessage> {
+  const supabase = await createClient();
+  const conversation = await loadConversation(supabase, input.conversationId);
+  const { data: latest } = await supabase
+    .from("tutor_messages")
+    .select("id, role, content, action, selection, created_at")
+    .eq("conversation_id", conversation.id)
+    .order("created_at", { ascending: false })
+    .limit(2);
+  const rows = latest ?? [];
+  const question = rows[0]?.role === "user" ? rows[0] : rows[1]?.role === "user" ? rows[1] : null;
+  if (!question) throw new ServiceError("There is no question to answer again yet.", 409);
+  let count = conversation.message_count;
+  if (rows[0]?.role === "assistant") {
+    const { error } = await supabase.from("tutor_messages").delete().eq("id", rows[0].id);
+    if (error) throw new Error(`tutor_messages: delete failed: ${error.message}`);
+    count -= 1;
+  }
+  const action = (question.action as TutorActionId | null) ?? null;
+  const typed = !(action && question.content === TUTOR_ACTION_BY_ID[action]?.prompt);
+  // A question about their own study data ("what am I weak at?") gets the same snapshot as when it was asked.
+  const snapshot = asksAboutStudyData(question.content) ? await studySnapshot() : null;
+  return respond(supabase, { ...conversation, message_count: count }, {
+    content: question.content,
+    action,
+    selection: question.selection,
+    storeUser: false,
+    typed,
+    pageNote: [input.pageNote, snapshot].filter(Boolean).join("\n\n") || null,
+    answering: { id: question.id, createdAt: question.created_at },
+  });
 }
 
 /**

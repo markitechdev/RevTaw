@@ -11,6 +11,7 @@ import { Alert } from "@/components/forms/form-alert";
 import { useTheme } from "@/components/theme/theme-provider";
 import { useTamariMove } from "@/components/tamari/use-tamari-move";
 import { MessageBubble, type MessageExtras } from "@/components/tutor/message-bubble";
+import { endsUnanswered, ReplyRetry } from "@/components/tutor/reply-retry";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { TEXT_LINK } from "@/components/ui/text-link";
@@ -41,7 +42,7 @@ type Reply = {
   flashcard: MessageView["flashcard"];
   visual?: MessageView["visual"];
 };
-type SendResponse = { error?: string; id?: string; conversation?: ConversationInfo | null; reused?: boolean; userMessageId?: string | null; assistantMessageId?: string; reply?: Reply };
+type SendResponse = { error?: string; id?: string; conversation?: ConversationInfo | null; reused?: boolean; userMessageId?: string | null; assistantMessageId?: string; reply?: Reply; retryable?: boolean };
 type SendInput = {
   content: string;
   action: TutorActionId | null;
@@ -226,6 +227,8 @@ export default function AssistantPanel() {
   const [selection, setSelection] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Why the last question has no answer (shown with "Try again"); null when unknown. */
+  const [failure, setFailure] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [view, setView] = useState<"chat" | "history">("chat");
   const [history, setHistory] = useState<HistoryItem[] | null>(null);
@@ -437,6 +440,7 @@ export default function AssistantPanel() {
     setMessages([]);
     setExtras({});
     setError(null);
+    setFailure(null);
     setSelection(null);
     setView("chat");
     storeConversation(null);
@@ -478,6 +482,7 @@ export default function AssistantPanel() {
     };
     const base = current ? messages : [];
     setError(null);
+    setFailure(null);
     setNotice(null);
     setView("chat");
     setSending(true);
@@ -500,6 +505,23 @@ export default function AssistantPanel() {
         ),
       });
       const body = (await response.json().catch(() => ({}))) as SendResponse;
+      // The AI failed, but the question is saved: keep it on screen with "Try again" instead of retyping.
+      if (!response.ok && body.retryable && body.userMessageId) {
+        const saved = { ...optimistic, id: body.userMessageId };
+        if (!current) {
+          const id = body.id ?? body.conversation?.id ?? null;
+          if (id) {
+            storeConversation(id);
+            setConversation(body.conversation ?? { id, title: "New conversation", material: null });
+          }
+          const data = body.reused && id ? await fetchConversation(id) : null;
+          setMessages(data?.messages ?? [saved]);
+        } else {
+          setMessages([...base.filter((message) => message.id !== optimistic.id), saved]);
+        }
+        setFailure(body.error ?? null);
+        return;
+      }
       if (!response.ok || !body.reply || !body.assistantMessageId) {
         setConversation(previous.conversation);
         setMessages(previous.messages);
@@ -537,6 +559,34 @@ export default function AssistantPanel() {
     } finally {
       setSending(false);
       if (refocus) textareaRef.current?.focus();
+    }
+  };
+
+  /** Answers the latest question again: after a failure, or in place of the last answer. */
+  const retry = async () => {
+    if (sending || !conversation) return;
+    setSending(true);
+    setFailure(null);
+    setError(null);
+    const context = includeContext && page?.ref ? page.ref : null;
+    try {
+      const response = await fetch(`/api/tutor/conversations/${conversation.id}/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ regenerate: true, context }),
+      });
+      const body = (await response.json().catch(() => ({}))) as SendResponse;
+      if (!response.ok || !body.reply || !body.assistantMessageId) {
+        setFailure(body.error ?? "Tamari could not answer just now. Please try again.");
+        return;
+      }
+      const reply = assistantMessage(body.assistantMessageId, body.reply);
+      // The new answer follows the question it answers, replacing any answer after it.
+      setMessages((state) => [...state.slice(0, state.map((message) => message.role).lastIndexOf("user") + 1), reply]);
+    } catch {
+      setFailure("You seem to be offline. Press Try again when you're back.");
+    } finally {
+      setSending(false);
     }
   };
 
@@ -975,6 +1025,7 @@ export default function AssistantPanel() {
                 />
               ))
             )}
+            {!sending && !restoring && endsUnanswered(messages) && <ReplyRetry message={failure} onRetry={() => void retry()} />}
             {sending && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
                 <span aria-hidden="true" className="tamari-dots static flex">

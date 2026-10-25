@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
 import { MessageBubble, type MessageExtras } from "@/components/tutor/message-bubble";
+import { endsUnanswered, ReplyRetry } from "@/components/tutor/reply-retry";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -27,6 +28,8 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
   const [messages, setMessages] = useState<MessageView[]>(conversation.messages);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
+  /** Why the last question has no answer (shown with "Try again"); null when unknown. */
+  const [failure, setFailure] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [extras, setExtras] = useState<Record<string, MessageExtras>>({});
   const [mode, setMode] = useState(conversation.mode);
@@ -48,6 +51,7 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
   const send = async (content: string, action: TutorActionId | null, selection: string | null = null, replyTo: string | null = null) => {
     if (sending || locked) return;
     setError(null);
+    setFailure(null);
     setSending(true);
     optimisticCounter.current += 1;
     const optimistic: MessageView = {
@@ -72,7 +76,13 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
         headers: { "content-type": "application/json", accept: "application/json" },
         body: JSON.stringify({ message: content, action, selection, replyTo }),
       });
-      const body = (await response.json().catch(() => ({}))) as { error?: string; userMessageId?: string; assistantMessageId?: string; reply?: MessageView & { answer: string } };
+      const body = (await response.json().catch(() => ({}))) as { error?: string; userMessageId?: string; assistantMessageId?: string; reply?: MessageView & { answer: string }; retryable?: boolean };
+      // The AI failed, but the question is saved: keep it on screen with "Try again" instead of retyping.
+      if (!response.ok && body.retryable && body.userMessageId) {
+        setMessages((state) => state.map((message) => (message.id === optimistic.id ? { ...message, id: body.userMessageId! } : message)));
+        setFailure(body.error ?? null);
+        return;
+      }
       if (!response.ok || !body.reply || !body.assistantMessageId) {
         setMessages((state) => state.filter((message) => message.id !== optimistic.id));
         setDraft(content);
@@ -100,6 +110,47 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
     } finally {
       setSending(false);
       textarea.current?.focus();
+    }
+  };
+
+  /** Answers the latest question again: after a failure, or in place of the last answer. */
+  const retry = async () => {
+    if (sending || locked) return;
+    setSending(true);
+    setFailure(null);
+    setError(null);
+    try {
+      const response = await fetch(`/api/tutor/conversations/${conversation.id}/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ regenerate: true }),
+      });
+      const body = (await response.json().catch(() => ({}))) as { error?: string; assistantMessageId?: string; reply?: { answer: string; grounding: MessageView["grounding"]; sources: MessageView["sources"]; additional_explanation: string | null; follow_ups: FollowUpId[]; flashcard: MessageView["flashcard"]; visual?: MessageView["visual"] } };
+      if (!response.ok || !body.reply || !body.assistantMessageId) {
+        setFailure(body.error ?? "Tamari could not answer just now. Please try again.");
+        return;
+      }
+      const reply = body.reply;
+      const answer: MessageView = {
+        id: body.assistantMessageId,
+        role: "assistant",
+        content: reply.answer,
+        action: null,
+        selection: null,
+        grounding: reply.grounding,
+        sources: reply.sources,
+        additional_explanation: reply.additional_explanation,
+        follow_ups: reply.follow_ups,
+        flashcard: reply.flashcard,
+        visual: reply.visual ?? null,
+        created_at: "",
+      };
+      // The new answer follows the question it answers, replacing any answer after it.
+      setMessages((state) => [...state.slice(0, state.map((message) => message.role).lastIndexOf("user") + 1), answer]);
+    } catch {
+      setFailure("You seem to be offline. Press Try again when you're back.");
+    } finally {
+      setSending(false);
     }
   };
 
@@ -213,6 +264,7 @@ export function TutorChat({ conversation }: { conversation: ConversationDetail }
             onFollowUp={message.role === "assistant" && !locked ? followUp : undefined}
           />
         ))}
+        {!sending && !locked && endsUnanswered(messages) && <ReplyRetry message={failure} onRetry={() => void retry()} />}
         {sending && (
           <div className="flex justify-start">
             <div className="flex items-center gap-2 rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-3 text-sm text-muted-foreground" role="status">
