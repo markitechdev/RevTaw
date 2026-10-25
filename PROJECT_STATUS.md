@@ -293,6 +293,21 @@ model that uploaded text is data. What changed:
   tab: no embeds, widgets or scripts from those sites. Each is 40 px (44 px
   on touch screens) and its accessible name says whose profile it is and
   that it opens in a new tab.
+- **Locked study methods, explained once** — without a processed material,
+  the session builder showed about 30 greyed methods, each saying "Needs a
+  processed material.", with Active Recall picked even though it couldn't
+  start. Now one note over the methods says why (most methods build their
+  questions from your notes) with the way forward: "Upload a material"
+  (opens the upload dialog), "still being prepared" while an upload is
+  processed, or "couldn't be prepared" with "Open Materials" (the Study
+  page counts the uploads not ready). Locked cards keep a lock icon and,
+  for screen readers, the reason; the specific reasons stay visible
+  (Interleaving's two materials, no open mistakes, no due cards). The first
+  pick is a method that can start (`defaultBuilderMethod()`), only startable
+  methods are recommended, and step 1's hint names what works without a
+  material (`methodLock()` and `LOCK_REASON` in `src/lib/study/catalog.ts`).
+  A method opened from a link stays picked, and Start still says why it
+  can't begin.
 
 ### Launch review round (security, correctness, accessibility, consistency, launch polish)
 
