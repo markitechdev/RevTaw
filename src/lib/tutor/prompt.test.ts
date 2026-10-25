@@ -33,6 +33,16 @@ describe("Tamari's prompt", () => {
     expect(buildTutorPrompt({ ...base, mode: "socratic" }).system).toMatch(/Socratic mode/);
   });
 
+  it("lets a coaching mode win over answering first, and keeps guided mode from giving the answer away", () => {
+    const guided = buildTutorPrompt({ ...base, mode: "guided" }).system;
+    expect(guided).toMatch(/Guided mode: help the student reach the answer themselves/);
+    expect(guided).toMatch(/never state the final answer/);
+    expect(guided).toMatch(/Asking a question is not asking for the answer/);
+    expect(guided).toMatch(/Where this differs from "How to answer" above, this mode wins\./);
+    expect(buildTutorPrompt({ ...base, mode: "socratic" }).system).toMatch(/this mode wins/);
+    expect(buildTutorPrompt(base).system).not.toMatch(/this mode wins/);
+  });
+
   it("builds the turn in tagged sections, the student's message last", () => {
     const turn = buildTurn({ ...base, action: "example", focus: { question: "how does INNER JOIN work?", answer: "INNER JOIN keeps only matching rows." }, pageNote: "The student has the material open." });
     expect(sections(turn)).toEqual(["student", "page_context", "material", "focus", "task", "student_message"]);
