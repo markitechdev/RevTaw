@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { gradeHeuristically, quizHeuristically } from "@/lib/ai/providers/mock";
 import { finalizeQuestions, quizResponseSchema } from "@/lib/quizzes/generate";
-import { gradeObjective, normalizeText, textMatches } from "@/lib/quizzes/grade";
+import { gradeObjective, nearMiss, normalizeText, textMatches } from "@/lib/quizzes/grade";
 import { parseQuizConfig } from "@/lib/quizzes/schemas";
 import { DEFAULT_QUIZ_CONFIG, describeAnswer, distributeQuestions, typeCoverageError, type QuizConfig } from "@/lib/quizzes/types";
 
@@ -26,15 +26,45 @@ describe("distributeQuestions", () => {
 describe("text grading", () => {
   it("normalizes case, accents, punctuation and articles", () => {
     expect(normalizeText("  The Calvin Cycle! ")).toBe("calvin cycle");
-    expect(normalizeText("Chlorophyll-a")).toBe("chlorophyll-a");
+    expect(normalizeText("Chlorophyll-a")).toBe("chlorophyll a");
+    expect(normalizeText("Ang mga Halaman")).toBe("halaman");
+    expect(normalizeText("3.14")).toBe("3.14");
+    expect(normalizeText("-5")).toBe("-5");
+  });
+
+  it("keeps a letter that is part of the answer", () => {
+    expect(normalizeText("Vitamin A")).toBe("vitamin a");
+    expect(normalizeText("A")).toBe("a");
+    expect(textMatches("Vitamin", ["Vitamin A"])).toBe(false);
+    expect(textMatches("vitamin a", ["Vitamin A"])).toBe(true);
+    expect(textMatches("A", ["A"])).toBe(true);
+    expect(textMatches("Hepatitis A", ["Hepatitis B"])).toBe(false);
   });
 
   it("accepts lenient matches and numbers", () => {
     expect(textMatches("the calvin cycle", ["Calvin cycle"])).toBe(true);
     expect(textMatches("arrays", ["array"])).toBe(true);
+    expect(textMatches("genes", ["gene"])).toBe(true);
+    expect(textMatches("boxes", ["box"])).toBe(true);
+    expect(textMatches("X-ray", ["xray"])).toBe(true);
+    expect(textMatches("U.S.", ["US"])).toBe(true);
+    expect(textMatches("ang mitochondria", ["Mitochondria"])).toBe(true);
     expect(textMatches("1,950", ["1950"])).toBe(true);
+    expect(textMatches("1", ["-1"])).toBe(false);
+    expect(textMatches("-1", ["-1"])).toBe(true);
     expect(textMatches("stroma", ["thylakoid"])).toBe(false);
+    expect(textMatches("bu", ["bus"])).toBe(false);
     expect(textMatches("", ["anything"])).toBe(false);
+  });
+
+  it("calls a misspelling a near miss without accepting it", () => {
+    expect(textMatches("mitochondira", ["mitochondria"])).toBe(false);
+    expect(nearMiss("mitochondira", ["mitochondria"])).toBe(true);
+    expect(nearMiss("Photosynthesys", ["photosynthesis"])).toBe(true);
+    expect(nearMiss("stroma", ["stomata"])).toBe(false);
+    expect(nearMiss("mitochondria", ["mitochondria"])).toBe(false);
+    expect(nearMiss("1951", ["1950"])).toBe(false);
+    expect(gradeObjective("identification", { accepted: ["Mitochondria"] }, { text: "mitochondira" }, 1)).toMatchObject({ isCorrect: false, score: 0, feedback: expect.stringMatching(/spelling/) });
   });
 
   it("grades objective types and leaves open types to the AI", () => {

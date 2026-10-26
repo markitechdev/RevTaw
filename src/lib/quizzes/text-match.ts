@@ -1,16 +1,33 @@
 /** Lenient text matching shared by quiz grading and the study exercises. Pure and client-safe. */
 
-/** Lowercases, strips punctuation/articles and collapses whitespace for lenient text matching. */
+/** An article in front of an answer ("the mitochondria", "ang mga halaman", "si Rizal"): not part of it. */
+const LEADING_ARTICLE = /^(?:the|an|a|ang mga|ang|mga|si|sina)\s+(?=\S)/;
+
+/**
+ * Lowercases, drops accents and punctuation, and collapses whitespace for lenient text matching. A hyphen
+ * between letters becomes a space ("chlorophyll-a" = "chlorophyll a") and a dot that isn't a decimal point is
+ * dropped ("U.S." = "US"). "the" and "an" are dropped anywhere; any other article ("a", Filipino "ang", "mga",
+ * "si") only in front of the answer, so a letter that is the answer stays: "Vitamin A" is not "vitamin", and
+ * "A" is still "a".
+ */
 export function normalizeText(value: string): string {
-  return value
+  const cleaned = value
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^\p{L}\p{N}\s.-]/gu, " ")
-    .replace(/(^|\s)(?:the|a|an)(?=\s|$)/g, "$1")
+    .replace(/(?<=\p{L})-(?=\p{L})/gu, " ")
+    .replace(/(?<!\d)\.|\.(?!\d)/g, " ")
     .replace(/\s+/g, " ")
     .trim()
-    .replace(/^[.\s-]+|[.\s-]+$/g, "");
+    // Stray hyphens at the ends go, a minus sign stays ("-5" is not "5").
+    .replace(/^(?:\s|-(?!\d))+|[\s-]+$/g, "");
+  const withoutArticles = cleaned
+    .replace(/(^|\s)(?:the|an)(?=\s|$)/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(LEADING_ARTICLE, "");
+  return withoutArticles || cleaned;
 }
 
 function numeric(value: string): number | null {
@@ -18,7 +35,22 @@ function numeric(value: string): number | null {
   return match ? Number(match[0]) : null;
 }
 
-/** Lenient equality for identification / fill-in answers. */
+/** One is the other with a plural ending ("genes"/"gene", "boxes"/"box"); the singular has at least 3 letters. */
+function pluralOf(a: string, b: string): boolean {
+  const [long, short] = a.length > b.length ? [a, b] : [b, a];
+  if (short.length < 3) return false;
+  return long === `${short}s` || long === `${short}es`;
+}
+
+function same(given: string, expected: string): boolean {
+  if (given === expected) return true;
+  // Spacing alone: "x ray" = "xray", "photo synthesis" = "photosynthesis".
+  const a = given.replace(/\s/g, "");
+  const b = expected.replace(/\s/g, "");
+  return a === b || pluralOf(a, b);
+}
+
+/** Lenient equality for identification / fill-in answers: wording, spacing, articles and plurals may differ, spelling may not. */
 export function textMatches(student: string, accepted: string[]): boolean {
   const given = normalizeText(student);
   if (!given) return false;
@@ -26,11 +58,45 @@ export function textMatches(student: string, accepted: string[]): boolean {
   return accepted.some((candidate) => {
     const expected = normalizeText(candidate);
     if (!expected) return false;
-    if (given === expected) return true;
     const expectedNumber = numeric(expected);
     if (givenNumber !== null && expectedNumber !== null) return Math.abs(givenNumber - expectedNumber) < 1e-9;
-    // Tolerate a trailing "s" / "es" and a surrounding article.
-    const singular = (text: string) => text.replace(/(es|s)$/, "");
-    return singular(given) === singular(expected);
+    return same(given, expected);
+  });
+}
+
+/** Edit distance with adjacent swaps (optimal string alignment), stopping early past `max`. */
+function editDistance(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let before: number[] = [];
+  let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i += 1) {
+    const current = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let value = Math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) value = Math.min(value, before[j - 2] + 1);
+      current.push(value);
+      best = Math.min(best, value);
+    }
+    if (best > max) return max + 1;
+    before = previous;
+    previous = current;
+  }
+  return previous[b.length];
+}
+
+/**
+ * Whether a wrong answer is a near miss of an accepted one: the same word with a slip in spelling (one letter
+ * off, or two in a long answer). It earns no credit (spelling counts on exams) but the feedback can say so.
+ */
+export function nearMiss(student: string, accepted: string[]): boolean {
+  const given = normalizeText(student).replace(/\s/g, "");
+  if (given.length < 4 || numeric(given) !== null || textMatches(student, accepted)) return false;
+  return accepted.some((candidate) => {
+    const expected = normalizeText(candidate).replace(/\s/g, "");
+    if (expected.length < 5 || numeric(expected) !== null) return false;
+    const allowed = expected.length >= 10 ? 2 : 1;
+    return editDistance(given, expected, allowed) <= allowed;
   });
 }

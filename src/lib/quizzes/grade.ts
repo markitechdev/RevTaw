@@ -3,10 +3,13 @@ import { z } from "zod";
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { type QuestionAnswer, type QuestionResponse } from "@/lib/quizzes/types";
-import { normalizeText, textMatches } from "@/lib/quizzes/text-match";
+import { nearMiss, normalizeText, textMatches } from "@/lib/quizzes/text-match";
 import type { QuestionType } from "@/lib/supabase/database.types";
 
-export { normalizeText, textMatches };
+export { nearMiss, normalizeText, textMatches };
+
+/** Feedback for an identification or fill-in answer that is the right term misspelled (no credit). */
+export const NEAR_MISS_FEEDBACK = "Almost: check the spelling. A misspelled term is marked wrong, as on an exam.";
 
 /** Share of the points needed for an open answer to count as correct. */
 export const CORRECT_THRESHOLD = 0.6;
@@ -32,8 +35,10 @@ export function gradeObjective(type: QuestionType, answer: QuestionAnswer, respo
     }
     case "identification":
     case "fill_blank": {
-      const correct = "accepted" in answer && "text" in response && textMatches(response.text, answer.accepted);
-      return { isCorrect: correct, score: correct ? points : 0, feedback: null, gradedBy: "auto" };
+      if (!("accepted" in answer) || !("text" in response)) return { isCorrect: false, score: 0, feedback: null, gradedBy: "auto" };
+      const correct = textMatches(response.text, answer.accepted);
+      const feedback = !correct && nearMiss(response.text, answer.accepted) ? NEAR_MISS_FEEDBACK : null;
+      return { isCorrect: correct, score: correct ? points : 0, feedback, gradedBy: "auto" };
     }
     default:
       return null;
