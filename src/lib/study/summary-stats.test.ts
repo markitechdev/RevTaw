@@ -28,6 +28,9 @@ describe("summary stats", () => {
     expect(countLabelsFor("active_recall")).toBeUndefined();
     expect(extraStatsFor("pomodoro", { completedRounds: 2 })).toEqual([{ label: "Rounds", value: "2" }]);
     expect(extraStatsFor("question_generation", { averageQuality: 71 })).toEqual([{ label: "Average quality", value: "71%" }]);
+    // A practice test's blank questions aren't answers: they are shown on their own.
+    expect(extraStatsFor("practice_testing", { score: 6, maxScore: 10, unanswered: 3 })).toEqual([{ label: "Not answered", value: "3" }]);
+    expect(extraStatsFor("practice_testing", { score: 6, maxScore: 10 })).toEqual([]);
   });
 });
 

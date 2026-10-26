@@ -28,6 +28,9 @@ export function extraStatsFor(method: string, extra: Record<string, unknown> | u
   if (isTutorMethod(method) && turns !== null) stats.push({ label: "Your replies", value: String(turns) });
   const rounds = number("completedRounds");
   if (method === "pomodoro" && rounds !== null) stats.push({ label: "Rounds", value: String(rounds) });
+  // A practice test's questions left blank: they score 0 on the test but aren't counted as answered.
+  const unanswered = number("unanswered");
+  if (unanswered) stats.push({ label: "Not answered", value: String(unanswered) });
   const quality = number("averageQuality");
   if (method === "question_generation" && quality !== null) stats.push({ label: "Average quality", value: `${Math.round(quality)}%` });
   return stats;

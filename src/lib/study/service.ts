@@ -749,10 +749,14 @@ export async function syncPracticeTesting(session: StudySession): Promise<Sessio
 
   const { data: answers } = await supabase
     .from("quiz_answers")
-    .select("is_correct, question:quiz_questions!quiz_answers_question_fk(concept:concepts!quiz_questions_concept_fk(name))")
+    .select("is_correct, response, question:quiz_questions!quiz_answers_question_fk(concept:concepts!quiz_questions_concept_fk(name))")
     .eq("attempt_id", attempt.id);
+  // A question left blank scores 0 on the test but isn't an answer, and one still waiting for the student's
+  // own mark has no result yet: neither counts as answered, nor makes its concept weak.
+  const graded = (answers ?? []).filter((answer) => answer.response !== null && answer.is_correct !== null);
+  const blank = (answers ?? []).filter((answer) => answer.response === null).length;
   const byConcept = new Map<string, { correct: number; total: number }>();
-  for (const answer of answers ?? []) {
+  for (const answer of graded) {
     const name = (answer.question as unknown as { concept: { name: string } | null } | null)?.concept?.name ?? "General";
     const entry = byConcept.get(name) ?? { correct: 0, total: 0 };
     entry.total += 1;
@@ -763,17 +767,21 @@ export async function syncPracticeTesting(session: StudySession): Promise<Sessio
   const strong = [...byConcept.entries()].filter(([, value]) => value.correct === value.total && value.total > 0).map(([name]) => name);
   const total = attempt.question_count || (answers ?? []).length;
   const correct = attempt.correct_count ?? 0;
+  // Blank answers, and questions the attempt never stored an answer for.
+  const unanswered = Math.max(0, total - (answers ?? []).length) + blank;
   const focus = attempt.submitted_at ? Math.round((new Date(attempt.submitted_at).getTime() - new Date(attempt.started_at).getTime()) / 1000) : undefined;
   return completeSession(supabase, session.id, {
     focusSeconds: focus,
     topics: [...byConcept.keys()],
-    questionsAnswered: total,
+    questionsAnswered: graded.length,
     correct,
-    incorrect: Math.max(0, total - correct),
+    incorrect: Math.max(0, graded.length - correct),
+    // The test's result is out of every question, the blank ones included.
+    accuracy: total ? correct / total : null,
     weakConcepts: weak,
     strongConcepts: strong,
     suggestedNext: suggestNext(total ? correct / total : null, weak, "practice_testing"),
     nextReviewAt: await nextFlashcardDue(supabase),
-    extra: { score: attempt.score, maxScore: attempt.max_score, attemptId: attempt.id },
+    extra: { score: attempt.score, maxScore: attempt.max_score, attemptId: attempt.id, ...(unanswered > 0 ? { unanswered } : {}) },
   });
 }

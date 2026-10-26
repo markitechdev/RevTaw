@@ -85,6 +85,7 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
             headingLevel="h1"
             title={`${name} complete`}
             summary={summary}
+            extraStats={extraStatsFor(session.method, summary.extra)}
             actions={
               <>
                 {parentLink}
