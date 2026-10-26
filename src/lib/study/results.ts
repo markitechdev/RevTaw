@@ -11,8 +11,11 @@ import type { MistakeType } from "@/lib/supabase/database.types";
 
 export type SelfCheck = "correct" | "incorrect";
 
-/** What goes to the notebook if the student marks the answer "not yet". */
-export type PendingMistake = { question: string; correctAnswer: string; explanation: string; errorType?: MistakeType };
+/**
+ * What goes to the notebook for a wrong answer (or one the student marks "not yet"): the question, with the
+ * choices or context its retest needs.
+ */
+export type PendingMistake = { question: string; correctAnswer: string; explanation: string; errorType?: MistakeType; choices?: string[] | null; context?: string | null };
 
 /** Kept in the analysis of an unchecked answer, under `ungraded`. */
 export type Ungraded = { selfCheck: SelfCheck | null; mistake: PendingMistake | null; retestedMistakeId: string | null };

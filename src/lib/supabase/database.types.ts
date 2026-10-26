@@ -340,6 +340,10 @@ type MistakesRow = {
   explanation: string | null;
   error_type: MistakeType;
   resolved_at: string | null;
+  /** Options of a question answered by picking one, in order (migration 0040); null otherwise. */
+  choices: Json | null;
+  /** What the question needs that isn't in it: a case's text, a scenario's situation and options (0040). */
+  context: string | null;
   created_at: string;
   updated_at: string;
 };

@@ -6,13 +6,14 @@ import { getAnalyticsOverview } from "@/lib/analytics/queries";
 import { bullets, callout, formatExportDate, heading, keyValues, markdownBlocks, paragraph, table, type ExportBlock, type ExportDocument, type ExportSection } from "@/lib/export/model";
 import { getDeck } from "@/lib/flashcards/queries";
 import { getGamificationView } from "@/lib/gamification/sync";
+import { cleanChoices, isTrueFalse } from "@/lib/mistakes/retest";
 import { formatDate } from "@/lib/planner/dates";
 import { getExam } from "@/lib/planner/queries";
 import { plannerClock } from "@/lib/planner/service";
 import { PLAN_MODE_LABEL, TASK_STATUS_LABEL } from "@/lib/planner/types";
 import { getAttemptResults, listMistakes } from "@/lib/quizzes/queries";
 import { answerSchema } from "@/lib/quizzes/schemas";
-import { describeAnswer, DIFFICULTY_LABEL, MISTAKE_TYPE_LABEL, QUESTION_TYPE_BY_ID, QUIZ_MODE_LABEL, type QuestionAnswer, type QuestionOption } from "@/lib/quizzes/types";
+import { describeAnswer, DIFFICULTY_LABEL, MISTAKE_TYPE_LABEL, optionLetter, QUESTION_TYPE_BY_ID, QUIZ_MODE_LABEL, type QuestionAnswer, type QuestionOption } from "@/lib/quizzes/types";
 import { REVIEWER_KIND_BY_ID } from "@/lib/reviewers/kinds";
 import { getReviewer } from "@/lib/reviewers/queries";
 import { methodName } from "@/lib/study/catalog";
@@ -190,16 +191,22 @@ export async function buildMistakesExport(options: { resolved: boolean }): Promi
       {
         heading: null,
         blocks: mistakes.length
-          ? mistakes.flatMap((mistake, index) => [
-              heading(`${index + 1}. ${mistake.question_text}`, 3),
-              keyValues([
-                { label: "Your answer", value: mistake.student_answer ?? "(blank)" },
-                { label: "Correct answer", value: mistake.correct_answer },
-                { label: "Error type", value: MISTAKE_TYPE_LABEL[mistake.error_type] },
-              ]),
-              ...(mistake.explanation ? [callout("Why", mistake.explanation)] : []),
-              paragraph([mistake.concept?.name, mistake.material?.title, formatExportDate(mistake.created_at)].filter(Boolean).join(" · "), true),
-            ])
+          ? mistakes.flatMap((mistake, index) => {
+              const choices = cleanChoices(mistake.choices);
+              return [
+                heading(`${index + 1}. ${mistake.question_text}`, 3),
+                // What the question needs: its case or situation, and the options of one answered by picking.
+                ...(mistake.context ? [paragraph(mistake.context, true)] : []),
+                ...(choices && !isTrueFalse(choices) ? [bullets(choices.map((choice, position) => `${optionLetter(position)}. ${choice}`))] : []),
+                keyValues([
+                  { label: "Your answer", value: mistake.student_answer ?? "(blank)" },
+                  { label: "Correct answer", value: mistake.correct_answer },
+                  { label: "Error type", value: MISTAKE_TYPE_LABEL[mistake.error_type] },
+                ]),
+                ...(mistake.explanation ? [callout("Why", mistake.explanation)] : []),
+                paragraph([mistake.concept?.name, mistake.material?.title, formatExportDate(mistake.created_at)].filter(Boolean).join(" · "), true),
+              ];
+            })
           : [paragraph("Nothing here — every wrong quiz answer lands in the notebook automatically.", true)],
       },
     ],

@@ -4,6 +4,7 @@ import { weakConceptNames as masteryWeakConcepts } from "@/lib/adaptive/engine";
 import { markSmartBlock, startSmartSession } from "@/lib/adaptive/smart";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { isAiError } from "@/lib/ai";
+import { choiceComparison, retestViewOf } from "@/lib/mistakes/retest";
 import { createQuiz, startAttempt } from "@/lib/quizzes/service";
 import { QUESTION_TYPE_IDS } from "@/lib/quizzes/types";
 import { loadMaterialContext } from "@/lib/reviewers/service";
@@ -19,7 +20,8 @@ import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions
 import { isTutorMethod, METHOD_BEHAVIOR, TEST_METHOD_IDS, type BuilderMethodId, type TestMethodId } from "@/lib/study/catalog";
 import { signatureForStart, startUnlessDuplicate, type SessionDuplicate } from "@/lib/study/duplicates";
 import { activeSeconds } from "@/lib/study/focus";
-import { loadOpenItem, recordItemResult, recordUngradedItem, reloadItem, settleAnsweredItem, storeItemAttempt } from "@/lib/study/items";
+import { insertItems, loadOpenItem, recordItemResult, recordUngradedItem, reloadItem, settleAnsweredItem, storeItemAttempt } from "@/lib/study/items";
+import { mistakesToRetest, retestItem } from "@/lib/study/retests";
 import type { StudyMethodId } from "@/lib/study/methods";
 import type { ProblemDifficulty } from "@/lib/study/prompts/problems";
 import { completeSession, createSession, loadSession, SessionError, sessionTitle, suggestNext, updateSessionState, type SessionSummary } from "@/lib/study/sessions";
@@ -298,17 +300,10 @@ async function startFeynmanSession(supabase: Client, userId: string, input: Star
 }
 
 async function startErrorReviewSession(supabase: Client, userId: string, input: StartSessionInput): Promise<StartSessionResult> {
-  let query = supabase
-    .from("mistakes")
-    .select("id, question_text, correct_answer, explanation, concept_id, material_id, material:materials!mistakes_material_fk(title)")
-    .is("resolved_at", null)
-    .order("created_at", { ascending: false })
-    .limit(recallCount(input.plannedMinutes));
-  if (input.materialId) query = query.eq("material_id", input.materialId);
-  const { data: mistakes } = await query;
-  if (!mistakes || mistakes.length === 0) throw new SessionError("Your mistake notebook has nothing open to retest.", 422);
+  const mistakes = await mistakesToRetest(supabase, { materialId: input.materialId, limit: recallCount(input.plannedMinutes) });
+  if (mistakes.length === 0) throw new SessionError("Your mistake notebook has nothing open to retest.", 422);
 
-  const materialTitle = input.materialId ? ((mistakes[0].material as unknown as { title: string } | null)?.title ?? null) : null;
+  const materialTitle = input.materialId ? (mistakes[0].material?.title ?? null) : null;
   const { id } = await createSession(supabase, userId, {
     method: "error_review",
     materialId: input.materialId,
@@ -317,21 +312,7 @@ async function startErrorReviewSession(supabase: Client, userId: string, input: 
     title: materialTitle ? `${materialTitle} — Error Review` : "Error Review — mistake notebook",
     state: { index: 0 },
   });
-  const { error } = await supabase.from("study_session_items").insert(
-    mistakes.map((mistake, position) => ({
-      session_id: id,
-      user_id: userId,
-      position,
-      kind: "mistake" as const,
-      concept_id: mistake.concept_id,
-      prompt: mistake.question_text,
-      model_answer: mistake.correct_answer,
-      key_points: [] as unknown as Json,
-      source_excerpt: mistake.explanation?.slice(0, 1000) ?? null,
-      source_mistake_id: mistake.id,
-    })),
-  );
-  if (error) throw new Error(`study_session_items: insert failed: ${error.message}`);
+  await insertItems(supabase, mistakes.map((mistake, position) => retestItem(mistake, { sessionId: id, userId, position })));
   return { sessionId: id, redirect: `/study/${id}` };
 }
 
@@ -405,31 +386,40 @@ export type { RecallItemResult } from "@/lib/study/results";
 /** Item kinds answered through the recall comparison (the other kinds have their own flows). */
 const RECALL_FLOW_KINDS: ReadonlyArray<StudySessionItem["kind"]> = ["recall", "mistake", "chunk", "stage"];
 
-/** Compares a recall answer with the model answer and stores the result; wrong answers go to the notebook. */
+/**
+ * Compares a recall answer with the model answer and stores the result; wrong answers go to the notebook. A
+ * retest of a notebook entry answered by picking one of its choices is checked against the right choice.
+ */
 export async function answerRecallItem(input: { itemId: string; response: string; confidence: ConfidenceLevel | null; responseMs: number | null }): Promise<RecallItemResult> {
   const supabase = await createClient();
   const { item, session } = await loadOpenItem(supabase, input.itemId);
   if (!RECALL_FLOW_KINDS.includes(item.kind) || (item.kind === "stage" && item.format === "summary")) throw new SessionError("This item uses a different flow.", 400);
   if (item.answered_at) return storedRecallResult(item);
 
+  const retest = item.kind === "mistake" && item.source_mistake_id ? item.source_mistake_id : null;
+  const view = item.kind === "mistake" ? retestViewOf(item.analysis) : { choices: null, context: null };
   const keyPoints = Array.isArray(item.key_points) ? (item.key_points as string[]) : [];
   let comparison: RecallComparison | null;
-  try {
-    const result = await compareRecallAnswer({
-      materialTitle: session.title,
-      prompt: item.prompt,
-      modelAnswer: item.model_answer ?? "",
-      keyPoints,
-      studentAnswer: input.response,
-    });
-    comparison = result.comparison;
-  } catch (error) {
-    if (!isAiError(error)) throw error;
-    comparison = null;
+  if (view.choices) {
+    comparison = choiceComparison(input.response, item.model_answer ?? "");
+  } else {
+    try {
+      const result = await compareRecallAnswer({
+        materialTitle: session.title,
+        // A retest's case or situation is part of the question.
+        prompt: view.context ? `${view.context}\n\n${item.prompt}` : item.prompt,
+        modelAnswer: item.model_answer ?? "",
+        keyPoints,
+        studentAnswer: input.response,
+      });
+      comparison = result.comparison;
+    } catch (error) {
+      if (!isAiError(error)) throw error;
+      comparison = null;
+    }
   }
-  // Items keep what they carried before the answer (a chunk's reading text, a guided-reading question's section).
+  // Items keep what they carried before the answer (a chunk's reading text, a guided-reading question's section, a retest's choices).
   const carried = (item.analysis && typeof item.analysis === "object" && !Array.isArray(item.analysis) ? item.analysis : {}) as Record<string, unknown>;
-  const retest = item.kind === "mistake" && item.source_mistake_id ? item.source_mistake_id : null;
   const result = { modelAnswer: item.model_answer ?? "", sourceExcerpt: item.source_excerpt };
   if (!comparison) {
     // Tamari couldn't check it: the student sees the model answer and marks the answer themselves.

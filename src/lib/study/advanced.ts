@@ -20,6 +20,7 @@ import { CUMULATIVE_SPLIT, cumulativeCounts, weave } from "@/lib/study/mixing";
 import { pickSectionIndices } from "@/lib/study/sections";
 import { conceptsFor, insertItems, loadOpenItem, openSession, recordUngradedItem, reloadItem, settleAnsweredItem, storeItemAttempt, type Client, type FlowStartInput, type FlowStartResult, type ItemRow, type MaterialContext } from "@/lib/study/items";
 import { ungradedView, type UngradedView } from "@/lib/study/results";
+import { mistakesToRetest, retestItem } from "@/lib/study/retests";
 import { countSessionAnswer, loadSession, SessionError, sessionTitle } from "@/lib/study/sessions";
 import { PASS_SCORE } from "@/lib/study/verdict";
 import type { Json, SessionItemKind, StudySessionItem } from "@/lib/supabase/database.types";
@@ -105,14 +106,7 @@ export async function startRapidReview(supabase: Client, userId: string, input: 
   const context = await loadMaterialContext(supabase, input.materialId!);
   const minutes = [...RAPID_REVIEW_MINUTES].reduce((best, option) => (Math.abs(option - input.plannedMinutes) < Math.abs(best - input.plannedMinutes) ? option : best), RAPID_REVIEW_MINUTES[0]);
   const total = Math.max(3, Math.min(10, Math.round(minutes / 1.5)));
-  const { data: mistakes } = await supabase
-    .from("mistakes")
-    .select("id, question_text, correct_answer, explanation, concept_id")
-    .eq("material_id", context.material.id)
-    .is("resolved_at", null)
-    .order("created_at", { ascending: false })
-    .limit(Math.max(1, Math.floor(total * 0.4)));
-  const mistakeRows = mistakes ?? [];
+  const mistakeRows = await mistakesToRetest(supabase, { materialId: context.material.id, limit: Math.max(1, Math.floor(total * 0.4)) });
   const { data: analysisRow } = await supabase.from("material_analyses").select("data").eq("material_id", context.material.id).maybeSingle();
   const analysis = analysisRow ? parseAnalysisData(analysisRow.data) : null;
   const emphasis = [...(analysis?.exam_topics ?? []).map((topic) => topic.topic), ...(analysis?.important_facts ?? []).slice(0, 3)].slice(0, 8);
@@ -136,20 +130,7 @@ export async function startRapidReview(supabase: Client, userId: string, input: 
     title: sessionTitle("rapid_review", context.material.title),
     state: { index: 0, minutes, provider: generated.provider },
   });
-  const rows: ItemRow[] = mistakeRows.map((mistake, position) => ({
-    session_id: sessionId,
-    user_id: userId,
-    position,
-    kind: "mistake",
-    concept_id: mistake.concept_id,
-    prompt: mistake.question_text,
-    model_answer: mistake.correct_answer,
-    key_points: [] as unknown as Json,
-    source_excerpt: mistake.explanation?.slice(0, 1000) ?? null,
-    source_mistake_id: mistake.id,
-    material_id: null,
-    format: null,
-  }));
+  const rows: ItemRow[] = mistakeRows.map((mistake, position) => retestItem(mistake, { sessionId, userId, position }));
   rows.push(...(await recallItemsFor(supabase, userId, context, generated.questions, { sessionId, startPosition: rows.length })));
   if (rows.length === 0) throw new SessionError("Nothing to review yet — take a quiz on this material first.", 422);
   await insertItems(supabase, rows);

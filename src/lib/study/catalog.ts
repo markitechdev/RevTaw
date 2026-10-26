@@ -217,7 +217,7 @@ export const METHOD_BEHAVIOR: Record<StudyMethodId, MethodBehavior> = {
     goals: ["practice", "exam_prep", "master_topic"],
     requiresMaterial: false,
     availableIn: "now",
-    behavior: "Open entries from your mistake notebook come back as recall questions; a correct answer marks the mistake learned, a miss keeps it open.",
+    behavior: "Open entries from your mistake notebook come back as recall questions, or with their choices when you answered by picking one; a correct answer marks the mistake learned, a miss keeps it open.",
   },
   rapid_review: {
     howItHelps: "Hitting the highest-value points first makes the most of very little time.",

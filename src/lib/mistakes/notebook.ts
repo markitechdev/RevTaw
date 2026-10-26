@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { cleanChoices } from "@/lib/mistakes/retest";
 import type { Database, MistakeType } from "@/lib/supabase/database.types";
 import { clampText } from "@/lib/text/clamp";
 
@@ -17,6 +18,10 @@ export type NewMistake = {
   correctAnswer: string;
   explanation: string | null;
   errorType?: MistakeType;
+  /** The options of a question answered by picking one, in order, so its retest can show them. */
+  choices?: string[] | null;
+  /** What the question needs that isn't in it (a case's text, a scenario's situation and options). */
+  context?: string | null;
   /** A quiz question: the notebook keeps one entry per question per attempt (migration 0028). */
   quiz?: { attemptId: string; questionId: string };
 };
@@ -37,6 +42,8 @@ export async function addMistake(supabase: Client, mistake: NewMistake): Promise
     correct_answer: clampText(mistake.correctAnswer, TEXT_MAX) || "(see the session)",
     explanation: mistake.explanation ? clampText(mistake.explanation, TEXT_MAX) : null,
     error_type: mistake.errorType ?? "unclassified",
+    choices: cleanChoices(mistake.choices),
+    context: mistake.context?.trim() ? clampText(mistake.context.trim(), TEXT_MAX) : null,
   };
   const { error } = mistake.quiz
     ? await supabase.from("mistakes").upsert({ ...row, attempt_id: mistake.quiz.attemptId, question_id: mistake.quiz.questionId }, { onConflict: "attempt_id,question_id", ignoreDuplicates: true })

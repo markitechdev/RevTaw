@@ -6,7 +6,7 @@ import { addMistake, resolveMistake } from "@/lib/mistakes/notebook";
 import { loadMaterialContext } from "@/lib/reviewers/service";
 import { SELF_CHECK_EXPLANATION, ungradedOf, withUngraded, type PendingMistake, type SelfCheck } from "@/lib/study/results";
 import { countSessionAnswer, countSessionGrade, createSession, type CreateSessionInput, loadSession, SessionError } from "@/lib/study/sessions";
-import type { ConfidenceLevel, Database, Json, MistakeType, SessionGoal, SessionItemKind, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
+import type { ConfidenceLevel, Database, Json, SessionGoal, SessionItemKind, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -72,7 +72,7 @@ export type ItemResult = {
   responseMs: number | null;
   confidence?: ConfidenceLevel | null;
   /** Filed in the mistake notebook when the answer is wrong. */
-  mistake?: { question: string; correctAnswer: string; explanation: string; errorType?: MistakeType } | null;
+  mistake?: PendingMistake | null;
   /** The notebook mistake this item retests: marked learned when the answer is right (a wrong answer leaves it open). */
   retestedMistakeId?: string | null;
 };
@@ -117,6 +117,8 @@ export async function settleAnsweredItem(supabase: Client, item: StudySessionIte
       correctAnswer: result.mistake.correctAnswer,
       explanation: result.mistake.explanation,
       errorType: result.mistake.errorType,
+      choices: result.mistake.choices,
+      context: result.mistake.context,
     });
   }
   if (item.concept_id) await refreshMastery([item.concept_id]);
@@ -204,6 +206,8 @@ export async function selfCheckItem(input: { itemId: string; mark: SelfCheck }):
       correctAnswer: ungraded.mistake.correctAnswer,
       explanation: ungraded.mistake.explanation || SELF_CHECK_EXPLANATION,
       errorType: ungraded.mistake.errorType,
+      choices: ungraded.mistake.choices,
+      context: ungraded.mistake.context,
     });
   }
   if (item.concept_id) await refreshMastery([item.concept_id]);

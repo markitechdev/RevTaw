@@ -695,7 +695,9 @@ export function questionEvaluationHeuristically(material: string, prompt: string
 /** Deterministic recall check: key-point overlap decides the score. */
 export function recallCompareHeuristically(prompt: string) {
   const model = prompt.match(/^Model answer:\s*(.+)$/m)?.[1] ?? "";
-  const keyPoints = [...prompt.matchAll(/^- (.+)$/gm)].map((match) => match[1].trim()).filter((point) => !/^\(use/.test(point));
+  // Only the key points' own list: a question can hold "- " lines too (a retest's options).
+  const listed = prompt.match(/^Key points:\n([\s\S]*?)^Student answer:/m)?.[1] ?? "";
+  const keyPoints = [...listed.matchAll(/^- (.+)$/gm)].map((match) => match[1].trim()).filter((point) => !/^\(use/.test(point));
   const student = prompt.match(/^Student answer:\s*([\s\S]*)$/m)?.[1]?.trim() ?? "";
   const expected = keyPoints.length ? keyPoints.map((point) => point.toLowerCase()) : keywordsOf(model).slice(0, 4);
   const { hits, misses, ratio } = overlap(expected, student);

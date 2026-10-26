@@ -8,11 +8,13 @@ import { useState, useTransition } from "react";
 import { formatRelativeDate } from "@/components/materials/material-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Disclosure } from "@/components/ui/disclosure";
 import { Select } from "@/components/ui/select";
 import { AskWhyWrongButton } from "@/components/tutor/ask-why-wrong";
+import { cleanChoices, isTrueFalse } from "@/lib/mistakes/retest";
 import { updateMistakeAction } from "@/lib/quizzes/actions";
 import type { MistakeListItem } from "@/lib/quizzes/queries";
-import { MISTAKE_TYPE_LABEL } from "@/lib/quizzes/types";
+import { MISTAKE_TYPE_LABEL, optionLetter } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
 import type { MistakeType } from "@/lib/supabase/database.types";
 
@@ -24,6 +26,9 @@ export function MistakeItem({ mistake }: { mistake: MistakeListItem }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const resolved = Boolean(mistake.resolved_at);
+  const choices = cleanChoices(mistake.choices);
+  // True or false needs no list of its two choices.
+  const listed = choices && !isTrueFalse(choices) ? choices : null;
 
   const update = (patch: { resolved?: boolean; errorType?: MistakeType }) => {
     setError(null);
@@ -50,7 +55,22 @@ export function MistakeItem({ mistake }: { mistake: MistakeListItem }) {
           {formatRelativeDate(mistake.created_at)}
         </span>
       </div>
+      {mistake.context && (
+        <Disclosure label="The case or situation it's about" className="rounded-lg bg-muted/60 px-3">
+          <p className="whitespace-pre-wrap pb-3 text-sm leading-relaxed">{mistake.context}</p>
+        </Disclosure>
+      )}
       <p className="whitespace-pre-wrap font-medium leading-snug">{mistake.question_text}</p>
+      {listed && (
+        <ul className="flex flex-col gap-1 text-sm text-muted-foreground" aria-label="Choices">
+          {listed.map((choice, position) => (
+            <li key={choice} className="flex gap-2">
+              <span className="font-semibold">{optionLetter(position)}.</span>
+              <span>{choice}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
         <div className="rounded-lg bg-danger-soft/50 p-3">
           <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your answer</dt>
@@ -83,7 +103,13 @@ export function MistakeItem({ mistake }: { mistake: MistakeListItem }) {
         </div>
         <span className="ml-auto flex flex-wrap gap-2">
         {mistake.material && !resolved && (
-          <AskWhyWrongButton materialId={mistake.material.id} question={mistake.question_text} studentAnswer={mistake.student_answer} correctAnswer={mistake.correct_answer} />
+          <AskWhyWrongButton
+            materialId={mistake.material.id}
+            question={mistake.context ? `${mistake.context.slice(0, 1200)}\n\n${mistake.question_text}` : mistake.question_text}
+            options={listed?.map((text, position) => ({ id: String(position), text })) ?? null}
+            studentAnswer={mistake.student_answer}
+            correctAnswer={mistake.correct_answer}
+          />
         )}
         <Button type="button" size="sm" variant={resolved ? "ghost" : "secondary"} loading={pending} onClick={() => update({ resolved: !resolved })}>
           {!pending && (resolved ? <RotateCcw className="h-4 w-4" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />)}

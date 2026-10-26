@@ -18,6 +18,7 @@ import {
   defaultExamMinutes,
   describeAnswer,
   describeResponse,
+  hasOptions,
   isObjectiveType,
   type AnswerNote,
   QUESTION_TYPE_BY_ID,
@@ -404,6 +405,8 @@ async function recordMistake(
     correctAnswer: describeAnswer(answer, options),
     // Why their choice was wrong (or the true version of a false statement), then why the answer is right.
     explanation: [answerNote(answer, response)?.text, question.explanation].filter(Boolean).join(" ") || null,
+    // A question answered by picking one is retested with its choices, in the order they are stored.
+    choices: question.type === "true_false" ? ["True", "False"] : hasOptions(question.type) ? (options ?? []).map((option) => option.text) : null,
     quiz: { attemptId: attempt.id, questionId: question.id },
   });
 }

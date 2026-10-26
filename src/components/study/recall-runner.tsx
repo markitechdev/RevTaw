@@ -13,7 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { ChipGroup } from "@/components/ui/chip-group";
 import { Textarea } from "@/components/ui/input";
-import { CONFIDENCE_LEVELS } from "@/lib/quizzes/types";
+import { isTrueFalse, retestViewOf } from "@/lib/mistakes/retest";
+import { CONFIDENCE_LEVELS, optionLetter } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
 import { RETRIEVAL_FORMAT_LABEL, type RetrievalFormat } from "@/lib/study/formats";
 import { answerRecallAction, completeSessionAction } from "@/lib/study/actions";
@@ -21,6 +22,7 @@ import type { SessionDetail } from "@/lib/study/queries";
 import { recallResultOf, type RecallItemResult } from "@/lib/study/results";
 import type { SessionSummary } from "@/lib/study/sessions";
 import type { ConfidenceLevel } from "@/lib/supabase/database.types";
+import { cn } from "@/lib/utils";
 
 type Stored = RecallItemResult;
 
@@ -93,11 +95,12 @@ export function RecallRunner({ session, methodName, parentSessionId = null, pare
     });
   };
 
-  const reveal = () => {
+  // "I don't know" sends nothing: the answer is shown and counted as missed.
+  const reveal = (answer: string = response) => {
     if (!item) return;
     setError(null);
     startTransition(async () => {
-      const result = await answerRecallAction({ itemId: item.id, response, confidence, responseMs: Math.min(86_400_000, Date.now() - shownAt.current) });
+      const result = await answerRecallAction({ itemId: item.id, response: answer, confidence, responseMs: Math.min(86_400_000, Date.now() - shownAt.current) });
       if (!result.ok) {
         setError(result.message);
         return;
@@ -159,6 +162,10 @@ export function RecallRunner({ session, methodName, parentSessionId = null, pare
 
   const answered = Object.keys(results).length;
   const showing = current && revealed === item.id ? current : null;
+  // A notebook retest: the choices to pick from (a question answered by picking one) and what the question needs.
+  const retest = item.kind === "mistake" ? retestViewOf(item.analysis) : null;
+  const choices = retest?.choices ?? null;
+  const trueFalse = isTrueFalse(choices);
 
   return (
     <div className="flex flex-col gap-4">
@@ -184,26 +191,53 @@ export function RecallRunner({ session, methodName, parentSessionId = null, pare
             {answered} answered · {items.length - answered} left
           </span>
         </div>
+        {retest?.context && <div className="max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg bg-muted/60 p-3 text-sm leading-relaxed">{retest.context}</div>}
         <h2 id="recall-prompt" className="font-display tracking-display whitespace-pre-wrap text-lg font-medium leading-snug">
           {item.prompt}
         </h2>
 
         {!showing ? (
           <>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="recall-answer" className="text-sm font-medium">
-                Your answer from memory
-              </label>
-              <Textarea
-                id="recall-answer"
-                rows={5}
-                maxLength={8000}
-                value={response}
-                disabled={pending}
-                placeholder={formatPlaceholder(item.format)}
-                onChange={(event) => setResponse(event.target.value)}
-              />
-            </div>
+            {choices ? (
+              <fieldset disabled={pending} className={cn("gap-2", trueFalse ? "grid grid-cols-2" : "flex flex-col")}>
+                <legend className="mb-2 text-sm font-medium">Pick the right answer</legend>
+                {choices.map((choice, position) => (
+                  <label
+                    key={choice}
+                    className={cn(
+                      "flex cursor-pointer gap-3 rounded-lg border border-border bg-card p-3 text-sm transition-colors",
+                      "hover:bg-muted/60 has-checked:border-primary has-checked:bg-primary-soft",
+                      trueFalse ? "items-center justify-center font-medium" : "items-start",
+                    )}
+                  >
+                    <input type="radio" name={`retest-${item.id}`} value={choice} checked={response === choice} onChange={() => setResponse(choice)} className={cn("h-4 w-4 shrink-0 accent-primary", !trueFalse && "mt-0.5")} />
+                    {trueFalse ? (
+                      choice
+                    ) : (
+                      <span className="flex min-w-0 gap-2">
+                        <span className="font-semibold text-muted-foreground">{optionLetter(position)}.</span>
+                        <span>{choice}</span>
+                      </span>
+                    )}
+                  </label>
+                ))}
+              </fieldset>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="recall-answer" className="text-sm font-medium">
+                  Your answer from memory
+                </label>
+                <Textarea
+                  id="recall-answer"
+                  rows={5}
+                  maxLength={8000}
+                  value={response}
+                  disabled={pending}
+                  placeholder={formatPlaceholder(item.format)}
+                  onChange={(event) => setResponse(event.target.value)}
+                />
+              </div>
+            )}
             <ChipGroup
               type="single"
               size="sm"
@@ -215,12 +249,12 @@ export function RecallRunner({ session, methodName, parentSessionId = null, pare
               options={CONFIDENCE_LEVELS.map((level) => ({ value: level.id, label: level.label }))}
             />
             <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
-              <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={reveal}>
+              <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => reveal("")}>
                 I don&apos;t know — show me
               </Button>
-              <Button type="button" size="sm" loading={pending} onClick={reveal} disabled={!response.trim() && false}>
+              <Button type="button" size="sm" loading={pending} onClick={() => reveal()} disabled={Boolean(choices) && !response}>
                 {!pending && <Eye className="h-4 w-4" aria-hidden="true" />}
-                Reveal &amp; compare
+                {choices ? "Check my answer" : <>Reveal &amp; compare</>}
               </Button>
             </div>
           </>
@@ -234,12 +268,12 @@ export function RecallRunner({ session, methodName, parentSessionId = null, pare
                 <dd className="mt-1 whitespace-pre-wrap">{response.trim() || (item.response ?? "") || <span className="text-muted-foreground">No answer</span>}</dd>
               </div>
               <div className="rounded-lg bg-success-soft/50 p-3 text-sm">
-                <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Model answer</dt>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{choices ? "Right answer" : "Model answer"}</dt>
                 <dd className="mt-1 whitespace-pre-wrap">{showing.modelAnswer}</dd>
               </div>
             </dl>
 
-            {showing.comparison && (showing.comparison.correct_points.length > 0 || showing.comparison.missing_points.length > 0 || showing.comparison.incorrect_points.length > 0) && (
+            {!choices && showing.comparison && (showing.comparison.correct_points.length > 0 || showing.comparison.missing_points.length > 0 || showing.comparison.incorrect_points.length > 0) && (
               <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
                 <div>
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-success">You covered</p>
@@ -255,7 +289,16 @@ export function RecallRunner({ session, methodName, parentSessionId = null, pare
                 </div>
               </div>
             )}
-            {showing.sourceExcerpt && <p className="border-l-2 border-primary/40 pl-3 text-xs italic text-muted-foreground">Source: “{showing.sourceExcerpt}”</p>}
+            {showing.sourceExcerpt &&
+              (item.kind === "mistake" ? (
+                // A retest carries the notebook entry's explanation, not a quote from the material.
+                <p className="rounded-lg bg-muted/60 p-3 text-sm">
+                  <span className="font-semibold">Why: </span>
+                  {showing.sourceExcerpt}
+                </p>
+              ) : (
+                <p className="border-l-2 border-primary/40 pl-3 text-xs italic text-muted-foreground">Source: “{showing.sourceExcerpt}”</p>
+              ))}
             <div className="flex justify-end border-t border-border pt-4">
               <Button type="button" size="sm" onClick={next} loading={ending}>
                 {index + 1 >= items.length ? "Finish session" : "Next prompt"}

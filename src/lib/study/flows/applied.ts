@@ -144,8 +144,10 @@ export async function evaluateScenarioItem(input: { itemId: string; choice: numb
     score,
     isCorrect,
     responseMs: input.responseMs,
+    // Its retest asks for the best action and why, with the situation and the options in view.
     mistake: {
-      question: `${view.situation}\n${view.question}`,
+      question: view.question,
+      context: `${view.situation}\n\nOptions:\n${view.options.map((option) => `- ${option}`).join("\n")}`,
       correctAnswer: `${view.options[key.best_option]} — ${key.rationale}`,
       explanation: evaluation?.feedback ?? key.rationale,
       errorType: correctChoice ? "misunderstood_concept" : "confused_concepts",
@@ -215,7 +217,8 @@ export async function evaluateCaseItem(input: { itemId: string; answer: CaseAnsw
     if (!isAiError(error)) throw error;
     evaluation = null;
   }
-  const mistake = { question: `${view.title}: ${view.task}`, correctAnswer: `Problem: ${model.problem}\nBest solution: ${model.best_solution}\nJustification: ${model.justification}`, explanation: evaluation?.feedback ?? "", errorType: "misunderstood_concept" as const };
+  // Its retest shows the case itself: the task can't be answered without it.
+  const mistake = { question: `${view.title}: ${view.task}`, context: view.text, correctAnswer: `Problem: ${model.problem}\nBest solution: ${model.best_solution}\nJustification: ${model.justification}`, explanation: evaluation?.feedback ?? "", errorType: "misunderstood_concept" as const };
   if (!evaluation) {
     // Tamari couldn't check the analysis: the expert analysis is shown and the student marks theirs against it.
     const stored = await recordUngradedItem(supabase, item, session, { response: JSON.stringify(answer), analysis: { case: view }, responseMs: input.responseMs, mistake });
