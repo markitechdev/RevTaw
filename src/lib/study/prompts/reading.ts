@@ -35,7 +35,7 @@ function sectionsBlock(sections: ReadingSection[]): string {
 
 /** Answers each of the student's questions from the section it belongs to. */
 export async function answerReadingQuestions(input: { materialTitle: string; sections: ReadingSection[]; questions: Array<{ section: number; question: string }> }): Promise<{ answers: ReadingAnswer[]; provider: string; model: string }> {
-  const provider = getAiProvider("fast");
+  const provider = getAiProvider("strong");
   const system = `You are RevTaw's reading coach for "${input.materialTitle}". The student turned the section headings into questions before reading. Answer each question from ITS section only.
 - "index": the question's number from the list (starting at 0).
 - "covered": false when the section does not answer the question; then "model_answer" says what the section does say instead.

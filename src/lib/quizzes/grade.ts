@@ -76,7 +76,7 @@ export async function gradeOpenAnswers(materialTitle: string, items: OpenAnswerI
   }
   if (pending.length === 0) return results;
 
-  const provider = getAiProvider("fast");
+  const provider = getAiProvider("strong");
   const system = `You are RevTaw's fair, encouraging grader for a student's quiz on "${materialTitle}".
 Grade each answer against the model answer and rubric only — do not reward facts outside them.
 Scoring: full points when every rubric point is covered (wording may differ); partial points for partially covered answers; 0 for blank, off-topic or contradicting answers. Use integers.

@@ -30,9 +30,10 @@ const PROVIDER_NAMES: readonly AiProviderName[] = ["groq", "cloudflare", "ollama
 export const DEFAULT_PROVIDER_ORDER: readonly AiProviderName[] = ["groq", "cloudflare", "ollama_cloud", "anthropic", "openai", "ollama"];
 
 /**
- * Default models per provider and tier. "fast" is for short, simple tasks
- * (grading, checks, OCR); "strong" for educational reasoning (analysis,
- * generation, Tamari's replies).
+ * Default models per provider and tier. "fast" is for short, mechanical tasks
+ * (reading text from an image); "strong" for everything a student learns from:
+ * analysis, generation, Tamari's replies, and checking the student's answers,
+ * where a wrong verdict teaches the wrong thing.
  */
 export const DEFAULT_MODELS: Record<Exclude<AiProviderName, "mock">, Record<AiTier, string>> = {
   groq: { fast: "openai/gpt-oss-20b", strong: "openai/gpt-oss-120b" },

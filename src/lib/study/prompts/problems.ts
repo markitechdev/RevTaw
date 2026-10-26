@@ -141,7 +141,7 @@ export async function evaluateProblemAnswer(input: {
   givenSteps: SolutionStep[];
   work: string;
 }): Promise<{ evaluation: ProblemEvaluation; provider: string; model: string }> {
-  const provider = getAiProvider("fast");
+  const provider = getAiProvider("strong");
   const system = `You are RevTaw's fair problem-solving checker for "${input.materialTitle}". Evaluate the student's REASONING, not just the final answer.
 - Compare each step of the student's working with the reference solution; equivalent valid methods count as correct.
 - "correct_steps": steps (or ideas) the student got right. "errors": where the reasoning went wrong — the step and the issue.

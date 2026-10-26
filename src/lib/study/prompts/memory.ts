@@ -66,7 +66,7 @@ export const associationsSchema = z.object({
 
 /** Method of loci: one vivid image per location that still states what the concept means. */
 export async function generateAssociations(input: { materialTitle: string; pairs: Array<{ location: string; concept: string; definition: string }> }): Promise<{ associations: Map<number, string>; provider: string; model: string }> {
-  const provider = getAiProvider("fast");
+  const provider = getAiProvider("strong");
   const system = `You are RevTaw's memory-palace guide for "${input.materialTitle}". For each pair, write ONE vivid, slightly exaggerated image that places the concept at the location so it is easy to picture when walking the route — and that still carries what the concept actually means.
 - 1-3 sentences, present tense, concrete sensory detail.
 - ${ACCURACY_RULE}
@@ -127,7 +127,7 @@ export type RetellCheck = z.infer<typeof retellCheckSchema>;
 
 /** Checks a retelling fact by fact: which original notes it carries, and what it gets wrong. */
 export async function checkRetell(input: { title: string; facts: string[]; retell: string }): Promise<RetellCheck> {
-  const provider = getAiProvider("fast");
+  const provider = getAiProvider("strong");
   const system = `You check a student's retelling of a study story against the original notes. The student retold the story from memory.
 - For EACH fact, "recalled": true when the retelling states it in any words, false when it is missing.
 - "incorrect": statements in the retelling that contradict the notes. Story decoration — characters, places, events around the facts — is fine; only contradictions of the facts count.

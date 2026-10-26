@@ -112,7 +112,7 @@ export async function compareRecallAnswer(input: {
   keyPoints: string[];
   studentAnswer: string;
 }): Promise<{ comparison: RecallComparison; provider: string; model: string }> {
-  const provider = getAiProvider("fast");
+  const provider = getAiProvider("strong");
   const system = `You are RevTaw's fair, encouraging recall checker for "${input.materialTitle}".
 Compare the student's answer with the model answer and key points only — never reward facts outside them.
 - "correct_points": key points the student covered (wording may differ).
@@ -256,7 +256,7 @@ export const blurtComparisonSchema = z.object({
 export type BlurtComparison = z.infer<typeof blurtComparisonSchema>;
 
 export async function compareBlurt(input: { materialTitle: string; topic: string; source: string; keyPoints: string[]; studentText: string; attempt: number }): Promise<{ comparison: BlurtComparison; provider: string; model: string }> {
-  const provider = getAiProvider("fast");
+  const provider = getAiProvider("strong");
   const system = `You are RevTaw's blurting checker for "${input.materialTitle}". The student wrote everything they remembered about a section WITHOUT looking at it. Compare their text with the source section only.
 - "remembered": ideas from the source the student stated correctly (short phrases).
 - "missing": ideas in the source the student did not mention.
@@ -347,7 +347,7 @@ export const questionEvaluationSchema = z.object({
 export type QuestionEvaluation = z.infer<typeof questionEvaluationSchema>;
 
 export async function evaluateStudentQuestion(input: { materialTitle: string; chunks: AnalysisChunkInput[]; question: string; expectedAnswer: string | null }): Promise<{ evaluation: QuestionEvaluation; provider: string; model: string }> {
-  const provider = getAiProvider("fast");
+  const provider = getAiProvider("strong");
   const { transcript } = buildTranscript(input.chunks, 60_000);
   const system = `You are RevTaw's question coach. A student wrote an exam-style question about their material (and optionally the answer they expect). Evaluate it against the material only.
 - "relevance": 0-100 — does it test something the material covers and that matters?

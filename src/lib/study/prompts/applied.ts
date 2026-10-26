@@ -94,7 +94,7 @@ export async function evaluateJustification(input: {
   keyPoints: string[];
   justification: string;
 }): Promise<{ evaluation: JustificationEvaluation; provider: string; model: string }> {
-  const provider = getAiProvider("fast");
+  const provider = getAiProvider("strong");
   const system = `You are RevTaw's reasoning checker for "${input.materialTitle}". The student chose an action in a scenario and justified it. Grade the JUSTIFICATION's reasoning against the material's rationale and key points (the choice itself is graded separately).
 - "justification_score": 0-100 — does the reasoning use the right ideas from the material, correctly and specifically? A justification for a wrong choice can still earn credit for correct reasoning, but not for wrong claims.
 - "strengths": what the reasoning got right. "gaps": missing or incorrect reasoning.
@@ -186,7 +186,7 @@ export type CaseEvaluation = z.infer<typeof caseEvaluationSchema>;
 export type CaseAnswer = Record<CaseField, string>;
 
 export async function evaluateCaseAnalysis(input: { materialTitle: string; caseText: string; model: CaseModel; answer: CaseAnswer }): Promise<{ evaluation: CaseEvaluation; provider: string; model: string }> {
-  const provider = getAiProvider("fast");
+  const provider = getAiProvider("strong");
   const system = `You are RevTaw's case-analysis examiner for "${input.materialTitle}". Evaluate the student's REASONING field by field against the expert analysis; other well-argued answers supported by the case and the material also earn credit.
 - "fields": a 0-100 score and one feedback sentence for problem, evidence, solutions, best_solution and justification.
 - "overall": 0-100 weighted toward the problem, the best solution and the justification.

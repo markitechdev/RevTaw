@@ -83,7 +83,7 @@ export async function evaluateTutorSession(input: {
   materialTitle: string | null;
   history: Array<{ role: "user" | "assistant"; content: string }>;
 }): Promise<{ evaluation: TutorEvaluation; provider: string; model: string }> {
-  const provider = getAiProvider("fast");
+  const provider = getAiProvider("strong");
   const teachBack = input.mode === "teach_back";
   const system = `You are RevTaw's coach. A ${input.mode.replace("_", " ")} session about "${input.materialTitle ?? "a topic"}" just ended. ${teachBack ? "The STUDENT was teaching the AI learner. Grade the teaching: accuracy against the material, completeness, clarity and whether the learner's questions were answered." : "Evaluate the STUDENT's reasoning across the conversation (not the tutor's), kindly and specifically."}
 - "score": 0-100 ${teachBack ? "teaching score (accuracy, completeness, clarity)" : "for accuracy and depth of the student's own explanations"}.
