@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fadeFormat, fadeLabel, fadeSchedule, givenStepCount, readSolution } from "@/lib/study/problem-options";
+import { easedFadeLevels, fadeFormat, fadeLabel, fadeSchedule, fadeStepBelow, givenStepCount, readSolution } from "@/lib/study/problem-options";
 
 describe("faded worked examples", () => {
   it("follows the 90% → 70% → 40% → independent schedule", () => {
@@ -22,6 +22,18 @@ describe("faded worked examples", () => {
     expect(given).toEqual([3, 2, 1, 0]);
     expect(givenStepCount(1, 0.9)).toBe(0);
     expect(givenStepCount(6, 0.9)).toBe(5);
+  });
+
+  it("fades one step at a time after a held example", () => {
+    expect(fadeStepBelow(0.9)).toBe(0.7);
+    expect(fadeStepBelow(0.4)).toBe(0);
+    expect(fadeStepBelow(0)).toBe(0);
+    // Struggled at 90% in a set of three (90, 40, alone): the next stays at 90%, the last gets 70%, not 0%.
+    expect(easedFadeLevels(0.9, [0])).toEqual([0.7]);
+    // In a set of four, held at 90% on the second: 70% and 40% follow.
+    expect(easedFadeLevels(0.9, [0.4, 0])).toEqual([0.7, 0.4]);
+    // Nothing changes where the schedule already fades slowly enough.
+    expect(easedFadeLevels(0.7, [0.4, 0])).toEqual([0.4, 0]);
   });
 
   it("reads a stored solution and rejects other text", () => {

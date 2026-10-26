@@ -55,6 +55,26 @@ export function fadeSchedule(count: number): number[] {
   return [0];
 }
 
+/** The next step down the fading ladder: 90% → 70% → 40% → on your own. */
+export function fadeStepBelow(level: number): number {
+  return FADE_LEVELS.find((value) => value < level - 1e-9) ?? 0;
+}
+
+/**
+ * The help of the faded examples still ahead after one is held at `held` (the student struggled): each gets at
+ * most one step less than the one before it, so help never drops from 90% straight to working alone.
+ */
+export function easedFadeLevels(held: number, ahead: ReadonlyArray<number>): number[] {
+  const levels: number[] = [];
+  let previous = held;
+  for (const level of ahead) {
+    const next = Math.max(level, fadeStepBelow(previous));
+    levels.push(next);
+    previous = next;
+  }
+  return levels;
+}
+
 /**
  * How many steps to give away: about `level` of the solution, always leaving
  * the student at least one step, and strictly less help than the previous

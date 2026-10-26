@@ -597,7 +597,8 @@ function itemSessionNext(method: StudyMethodId, accuracy: number | null, weak: s
     case "worked_examples":
       return accuracy !== null && accuracy >= 0.8 ? "You can follow the method on your own. Try faded worked examples next so you rely less on the steps." : "Study the worked steps again, then retry the similar problems you missed.";
     case "faded_worked_examples":
-      return accuracy !== null && accuracy >= 0.8 ? "You finished the independent problem — move on to practice problems at a harder level." : "Repeat the faded examples; keep the steps you missed in view until the independent one works.";
+      // After a struggle the help fades more slowly, so a session may end before a problem done alone.
+      return accuracy !== null && accuracy >= 0.8 ? "You can follow the method with less and less help. Next, try practice problems on your own at a harder level." : "Repeat the faded examples; keep the steps you missed in view until you can solve one on your own.";
     case "mind_mapping":
       return accuracy === null ? "Quiz yourself on a branch next time — the questions show which parts of the map you really know." : accuracy >= 0.8 ? "You know these branches. Extend the map with the next chapter and quiz the new branches." : "Re-read the branches you missed on the map, then quiz them again tomorrow.";
     case "concept_mapping":

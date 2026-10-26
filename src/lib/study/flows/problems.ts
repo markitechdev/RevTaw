@@ -17,7 +17,7 @@ import {
   type Solution,
   type SolutionStep,
 } from "@/lib/study/prompts/problems";
-import { FADE_LEVELS, fadeFormat, fadeSchedule, givenStepCount } from "@/lib/study/problem-options";
+import { easedFadeLevels, FADE_LEVELS, fadeFormat, fadeSchedule, givenStepCount } from "@/lib/study/problem-options";
 import { ungradedView, type UngradedView } from "@/lib/study/results";
 import { SessionError, sessionTitle } from "@/lib/study/sessions";
 import { PASS_SCORE } from "@/lib/study/verdict";
@@ -177,9 +177,13 @@ export async function startPracticeProblems(supabase: Client, userId: string, in
   return { sessionId, redirect: `/study/${sessionId}` };
 }
 
-/** A struggling student keeps the same amount of help on the next faded example (§16 progressive difficulty). */
+/**
+ * A struggling student keeps the same amount of help on the next faded example (§16 progressive difficulty),
+ * and the ones after it fade from there one step at a time: holding only the next one let help drop from 90%
+ * straight to working alone.
+ */
 async function holdNextFade(supabase: Client, item: StudySessionItem, level: number): Promise<boolean> {
-  const { data: next } = await supabase
+  const { data: ahead } = await supabase
     .from("study_session_items")
     .select("id, model_answer, analysis")
     .eq("session_id", item.session_id)
@@ -187,17 +191,26 @@ async function holdNextFade(supabase: Client, item: StudySessionItem, level: num
     .is("answered_at", null)
     .gt("position", item.position)
     .order("position")
-    .limit(1)
-    .maybeSingle();
-  const analysis = (next?.analysis as ProblemAnalysis | null) ?? null;
-  const solution = parseSolution(next?.model_answer ?? null);
-  if (!next || !analysis?.faded || !solution || analysis.faded.level >= level) return false;
-  const given = givenStepCount(solution.steps.length, level);
-  const faded = { level, givenSteps: solution.steps.slice(0, given), totalSteps: solution.steps.length, held: true };
-  await supabase
-    .from("study_session_items")
-    .update({ analysis: { ...analysis, faded } as unknown as Json, format: fadeFormat(level) })
-    .eq("id", next.id);
+    .limit(10);
+  const faded = (ahead ?? []).flatMap((row) => {
+    const analysis = (row.analysis as ProblemAnalysis | null) ?? null;
+    const solution = parseSolution(row.model_answer);
+    return analysis?.faded && solution ? [{ id: row.id, analysis: analysis as ProblemAnalysis & { faded: NonNullable<ProblemAnalysis["faded"]> }, solution }] : [];
+  });
+  const [next, ...rest] = faded;
+  if (!next || next.analysis.faded.level >= level) return false;
+  const levels = [level, ...easedFadeLevels(level, rest.map((entry) => entry.analysis.faded.level))];
+  for (const [index, entry] of faded.entries()) {
+    const target = levels[index];
+    if (target === entry.analysis.faded.level) continue;
+    const given = givenStepCount(entry.solution.steps.length, target);
+    const fade = { level: target, givenSteps: entry.solution.steps.slice(0, given), totalSteps: entry.solution.steps.length, ...(index === 0 ? { held: true } : {}) };
+    await supabase
+      .from("study_session_items")
+      .update({ analysis: { ...entry.analysis, faded: fade } as unknown as Json, format: fadeFormat(target) })
+      .eq("id", entry.id)
+      .is("answered_at", null);
+  }
   return true;
 }
 
