@@ -40,6 +40,8 @@ export function MindMapRunner({ session, methodName, map, parentSessionId = null
   if (summary) return <RunnerSummary methodName={methodName} summary={summary} stoppedEarly={stoppedEarly} parentSessionId={parentSessionId} parentLabel={parentLabel} />;
   if (!map) return <Alert tone="error">This session&apos;s mind map is no longer available. Start a new Mind Mapping session.</Alert>;
   const answered = questions.filter((question) => question.result).length;
+  // The questions are answered from memory: the map (which holds the answers) is hidden until they are.
+  const answering = questions.some((question) => !question.result);
 
   const quiz = async (node: MindNode) => {
     setError(null);
@@ -62,8 +64,14 @@ export function MindMapRunner({ session, methodName, map, parentSessionId = null
           <Workflow className="h-5 w-5 text-primary" aria-hidden="true" />
           {map.title}
         </h2>
-        <p className="text-sm text-muted-foreground">Expand and fold branches, rename ideas, add your own, connect ideas across branches — and press the question mark on any branch to be quizzed on it.</p>
-        <MindMapEditor mapId={map.id} initial={map.data} onQuiz={quiz} quizBusy={busy} />
+        {answering ? (
+          <p className={`rounded-lg border p-3 text-sm ${TINT.info}`}>The map is hidden while you answer the branch questions from memory. It comes back once they are all answered.</p>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">Expand and fold branches, rename ideas, add your own, connect ideas across branches — and press the question mark on any branch to be quizzed on it.</p>
+            <MindMapEditor mapId={map.id} initial={map.data} onQuiz={quiz} quizBusy={busy} />
+          </>
+        )}
       </section>
       {questions.length > 0 && (
         <section aria-labelledby="branch-questions" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
@@ -144,9 +152,12 @@ export function ConceptMapRunner({ session, methodName, map, parentSessionId = n
               Test the links
             </Button>
           ) : (
-            <Button type="button" size="sm" variant="secondary" onClick={() => setMode("edit")}>
-              Back to the map
-            </Button>
+            // The map shows every relationship: it opens again once the test is done, not halfway through it.
+            allDone && (
+              <Button type="button" size="sm" variant="secondary" onClick={() => setMode("edit")}>
+                Back to the map
+              </Button>
+            )
           )}
         </div>
         {mode === "edit" ? (
