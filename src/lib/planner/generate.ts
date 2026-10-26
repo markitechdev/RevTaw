@@ -364,10 +364,15 @@ export function generatePlan(input: PlanInput): GeneratedPlan {
   return { mode, studyDays, tasks, warnings };
 }
 
-/** Readiness estimate (0-100) shown with the countdown: mastery of the exam's materials blended with plan completion. */
-export function readinessScore(input: { averageMastery: number | null; tasksDone: number; tasksTotal: number }): number | null {
+/**
+ * Readiness estimate (0-100) shown with the countdown: mastery of the exam's materials blended with plan
+ * completion. Concepts of those materials not practiced yet count as 0 (`concepts`: practiced of all), so
+ * one concept answered well isn't "67% ready" for an exam on thirty.
+ */
+export function readinessScore(input: { averageMastery: number | null; concepts?: { practiced: number; total: number } | null; tasksDone: number; tasksTotal: number }): number | null {
   if (input.averageMastery === null && input.tasksTotal === 0) return null;
   const completion = input.tasksTotal > 0 ? input.tasksDone / input.tasksTotal : 0;
   if (input.averageMastery === null) return Math.round(completion * 50);
-  return Math.round(input.averageMastery * 0.7 + completion * 100 * 0.3);
+  const coverage = input.concepts && input.concepts.total > 0 ? Math.min(1, input.concepts.practiced / input.concepts.total) : 1;
+  return Math.round(input.averageMastery * coverage * 0.7 + completion * 100 * 0.3);
 }

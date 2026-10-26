@@ -132,4 +132,12 @@ describe("plan generator", () => {
     expect(readinessScore({ averageMastery: 80, tasksDone: 5, tasksTotal: 10 })).toBe(71);
     expect(readinessScore({ averageMastery: null, tasksDone: 5, tasksTotal: 10 })).toBe(25);
   });
+
+  it("counts the exam's concepts not practiced yet as 0", () => {
+    // One concept of thirty at 95%, no task done: not 67% ready.
+    expect(readinessScore({ averageMastery: 95, concepts: { practiced: 1, total: 30 }, tasksDone: 0, tasksTotal: 20 })).toBe(2);
+    expect(readinessScore({ averageMastery: 60, concepts: { practiced: 30, total: 30 }, tasksDone: 10, tasksTotal: 20 })).toBe(57);
+    // Without the materials' concept lists, the practiced average stands.
+    expect(readinessScore({ averageMastery: 80, concepts: null, tasksDone: 5, tasksTotal: 10 })).toBe(71);
+  });
 });

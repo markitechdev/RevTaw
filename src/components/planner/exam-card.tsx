@@ -60,7 +60,7 @@ export function ExamCard({ exam, today, compact = false, actions, headingLevel: 
             Readiness {exam.readiness === null ? "—" : `${exam.readiness}%`}
           </span>
           <span>
-            {exam.tasksDone}/{exam.tasksTotal} tasks · {exam.averageMastery === null ? "no mastery data" : `${exam.averageMastery}% mastery`}
+            {exam.tasksDone}/{exam.tasksTotal} tasks · {exam.concepts ? `${exam.concepts.practiced} of ${exam.concepts.total} concepts practiced` : exam.averageMastery === null ? "no mastery data" : `${exam.averageMastery}% mastery`}
           </span>
         </div>
         <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={exam.readiness ?? 0} aria-valuemin={0} aria-valuemax={100} aria-label={`Readiness ${exam.readiness ?? 0}%`}>
