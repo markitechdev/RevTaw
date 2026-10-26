@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { listMastery, type MasteryView } from "@/lib/adaptive/engine";
+import { conceptMaterialIds, isWeakTopic } from "@/lib/adaptive/mastery";
 import { getAnswerCounts } from "@/lib/analytics/answers";
 import { addDays, dateIn } from "@/lib/planner/dates";
 import { plannerClock } from "@/lib/planner/service";
@@ -23,6 +24,7 @@ export type DailyPoint = { date: string; focusMinutes: number; answered: number;
 
 export type Breakdown = { key: string; label: string; answered: number; correct: number; accuracy: number | null };
 
+/** A subject's or material's practiced concepts: `weak` counts weak topics as Home names them (isWeakTopic). */
 export type MasteryGroup = { id: string | null; name: string; concepts: number; averageMastery: number | null; mastered: number; weak: number; href: string | null };
 
 export type AnalyticsOverview = {
@@ -54,18 +56,21 @@ function accuracyOf(answered: number, correct: number): number | null {
   return answered > 0 ? Math.round((correct / answered) * 100) : null;
 }
 
-function groupMastery(rows: MasteryView[], keyOf: (row: MasteryView) => { id: string | null; name: string; href: string | null } | null): MasteryGroup[] {
+type GroupKey = { id: string | null; name: string; href: string | null };
+
+/** The practiced concepts by group; a concept counts once in each group `keysOf` gives it (every material it appears in). */
+function groupMastery(rows: MasteryView[], keysOf: (row: MasteryView) => GroupKey[]): MasteryGroup[] {
   const groups = new Map<string, MasteryGroup & { sum: number }>();
   for (const row of rows) {
-    const key = keyOf(row);
-    if (!key) continue;
-    const id = key.id ?? "none";
-    const group = groups.get(id) ?? { id: key.id, name: key.name, concepts: 0, averageMastery: null, mastered: 0, weak: 0, href: key.href, sum: 0 };
-    group.concepts += 1;
-    group.sum += Number(row.mastery);
-    if (row.status === "mastered") group.mastered += 1;
-    if (row.status === "weak") group.weak += 1;
-    groups.set(id, group);
+    for (const key of keysOf(row)) {
+      const id = key.id ?? "none";
+      const group = groups.get(id) ?? { id: key.id, name: key.name, concepts: 0, averageMastery: null, mastered: 0, weak: 0, href: key.href, sum: 0 };
+      group.concepts += 1;
+      group.sum += Number(row.mastery);
+      if (row.status === "mastered") group.mastered += 1;
+      if (isWeakTopic(row)) group.weak += 1;
+      groups.set(id, group);
+    }
   }
   return [...groups.values()]
     .map(({ sum, ...group }) => ({ ...group, averageMastery: group.concepts ? Math.round(sum / group.concepts) : null }))
@@ -138,9 +143,23 @@ export const getAnalyticsOverview = cache(async (): Promise<AnalyticsOverview> =
   const averageScore = scores.length ? Math.round(scores.reduce((sum, entry) => sum + entry.percent, 0) / scores.length) : null;
 
   const practiced = mastery.filter((row) => row.attempts > 0);
-  const materialIds = [...new Set(practiced.map((row) => row.concept?.material_id).filter((id): id is string => Boolean(id)))];
+  // A concept counts in every material it appears in (and so in each of their subjects), as on a material's page.
+  const materialIds = [...new Set(practiced.flatMap((row) => conceptMaterialIds(row.concept)))];
   const { data: materials } = materialIds.length ? await supabase.from("materials").select("id, title, subject:subjects!materials_subject_fk(id, name)").in("id", materialIds) : { data: [] };
-  const subjectOf = new Map((materials ?? []).map((material) => [material.id, (material.subject as unknown as { id: string; name: string } | null) ?? null]));
+  const materialById = new Map((materials ?? []).map((material) => [material.id, { title: material.title, subject: (material.subject as unknown as { id: string; name: string } | null) ?? null }]));
+  const subjectsOf = (row: MasteryView): GroupKey[] => {
+    const subjects = new Map<string, GroupKey>();
+    for (const id of conceptMaterialIds(row.concept)) {
+      const subject = materialById.get(id)?.subject ?? null;
+      subjects.set(subject?.id ?? "none", { id: subject?.id ?? null, name: subject?.name ?? "No subject", href: null });
+    }
+    return subjects.size ? [...subjects.values()] : [{ id: null, name: "No subject", href: null }];
+  };
+  const materialsOf = (row: MasteryView): GroupKey[] => {
+    const ids = conceptMaterialIds(row.concept);
+    if (ids.length === 0) return [{ id: null, name: "No material", href: null }];
+    return ids.map((id) => ({ id, name: materialById.get(id)?.title ?? (row.concept?.material?.id === id ? row.concept.material.title : "Material"), href: `/materials/${id}` }));
+  };
   const distribution: Record<MasteryStatus, number> = { new: 0, weak: 0, learning: 0, developing: 0, strong: 0, mastered: 0 };
   for (const row of practiced) distribution[row.status] += 1;
   const retrievalValues = practiced.map((row) => Number(row.retrieval_strength));
@@ -162,11 +181,8 @@ export const getAnalyticsOverview = cache(async (): Promise<AnalyticsOverview> =
     scores: scores.slice(0, 12).reverse(),
     byDifficulty: DIFFICULTY_ORDER.map((level) => ({ key: level, label: DIFFICULTY_LABEL[level], ...difficulty.get(level)!, accuracy: accuracyOf(difficulty.get(level)!.answered, difficulty.get(level)!.correct) })),
     byConfidence: CONFIDENCE_ORDER.map((level) => ({ key: level, label: CONFIDENCE_LABEL[level], ...confidence.get(level)!, accuracy: accuracyOf(confidence.get(level)!.answered, confidence.get(level)!.correct) })),
-    bySubject: groupMastery(practiced, (row) => {
-      const subject = row.concept?.material_id ? subjectOf.get(row.concept.material_id) : null;
-      return { id: subject?.id ?? null, name: subject?.name ?? "No subject", href: null };
-    }),
-    byMaterial: groupMastery(practiced, (row) => (row.concept?.material ? { id: row.concept.material.id, name: row.concept.material.title, href: `/materials/${row.concept.material.id}` } : { id: null, name: "No material", href: null })),
+    bySubject: groupMastery(practiced, subjectsOf),
+    byMaterial: groupMastery(practiced, materialsOf),
     masteryDistribution: distribution,
     retrieval: { average: retrievalValues.length ? Math.round(retrievalValues.reduce((sum, value) => sum + value, 0) / retrievalValues.length) : null, fading },
   };

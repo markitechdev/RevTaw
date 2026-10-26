@@ -113,10 +113,10 @@ export default async function ProgressPage() {
         <Card>
           <CardHeader>
             <CardTitle>Performance by topic</CardTitle>
-            <CardDescription>Average mastery per material; the weakest first.</CardDescription>
+            <CardDescription>Average mastery of the concepts practiced in each material; the weakest first.</CardDescription>
           </CardHeader>
           <CardContent>
-            <PercentBars title="Mastery by material" rows={analytics.byMaterial.slice(0, 8).map((group) => ({ key: group.id ?? "none", label: group.name, percent: group.averageMastery, detail: `${group.weak} weak`, href: group.href }))} emptyText="Practice a material to see it here." />
+            <PercentBars title="Mastery by material" rows={analytics.byMaterial.slice(0, 8).map((group) => ({ key: group.id ?? "none", label: group.name, percent: group.averageMastery, detail: `${group.concepts} concept${group.concepts === 1 ? "" : "s"} · ${group.weak} weak`, href: group.href }))} emptyText="Practice a material to see it here." />
           </CardContent>
         </Card>
         <Card>

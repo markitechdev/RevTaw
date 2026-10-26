@@ -59,7 +59,7 @@ export function MasteryMapView({ map }: { map: MasteryMapData }) {
                     )}
                   </h3>
                   <span className="text-xs text-muted-foreground">
-                    {material.averageMastery !== null ? `average ${material.averageMastery}%` : ""} · {material.counts.mastered} mastered · {material.counts.weak} weak
+                    {material.averageMastery !== null ? `average ${material.averageMastery}%` : ""} · {material.counts.mastered} mastered · {material.weakTopics} weak
                   </span>
                 </div>
                 <ul className="flex flex-col divide-y divide-border">

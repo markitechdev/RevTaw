@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { listMastery, type MasteryView } from "@/lib/adaptive/engine";
+import { conceptMaterialIds, isWeakTopic } from "@/lib/adaptive/mastery";
 import { normalizeConceptName } from "@/lib/concepts/service";
 import { parseAnalysisData, type ConceptCategory } from "@/lib/materials/analysis-schema";
 import { chooseMethod } from "@/lib/engine/method-rules";
@@ -15,7 +16,8 @@ import { createClient } from "@/lib/supabase/server";
 /**
  * The knowledge / mastery map (spec §24): subjects → materials → concepts,
  * each with its mastery and status, and for every concept the session that
- * would help it most — one click away.
+ * would help it most — one click away. A concept shows under every material
+ * it appears in, as on that material's page; a subject counts it once.
  */
 
 export type MapConcept = {
@@ -30,7 +32,8 @@ export type MapConcept = {
   recommendation: { method: StudyMethodId; label: string; reason: string; href: string };
 };
 
-export type MapMaterial = { id: string | null; title: string; href: string | null; concepts: MapConcept[]; averageMastery: number | null; counts: Record<MasteryStatus, number> };
+/** `weakTopics`: its weak topics as Home names them (isWeakTopic). */
+export type MapMaterial = { id: string | null; title: string; href: string | null; concepts: MapConcept[]; averageMastery: number | null; counts: Record<MasteryStatus, number>; weakTopics: number };
 export type MapSubject = { id: string | null; name: string; materials: MapMaterial[]; averageMastery: number | null; concepts: number };
 
 export type MasteryMap = { subjects: MapSubject[]; total: number; counts: Record<MasteryStatus, number> };
@@ -58,7 +61,7 @@ function emptyCounts(): Record<MasteryStatus, number> {
 export const getMasteryMap = cache(async (): Promise<MasteryMap> => {
   const supabase = await createClient();
   const rows = (await listMastery()).filter((row) => row.attempts > 0 && row.concept);
-  const materialIds = [...new Set(rows.map((row) => row.concept!.material_id).filter((id): id is string => Boolean(id)))];
+  const materialIds = [...new Set(rows.flatMap((row) => conceptMaterialIds(row.concept)))];
   const [{ data: materials }, { data: analyses }] = await Promise.all([
     materialIds.length ? supabase.from("materials").select("id, title, subject:subjects!materials_subject_fk(id, name)").in("id", materialIds) : Promise.resolve({ data: [] as Array<{ id: string; title: string; subject: unknown }> }),
     materialIds.length ? supabase.from("material_analyses").select("material_id, data").in("material_id", materialIds) : Promise.resolve({ data: [] as Array<{ material_id: string; data: unknown }> }),
@@ -67,36 +70,43 @@ export const getMasteryMap = cache(async (): Promise<MasteryMap> => {
   const categories = new Map<string, Map<string, ConceptCategory>>();
   for (const analysis of analyses ?? []) categories.set(analysis.material_id, new Map(parseAnalysisData(analysis.data).key_concepts.map((concept) => [normalizeConceptName(concept.name), concept.category])));
 
-  const subjects = new Map<string, MapSubject & { materialMap: Map<string, MapMaterial> }>();
+  type SubjectEntry = MapSubject & { materialMap: Map<string, MapMaterial>; conceptMastery: Map<string, number> };
+  const subjects = new Map<string, SubjectEntry>();
   const counts = emptyCounts();
   for (const row of rows) {
     const concept = row.concept!;
-    const material = concept.material_id ? materialById.get(concept.material_id) : undefined;
-    const subject = material?.subject ?? null;
-    const subjectKey = subject?.id ?? "none";
-    const entry = subjects.get(subjectKey) ?? { id: subject?.id ?? null, name: subject?.name ?? "No subject", materials: [], averageMastery: null, concepts: 0, materialMap: new Map() };
-    const materialKey = concept.material_id ?? "none";
-    const materialEntry = entry.materialMap.get(materialKey) ?? { id: concept.material_id, title: material?.title ?? concept.material?.title ?? "No material", href: concept.material_id ? `${routes.materials}/${concept.material_id}` : null, concepts: [], averageMastery: null, counts: emptyCounts() };
-    const category = (concept.material_id ? categories.get(concept.material_id)?.get(normalizeConceptName(concept.name)) : null) ?? null;
-    materialEntry.concepts.push({
-      id: concept.id,
-      name: concept.name,
-      mastery: Math.round(Number(row.mastery)),
-      status: row.status,
-      attempts: row.attempts,
-      misconceptions: row.misconceptions,
-      category,
-      recommendation: recommendForConcept(row, category, concept.material_id),
-    });
-    materialEntry.counts[row.status] += 1;
     counts[row.status] += 1;
-    entry.materialMap.set(materialKey, materialEntry);
-    entry.concepts += 1;
-    subjects.set(subjectKey, entry);
+    const placements: Array<string | null> = conceptMaterialIds(concept);
+    for (const materialId of placements.length ? placements : [null]) {
+      const material = materialId ? materialById.get(materialId) : undefined;
+      const subject = material?.subject ?? null;
+      const subjectKey = subject?.id ?? "none";
+      const entry = subjects.get(subjectKey) ?? { id: subject?.id ?? null, name: subject?.name ?? "No subject", materials: [], averageMastery: null, concepts: 0, materialMap: new Map(), conceptMastery: new Map() };
+      const materialKey = materialId ?? "none";
+      const title = material?.title ?? (concept.material?.id === materialId ? concept.material?.title : null) ?? (materialId ? "Material" : "No material");
+      const materialEntry = entry.materialMap.get(materialKey) ?? { id: materialId, title, href: materialId ? `${routes.materials}/${materialId}` : null, concepts: [], averageMastery: null, counts: emptyCounts(), weakTopics: 0 };
+      const category = (materialId ? categories.get(materialId)?.get(normalizeConceptName(concept.name)) : null) ?? null;
+      materialEntry.concepts.push({
+        id: concept.id,
+        name: concept.name,
+        mastery: Math.round(Number(row.mastery)),
+        status: row.status,
+        attempts: row.attempts,
+        misconceptions: row.misconceptions,
+        category,
+        recommendation: recommendForConcept(row, category, materialId),
+      });
+      materialEntry.counts[row.status] += 1;
+      if (isWeakTopic(row)) materialEntry.weakTopics += 1;
+      entry.materialMap.set(materialKey, materialEntry);
+      entry.conceptMastery.set(concept.id, Math.round(Number(row.mastery)));
+      subjects.set(subjectKey, entry);
+    }
   }
-  const result: MapSubject[] = [...subjects.values()].map(({ materialMap, ...subject }) => {
+  const result: MapSubject[] = [...subjects.values()].map(({ materialMap, conceptMastery, ...subject }) => {
     const mats = [...materialMap.values()].map((material) => ({ ...material, concepts: material.concepts.sort((a, b) => a.mastery - b.mastery), averageMastery: average(material.concepts.map((concept) => concept.mastery)) }));
-    return { ...subject, materials: mats.sort((a, b) => (a.averageMastery ?? 0) - (b.averageMastery ?? 0)), averageMastery: average(mats.flatMap((material) => material.concepts.map((concept) => concept.mastery))) };
+    // A concept in two of the subject's materials counts once.
+    return { ...subject, concepts: conceptMastery.size, materials: mats.sort((a, b) => (a.averageMastery ?? 0) - (b.averageMastery ?? 0)), averageMastery: average([...conceptMastery.values()]) };
   });
   return { subjects: result.sort((a, b) => (a.averageMastery ?? 0) - (b.averageMastery ?? 0)), total: rows.length, counts };
 });
