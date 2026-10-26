@@ -17,6 +17,7 @@ import {
 import { RAPID_REVIEW_MINUTES } from "@/lib/study/catalog";
 import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
 import { CUMULATIVE_SPLIT, cumulativeCounts, weave } from "@/lib/study/mixing";
+import { pickSectionIndices } from "@/lib/study/sections";
 import { conceptsFor, insertItems, loadOpenItem, openSession, recordUngradedItem, reloadItem, settleAnsweredItem, storeItemAttempt, type Client, type FlowStartInput, type FlowStartResult, type ItemRow, type MaterialContext } from "@/lib/study/items";
 import { ungradedView, type UngradedView } from "@/lib/study/results";
 import { countSessionAnswer, loadSession, SessionError, sessionTitle } from "@/lib/study/sessions";
@@ -270,11 +271,26 @@ export function materialSections(chunks: Array<{ heading: string | null; content
 
 export async function startBlurting(supabase: Client, userId: string, input: AdvancedStartInput): Promise<StartResult> {
   const context = await loadMaterialContext(supabase, input.materialId!);
-  // One blurt per section, in the material's order.
+  // One blurt per section, in the material's order: the sections about the concepts asked for, else the
+  // ones after those blurted in earlier sessions, so a long material is worked through, not restarted.
   const sections = materialSections(context.chunks);
   if (sections.length === 0) throw new SessionError("This material is too short to blurt.", 422);
   const count = Math.max(1, Math.min(sections.length, Math.round(input.plannedMinutes / 6)));
-  const chosen = sections.slice(0, count);
+  const { data: earlier } = await supabase
+    .from("study_session_items")
+    .select("prompt, session:study_sessions!study_session_items_session_fk!inner(material_id)")
+    .eq("user_id", userId)
+    .eq("kind", "blurt")
+    .eq("session.material_id", context.material.id)
+    .not("answered_at", "is", null)
+    .limit(500);
+  const blurted = new Set((earlier ?? []).map((row) => row.prompt));
+  const done = new Set(sections.flatMap((section, index) => (blurted.has(section.heading) ? [index] : [])));
+  const chosen = pickSectionIndices(
+    sections.map((section) => `${section.heading}\n${section.text}`),
+    count,
+    { focus: input.focusConcepts, done },
+  ).map((index) => sections[index]);
   const { data: analysisRow } = await supabase.from("material_analyses").select("data").eq("material_id", context.material.id).maybeSingle();
   const analysis = analysisRow ? parseAnalysisData(analysisRow.data) : null;
   const concepts = await conceptsFor(supabase, userId, context, chosen.map((section) => section.heading));
@@ -405,7 +421,17 @@ function storedBlurtRound(item: StudySessionItem): BlurtResult {
 export async function startChunking(supabase: Client, userId: string, input: AdvancedStartInput): Promise<StartResult> {
   const context = await loadMaterialContext(supabase, input.materialId!);
   const count = Math.max(2, Math.min(10, Math.round(input.plannedMinutes / 4)));
-  const generated = await chunkMaterial({ materialTitle: context.material.title, chunks: context.chunks, count, student: context.student });
+  // The part of the material this session reads: the passages about the concepts asked for, else the ones
+  // after those earlier chunking sessions covered (round to the start once the material is covered).
+  const { data: earlier } = await supabase.from("study_sessions").select("state").eq("user_id", userId).eq("material_id", context.material.id).eq("method", "chunking").limit(50);
+  const covered = new Set((earlier ?? []).flatMap((row) => ((row.state as { chunkPositions?: unknown } | null)?.chunkPositions as number[] | undefined) ?? []).filter((position) => Number.isInteger(position)));
+  const done = new Set(context.chunks.flatMap((chunk, index) => (covered.has(chunk.position) ? [index] : [])));
+  const window = pickSectionIndices(
+    context.chunks.map((chunk) => `${chunk.heading ?? ""}\n${chunk.content}`),
+    count,
+    { focus: input.focusConcepts, done },
+  ).map((index) => context.chunks[index]);
+  const generated = await chunkMaterial({ materialTitle: context.material.title, chunks: window, count, student: context.student });
   if (generated.chunks.length === 0) throw new SessionError("The material could not be chunked.", 422);
   const concepts = await conceptsFor(supabase, userId, context, generated.chunks.map((chunk) => chunk.concept));
   const sessionId = await openSession(supabase, userId, {
@@ -415,7 +441,7 @@ export async function startChunking(supabase: Client, userId: string, input: Adv
     goal: input.goal ?? "understand",
     plannedMinutes: input.plannedMinutes,
     title: sessionTitle("chunking", context.material.title),
-    state: { index: 0, provider: generated.provider },
+    state: { index: 0, provider: generated.provider, chunkPositions: window.map((chunk) => chunk.position) },
   });
   await insertItems(
     supabase,

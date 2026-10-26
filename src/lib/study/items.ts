@@ -25,6 +25,8 @@ export type FlowStartInput = {
   materialIds?: string[];
   goal: SessionGoal | null;
   plannedMinutes: number;
+  /** The concepts to work on (a plan block's new or weak concepts): sessions that go through a material's sections start with theirs. */
+  focusConcepts?: string[];
 };
 
 export type FlowStartResult = { sessionId: string; redirect: string };

@@ -10,6 +10,7 @@ import { conceptsFor, insertItems, openSession, recordItemResult, recordUngraded
 import { answerReadingQuestions, generateReflectQuestions } from "@/lib/study/prompts/reading";
 import { MAX_QUESTIONS_PER_SECTION, READING_STAGES, readReadingState, type ReadingMethod, type ReadingStage, type ReadingState } from "@/lib/study/reading-options";
 import type { UngradedView } from "@/lib/study/results";
+import { mentions, pickSectionIndices } from "@/lib/study/sections";
 import { loadSession, SessionError, sessionTitle } from "@/lib/study/sessions";
 import { PASS_SCORE } from "@/lib/study/verdict";
 import type { Json, StudySession } from "@/lib/supabase/database.types";
@@ -35,12 +36,31 @@ export async function startGuidedReading(supabase: Client, userId: string, input
   const all = materialSections(context.chunks);
   if (all.length === 0) throw new SessionError("This material is too short for a guided reading.", 422);
   const count = Math.max(2, Math.min(6, Math.round(input.plannedMinutes / 8)));
-  const { data: analysisRow } = await supabase.from("material_analyses").select("summary, data").eq("material_id", context.material.id).maybeSingle();
+  const [{ data: analysisRow }, { data: earlier }] = await Promise.all([
+    supabase.from("material_analyses").select("summary, data").eq("material_id", context.material.id).maybeSingle(),
+    // What earlier readings of this material marked read, so this one picks up after it.
+    supabase.from("study_sessions").select("state").eq("user_id", userId).eq("material_id", context.material.id).in("method", ["sq3r", "pq4r"]).order("started_at", { ascending: false }).limit(20),
+  ]);
   const analysis = analysisRow ? parseAnalysisData(analysisRow.data) : null;
+  const readHeadings = new Set(
+    (earlier ?? []).flatMap((row) => {
+      const previous = readReadingState(row.state);
+      return previous ? previous.readSections.map((index) => previous.sections[index]?.heading).filter((heading): heading is string => Boolean(heading)) : [];
+    }),
+  );
+  const done = new Set(all.flatMap((section, index) => (readHeadings.has(section.heading) ? [index] : [])));
+  const picked = pickSectionIndices(
+    all.map((section) => `${section.heading}\n${section.text}`),
+    count,
+    { focus: input.focusConcepts, done },
+  ).map((index) => all[index]);
+  const sections = picked.map((section) => ({ heading: section.heading, text: section.text.slice(0, SECTION_CHARS) }));
+  // The key concepts these sections cover: the survey points to them and the review grades against them.
+  const covered = (analysis?.key_concepts ?? []).filter((concept) => sections.some((section) => mentions(`${section.heading}\n${section.text}`, concept.name)));
   const state: ReadingState = {
     stage: "survey",
-    sections: all.slice(0, count).map((section) => ({ heading: section.heading, text: section.text.slice(0, SECTION_CHARS) })),
-    survey: { summary: analysisRow?.summary ?? null, concepts: (analysis?.key_concepts ?? []).map((concept) => concept.name).slice(0, 10) },
+    sections,
+    survey: { summary: analysisRow?.summary ?? null, concepts: covered.map((concept) => concept.name).slice(0, 10) },
     expectations: null,
     readSections: [],
   };
