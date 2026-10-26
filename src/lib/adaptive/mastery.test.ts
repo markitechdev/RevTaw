@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MASTERY_THRESHOLD, needsRefresh, STATUS_BANDS, STATUS_LABEL } from "@/lib/adaptive/mastery";
+import { MASTERY_SPACING_DAYS, MASTERY_THRESHOLD, needsRefresh, NEXT_STEP_LABEL, STATUS_BANDS, STATUS_LABEL } from "@/lib/adaptive/mastery";
 import { CONCEPT_STATES } from "@/lib/engine/types";
 
 describe("mastery labels", () => {
@@ -9,6 +9,13 @@ describe("mastery labels", () => {
     expect(MASTERY_THRESHOLD).toBe(90);
     expect(STATUS_BANDS).toContain("Developing 60–79");
     expect(STATUS_BANDS).toContain("Mastered ≥ 90");
+  });
+
+  it("words each next step the way its gate works", () => {
+    // The spacing gate needs a right answer at least this many days after the first one, not just the next day.
+    expect(MASTERY_SPACING_DAYS).toBe(2);
+    expect(NEXT_STEP_LABEL.spaced).toBe("Get it right again 2 or more days after the first time");
+    expect(NEXT_STEP_LABEL.hardItem).toMatch(/hard question.*without choices/);
   });
 
   it("shows a faded strong or mastered concept as a refresh", () => {

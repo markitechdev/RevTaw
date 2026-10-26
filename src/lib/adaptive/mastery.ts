@@ -11,6 +11,9 @@ import type { ConceptMastery, MasteryStatus, NextDifficulty } from "@/lib/supaba
 /** A concept counts as mastered from here (and only after every evidence gate is met). */
 export const MASTERY_THRESHOLD: number = ENGINE.states.strongBelow;
 
+/** Days between the first right answer and a later one before a concept can go past Strong. */
+export const MASTERY_SPACING_DAYS: number = ENGINE.gates.spacedDays;
+
 export const STATUS_LABEL: Record<MasteryStatus, string> = {
   new: "Not started",
   weak: "Needs foundation",
@@ -37,7 +40,7 @@ export const NEXT_STEP_LABEL: Record<NextStep, string> = {
   evidence: `Answer at least ${ENGINE.gates.minAnswers} questions on it`,
   noMisconception: "Fix the confident mistake, then get it right on another day",
   hardItem: "Get a hard question right, or one you answer without choices",
-  spaced: "Get it right again on another day",
+  spaced: `Get it right again ${MASTERY_SPACING_DAYS} or more days after the first time`,
 };
 
 const rank = (status: MasteryStatus) => CONCEPT_STATES.indexOf(status);

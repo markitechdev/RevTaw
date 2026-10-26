@@ -16,7 +16,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SECTION_TITLE } from "@/components/ui/typography";
 import { getMasterySummary, listMastery } from "@/lib/adaptive/engine";
-import { MASTERY_THRESHOLD, STATUS_BANDS, STATUS_LABEL } from "@/lib/adaptive/mastery";
+import { MASTERY_SPACING_DAYS, MASTERY_THRESHOLD, STATUS_BANDS, STATUS_LABEL } from "@/lib/adaptive/mastery";
 import { getRecommendations } from "@/lib/adaptive/recommend";
 import { ANALYTICS_DAYS, getAnalyticsOverview } from "@/lib/analytics/queries";
 import { ACHIEVEMENTS } from "@/lib/gamification/achievements";
@@ -44,7 +44,7 @@ export default async function ProgressPage() {
       <AssistantPage context={{ kind: "progress" }} label="Your progress" />
       <PageHeader
         title="Progress"
-        description={`What your studying adds up to: scores, accuracy, time, mastery per concept and where you stand. A concept counts as mastered at ${MASTERY_THRESHOLD}%, once you have answered it right on a hard question or without choices, and again on another day; nothing is ever locked — RevTaw just recommends more practice.`}
+        description={`What your studying adds up to: scores, accuracy, time, mastery per concept and where you stand. A concept counts as mastered at ${MASTERY_THRESHOLD}%, once you have answered it right on a hard question or without choices, and again ${MASTERY_SPACING_DAYS} or more days later; nothing is ever locked — RevTaw just recommends more practice.`}
         actions={
           <>
             <ExportMenu target={{ kind: "progress" }} label="Export report" />
