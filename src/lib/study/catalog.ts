@@ -244,7 +244,7 @@ export const METHOD_BEHAVIOR: Record<StudyMethodId, MethodBehavior> = {
     goals: ["quick_review", "exam_prep", "memorize"],
     requiresMaterial: true,
     availableIn: "now",
-    behavior: "Recall prompts are split 60% current material, 20% the previous one, 10% older and 10% the oldest relevant material, each labeled with its source.",
+    behavior: "Recall prompts: 60% from this material and the rest from up to three earlier lessons of the same subject (20%, 10% and 10%), woven in and each labeled with its source.",
   },
   mixed_practice: {
     howItHelps: "Unpredictable formats stop you from pattern-matching the question type.",

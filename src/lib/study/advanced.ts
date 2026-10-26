@@ -16,6 +16,7 @@ import {
 } from "@/lib/study/ai";
 import { RAPID_REVIEW_MINUTES } from "@/lib/study/catalog";
 import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
+import { CUMULATIVE_SPLIT, cumulativeCounts, weave } from "@/lib/study/mixing";
 import { conceptsFor, insertItems, loadOpenItem, openSession, recordUngradedItem, reloadItem, settleAnsweredItem, storeItemAttempt, type Client, type FlowStartInput, type FlowStartResult, type ItemRow, type MaterialContext } from "@/lib/study/items";
 import { ungradedView, type UngradedView } from "@/lib/study/results";
 import { countSessionAnswer, loadSession, SessionError, sessionTitle } from "@/lib/study/sessions";
@@ -158,23 +159,37 @@ export async function startRapidReview(supabase: Client, userId: string, input: 
 // Cumulative review: 60% current, 20% previous, 10% older, 10% oldest
 // ---------------------------------------------------------------------------
 
-export const CUMULATIVE_SPLIT = [0.6, 0.2, 0.1, 0.1] as const;
-
+/**
+ * Cumulative review: the current lesson with earlier ones of the same subject (for a material without a
+ * subject, earlier ones without one), their prompts woven in. Everything is written before the session is
+ * opened, so a failed start leaves nothing behind.
+ */
 export async function startCumulativeReview(supabase: Client, userId: string, input: AdvancedStartInput): Promise<StartResult> {
   const current = await loadMaterialContext(supabase, input.materialId!);
-  const { data: others } = await supabase
-    .from("materials")
-    .select("id, title, created_at")
-    .eq("status", "ready")
-    .neq("id", current.material.id)
-    .is("archived_at", null)
-    .order("created_at", { ascending: false })
-    .limit(3);
-  const total = recallCount(input.plannedMinutes);
-  const lineup = [current.material.id, ...(others ?? []).map((material) => material.id)];
-  const counts = lineup.map((_, index) => Math.round(total * CUMULATIVE_SPLIT[index]));
-  // Give the current material whatever the missing older materials would have taken.
-  counts[0] += total - counts.reduce((sum, count) => sum + count, 0);
+  const { data: currentRow } = await supabase.from("materials").select("created_at").eq("id", current.material.id).maybeSingle();
+  let olderQuery = supabase.from("materials").select("id, title, created_at").eq("status", "ready").neq("id", current.material.id).is("archived_at", null);
+  olderQuery = current.material.subject_id ? olderQuery.eq("subject_id", current.material.subject_id) : olderQuery.is("subject_id", null);
+  if (currentRow?.created_at) olderQuery = olderQuery.lt("created_at", currentRow.created_at);
+  const { data: others } = await olderQuery.order("created_at", { ascending: false }).limit(CUMULATIVE_SPLIT.length - 1);
+  if (!others || others.length === 0) {
+    throw new SessionError(
+      current.material.subject_id
+        ? "Cumulative review mixes in earlier lessons of the same subject, and this is its first one. Try Active Recall on it, or review it with a later lesson."
+        : "Cumulative review mixes in earlier lessons of the same subject. Put this material in a subject with earlier lessons, or try Active Recall.",
+      422,
+    );
+  }
+  const lineup = [current, ...(await Promise.all(others.map((material) => loadMaterialContext(supabase, material.id))))];
+  const counts = cumulativeCounts(recallCount(input.plannedMinutes), others.length);
+  const generated: RecallQuestion[][] = [];
+  for (const [index, context] of lineup.entries()) {
+    generated.push(
+      counts[index] > 0
+        ? (await generateRecallQuestions({ materialTitle: context.material.title, chunks: context.chunks, count: counts[index], focusConcepts: await weakNames(context.material.id, 4), recentMistakes: [], student: context.student, knownConcepts: context.knownConcepts })).questions
+        : [],
+    );
+  }
+  if (generated.every((questions) => questions.length === 0)) throw new SessionError("No recall prompts could be written.", 422);
   const sessionId = await openSession(supabase, userId, {
     method: "cumulative_review",
     materialId: current.material.id,
@@ -182,18 +197,10 @@ export async function startCumulativeReview(supabase: Client, userId: string, in
     goal: input.goal ?? "quick_review",
     plannedMinutes: input.plannedMinutes,
     title: sessionTitle("cumulative_review", current.material.title),
-    state: { index: 0, materialIds: lineup },
+    state: { index: 0, materialIds: lineup.map((context) => context.material.id) },
   });
-  const rows: ItemRow[] = [];
-  for (const [index, materialId] of lineup.entries()) {
-    if (counts[index] <= 0) continue;
-    const context = index === 0 ? current : await loadMaterialContext(supabase, materialId);
-    const generated = await generateRecallQuestions({ materialTitle: context.material.title, chunks: context.chunks, count: counts[index], focusConcepts: await weakNames(materialId, 4), recentMistakes: [], student: context.student, knownConcepts: context.knownConcepts });
-    rows.push(...(await recallItemsFor(supabase, userId, context, generated.questions, { sessionId, startPosition: 0, materialId })));
-  }
-  if (rows.length === 0) throw new SessionError("No recall prompts could be written.", 422);
-  // Current material first, then older lessons woven in.
-  await insertItems(supabase, rows.map((row, position) => ({ ...row, position })));
+  const lists = await Promise.all(lineup.map((context, index) => recallItemsFor(supabase, userId, context, generated[index], { sessionId, startPosition: 0, materialId: context.material.id })));
+  await insertItems(supabase, weave(lists).map((row, position) => ({ ...row, position })));
   return { sessionId, redirect: `/study/${sessionId}` };
 }
 
