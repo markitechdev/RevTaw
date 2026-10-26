@@ -7,7 +7,7 @@ import { isAiError } from "@/lib/ai";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { claimForRetry, retryRefusal } from "@/lib/generation/retry";
 import { addMistake, removeQuizMistake } from "@/lib/mistakes/notebook";
-import { gradeObjective, gradeOpenAnswers, normalizeText, type GradeResult, type OpenAnswerItem } from "@/lib/quizzes/grade";
+import { CORRECT_THRESHOLD, gradeObjective, gradeOpenAnswers, normalizeText, type GradeResult, type OpenAnswerItem } from "@/lib/quizzes/grade";
 import { generateQuiz } from "@/lib/quizzes/generate";
 import { answerSchema, parseQuizConfig, responseSchema } from "@/lib/quizzes/schemas";
 import {
@@ -565,7 +565,8 @@ export async function selfGradeAnswer(answerId: string, verdict: "correct" | "pa
   if (!attempt || attempt.status !== "submitted") throw new ServiceError("Submit the attempt first.", 409);
 
   const score = verdict === "correct" ? question.points : verdict === "partial" ? Math.max(1, Math.floor(question.points / 2)) : 0;
-  const isCorrect = verdict !== "incorrect";
+  // The same bar as an answer Tamari grades: partial credit keeps its points but isn't a correct answer.
+  const isCorrect = score >= question.points * CORRECT_THRESHOLD;
   const { error } = await supabase
     .from("quiz_answers")
     .update({ score, is_correct: isCorrect, graded_by: "self", feedback: "Checked by you against the model answer." })
