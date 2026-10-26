@@ -31,3 +31,11 @@ export function extraStatsFor(method: string, extra: Record<string, unknown> | u
   if (method === "question_generation" && quality !== null) stats.push({ label: "Average quality", value: `${Math.round(quality)}%` });
   return stats;
 }
+
+/** What a session's answered/correct/incorrect/accuracy counts mean, when not answers: question generation rates the student's own questions. */
+export type CountLabels = { answered: string; correct: string; incorrect: string; accuracy: string };
+
+export function countLabelsFor(method: string): CountLabels | undefined {
+  if (method === "question_generation") return { answered: "Questions rated", correct: "Exam-quality", incorrect: "To improve", accuracy: "Exam-quality share" };
+  return undefined;
+}

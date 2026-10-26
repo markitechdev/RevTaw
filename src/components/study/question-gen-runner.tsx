@@ -16,6 +16,7 @@ import { completeSessionAction, evaluateQuestionAction } from "@/lib/study/actio
 import type { EvaluatedQuestion } from "@/lib/study/advanced";
 import type { SessionDetail } from "@/lib/study/queries";
 import type { SessionSummary } from "@/lib/study/sessions";
+import { countLabelsFor } from "@/lib/study/summary-stats";
 import { cn } from "@/lib/utils";
 
 function storedQuestions(session: SessionDetail): EvaluatedQuestion[] {
@@ -86,6 +87,7 @@ export function QuestionGenRunner({ session, methodName, parentSessionId = null,
         title={`${methodName} complete`}
         summary={summary}
         extraStats={[{ label: "Average quality", value: average === null ? "—" : `${average}%` }]}
+        countLabels={countLabelsFor("question_generation")}
         actions={
           <>
             {parentSessionId && (

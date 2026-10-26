@@ -123,7 +123,9 @@ export async function collectEvidence(supabase: Client, userId: string, conceptI
             .select("id, kind, format, concept_id, is_correct, confidence, response_ms, answered_at")
             .eq("user_id", userId)
             .not("answered_at", "is", null)
-            .not("is_correct", "is", null),
+            .not("is_correct", "is", null)
+            // A question the student wrote is rated for its quality, not answered: no evidence of what they know.
+            .neq("kind", "question"),
           "concept_id",
         )
           .order("answered_at", { ascending: false })

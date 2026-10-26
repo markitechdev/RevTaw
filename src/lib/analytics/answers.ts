@@ -25,9 +25,10 @@ export const getAnswerCounts = cache(async (): Promise<AnswerCounts> => {
     count(supabase.from("quiz_answers").select("id", { count: "exact", head: true }).not("response", "is", null)),
     count(supabase.from("quiz_answers").select("id", { count: "exact", head: true }).not("response", "is", null).not("is_correct", "is", null)),
     count(supabase.from("quiz_answers").select("id", { count: "exact", head: true }).not("response", "is", null).eq("is_correct", true)),
-    count(supabase.from("study_session_items").select("id", { count: "exact", head: true }).not("answered_at", "is", null)),
-    count(supabase.from("study_session_items").select("id", { count: "exact", head: true }).not("answered_at", "is", null).not("is_correct", "is", null)),
-    count(supabase.from("study_session_items").select("id", { count: "exact", head: true }).not("answered_at", "is", null).eq("is_correct", true)),
+    // Questions the student wrote (question generation) are rated, not answered.
+    count(supabase.from("study_session_items").select("id", { count: "exact", head: true }).not("answered_at", "is", null).neq("kind", "question")),
+    count(supabase.from("study_session_items").select("id", { count: "exact", head: true }).not("answered_at", "is", null).neq("kind", "question").not("is_correct", "is", null)),
+    count(supabase.from("study_session_items").select("id", { count: "exact", head: true }).not("answered_at", "is", null).neq("kind", "question").eq("is_correct", true)),
   ]);
   return { answered: questions + items, graded: gradedQuestions + gradedItems, correct: correctQuestions + correctItems };
 });

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TINT } from "@/components/ui/tint";
 import type { SessionSummary } from "@/lib/study/sessions";
+import type { CountLabels } from "@/lib/study/summary-stats";
 import { cn } from "@/lib/utils";
 
 export function formatSeconds(seconds: number): string {
@@ -33,12 +34,15 @@ export function SessionSummaryCard({
   title,
   summary,
   extraStats = [],
+  countLabels,
   actions,
   headingLevel = "h2",
 }: {
   title: string;
   summary: SessionSummary;
   extraStats?: Array<{ label: string; value: string }>;
+  /** When the counts aren't answers (summary-stats.ts countLabelsFor). */
+  countLabels?: CountLabels;
   actions?: ReactNode;
   /** h1 when the summary is the page (a finished session opened later), h2 under a runner's own heading. */
   headingLevel?: "h1" | "h2";
@@ -49,10 +53,10 @@ export function SessionSummaryCard({
   const improvement = summary.improvement === null ? null : Math.round(summary.improvement * 100);
   const stats: Array<{ label: string; value: string; icon?: typeof Clock; tone?: string }> = [
     { label: "Duration", value: formatSeconds(summary.durationSeconds), icon: Clock },
-    { label: "Answered", value: String(summary.questionsAnswered) },
-    { label: "Correct", value: String(summary.correct), icon: CircleCheck, tone: "text-success" },
-    { label: "Incorrect", value: String(summary.incorrect), icon: CircleX, tone: "text-danger" },
-    { label: "Accuracy", value: accuracy === null ? "—" : `${accuracy}%` },
+    { label: countLabels?.answered ?? "Answered", value: String(summary.questionsAnswered) },
+    { label: countLabels?.correct ?? "Correct", value: String(summary.correct), icon: CircleCheck, tone: "text-success" },
+    { label: countLabels?.incorrect ?? "Incorrect", value: String(summary.incorrect), icon: CircleX, tone: "text-danger" },
+    { label: countLabels?.accuracy ?? "Accuracy", value: accuracy === null ? "—" : `${accuracy}%` },
     ...extraStats,
   ];
 

@@ -654,8 +654,10 @@ export async function completeItemSession(sessionId: string, focusSeconds: numbe
     byConcept.set(name, entry);
   }
   const correct = graded.filter((item) => item.is_correct).length;
-  const weak = [...byConcept.entries()].filter(([, value]) => value.correct < value.total).map(([name]) => name);
-  const strong = [...byConcept.entries()].filter(([, value]) => value.correct === value.total && value.total > 0).map(([name]) => name);
+  // A question the student wrote is rated for its quality: a weak question doesn't make its concept weak.
+  const ratesQuestions = session.method === "question_generation";
+  const weak = ratesQuestions ? [] : [...byConcept.entries()].filter(([, value]) => value.correct < value.total).map(([name]) => name);
+  const strong = ratesQuestions ? [] : [...byConcept.entries()].filter(([, value]) => value.correct === value.total && value.total > 0).map(([name]) => name);
   const accuracy = graded.length ? correct / graded.length : null;
   const method = session.method as StudyMethodId;
   return completeSession(supabase, sessionId, {

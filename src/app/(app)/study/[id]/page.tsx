@@ -36,7 +36,7 @@ import { syncPreTestPlan, type ConceptChange } from "@/lib/study/flows/pretest";
 import type { ConceptMapData, MindMapData } from "@/lib/study/maps";
 import { getSession, getSessionMethod } from "@/lib/study/queries";
 import { syncPlanChildren, syncPracticeTesting } from "@/lib/study/service";
-import { extraStatsFor } from "@/lib/study/summary-stats";
+import { countLabelsFor, extraStatsFor } from "@/lib/study/summary-stats";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -131,6 +131,7 @@ export default async function SessionPage({ params }: PageProps<"/study/[id]">) 
             title={session.status === "abandoned" ? `${name} stopped early` : `${name} complete`}
             summary={summary}
             extraStats={extraStats}
+            countLabels={countLabelsFor(session.method)}
             actions={
               <>
                 {parentLink}
