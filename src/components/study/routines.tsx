@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { deleteRoutineAction, saveRoutineAction, startRoutineAction } from "@/lib/study/actions";
 import { BUILDER_METHOD_IDS, isTestMethod, METHOD_BEHAVIOR, methodName } from "@/lib/study/catalog";
+import { PLAN_MAX_BLOCKS, PLAN_MAX_MINUTES } from "@/lib/study/plan-limits";
 import { isSessionDuplicate, type SessionDuplicate } from "@/lib/study/session-duplicate";
 
 export type RoutineMaterialOption = { id: string; title: string };
@@ -49,10 +50,12 @@ function RoutineDialog({ open, onClose, materials, routine }: { open: boolean; o
       return next;
     });
 
+  const totalMinutes = blocks.reduce((sum, block) => sum + (Number(block.minutes) || 0), 0);
   const save = () => {
     setError(null);
     if (!title.trim()) return setError("Give the routine a name.");
     if (blocks.length === 0) return setError("Add at least one block.");
+    if (totalMinutes > PLAN_MAX_MINUTES) return setError(`A routine runs at most ${PLAN_MAX_MINUTES / 60} hours (${PLAN_MAX_MINUTES} minutes). Shorten or remove a block.`);
     startTransition(async () => {
       const result = await saveRoutineAction(
         {
@@ -148,12 +151,14 @@ function RoutineDialog({ open, onClose, materials, routine }: { open: boolean; o
           ))}
         </ol>
         <div>
-          <Button type="button" size="sm" variant="secondary" disabled={pending || blocks.length >= 12} onClick={() => setBlocks((state) => [...state, { method: "active_recall", minutes: 15 }])}>
+          <Button type="button" size="sm" variant="secondary" disabled={pending || blocks.length >= PLAN_MAX_BLOCKS} onClick={() => setBlocks((state) => [...state, { method: "active_recall", minutes: 15 }])}>
             <ListPlus className="h-4 w-4" aria-hidden="true" />
             Add block
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">Total: {blocks.reduce((sum, block) => sum + (Number(block.minutes) || 0), 0)} minutes</p>
+        <p className={totalMinutes > PLAN_MAX_MINUTES ? "text-xs font-medium text-danger" : "text-xs text-muted-foreground"}>
+          Total: {totalMinutes} minutes · up to {PLAN_MAX_BLOCKS} blocks and {PLAN_MAX_MINUTES / 60} hours
+        </p>
         <div className="flex justify-end gap-2 border-t border-border pt-4">
           <Button type="button" variant="ghost" disabled={pending} onClick={onClose}>
             Cancel

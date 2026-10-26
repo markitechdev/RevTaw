@@ -5,6 +5,7 @@ import { z } from "zod";
 import { smartPlanSchema, type SmartBlock } from "@/lib/adaptive/smart";
 import { BUILDER_METHOD_IDS, methodName } from "@/lib/study/catalog";
 import { startUnlessDuplicate, type SessionDuplicate } from "@/lib/study/duplicates";
+import { PLAN_MAX_BLOCKS, PLAN_MAX_MINUTES } from "@/lib/study/plan-limits";
 import { createSession, SessionError } from "@/lib/study/sessions";
 import type { Routine, SessionGoal } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -25,11 +26,20 @@ export const routineBlockSchema = z.object({
   questionCount: z.number().int().min(3).max(50).optional(),
 });
 
+/** A routine runs as one plan, so it is saved only within a plan's limits (it couldn't start otherwise). */
 export const routineFormSchema = z.object({
   title: z.string().trim().min(1, "Give the routine a name.").max(120),
   description: z.string().trim().max(400).nullable().optional(),
-  blocks: z.array(routineBlockSchema).min(1, "Add at least one block.").max(12),
+  blocks: z
+    .array(routineBlockSchema)
+    .min(1, "Add at least one block.")
+    .max(PLAN_MAX_BLOCKS, `A routine has at most ${PLAN_MAX_BLOCKS} blocks.`)
+    .refine((blocks) => routineMinutes(blocks) <= PLAN_MAX_MINUTES, { message: `A routine runs at most ${PLAN_MAX_MINUTES / 60} hours (${PLAN_MAX_MINUTES} minutes). Shorten or remove a block.` }),
 });
+
+function routineMinutes(blocks: ReadonlyArray<{ minutes: number }>): number {
+  return blocks.reduce((sum, block) => sum + block.minutes, 0);
+}
 
 export type RoutineBlock = z.infer<typeof routineBlockSchema>;
 export type RoutineFormInput = z.input<typeof routineFormSchema>;
@@ -50,7 +60,7 @@ export async function listRoutines(): Promise<RoutineView[]> {
   }
   return (data ?? []).map((row) => {
     const blocks = parseRoutineBlocks(row.blocks);
-    return { ...row, blocks, totalMinutes: blocks.reduce((sum, block) => sum + block.minutes, 0) };
+    return { ...row, blocks, totalMinutes: routineMinutes(blocks) };
   });
 }
 
@@ -85,6 +95,10 @@ export async function startRoutine(userId: string, routineId: string, options: {
   if (!routine) throw new SessionError("Routine not found.", 404);
   const blocks = parseRoutineBlocks(routine.blocks);
   if (blocks.length === 0) throw new SessionError("This routine has no blocks.", 400);
+  // Saved before the limits were checked: say what to change instead of failing to start.
+  if (blocks.length > PLAN_MAX_BLOCKS || routineMinutes(blocks) > PLAN_MAX_MINUTES) {
+    throw new SessionError(`This routine is longer than one session can be (${PLAN_MAX_BLOCKS} blocks, ${PLAN_MAX_MINUTES / 60} hours). Edit it to start it.`, 400);
+  }
   return startUnlessDuplicate(supabase, userId, { method: "custom_routine", materialId: options.materialId, routineId }, Boolean(options.allowDuplicate), () =>
     createRoutineSession(supabase, userId, { id: routine.id, title: routine.title, blocks }, options),
   );

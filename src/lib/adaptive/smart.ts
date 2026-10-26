@@ -7,6 +7,7 @@ import { conceptsPerPlan } from "@/lib/engine/priority";
 import { countDueCards } from "@/lib/flashcards/queries";
 import { getPreferences } from "@/lib/preferences/queries";
 import { BUILDER_METHOD_IDS, isBuilderMethod } from "@/lib/study/catalog";
+import { PLAN_MAX_BLOCKS, PLAN_MAX_MINUTES } from "@/lib/study/plan-limits";
 import { completeSession, createSession, loadSession, SessionError, updateSessionState, type SessionSummary, parseSessionSummary } from "@/lib/study/sessions";
 import type { Json, SessionGoal } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -41,9 +42,9 @@ export const smartBlockSchema = z.object({
 export type SmartBlock = z.infer<typeof smartBlockSchema>;
 
 export const smartPlanSchema = z.object({
-  blocks: z.array(smartBlockSchema).min(1).max(8),
+  blocks: z.array(smartBlockSchema).min(1).max(PLAN_MAX_BLOCKS),
   materialId: z.string().nullable(),
-  minutes: z.number().int().min(1).max(480),
+  minutes: z.number().int().min(1).max(PLAN_MAX_MINUTES),
 });
 
 export type SmartPlan = z.infer<typeof smartPlanSchema>;
