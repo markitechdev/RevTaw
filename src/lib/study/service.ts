@@ -665,6 +665,8 @@ export async function completeItemSession(sessionId: string, focusSeconds: numbe
   const strong = ratesQuestions ? [] : [...byConcept.entries()].filter(([, value]) => value.correct === value.total && value.total > 0).map(([name]) => name);
   const accuracy = graded.length ? correct / graded.length : null;
   const method = session.method as StudyMethodId;
+  // Building and editing a map is the session's work: without a quiz there is still the map's own advice.
+  const mapOnly = answered.length === 0 && (method === "mind_mapping" || method === "concept_mapping");
   const studied = activeSeconds(session.started_at, (items ?? []).map((item) => item.answered_at));
   return completeSession(supabase, sessionId, {
     focusSeconds: Math.min(studied, focusSeconds ?? studied),
@@ -675,9 +677,9 @@ export async function completeItemSession(sessionId: string, focusSeconds: numbe
     weakConcepts: weak,
     strongConcepts: strong,
     suggestedNext:
-      answered.length === 0
+      answered.length === 0 && !mapOnly
         ? "Nothing was answered this time. Try a shorter session so it is easy to finish."
-        : graded.length === 0
+        : graded.length === 0 && !mapOnly
           ? "Tamari couldn't check these answers, so they aren't counted. Repeat this session later to track your progress."
           : itemSessionNext(method, accuracy, weak),
     nextReviewAt: await nextFlashcardDue(supabase),

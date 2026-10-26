@@ -57,7 +57,7 @@ export function MindMapRunner({ session, methodName, map, parentSessionId = null
 
   return (
     <div className="flex flex-col gap-4">
-      <SessionHeader title={session.title} methodName={methodName} startedAt={session.started_at} plannedMinutes={session.planned_minutes} progressLabel={`${answered} branch question${answered === 1 ? "" : "s"} answered`} onEnd={() => finish(answered === 0)} ending={ending} endLabel="Finish session" />
+      <SessionHeader title={session.title} methodName={methodName} startedAt={session.started_at} plannedMinutes={session.planned_minutes} progressLabel={`${answered} branch question${answered === 1 ? "" : "s"} answered`} onEnd={() => finish()} ending={ending} endLabel="Finish session" />
       {error && <Alert tone="error">{error}</Alert>}
       <section aria-labelledby="mind-map-title" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
         <h2 id="mind-map-title" className="font-display tracking-display flex items-center gap-2 text-lg font-medium">
@@ -104,7 +104,6 @@ export function ConceptMapRunner({ session, methodName, map, parentSessionId = n
 
   if (summary) return <RunnerSummary methodName={methodName} summary={summary} stoppedEarly={stoppedEarly} parentSessionId={parentSessionId} parentLabel={parentLabel} />;
   if (!map) return <Alert tone="error">This session&apos;s concept map is no longer available. Start a new Concept Mapping session.</Alert>;
-  const answeredCount = session.items.filter((item) => item.answered_at).length + Object.keys(results).length;
 
   const startTest = () => {
     setError(null);
@@ -139,7 +138,7 @@ export function ConceptMapRunner({ session, methodName, map, parentSessionId = n
 
   return (
     <div className="flex flex-col gap-4">
-      <SessionHeader title={session.title} methodName={methodName} startedAt={session.started_at} plannedMinutes={session.planned_minutes} progressLabel={mode === "test" ? `${Object.keys(results).length} of ${links.length} links named` : "editing the map"} onEnd={() => finish(answeredCount === 0)} ending={ending} endLabel="Finish session" />
+      <SessionHeader title={session.title} methodName={methodName} startedAt={session.started_at} plannedMinutes={session.planned_minutes} progressLabel={mode === "test" ? `${Object.keys(results).length} of ${links.length} links named` : "editing the map"} onEnd={() => finish()} ending={ending} endLabel="Finish session" />
       {error && <Alert tone="error">{error}</Alert>}
       <section aria-labelledby="concept-map-title" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
