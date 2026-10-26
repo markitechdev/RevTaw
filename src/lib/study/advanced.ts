@@ -214,6 +214,11 @@ export async function startInterleaving(supabase: Client, userId: string, input:
   const contexts = await Promise.all(ids.map((id) => loadMaterialContext(supabase, id)));
   const total = Math.max(ids.length * 2, recallCount(input.plannedMinutes));
   const perMaterial = Math.max(1, Math.round(total / ids.length));
+  // The prompts are written before the session is opened, so a failed start leaves nothing behind.
+  const generated = await Promise.all(
+    contexts.map(async (context) => (await generateRecallQuestions({ materialTitle: context.material.title, chunks: context.chunks, count: perMaterial, focusConcepts: await weakNames(context.material.id, 4), recentMistakes: [], student: context.student, knownConcepts: context.knownConcepts })).questions),
+  );
+  if (generated.every((questions) => questions.length === 0)) throw new SessionError("No recall prompts could be written.", 422);
   const sessionId = await openSession(supabase, userId, {
     method: "interleaving",
     materialId: contexts[0].material.id,
@@ -223,16 +228,10 @@ export async function startInterleaving(supabase: Client, userId: string, input:
     title: `${contexts.map((context) => context.material.title).join(" + ")} — Interleaving`.slice(0, 160),
     state: { index: 0, materialIds: ids },
   });
-  const perContext = await Promise.all(
-    contexts.map(async (context) => {
-      const generated = await generateRecallQuestions({ materialTitle: context.material.title, chunks: context.chunks, count: perMaterial, focusConcepts: await weakNames(context.material.id, 4), recentMistakes: [], student: context.student, knownConcepts: context.knownConcepts });
-      return recallItemsFor(supabase, userId, context, generated.questions, { sessionId, startPosition: 0, materialId: context.material.id });
-    }),
-  );
+  const perContext = await Promise.all(contexts.map((context, index) => recallItemsFor(supabase, userId, context, generated[index], { sessionId, startPosition: 0, materialId: context.material.id })));
   // Round-robin so consecutive prompts come from different materials.
   const rows: ItemRow[] = [];
   for (let index = 0; index < perMaterial; index += 1) for (const list of perContext) if (list[index]) rows.push(list[index]);
-  if (rows.length === 0) throw new SessionError("No recall prompts could be written.", 422);
   await insertItems(supabase, rows.map((row, position) => ({ ...row, position })));
   return { sessionId, redirect: `/study/${sessionId}` };
 }
