@@ -7,7 +7,7 @@ import { completeSmartSession, getSmartSessionView, markSmartBlock, parseSmartPl
 import { track } from "@/lib/analytics/server";
 import { routes } from "@/lib/routes";
 import { actionFailure, revalidateStudy, uuid, type StudyActionResult } from "@/lib/study/action-helpers";
-import { compareBlurtItem, evaluateQuestionItem, type BlurtResult, type EvaluatedQuestion } from "@/lib/study/advanced";
+import { BLURT_MAX_ROUNDS, compareBlurtItem, evaluateQuestionItem, type BlurtResult, type EvaluatedQuestion } from "@/lib/study/advanced";
 import { BUILDER_METHOD_IDS } from "@/lib/study/catalog";
 import { PROBLEM_DIFFICULTIES } from "@/lib/study/problem-options";
 import { completePreTesting } from "@/lib/study/flows/pretest";
@@ -19,6 +19,7 @@ import {
   answerRecallItem,
   completeItemSession,
   completePomodoro,
+  FEYNMAN_MAX_ROUNDS,
   savePomodoro,
   startPlannedSession,
   startSession,
@@ -134,10 +135,10 @@ export async function startRoutineAction(input: { routineId: string; materialId:
   }
 }
 
-export async function compareBlurtAction(input: { itemId: string; text: string; responseMs: number | null }): Promise<StudyActionResult<BlurtResult>> {
+export async function compareBlurtAction(input: { itemId: string; text: string; responseMs: number | null; round: number }): Promise<StudyActionResult<BlurtResult>> {
   const user = await getCurrentUser();
   if (!user) redirect(routes.login);
-  const parsed = z.object({ itemId: uuid, text: z.string().max(8000), responseMs: z.number().int().min(0).max(86_400_000).nullable() }).safeParse(input);
+  const parsed = z.object({ itemId: uuid, text: z.string().max(8000), responseMs: z.number().int().min(0).max(86_400_000).nullable(), round: z.number().int().min(1).max(BLURT_MAX_ROUNDS) }).safeParse(input);
   if (!parsed.success) return { ok: false, message: "Invalid blurt." };
   try {
     const data = await compareBlurtItem(parsed.data);
@@ -161,10 +162,10 @@ export async function evaluateQuestionAction(input: { sessionId: string; questio
   }
 }
 
-export async function analyzeFeynmanAction(input: { itemId: string; explanation: string; responseMs: number | null }): Promise<StudyActionResult<FeynmanRoundResult>> {
+export async function analyzeFeynmanAction(input: { itemId: string; explanation: string; responseMs: number | null; round: number }): Promise<StudyActionResult<FeynmanRoundResult>> {
   const user = await getCurrentUser();
   if (!user) redirect(routes.login);
-  const parsed = z.object({ itemId: uuid, explanation: z.string().max(8000), responseMs: z.number().int().min(0).max(86_400_000).nullable() }).safeParse(input);
+  const parsed = z.object({ itemId: uuid, explanation: z.string().max(8000), responseMs: z.number().int().min(0).max(86_400_000).nullable(), round: z.number().int().min(1).max(FEYNMAN_MAX_ROUNDS) }).safeParse(input);
   if (!parsed.success) return { ok: false, message: "That explanation could not be saved." };
   try {
     const result = await analyzeFeynmanItem(parsed.data);

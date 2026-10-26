@@ -487,11 +487,18 @@ export type FeynmanRoundResult = {
 
 export const FEYNMAN_MAX_ROUNDS = 2;
 
-/** Analyses one explanation attempt; the ideal explanation is revealed only after the last round. */
-export async function analyzeFeynmanItem(input: { itemId: string; explanation: string; responseMs: number | null }): Promise<FeynmanRoundResult> {
+/**
+ * Analyses one explanation attempt (`round`: the attempt the student is on, 1 or 2); the ideal explanation is
+ * revealed only after the last round.
+ */
+export async function analyzeFeynmanItem(input: { itemId: string; explanation: string; responseMs: number | null; round: number }): Promise<FeynmanRoundResult> {
   const supabase = await createClient();
   const { item, session } = await loadOpenItem(supabase, input.itemId);
   if (item.kind !== "feynman") throw new SessionError("This item is not a Feynman concept.", 400);
+  // That attempt is already stored (a double submit, or a second tab, got there first): it stands. Otherwise
+  // a late copy of the first explanation was analysed as the improved one and used up the second attempt,
+  // and a late copy of the second showed an error instead of the result.
+  if (item.answered_at || item.attempts >= input.round) return storedFeynmanRound(item);
   if (item.attempts >= FEYNMAN_MAX_ROUNDS) throw new SessionError("This concept has already had two attempts.", 409);
 
   const round = item.attempts + 1;

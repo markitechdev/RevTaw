@@ -338,13 +338,18 @@ export const BLURT_MAX_ROUNDS = 2;
  */
 export type BlurtResult = { analysis: BlurtComparison | null; round: number; final: boolean; ungraded: UngradedView | null; source: string | null };
 
-/** Compares one blurt attempt with the section; the source is revealed only after the last round. */
-export async function compareBlurtItem(input: { itemId: string; text: string; responseMs: number | null }): Promise<BlurtResult> {
+/**
+ * Compares one blurt attempt with the section (`round`: the attempt the student is on, 1 or 2); the source
+ * is revealed only after the last round.
+ */
+export async function compareBlurtItem(input: { itemId: string; text: string; responseMs: number | null; round: number }): Promise<BlurtResult> {
   const supabase = await createClient();
   const { item, session } = await loadOpenItem(supabase, input.itemId);
   if (item.kind !== "blurt") throw new SessionError("This item is not a blurt.", 400);
   const previous = ((item.analysis as { rounds?: BlurtRound[] } | null)?.rounds ?? []) as BlurtRound[];
-  if (item.answered_at) return storedBlurtRound(item);
+  // That attempt is already stored (a double submit, or a second tab, got there first): it stands, so a late
+  // copy of the first blurt doesn't use up the retry.
+  if (item.answered_at || previous.length >= input.round) return storedBlurtRound(item);
   if (previous.length >= BLURT_MAX_ROUNDS) {
     const last = previous[previous.length - 1];
     return { analysis: last, round: last.round, final: true, ungraded: null, source: item.model_answer };

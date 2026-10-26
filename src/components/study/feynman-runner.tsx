@@ -72,13 +72,14 @@ export function FeynmanRunner({ session, methodName, parentSessionId = null, par
     if (!item) return;
     setError(null);
     startTransition(async () => {
-      const result = await analyzeFeynmanAction({ itemId: item.id, explanation, responseMs: Math.min(86_400_000, Date.now() - shownAt.current) });
+      const result = await analyzeFeynmanAction({ itemId: item.id, explanation, responseMs: Math.min(86_400_000, Date.now() - shownAt.current), round: rounds.length + 1 });
       if (!result.ok) {
         setError(result.message);
         return;
       }
       const analysis = result.data.analysis;
-      if (analysis) setRounds((state) => [...state, { round: result.data.round, ...analysis }]);
+      // By its number: a round another tab stored first comes back as that round, not as a new one.
+      if (analysis) setRounds((state) => [...state.filter((entry) => entry.round < result.data.round), { round: result.data.round, ...analysis }]);
       if (result.data.final) {
         setFinalResult(result.data);
         markAnswered(item.id);

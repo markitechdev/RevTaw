@@ -74,13 +74,14 @@ export function BlurtingRunner({ session, methodName, parentSessionId = null, pa
     if (!item) return;
     setError(null);
     startTransition(async () => {
-      const result = await compareBlurtAction({ itemId: item.id, text, responseMs: Math.min(86_400_000, Date.now() - shownAt.current) });
+      const result = await compareBlurtAction({ itemId: item.id, text, responseMs: Math.min(86_400_000, Date.now() - shownAt.current), round: rounds.length + 1 });
       if (!result.ok) {
         setError(result.message);
         return;
       }
       const analysis = result.data.analysis;
-      if (analysis) setRounds((state) => [...state, { ...analysis, round: result.data.round }]);
+      // By its number: a round another tab stored first comes back as that round, not as a new one.
+      if (analysis) setRounds((state) => [...state.filter((entry) => entry.round < result.data.round), { ...analysis, round: result.data.round }]);
       else setUnchecked({ ungraded: result.data.ungraded });
       if (result.data.final) {
         setSource(result.data.source);
