@@ -116,7 +116,9 @@ export async function startRapidReview(supabase: Client, userId: string, input: 
     chunks: context.chunks,
     count: remaining,
     focusConcepts: await weakNames(context.material.id, 8),
-    recentMistakes: mistakeRows.map((mistake) => mistake.question_text.slice(0, 200)),
+    // The retested mistakes are asked as they are: the new prompts cover the rest, not the same facts again.
+    recentMistakes: [],
+    alreadyAsked: mistakeRows.map((mistake) => mistake.question_text.slice(0, 200)),
     student: context.student,
     emphasis,
     knownConcepts: context.knownConcepts,

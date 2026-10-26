@@ -61,6 +61,8 @@ export async function generateRecallQuestions(input: {
   emphasis?: string[];
   /** The names the material's concepts already go by, to reuse. */
   knownConcepts?: string[];
+  /** Questions the session asks anyway (rapid review's retested mistakes): the prompts must not ask them again. */
+  alreadyAsked?: string[];
 }): Promise<{ questions: RecallQuestion[]; provider: string; model: string }> {
   const provider = getAiProvider("strong");
   // A long material leans toward the focus concepts; the rest keeps reading order.
@@ -75,11 +77,12 @@ Rules:
 - "concept": the 1-4 word concept being recalled (reuse the same wording for the same concept; when the message lists the material's concept names, a prompt on one of them uses that name, and only a concept not listed gets a new one).
 - "source_excerpt": a short verbatim quote (max 300 chars) that supports the model answer.
 - Cover different parts of the material; prioritize the focus concepts and recent mistakes when given.
+- Never ask about a fact covered by a question listed under "Already asked" (when given): the student answers those separately.
 ${formats ? `- "format": rotate through these formats in order and label each prompt with the format it uses: ${formats.map((format) => `${format} (${FORMAT_RULES[format]})`).join("; ")}.\n` : ""}- Use ONLY the material between <material> tags.
 - Respond with a single JSON object matching the schema. No commentary.`;
   const user = `Material title: ${input.materialTitle}
 Student: ${studentLine(input.student)}
-${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${knownConceptsLine(input.knownConcepts ?? [])}${coverageNote(coverageRatio, focused)}${input.emphasis?.length ? `High-value topics to prioritize: ${input.emphasis.join(", ")}\n` : ""}${input.recentMistakes.length ? `Recent mistakes:\n${input.recentMistakes.map((item) => `- ${item}`).join("\n")}\n` : ""}${formats ? `Formats to rotate: ${formats.join(", ")}\n` : ""}
+${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${knownConceptsLine(input.knownConcepts ?? [])}${coverageNote(coverageRatio, focused)}${input.emphasis?.length ? `High-value topics to prioritize: ${input.emphasis.join(", ")}\n` : ""}${input.recentMistakes.length ? `Recent mistakes:\n${input.recentMistakes.map((item) => `- ${item}`).join("\n")}\n` : ""}${input.alreadyAsked?.length ? `Already asked:\n${input.alreadyAsked.map((item) => `- ${item}`).join("\n")}\n` : ""}${formats ? `Formats to rotate: ${formats.join(", ")}\n` : ""}
 ${upTo(input.count, "prompts")}
 
 JSON schema: { "questions": [{ "prompt": string, "model_answer": string, "key_points": string[], "concept": string, "source_excerpt": string${formats ? ', "format": string' : ""} }] }
