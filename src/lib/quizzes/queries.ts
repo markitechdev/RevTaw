@@ -301,7 +301,7 @@ export const getAttemptResults = cache(async (attemptId: string): Promise<Attemp
       concept: question.concept,
       answer,
       correctAnswer: describeAnswer(answer, options),
-      note: answerNote(answer, response),
+      note: answerNote(answer, response, question.explanation),
       response,
       studentAnswer: describeResponse(response, options),
       answerId: stored?.id ?? null,

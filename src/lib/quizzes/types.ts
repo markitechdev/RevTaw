@@ -191,7 +191,19 @@ export function describeAnswer(answer: QuestionAnswer, options: QuestionOption[]
 /** What the student should know beyond the correct answer: why their option is wrong, or the true version of a false statement. */
 export type AnswerNote = { label: string; text: string };
 
-export function answerNote(answer: QuestionAnswer, response: QuestionResponse | null): AnswerNote | null {
+const sameText = (text: string) => text.toLowerCase().replace(/\s+/g, " ").trim();
+
+/**
+ * The note for a response, or null. Given the question's explanation, a note it already says is left out:
+ * a two-statement question's explanation gives the verdict on both statements, so the reason a choice is
+ * wrong would only repeat part of it.
+ */
+export function answerNote(answer: QuestionAnswer, response: QuestionResponse | null, explanation?: string | null): AnswerNote | null {
+  const note = noteFor(answer, response);
+  return note && explanation && sameText(explanation).includes(sameText(note.text)) ? null : note;
+}
+
+function noteFor(answer: QuestionAnswer, response: QuestionResponse | null): AnswerNote | null {
   if ("option_id" in answer) {
     if (!response || !("option_id" in response) || response.option_id === answer.option_id) return null;
     const why = answer.rationales?.[response.option_id];

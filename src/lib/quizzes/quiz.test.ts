@@ -233,6 +233,8 @@ describe("answer notes", () => {
     expect(answerNote({ option_id: "a", rationales: { a: "Right." } }, { option_id: "a" })).toBeNull();
     expect(answerNote({ value: false, correction: "It happens in the stroma." }, { value: true })).toEqual({ label: "The true statement", text: "It happens in the stroma." });
     expect(answerNote({ value: true }, { value: false })).toBeNull();
+    // A reason the explanation doesn't give is kept beside it.
+    expect(answerNote({ option_id: "a", rationales: { b: "Oxygen is released, not fixed." } }, { option_id: "b" }, "Carbon dioxide is fixed in the Calvin cycle.")?.text).toBe("Oxygen is released, not fixed.");
   });
 });
 
@@ -415,6 +417,9 @@ describe("two-statement questions", () => {
     expect(gradeObjective("two_statement", answer, { option_id: "a" }, 1)).toMatchObject({ isCorrect: true, score: 1 });
     expect(gradeObjective("two_statement", answer, { option_id: "c" }, 1)).toMatchObject({ isCorrect: false, score: 0 });
     expect(answerNote(answer, { option_id: "c" })?.text).toContain("Statement 2 is false");
+    // The explanation already gives that verdict (and the other one): the note would only repeat it.
+    expect(answerNote(answer, { option_id: "c" }, question.explanation)).toBeNull();
+    expect(answerNote(answer, { option_id: "b" }, question.explanation)).toBeNull();
     expect(describeAnswer(answer, question.options ?? null)).toBe("Only statement 1 is true");
   });
 

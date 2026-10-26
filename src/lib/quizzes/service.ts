@@ -359,7 +359,7 @@ export async function saveAnswer(input: {
       points: question.points,
       correctAnswer: describeAnswer(answer, options),
       explanation: question.explanation,
-      note: grade ? answerNote(answer, response) : null,
+      note: grade ? answerNote(answer, response, question.explanation) : null,
       feedback: grade?.feedback ?? null,
     },
   };
@@ -404,7 +404,7 @@ async function recordMistake(
     studentAnswer: describeResponse(response, options) ?? null,
     correctAnswer: describeAnswer(answer, options),
     // Why their choice was wrong (or the true version of a false statement), then why the answer is right.
-    explanation: [answerNote(answer, response)?.text, question.explanation].filter(Boolean).join(" ") || null,
+    explanation: [answerNote(answer, response, question.explanation)?.text, question.explanation].filter(Boolean).join(" ") || null,
     // A question answered by picking one is retested with its choices, in the order they are stored.
     choices: question.type === "true_false" ? ["True", "False"] : hasOptions(question.type) ? (options ?? []).map((option) => option.text) : null,
     quiz: { attemptId: attempt.id, questionId: question.id },
