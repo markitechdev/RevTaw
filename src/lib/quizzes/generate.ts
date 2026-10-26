@@ -234,9 +234,18 @@ function answerKey(question: GeneratedQuestion): string | null {
   return null;
 }
 
+/** Whether a question's own wording states this answer ("Chlorophyll is a pigment that…" states "chlorophyll"). */
+function states(question: GeneratedQuestion, answer: string | null): boolean {
+  return answer !== null && ` ${matchWords(question.prompt).join(" ")} `.includes(` ${answer} `);
+}
+
 /**
- * Whether two questions are the same question: nearly the same words (a true/false pair that differs in one
- * detail counts, since one gives the other away), or the same type asking for the same answer.
+ * Whether two questions are the same question, so a quiz keeps only one:
+ * - nearly the same words (a true/false pair that differs in one detail counts, since one gives the other away);
+ * - the same type asking for the same answer;
+ * - the same fact asked in another format: the same answer ("Identify the term: the process by which…" and
+ *   "____ is the process by which…"), or one question stating the other's answer ("Chlorophyll is a pigment
+ *   that absorbs…" next to "Identify the term: a pigment that absorbs…").
  */
 function sameQuestion(a: GeneratedQuestion, b: GeneratedQuestion): boolean {
   const similar = overlap(a.prompt, b.prompt);
@@ -244,8 +253,9 @@ function sameQuestion(a: GeneratedQuestion, b: GeneratedQuestion): boolean {
   // A statement asked twice (on its own as true/false, or in two two-statement questions) gives itself away.
   const statementsOf = (question: GeneratedQuestion) => (question.type === "two_statement" ? question.statements.map((statement) => statement.text) : question.type === "true_false" ? [question.prompt] : []);
   if ((a.type === "two_statement" || b.type === "two_statement") && statementsOf(a).some((left) => statementsOf(b).some((right) => overlap(left, right) >= 0.6))) return true;
-  const key = answerKey(a);
-  return key !== null && a.type === b.type && key === answerKey(b);
+  const [keyA, keyB] = [answerKey(a), answerKey(b)];
+  if (keyA !== null && keyA === keyB && (a.type === b.type || similar >= 0.5)) return true;
+  return similar >= 0.5 && (states(a, keyB) || states(b, keyA));
 }
 
 export type FinalizeContext = {
@@ -257,16 +267,21 @@ export type FinalizeContext = {
 
 /**
  * Validates and tidies the model output, then trims it to the requested count:
- * - drops questions whose answer doesn't fit their type, and duplicates (in any script);
+ * - only the types the student chose: a quiz short of questions says so (populateQuiz) rather than filling up
+ *   with a type they didn't ask for;
+ * - drops questions whose answer doesn't fit their type;
  * - with the material: drops a question whose supporting quote isn't in it (a made-up source), replacing a
  *   loosely quoted one with the material's own sentence, and an identification or fill-in question whose
  *   answer isn't a term the material uses;
+ * - drops duplicates (in any script). Of two questions on one fact, the one whose type has fewer questions so
+ *   far stays, so a mixed quiz keeps every type it can;
  * - keeps near repeats of earlier quizzes for last.
  */
 export function finalizeQuestions(questions: GeneratedQuestion[], config: QuizConfig, context: FinalizeContext = {}): GeneratedQuestion[] {
-  const kept: GeneratedQuestion[] = [];
+  const wanted = new Set(config.questionTypes);
+  const valid: GeneratedQuestion[] = [];
   for (const generated of questions) {
-    if (matchWords(generated.prompt).length === 0) continue;
+    if (!wanted.has(generated.type) || matchWords(generated.prompt).length === 0) continue;
     let question =
       generated.type === "multiple_choice"
         ? tidyChoiceQuestion(generated)
@@ -283,19 +298,34 @@ export function finalizeQuestions(questions: GeneratedQuestion[], config: QuizCo
       question = { ...question, source_excerpt: quote };
       if ((question.type === "identification" || question.type === "fill_blank") && !question.answer.accepted.some((term) => context.material?.has(term))) continue;
     }
-    const candidate = question;
-    if (kept.some((other) => sameQuestion(other, candidate))) continue;
-    kept.push(candidate);
+    valid.push(question);
   }
-  // Only the types the student chose: a quiz short of questions says so (populateQuiz) rather than
-  // filling up with a type they didn't ask for. New questions come before repeats of earlier quizzes.
-  const wanted = new Set(config.questionTypes);
-  const chosen = kept.filter((question) => wanted.has(question.type));
-  const repeats = new Set(chosen.filter((question) => (context.previous ?? []).some((prompt) => overlap(prompt, question.prompt) >= 0.8)));
-  const pool = [...chosen.filter((question) => !repeats.has(question)), ...chosen.filter((question) => repeats.has(question))];
-  // Take each type's planned share first, so a mixed quiz really contains every
-  // selected type even when the model over-produces the first ones, then fill
-  // any shortfall with the rest; the model's order (types interleaved) is kept.
+
+  // Duplicates: the first of two stays. Every type first gets one question that repeats none already kept,
+  // then the rest are weighed type by type in turn (each type's next question…), new questions before near
+  // repeats of earlier quizzes.
+  const isRepeat = (question: GeneratedQuestion) => (context.previous ?? []).some((prompt) => overlap(prompt, question.prompt) >= 0.8);
+  const repeats = new Set(valid.filter(isRepeat));
+  const turns = (group: GeneratedQuestion[]) => {
+    const queues = config.questionTypes.map((type) => group.filter((question) => question.type === type));
+    const longest = Math.max(0, ...queues.map((queue) => queue.length));
+    return Array.from({ length: longest }, (_, round) => queues.flatMap((queue) => (round < queue.length ? [queue[round]] : []))).flat();
+  };
+  const ranked = [...turns(valid.filter((question) => !repeats.has(question))), ...turns(valid.filter((question) => repeats.has(question)))];
+  const kept: GeneratedQuestion[] = [];
+  const keep = (candidate: GeneratedQuestion) => {
+    if (kept.includes(candidate) || kept.some((other) => sameQuestion(other, candidate))) return false;
+    kept.push(candidate);
+    return true;
+  };
+  for (const type of config.questionTypes) ranked.filter((question) => question.type === type).some(keep);
+  for (const candidate of ranked) keep(candidate);
+
+  // The model's order (types interleaved), new questions first.
+  const order = new Map(valid.map((question, index) => [question, index]));
+  const pool = kept.sort((a, b) => Number(repeats.has(a)) - Number(repeats.has(b)) || order.get(a)! - order.get(b)!);
+  // Take each type's planned share first, so a mixed quiz really contains every selected type even when the
+  // model over-produces the first ones, then fill any shortfall with the rest.
   const picked = new Set<GeneratedQuestion>();
   for (const item of distributeQuestions(config.questionCount, config.questionTypes)) {
     for (const question of pool.filter((candidate) => candidate.type === item.type).slice(0, item.count)) picked.add(question);

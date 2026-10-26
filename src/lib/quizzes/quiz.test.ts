@@ -332,6 +332,49 @@ describe("mixed quizzes keep every selected type", () => {
   });
 });
 
+describe("one fact asked in two formats", () => {
+  const base = { difficulty: "easy" as const, explanation: "Because.", concept: "Photosynthesis", source_excerpt: "" };
+  const config: QuizConfig = { ...DEFAULT_QUIZ_CONFIG, questionCount: 6, questionTypes: ["multiple_choice", "true_false", "identification", "fill_blank"] };
+  const choice = (prompt: string, answer: string) => ({ type: "multiple_choice" as const, ...base, prompt, options: [answer, "Respiration", "Transpiration", "Fermentation"].map((text, index) => ({ id: "abcd"[index], text })), answer: { option_id: "a" } });
+
+  it("keeps one question per fact: the same answer about the same words, or a question that states another's answer", () => {
+    const kept = finalizeQuestions(
+      quizResponseSchema.parse({
+        title: "T",
+        questions: [
+          choice("Which term is described here: the process by which green plants convert light energy into chemical energy?", "Photosynthesis"),
+          { type: "fill_blank", ...base, prompt: "____ is the process by which green plants convert light energy into chemical energy.", answer: { accepted: ["Photosynthesis"] } },
+          { type: "true_false", ...base, prompt: "Chlorophyll is a pigment that absorbs light most strongly in the blue and red wavelengths.", answer: { value: true } },
+          { type: "identification", ...base, prompt: "Identify the term: a pigment that absorbs light most strongly in the blue and red wavelengths.", answer: { accepted: ["Chlorophyll"] } },
+          // Same answer, another fact: both stay.
+          { type: "identification", ...base, prompt: "Name the process that uses carbon dioxide and water to make glucose in plants.", answer: { accepted: ["Photosynthesis"] } },
+        ],
+      }).questions,
+      config,
+    );
+    expect(kept.map((question) => question.type)).toEqual(["multiple_choice", "true_false", "identification"]);
+    expect(kept[2].prompt).toContain("carbon dioxide and water");
+  });
+
+  it("keeps a question of every chosen type when the duplicates leave room for it", () => {
+    const kept = finalizeQuestions(
+      quizResponseSchema.parse({
+        title: "T",
+        questions: [
+          choice("Which term is described here: the process by which green plants convert light energy into chemical energy?", "Photosynthesis"),
+          choice("Which term is described here: the set of reactions that fixes carbon dioxide into sugar?", "Calvin cycle"),
+          { type: "fill_blank", ...base, prompt: "____ is the process by which green plants convert light energy into chemical energy.", answer: { accepted: ["Photosynthesis"] } },
+          { type: "fill_blank", ...base, prompt: "The ____ is the set of reactions that fixes carbon dioxide into sugar.", answer: { accepted: ["Calvin cycle"] } },
+        ],
+      }).questions,
+      { ...config, questionCount: 4, questionTypes: ["multiple_choice", "fill_blank"] },
+    );
+    // Two facts, so two questions; one of each type rather than two multiple choice.
+    expect(kept.map((question) => question.type)).toEqual(["multiple_choice", "fill_blank"]);
+    expect(kept[1].prompt).toContain("fixes carbon dioxide");
+  });
+});
+
 describe("two-statement questions", () => {
   const material = new MaterialText([TRANSCRIPT]);
   const config: QuizConfig = { ...DEFAULT_QUIZ_CONFIG, questionCount: 5, questionTypes: ["two_statement", "true_false"] };
