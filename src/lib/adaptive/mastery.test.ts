@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isWeakTopic, MASTERY_SPACING_DAYS, MASTERY_THRESHOLD, needsRefresh, NEXT_STEP_LABEL, STATUS_BANDS, STATUS_LABEL } from "@/lib/adaptive/mastery";
+import { conceptMaterialIds, inAnyMaterial, isWeakTopic, MASTERY_SPACING_DAYS, MASTERY_THRESHOLD, needsRefresh, NEXT_STEP_LABEL, STATUS_BANDS, STATUS_LABEL } from "@/lib/adaptive/mastery";
 import { CONCEPT_STATES } from "@/lib/engine/types";
 
 describe("mastery labels", () => {
@@ -29,6 +29,16 @@ describe("mastery labels", () => {
     expect(isWeakTopic({ ...row, attempts: 1, first_attempts: 1, misconceptions: 1 })).toBe(true);
     // Under 60% only because recall faded: a refresh, not a weak topic.
     expect(isWeakTopic({ ...row, weakness: 0.05 })).toBe(false);
+  });
+
+  it("counts a concept in every material it appears in", () => {
+    const concept = { material_id: "ch1", links: [{ material_id: "ch1" }, { material_id: "ch3" }] };
+    expect(conceptMaterialIds(concept)).toEqual(["ch1", "ch3"]);
+    expect(inAnyMaterial(concept, new Set(["ch3"]))).toBe(true);
+    expect(inAnyMaterial(concept, ["ch2"])).toBe(false);
+    // Rows read before their links (or a concept with none) still count in the material they were made from.
+    expect(conceptMaterialIds({ material_id: "ch1" })).toEqual(["ch1"]);
+    expect(conceptMaterialIds(null)).toEqual([]);
   });
 
   it("shows a faded strong or mastered concept as a refresh", () => {

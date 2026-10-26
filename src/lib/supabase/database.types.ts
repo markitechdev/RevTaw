@@ -221,6 +221,14 @@ type ConceptsRow = {
   updated_at: string;
 };
 
+/** Each material a concept was used with (0039); concepts.material_id is only the first. */
+type ConceptMaterialsRow = {
+  concept_id: string;
+  material_id: string;
+  user_id: string;
+  created_at: string;
+};
+
 type ReviewersRow = {
   id: string;
   user_id: string;
@@ -870,6 +878,27 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "concepts_material_fk";
+            columns: ["material_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      concept_materials: {
+        Row: ConceptMaterialsRow;
+        Insert: Writable<ConceptMaterialsRow, "concept_id" | "material_id">;
+        Update: Partial<ConceptMaterialsRow>;
+        Relationships: [
+          {
+            foreignKeyName: "concept_materials_concept_fk";
+            columns: ["concept_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "concepts";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "concept_materials_material_fk";
             columns: ["material_id", "user_id"];
             isOneToOne: false;
             referencedRelation: "materials";

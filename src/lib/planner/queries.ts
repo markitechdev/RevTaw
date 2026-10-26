@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { listMastery } from "@/lib/adaptive/engine";
+import { inAnyMaterial } from "@/lib/adaptive/mastery";
 import { countDueCards } from "@/lib/flashcards/queries";
 import { addDays, daysBetween } from "@/lib/planner/dates";
 import { readinessScore } from "@/lib/planner/generate";
@@ -51,7 +52,7 @@ async function decorateExams(exams: Array<Exam & { subject: ExamSummary["subject
   return exams.map((exam) => {
     const materials = [...exam.exam_materials].sort((a, b) => a.position - b.position).map((link) => link.material).filter((material): material is { id: string; title: string; status: string } => Boolean(material));
     const materialIds = new Set(materials.map((material) => material.id));
-    const rows = mastery.filter((row) => row.concept?.material_id && materialIds.has(row.concept.material_id) && row.attempts > 0);
+    const rows = mastery.filter((row) => row.attempts > 0 && inAnyMaterial(row.concept, materialIds));
     const averageMastery = rows.length ? Math.round(rows.reduce((sum, row) => sum + Number(row.mastery), 0) / rows.length) : null;
     const own = tasks.filter((task) => task.exam_id === exam.id && task.status !== "skipped");
     const tasksDone = own.filter((task) => task.status === "done").length;

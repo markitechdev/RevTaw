@@ -58,7 +58,9 @@ export function conceptCore(key: string): string {
  * mastery tracking. A name that only wraps a concept the student already has
  * ("Photosynthesis process" next to "Photosynthesis", either way round) joins
  * that concept, so its answers count toward the same mastery instead of
- * starting a new one; so do such names given together.
+ * starting a new one; so do such names given together. Every concept named
+ * for a material is linked to it (concept_materials), so a concept met again
+ * in another material counts in both.
  */
 export async function ensureConcepts(
   supabase: Client,
@@ -82,12 +84,19 @@ export async function ensureConcepts(
   const [{ data: named }, fromMaterial] = await Promise.all([
     supabase.from("concepts").select("id, normalized_name").eq("user_id", userId).in("normalized_name", lookup),
     origin.materialId
-      ? supabase.from("concepts").select("id, normalized_name").eq("user_id", userId).eq("material_id", origin.materialId).order("created_at").limit(500)
+      ? supabase
+          .from("concept_materials")
+          .select("concept:concepts!concept_materials_concept_fk(id, normalized_name)")
+          .eq("user_id", userId)
+          .eq("material_id", origin.materialId)
+          .order("created_at")
+          .limit(500)
       : null,
   ]);
+  const ofMaterial = ((fromMaterial?.data ?? []) as unknown as Array<{ concept: { id: string; normalized_name: string } | null }>).flatMap((row) => (row.concept ? [row.concept] : []));
   const known = new Map((named ?? []).map((row) => [row.normalized_name, row.id]));
   const byCore = new Map<string, string>();
-  for (const row of [...(named ?? []), ...(fromMaterial?.data ?? [])]) {
+  for (const row of [...(named ?? []), ...ofMaterial]) {
     const core = conceptCore(row.normalized_name);
     if (!byCore.has(core)) byCore.set(core, row.id);
   }
@@ -108,7 +117,10 @@ export async function ensureConcepts(
     if (owner === key) create.set(key, name);
     else joins.set(key, owner);
   }
-  if (create.size === 0) return result;
+  if (create.size === 0) {
+    await linkToMaterial(supabase, userId, origin.materialId, [...result.values()]);
+    return result;
+  }
 
   const rows = [...create.entries()].map(([normalized_name, name]) => ({
     user_id: userId,
@@ -134,21 +146,42 @@ export async function ensureConcepts(
     const id = result.get(owner);
     if (id) result.set(key, id);
   }
+  await linkToMaterial(supabase, userId, origin.materialId, [...result.values()]);
   return result;
+}
+
+/** Records that these concepts appear in the material (a link that exists is left alone). */
+async function linkToMaterial(supabase: Client, userId: string, materialId: string | null, conceptIds: string[]): Promise<void> {
+  const ids = [...new Set(conceptIds)];
+  if (!materialId || ids.length === 0) return;
+  const { error } = await supabase
+    .from("concept_materials")
+    .upsert(
+      ids.map((conceptId) => ({ concept_id: conceptId, material_id: materialId, user_id: userId })),
+      { onConflict: "concept_id,material_id", ignoreDuplicates: true },
+    );
+  if (error) console.error("concept_materials: link failed", error.message);
 }
 
 /**
  * The names a material's concepts go by, for generators to reuse so the same concept keeps one name (and
- * one mastery): the material analysis's key concepts first, then the concepts made from it so far.
+ * one mastery): the material analysis's key concepts first, then the concepts used with it so far.
  */
 export async function materialConceptNames(supabase: Client, material: { id: string; user_id: string }, max = 60): Promise<string[]> {
   const [{ data: analysis }, { data: rows }] = await Promise.all([
     supabase.from("material_analyses").select("key_concepts:data->key_concepts").eq("material_id", material.id).maybeSingle(),
-    supabase.from("concepts").select("name").eq("user_id", material.user_id).eq("material_id", material.id).order("created_at").limit(120),
+    supabase
+      .from("concept_materials")
+      .select("concept:concepts!concept_materials_concept_fk(name)")
+      .eq("user_id", material.user_id)
+      .eq("material_id", material.id)
+      .order("created_at")
+      .limit(120),
   ]);
   const analysed = parseAnalysisData({ key_concepts: analysis?.key_concepts ?? [] }).key_concepts.map((concept) => concept.name);
+  const used = ((rows ?? []) as unknown as Array<{ concept: { name: string } | null }>).flatMap((row) => (row.concept ? [row.concept.name] : []));
   const names = new Map<string, string>();
-  for (const name of [...analysed, ...(rows ?? []).map((row) => row.name)]) {
+  for (const name of [...analysed, ...used]) {
     const key = normalizeConceptName(name);
     if (key && !names.has(key)) names.set(key, name.trim().replace(/\s+/g, " "));
   }

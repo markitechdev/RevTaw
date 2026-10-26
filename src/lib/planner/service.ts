@@ -1,7 +1,7 @@
 import "server-only";
 
 import { listMastery } from "@/lib/adaptive/engine";
-import { isWeakTopic } from "@/lib/adaptive/mastery";
+import { conceptMaterialIds, isWeakTopic } from "@/lib/adaptive/mastery";
 import { ServiceError } from "@/lib/errors";
 import { countDueCards } from "@/lib/flashcards/queries";
 import { parseAnalysisData } from "@/lib/materials/analysis-schema";
@@ -148,7 +148,7 @@ async function planMaterials(supabase: Client, materialIds: string[]): Promise<P
       const data = analysis ? parseAnalysisData(analysis.data) : null;
       const concepts = data?.key_concepts ?? [];
       const deep = concepts.filter((concept) => concept.category === "understanding" || concept.category === "application").length;
-      const rows = mastery.filter((row) => row.concept?.material_id === material.id && row.attempts > 0);
+      const rows = mastery.filter((row) => row.attempts > 0 && conceptMaterialIds(row.concept).includes(material.id));
       const average = rows.length ? rows.reduce((sum, row) => sum + Number(row.mastery), 0) / rows.length : null;
       return {
         id: material.id,

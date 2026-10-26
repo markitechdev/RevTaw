@@ -155,12 +155,21 @@ export async function refreshMastery(conceptIds: string[] | null): Promise<void>
 }
 
 export type MasteryView = ConceptMastery & {
-  concept: { id: string; name: string; material_id: string | null; material: { id: string; title: string } | null } | null;
+  concept: {
+    id: string;
+    name: string;
+    /** The material the concept was first made from (shown with its name). */
+    material_id: string | null;
+    material: { id: string; title: string } | null;
+    /** Every material it was used with: what "this material's concepts" means (adaptive/mastery conceptMaterialIds). */
+    links: Array<{ material_id: string }>;
+  } | null;
 };
 
-const MASTERY_COLUMNS = "*, concept:concepts!concept_mastery_concept_fk(id, name, material_id, material:materials!concepts_material_fk(id, title))";
-/** The same, joined so that a filter on the concept's material keeps only its rows. */
-const MASTERY_COLUMNS_FOR_MATERIAL = "*, concept:concepts!concept_mastery_concept_fk!inner(id, name, material_id, material:materials!concepts_material_fk(id, title))";
+const MASTERY_COLUMNS = "*, concept:concepts!concept_mastery_concept_fk(id, name, material_id, material:materials!concepts_material_fk(id, title), links:concept_materials(material_id))";
+/** The same, joined so that a filter on one of the concept's materials keeps only its rows. */
+const MASTERY_COLUMNS_FOR_MATERIAL =
+  "*, concept:concepts!concept_mastery_concept_fk!inner(id, name, material_id, material:materials!concepts_material_fk(id, title), links:concept_materials!inner(material_id))";
 
 /** Recall fades every day: mastery older than this is recomputed on the next read (the nightly job usually gets there first). */
 export const MASTERY_STALE_MS = 20 * 60 * 60 * 1000;
@@ -199,7 +208,7 @@ export const listMastery = cache(async (filters: { materialId?: string } = {}): 
     const rows = await readPages(
       (from, to) => {
         const query = filters.materialId
-          ? supabase.from("concept_mastery").select(MASTERY_COLUMNS_FOR_MATERIAL).eq("concept.material_id", filters.materialId)
+          ? supabase.from("concept_mastery").select(MASTERY_COLUMNS_FOR_MATERIAL).eq("concept.links.material_id", filters.materialId)
           : supabase.from("concept_mastery").select(MASTERY_COLUMNS);
         return query.order("mastery", { ascending: true }).order("concept_id").range(from, to);
       },

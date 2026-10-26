@@ -1,6 +1,7 @@
 import "server-only";
 
 import { listMastery } from "@/lib/adaptive/engine";
+import { conceptMaterialIds } from "@/lib/adaptive/mastery";
 import { addDays, dateIn, weekStartOf } from "@/lib/planner/dates";
 import { PlannerError, plannerClock } from "@/lib/planner/service";
 import { goalFormSchema } from "@/lib/planner/schemas";
@@ -112,13 +113,13 @@ export async function listGoalsWithProgress(): Promise<GoalProgress[]> {
         detail = `${current} of ${goal.target} questions`;
         break;
       case "mastery": {
-        const rowsFor = mastery.filter((row) => row.concept?.material_id === goal.material_id && row.attempts > 0);
+        const rowsFor = mastery.filter((row) => row.attempts > 0 && goal.material_id !== null && conceptMaterialIds(row.concept).includes(goal.material_id));
         current = rowsFor.length ? Math.round(rowsFor.reduce((sum, row) => sum + Number(row.mastery), 0) / rowsFor.length) : 0;
         detail = rowsFor.length ? `${current}% average over ${rowsFor.length} concept${rowsFor.length === 1 ? "" : "s"}` : "No concepts practiced yet";
         break;
       }
       case "finish_material": {
-        const rowsFor = mastery.filter((row) => row.concept?.material_id === goal.material_id && row.attempts > 0);
+        const rowsFor = mastery.filter((row) => row.attempts > 0 && goal.material_id !== null && conceptMaterialIds(row.concept).includes(goal.material_id));
         const strong = rowsFor.filter((row) => Number(row.mastery) >= 60).length;
         current = goal.status === "completed" ? 1 : rowsFor.length > 0 && strong === rowsFor.length && rowsFor.length >= 3 ? 1 : 0;
         detail = goal.status === "completed" ? "Done" : rowsFor.length ? `${strong} of ${rowsFor.length} concepts strong` : "Not started";

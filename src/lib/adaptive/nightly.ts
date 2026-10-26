@@ -99,7 +99,8 @@ type ScopedConcept = {
   fsrs_lapses: number;
   fsrs_last_review: string | null;
   next_review_at: string | null;
-  concept: { name: string; material_id: string | null } | null;
+  /** links: the concept's materials among the exam's (the filter keeps only those). */
+  concept: { name: string; material_id: string | null; links: Array<{ material_id: string }> } | null;
 };
 
 function conceptSnapshot(row: ScopedConcept): FsrsSnapshot | null {
@@ -146,23 +147,31 @@ async function boostExam(
     (from, to) =>
       admin
         .from("concept_mastery")
-        .select("concept_id, fsrs_stability, fsrs_difficulty, fsrs_state, fsrs_reps, fsrs_lapses, fsrs_last_review, next_review_at, concept:concepts!concept_mastery_concept_fk!inner(name, material_id)")
+        .select(
+          "concept_id, fsrs_stability, fsrs_difficulty, fsrs_state, fsrs_reps, fsrs_lapses, fsrs_last_review, next_review_at, concept:concepts!concept_mastery_concept_fk!inner(name, material_id, links:concept_materials!inner(material_id))",
+        )
         .eq("user_id", exam.user_id)
         .gt("attempts", 0)
-        .in("concept.material_id", materialIds)
+        // Any concept that appears in one of the exam's materials, not only the ones first made from them.
+        .in("concept.links.material_id", materialIds)
         .order("concept_id")
         .range(from, to),
     5000,
   );
   const fading = (scoped as unknown as ScopedConcept[])
     .map((row) => ({ row, recall: recallAt(conceptSnapshot(row), examMorning) }))
-    .filter((entry): entry is { row: ScopedConcept; recall: number } => entry.recall !== null && entry.recall < recallBelow && Boolean(entry.row.concept?.material_id))
+    .filter((entry): entry is { row: ScopedConcept; recall: number } => entry.recall !== null && entry.recall < recallBelow && Boolean(entry.row.concept?.links.length))
     .sort((a, b) => a.recall - b.recall)
     .slice(0, maxConcepts);
 
   let boosters = 0;
   const byMaterial = new Map<string, string[]>();
-  for (const { row } of fading) byMaterial.set(row.concept!.material_id!, [...(byMaterial.get(row.concept!.material_id!) ?? []), row.concept!.name]);
+  // Each fading concept is reviewed with the first of the exam's materials it appears in.
+  const examOrder = (materialId: string) => materialIds.indexOf(materialId);
+  for (const { row } of fading) {
+    const materialId = [...row.concept!.links].map((link) => link.material_id).sort((a, b) => examOrder(a) - examOrder(b))[0];
+    byMaterial.set(materialId, [...(byMaterial.get(materialId) ?? []), row.concept!.name]);
+  }
   for (const [materialId, names] of byMaterial) {
     const shown = names.slice(0, 3).join(", ") + (names.length > 3 ? ` and ${names.length - 3} more` : "");
     const task = {

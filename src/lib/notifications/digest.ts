@@ -169,9 +169,10 @@ async function examDetails(client: Client, userId: string, examId: string): Prom
     // The lowest-mastery concepts, then the weak topics among them (the same definition as Home and Tamari).
     const { data } = await client
       .from("concept_mastery")
-      .select("mastery, attempts, first_attempts, status, weakness, misconceptions, concept:concepts!concept_mastery_concept_fk!inner(name, material_id)")
+      .select("mastery, attempts, first_attempts, status, weakness, misconceptions, concept:concepts!concept_mastery_concept_fk!inner(name, links:concept_materials!inner(material_id))")
       .eq("user_id", userId)
-      .in("concept.material_id", materialIds)
+      // Every concept that appears in one of the exam's materials, not only the ones first made from them.
+      .in("concept.links.material_id", materialIds)
       .gt("attempts", 0)
       .order("mastery")
       .limit(50);

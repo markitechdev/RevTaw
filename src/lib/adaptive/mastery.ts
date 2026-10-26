@@ -45,6 +45,24 @@ export const NEXT_STEP_LABEL: Record<NextStep, string> = {
 
 const rank = (status: MasteryStatus) => CONCEPT_STATES.indexOf(status);
 
+/** A concept as mastery rows carry it: the material it was first made from and every material it was used with. */
+export type ConceptMaterials = { material_id: string | null; links?: ReadonlyArray<{ material_id: string }> | null };
+
+/** Every material a concept appears in (concept_materials, and the one it was first made from). */
+export function conceptMaterialIds(concept: ConceptMaterials | null | undefined): string[] {
+  if (!concept) return [];
+  const ids = new Set<string>();
+  if (concept.material_id) ids.add(concept.material_id);
+  for (const link of concept.links ?? []) ids.add(link.material_id);
+  return [...ids];
+}
+
+/** Whether a concept appears in any of these materials. */
+export function inAnyMaterial(concept: ConceptMaterials | null | undefined, materialIds: ReadonlySet<string> | ReadonlyArray<string>): boolean {
+  const wanted = materialIds instanceof Set ? materialIds : new Set(materialIds as ReadonlyArray<string>);
+  return conceptMaterialIds(concept).some((id) => wanted.has(id));
+}
+
 /**
  * A weak topic, wherever RevTaw names one (Home, Tamari, the planner, a material's page): a concept the
  * student holds a confident wrong idea about, or one practiced enough to tell (three answers) that needs a

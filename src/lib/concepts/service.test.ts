@@ -65,11 +65,27 @@ describe("ensureConcepts", () => {
     expect(tables.concepts).toHaveLength(1);
   });
 
-  it("joins a plain name to a wrapped concept made from the same material", async () => {
-    const { client, tables } = fakeSupabase({ concepts: [concept("c1", "Photosynthesis process")] });
+  it("joins a plain name to a wrapped concept used with the same material", async () => {
+    const wrapped = concept("c1", "Photosynthesis process");
+    const { client, tables } = fakeSupabase({
+      concepts: [wrapped],
+      concept_materials: [{ concept_id: "c1", material_id: "m1", user_id: "u1", created_at: "1", concept: { id: "c1", normalized_name: wrapped.normalized_name } }],
+    });
     const ids = await ensureConcepts(client, "u1", ["Photosynthesis"], origin);
     expect(ids.get(normalizeConceptName("Photosynthesis"))).toBe("c1");
     expect(tables.concepts).toHaveLength(1);
+  });
+
+  it("links every concept it names to the material, once, so a concept met again counts in both", async () => {
+    const { client, tables } = fakeSupabase({ concepts: [concept("c1", "Photosynthesis")], concept_materials: [{ concept_id: "c1", material_id: "m1", user_id: "u1" }] });
+    const ids = await ensureConcepts(client, "u1", ["Photosynthesis", "Calvin cycle"], { materialId: "m3", subjectId: null });
+    const calvin = ids.get(normalizeConceptName("Calvin cycle"));
+    expect(tables.concept_materials.map((row) => `${row.concept_id}:${row.material_id}`).sort()).toEqual(["c1:m1", "c1:m3", `${calvin}:m3`].sort());
+    await ensureConcepts(client, "u1", ["Photosynthesis"], { materialId: "m3", subjectId: null });
+    expect(tables.concept_materials).toHaveLength(3);
+    // Without a material there is nothing to link.
+    await ensureConcepts(client, "u1", ["Osmosis"], { materialId: null, subjectId: null });
+    expect(tables.concept_materials).toHaveLength(3);
   });
 
   it("makes one concept for names given together that share a core, under the plain name", async () => {

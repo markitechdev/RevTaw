@@ -4,7 +4,7 @@ import { cache } from "react";
 
 import { listMastery, type MasteryView } from "@/lib/adaptive/engine";
 import { conceptCategories, DEFAULT_CATEGORY } from "@/lib/adaptive/evidence";
-import { isWeakTopic } from "@/lib/adaptive/mastery";
+import { conceptMaterialIds, isWeakTopic, type ConceptMaterials } from "@/lib/adaptive/mastery";
 import { chooseMethod, PLAN_METHODS, type MethodPick } from "@/lib/engine/method-rules";
 import { rankByPriority, type PriorityInput, type Ranked } from "@/lib/engine/priority";
 import type { ConceptState } from "@/lib/engine/types";
@@ -77,32 +77,48 @@ const answersToday = cache(async (): Promise<Map<string, number>> => {
 export async function rankConcepts(options: { materialId?: string | null; includeUnpracticed?: boolean } = {}): Promise<RankedConcept[]> {
   const [rows, exam, today] = await Promise.all([listMastery(), examInScope(), answersToday()]);
   const examMaterials = new Set((exam?.materials ?? []).map((material) => material.id));
-  const keep = (materialId: string | null) => !options.materialId || materialId === options.materialId;
-  const practiced = rows.filter((row) => row.attempts > 0 && row.concept && keep(row.concept.material_id));
+  // A concept belongs to every material it appears in, not only the one it was first made from.
+  const keep = (concept: ConceptMaterials) => !options.materialId || conceptMaterialIds(concept).includes(options.materialId);
+  const practiced = rows.filter((row) => row.attempts > 0 && row.concept && keep(row.concept));
 
-  let unpracticed: Array<{ id: string; name: string; material_id: string | null }> = [];
+  let unpracticed: Array<{ id: string; name: string; material_id: string | null; links: Array<{ material_id: string }> }> = [];
   // Never-practiced concepts only from materials that can still be studied (a deleted file has nothing to learn from).
   const scope = options.materialId ? [options.materialId] : (exam?.materials ?? []).filter((material) => material.status !== "deleted").map((material) => material.id);
   if (options.includeUnpracticed && scope.length > 0) {
     const supabase = await createClient();
-    const { data } = await supabase.from("concepts").select("id, name, material_id").in("material_id", scope).order("created_at").limit(300);
+    const { data } = await supabase
+      .from("concept_materials")
+      .select("material_id, concept:concepts!concept_materials_concept_fk(id, name, material_id)")
+      .in("material_id", scope)
+      .order("created_at")
+      .limit(300);
     const seen = new Set(rows.filter((row) => row.attempts > 0).map((row) => row.concept_id));
-    unpracticed = (data ?? []).filter((concept) => !seen.has(concept.id));
+    const byId = new Map<string, (typeof unpracticed)[number]>();
+    for (const link of (data ?? []) as unknown as Array<{ material_id: string; concept: { id: string; name: string; material_id: string | null } | null }>) {
+      if (!link.concept || seen.has(link.concept.id)) continue;
+      const entry = byId.get(link.concept.id) ?? { ...link.concept, links: [] };
+      entry.links.push({ material_id: link.material_id });
+      byId.set(link.concept.id, entry);
+    }
+    unpracticed = [...byId.values()];
   }
 
   const supabase = await createClient();
   const categories = await conceptCategories(supabase, [...practiced.map((row) => row.concept_id), ...unpracticed.map((concept) => concept.id)]);
-  const context = (materialId: string | null) => {
-    const inScope = Boolean(exam && materialId && examMaterials.has(materialId));
-    return { inScope, daysToExam: inScope && exam ? exam.daysLeft : null, anyExam: Boolean(exam) };
+  /** In the exam's scope when any of its materials is; studied from the material asked for, else one in scope, else its first. */
+  const context = (concept: ConceptMaterials) => {
+    const materials = conceptMaterialIds(concept);
+    const scoped = exam ? materials.find((id) => examMaterials.has(id)) : undefined;
+    const inScope = scoped !== undefined;
+    return { inScope, daysToExam: inScope && exam ? exam.daysLeft : null, anyExam: Boolean(exam), materialId: options.materialId ?? scoped ?? concept.material_id ?? materials[0] ?? null };
   };
   const items: FocusConcept[] = [
     ...practiced.map((row) => {
-      const where = context(row.concept!.material_id);
+      const where = context(row.concept!);
       return {
         id: row.concept_id,
         name: row.concept!.name,
-        materialId: row.concept!.material_id,
+        materialId: where.materialId,
         row,
         state: row.status,
         category: categories.get(row.concept_id) ?? DEFAULT_CATEGORY,
@@ -120,11 +136,11 @@ export async function rankConcepts(options: { materialId?: string | null; includ
       };
     }),
     ...unpracticed.map((concept) => {
-      const where = context(concept.material_id);
+      const where = context(concept);
       return {
         id: concept.id,
         name: concept.name,
-        materialId: concept.material_id,
+        materialId: where.materialId,
         row: null,
         state: "new" as const,
         category: categories.get(concept.id) ?? DEFAULT_CATEGORY,
