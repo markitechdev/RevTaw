@@ -4,6 +4,7 @@ import { MessageCircle } from "lucide-react";
 
 import { openAssistant } from "@/components/assistant/assistant-provider";
 import { Button } from "@/components/ui/button";
+import { optionLetter } from "@/lib/quizzes/types";
 
 /**
  * "Why is my answer wrong?" — asks RevTaw right here, with the question, its options (so Tamari can say why
@@ -24,7 +25,7 @@ export function AskWhyWrongButton({
   correctAnswer: string;
   size?: "sm" | "md";
 }) {
-  const choices = options?.length ? `\nOptions:\n${options.map((option) => `${option.id.toUpperCase()}. ${option.text.slice(0, 300)}`).join("\n")}` : "";
+  const choices = options?.length ? `\nOptions:\n${options.map((option, position) => `${optionLetter(position)}. ${option.text.slice(0, 300)}`).join("\n")}` : "";
   const ask = () =>
     openAssistant({
       action: "why_wrong",

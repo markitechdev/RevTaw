@@ -2,7 +2,7 @@
 
 import { Input, Textarea } from "@/components/ui/input";
 import type { RunnerQuestion } from "@/lib/quizzes/queries";
-import type { QuestionResponse } from "@/lib/quizzes/types";
+import { optionLetter, type QuestionResponse } from "@/lib/quizzes/types";
 import { cn } from "@/lib/utils";
 
 /** Renders the right control for a question type; the value is the stored response shape. */
@@ -24,7 +24,7 @@ export function QuestionInput({
     return (
       <fieldset disabled={disabled} className="flex flex-col gap-2">
         <legend className="sr-only">Options</legend>
-        {(question.options ?? []).map((option) => (
+        {(question.options ?? []).map((option, position) => (
           <label
             key={option.id}
             className={cn(
@@ -42,7 +42,7 @@ export function QuestionInput({
               className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
             />
             <span className="flex min-w-0 gap-2">
-              <span className="font-semibold uppercase text-muted-foreground">{option.id}.</span>
+              <span className="font-semibold text-muted-foreground">{optionLetter(position)}.</span>
               <span>{option.text}</span>
             </span>
           </label>

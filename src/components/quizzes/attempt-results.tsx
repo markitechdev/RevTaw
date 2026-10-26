@@ -9,7 +9,7 @@ import { buttonClasses } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SECTION_TITLE } from "@/components/ui/typography";
 import type { AttemptResultsView } from "@/lib/quizzes/queries";
-import { CONFIDENCE_LABEL, DIFFICULTY_LABEL, QUESTION_TYPE_BY_ID, QUIZ_MODE_LABEL } from "@/lib/quizzes/types";
+import { CONFIDENCE_LABEL, DIFFICULTY_LABEL, optionLetter, QUESTION_TYPE_BY_ID, QUIZ_MODE_LABEL } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -188,7 +188,7 @@ export function AttemptResults({ view, questionCount }: { view: AttemptResultsVi
                 <p className="mt-3 whitespace-pre-wrap font-medium leading-snug">{question.prompt}</p>
                 {question.options && (
                   <ul className="mt-2 flex flex-col gap-1 text-sm">
-                    {question.options.map((option) => {
+                    {question.options.map((option, position) => {
                       const isAnswer = "option_id" in question.answer && question.answer.option_id === option.id;
                       const isChosen = question.response && "option_id" in question.response && question.response.option_id === option.id;
                       return (
@@ -200,7 +200,7 @@ export function AttemptResults({ view, questionCount }: { view: AttemptResultsVi
                             isChosen && !isAnswer && "bg-danger-soft text-danger",
                           )}
                         >
-                          <span className="font-semibold uppercase">{option.id}.</span>
+                          <span className="font-semibold">{optionLetter(position)}.</span>
                           <span>{option.text}</span>
                           {isAnswer && <span className="sr-only">(correct answer)</span>}
                         </li>

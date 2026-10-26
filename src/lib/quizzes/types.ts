@@ -137,11 +137,19 @@ export function defaultExamMinutes(questionCount: number): number {
   return Math.max(5, questionCount);
 }
 
-/** Human-readable form of a stored correct answer (results, mistakes, feedback). */
+/** The letter an option is shown with: by its place in the order the student sees (A, B, C…), not by its stored id. */
+export function optionLetter(position: number): string {
+  return String.fromCharCode(65 + position);
+}
+
+/**
+ * Human-readable form of a stored correct answer (results, mistakes, feedback). A multiple-choice answer is
+ * its option's text: options are shuffled per attempt, so a letter would point at a different option.
+ */
 export function describeAnswer(answer: QuestionAnswer, options: QuestionOption[] | null): string {
   if ("option_id" in answer) {
     const option = options?.find((item) => item.id === answer.option_id);
-    return option ? `${option.id.toUpperCase()}. ${option.text}` : answer.option_id.toUpperCase();
+    return option ? option.text : answer.option_id.toUpperCase();
   }
   if ("value" in answer) return answer.value ? "True" : "False";
   if ("accepted" in answer) return answer.accepted[0] ?? "";
@@ -153,7 +161,7 @@ export function describeResponse(response: QuestionResponse | null, options: Que
   if (!response) return null;
   if ("option_id" in response) {
     const option = options?.find((item) => item.id === response.option_id);
-    return option ? `${option.id.toUpperCase()}. ${option.text}` : response.option_id.toUpperCase();
+    return option ? option.text : response.option_id.toUpperCase();
   }
   if ("value" in response) return response.value ? "True" : "False";
   return response.text.trim() || null;

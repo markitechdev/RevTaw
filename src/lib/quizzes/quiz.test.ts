@@ -83,7 +83,8 @@ describe("quiz config", () => {
   });
 
   it("describes stored answers for results and the mistake notebook", () => {
-    expect(describeAnswer({ option_id: "c" }, [{ id: "c", text: "Stroma" }])).toBe("C. Stroma");
+    // The option's text: options are shuffled per attempt, so its stored letter would mislead.
+    expect(describeAnswer({ option_id: "c" }, [{ id: "c", text: "Stroma" }])).toBe("Stroma");
     expect(describeAnswer({ value: true }, null)).toBe("True");
     expect(describeAnswer({ accepted: ["ATP", "adenosine triphosphate"] }, null)).toBe("ATP");
   });
