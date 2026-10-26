@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { conceptChanges, preTestLayout } from "@/lib/study/flows/pretest";
-import { extraStatsFor } from "@/lib/study/summary-stats";
+import { countLabelsFor, extraStatsFor } from "@/lib/study/summary-stats";
 
 describe("summary stats", () => {
   it("shows blocks for every plan method and the before-and-after for pre-testing", () => {
@@ -21,7 +21,11 @@ describe("summary stats", () => {
   });
 
   it("keeps the other methods' stats", () => {
-    expect(extraStatsFor("teach_back", { score: 82.4 })).toEqual([{ label: "Teaching score", value: "82%" }]);
+    // A tutor conversation's score is its accuracy tile; the stats count its replies.
+    expect(extraStatsFor("teach_back", { score: 82.4, studentTurns: 6 })).toEqual([{ label: "Your replies", value: "6" }]);
+    expect(countLabelsFor("teach_back")).toEqual({ answered: null, correct: null, incorrect: null, accuracy: "Teaching score" });
+    expect(countLabelsFor("socratic_questioning")?.accuracy).toBe("Reasoning score");
+    expect(countLabelsFor("active_recall")).toBeUndefined();
     expect(extraStatsFor("pomodoro", { completedRounds: 2 })).toEqual([{ label: "Rounds", value: "2" }]);
     expect(extraStatsFor("question_generation", { averageQuality: 71 })).toEqual([{ label: "Average quality", value: "71%" }]);
   });

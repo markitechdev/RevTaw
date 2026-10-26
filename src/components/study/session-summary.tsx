@@ -51,11 +51,17 @@ export function SessionSummaryCard({
   // Answers Tamari couldn't check and the student didn't mark (lib/study/results.ts): left out of the counts.
   const unchecked = typeof summary.extra?.ungraded === "number" ? summary.extra.ungraded : 0;
   const improvement = summary.improvement === null ? null : Math.round(summary.improvement * 100);
-  const stats: Array<{ label: string; value: string; icon?: typeof Clock; tone?: string }> = [
+  type Stat = { label: string; value: string; icon?: typeof Clock; tone?: string };
+  // A null label hides its tile (a tutor conversation has no right/wrong counts).
+  const counted = (label: string | null | undefined, fallback: string, stat: Omit<Stat, "label">): Stat[] => {
+    const shown = label === undefined ? fallback : label;
+    return shown === null ? [] : [{ label: shown, ...stat }];
+  };
+  const stats: Stat[] = [
     { label: "Duration", value: formatSeconds(summary.durationSeconds), icon: Clock },
-    { label: countLabels?.answered ?? "Answered", value: String(summary.questionsAnswered) },
-    { label: countLabels?.correct ?? "Correct", value: String(summary.correct), icon: CircleCheck, tone: "text-success" },
-    { label: countLabels?.incorrect ?? "Incorrect", value: String(summary.incorrect), icon: CircleX, tone: "text-danger" },
+    ...counted(countLabels?.answered, "Answered", { value: String(summary.questionsAnswered) }),
+    ...counted(countLabels?.correct, "Correct", { value: String(summary.correct), icon: CircleCheck, tone: "text-success" }),
+    ...counted(countLabels?.incorrect, "Incorrect", { value: String(summary.incorrect), icon: CircleX, tone: "text-danger" }),
     { label: countLabels?.accuracy ?? "Accuracy", value: accuracy === null ? "—" : `${accuracy}%` },
     ...extraStats,
   ];

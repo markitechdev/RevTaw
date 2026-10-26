@@ -23,8 +23,9 @@ export function extraStatsFor(method: string, extra: Record<string, unknown> | u
       stats.push({ label: "Improvement", value: `${change > 0 ? "+" : ""}${change} pts` });
     }
   }
-  const score = number("score");
-  if (isTutorMethod(method) && score !== null) stats.push({ label: method === "teach_back" ? "Teaching score" : "Reasoning score", value: `${Math.round(score)}%` });
+  // A tutor conversation's score is its accuracy tile (countLabelsFor); its replies are counted here.
+  const turns = number("studentTurns");
+  if (isTutorMethod(method) && turns !== null) stats.push({ label: "Your replies", value: String(turns) });
   const rounds = number("completedRounds");
   if (method === "pomodoro" && rounds !== null) stats.push({ label: "Rounds", value: String(rounds) });
   const quality = number("averageQuality");
@@ -32,10 +33,15 @@ export function extraStatsFor(method: string, extra: Record<string, unknown> | u
   return stats;
 }
 
-/** What a session's answered/correct/incorrect/accuracy counts mean, when not answers: question generation rates the student's own questions. */
-export type CountLabels = { answered: string; correct: string; incorrect: string; accuracy: string };
+/**
+ * What a session's answered/correct/incorrect/accuracy tiles mean when they aren't graded answers (null
+ * hides a tile): question generation rates the student's own questions, and a tutor conversation is scored
+ * as a whole.
+ */
+export type CountLabels = { answered: string | null; correct: string | null; incorrect: string | null; accuracy: string };
 
 export function countLabelsFor(method: string): CountLabels | undefined {
   if (method === "question_generation") return { answered: "Questions rated", correct: "Exam-quality", incorrect: "To improve", accuracy: "Exam-quality share" };
+  if (isTutorMethod(method)) return { answered: null, correct: null, incorrect: null, accuracy: method === "teach_back" ? "Teaching score" : "Reasoning score" };
   return undefined;
 }

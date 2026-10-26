@@ -151,9 +151,17 @@ async function previousAccuracy(supabase: Client, session: StudySession): Promis
 export type CompleteSessionInput = {
   focusSeconds?: number;
   topics: string[];
+  /** Answers with a result of their own (right or wrong): the accuracy is correct / questionsAnswered. */
   questionsAnswered: number;
   correct: number;
   incorrect: number;
+  /**
+   * A score for the whole session (0-1) when its answers aren't graded one by one (a tutor conversation is
+   * scored as a whole), or null when it couldn't be scored. Replaces correct / questionsAnswered.
+   */
+  accuracy?: number | null;
+  /** Answers rewarded with XP when they aren't counted in questionsAnswered (a tutor conversation's replies). */
+  answersForXp?: number;
   weakConcepts: string[];
   strongConcepts: string[];
   masteredConcepts?: string[];
@@ -174,7 +182,7 @@ export async function completeSession(supabase: Client, sessionId: string, input
   const elapsed = secondsSince(session.started_at, now);
   // Focus time comes from the browser: never more than the time since the session started.
   const focusSeconds = Math.min(elapsed, Math.max(session.focus_seconds, Math.min(elapsed, Math.round(input.focusSeconds ?? elapsed))));
-  const accuracy = input.questionsAnswered > 0 ? input.correct / input.questionsAnswered : null;
+  const accuracy = input.accuracy !== undefined ? (input.accuracy === null ? null : Math.max(0, Math.min(1, input.accuracy))) : input.questionsAnswered > 0 ? input.correct / input.questionsAnswered : null;
   const previous = await previousAccuracy(supabase, session);
   const summary: SessionSummary = {
     durationSeconds: focusSeconds,
@@ -215,7 +223,7 @@ export async function completeSession(supabase: Client, sessionId: string, input
   await awardSessionXp(
     supabase,
     { id: session.id, title: session.title, method: session.method },
-    { answered: input.questionsAnswered, correct: cards ? 0 : input.correct, abandoned: Boolean(input.abandoned), answersAlreadyRewarded: isTestMethod(session.method) || isPlanMethod(session.method) },
+    { answered: input.questionsAnswered + (input.answersForXp ?? 0), correct: cards ? 0 : input.correct, abandoned: Boolean(input.abandoned), answersAlreadyRewarded: isTestMethod(session.method) || isPlanMethod(session.method) },
   );
   return summary;
 }

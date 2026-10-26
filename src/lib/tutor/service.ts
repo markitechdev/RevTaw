@@ -13,9 +13,9 @@ import { parsePreferences } from "@/lib/preferences/schema";
 import { completeSession, createSession, loadSession, SessionError, type SessionSummary } from "@/lib/study/sessions";
 import type { Json, StudySession, TutorMode } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
-import { evaluateTutorSession, tutorReply, type TutorReply } from "@/lib/tutor/ai";
+import { evaluateTutorSession, tutorReply, type TutorEvaluation, type TutorReply } from "@/lib/tutor/ai";
 import { rankMaterialChunks } from "@/lib/search/hybrid";
-import { asksAboutNotes, excerpt, retrievalQuery, searchableQuestion, selectContext, sharesTopic, topicWords, type ContextChunk } from "@/lib/tutor/context";
+import { asksAboutNotes, excerpt, labelChunk, retrievalQuery, searchableQuestion, selectContext, sharesTopic, topicWords, type ContextChunk } from "@/lib/tutor/context";
 import { TUTOR_HISTORY_MESSAGES, type TutorFocus, type TutorStudent, type WeakSpot } from "@/lib/tutor/prompt";
 import { finalizeReply, type FinalReply } from "@/lib/tutor/reply";
 import { flashcardDraftSchema } from "@/lib/tutor/schemas";
@@ -698,28 +698,35 @@ export async function completeTutorSession(sessionId: string, options: { stopped
     });
   }
 
-  let evaluation = { score: 0, strengths: [] as string[], missing_concepts: [] as string[], suggestion: "Answer Tamari's questions in your own words next time; the evaluation needs your reasoning.", concepts_covered: [] as string[] };
+  // The conversation is scored as a whole: its replies aren't graded one by one, so no right/wrong counts
+  // are made up from the score. A session that couldn't be evaluated has no score (not 0).
+  let evaluation: TutorEvaluation | null = null;
+  let suggestion = "Answer Tamari's questions in your own words next time; the evaluation needs your reasoning.";
   if (studentTurns > 0) {
     try {
-      const { data: material } = session.material_id ? await supabase.from("materials").select("title").eq("id", session.material_id).maybeSingle() : { data: null };
-      evaluation = (await evaluateTutorSession({ mode: state.mode ?? "socratic", materialTitle: material?.title ?? null, history })).evaluation;
+      const material = session.material_id ? await materialChunks(supabase, session.material_id).catch(() => null) : null;
+      // The passages on what was discussed, so the reasoning is judged against the material.
+      const discussed = history.map((turn) => turn.content).join("\n").slice(-6000);
+      const passages = material && material.chunks.length ? selectContext(material.chunks, discussed, null, 9_000).chunks.map((chunk) => `${labelChunk(chunk)}\n${chunk.content}`).join("\n\n") : null;
+      evaluation = (await evaluateTutorSession({ mode: state.mode ?? "socratic", materialTitle: material?.title ?? null, history, passages })).evaluation;
+      suggestion = evaluation.suggestion;
     } catch (error) {
       if (!isAiError(error)) throw error;
-      evaluation.suggestion = "Tamari couldn't evaluate this session; re-read the conversation and note what you could not answer.";
+      suggestion = "Tamari couldn't evaluate this session, so it has no score. Re-read the conversation and note what you couldn't answer.";
     }
   }
-  const accuracyItems = Math.max(studentTurns, 1);
-  const correct = Math.round((evaluation.score / 100) * accuracyItems);
   return completeSession(supabase, sessionId, {
-    topics: evaluation.concepts_covered,
-    questionsAnswered: studentTurns,
-    correct: studentTurns > 0 ? correct : 0,
-    incorrect: studentTurns > 0 ? accuracyItems - correct : 0,
-    weakConcepts: evaluation.missing_concepts.slice(0, 20),
-    strongConcepts: evaluation.strengths.slice(0, 20),
-    suggestedNext: evaluation.suggestion,
+    topics: evaluation?.concepts_covered ?? [],
+    questionsAnswered: 0,
+    correct: 0,
+    incorrect: 0,
+    accuracy: evaluation ? evaluation.score / 100 : null,
+    answersForXp: studentTurns,
+    weakConcepts: (evaluation?.missing_concepts ?? []).slice(0, 20),
+    strongConcepts: (evaluation?.strengths ?? []).slice(0, 20),
+    suggestedNext: suggestion,
     nextReviewAt: null,
-    extra: { score: evaluation.score, conversationId: state.conversationId },
+    extra: { ...(evaluation ? { score: evaluation.score } : {}), studentTurns, conversationId: state.conversationId },
     abandoned: studentTurns === 0,
   });
 }

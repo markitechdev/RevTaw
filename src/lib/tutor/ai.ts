@@ -77,15 +77,27 @@ export const tutorEvaluationSchema = z.object({
 
 export type TutorEvaluation = z.infer<typeof tutorEvaluationSchema>;
 
-/** Closes a tutor-based study session with a teach-back style evaluation of the student's reasoning. */
+/**
+ * Closes a tutor-based study session with a teach-back style evaluation of the student's reasoning, judged
+ * against the material's passages on what was discussed (`passages`) when the session has a material.
+ */
 export async function evaluateTutorSession(input: {
   mode: TutorMode;
   materialTitle: string | null;
   history: Array<{ role: "user" | "assistant"; content: string }>;
+  passages: string | null;
 }): Promise<{ evaluation: TutorEvaluation; provider: string; model: string }> {
   const provider = getAiProvider("strong");
   const teachBack = input.mode === "teach_back";
+  const grounding = input.passages
+    ? `Judge accuracy against the material passages below only, not your own knowledge. When the student says something the passages don't cover, don't count it as right or wrong; leave it out of the score.
+
+<material>
+${input.passages}
+</material>`
+    : "There is no material for this session: judge accuracy by well-established knowledge, and leave out what you can't be sure of.";
   const system = `You are RevTaw's coach. A ${input.mode.replace("_", " ")} session about "${input.materialTitle ?? "a topic"}" just ended. ${teachBack ? "The STUDENT was teaching the AI learner. Grade the teaching: accuracy against the material, completeness, clarity and whether the learner's questions were answered." : "Evaluate the STUDENT's reasoning across the conversation (not the tutor's), kindly and specifically."}
+${grounding}
 - "score": 0-100 ${teachBack ? "teaching score (accuracy, completeness, clarity)" : "for accuracy and depth of the student's own explanations"}.
 - "strengths": what they ${teachBack ? "explained well" : "reasoned well"}.
 - "missing_concepts": ideas they skipped or got wrong.
