@@ -46,7 +46,7 @@ export const METHOD_BEHAVIOR: Record<StudyMethodId, MethodBehavior> = {
     goals: ["memorize", "quick_review", "exam_prep"],
     requiresMaterial: false,
     availableIn: "now",
-    behavior: "Only the flashcards that are due appear. Each rating reschedules the card: correct answers push it further out, misses bring it back tomorrow.",
+    behavior: "Only the flashcards that are due appear. Each rating reschedules the card with FSRS: a card you remember comes back later each time, just before you would forget it; a miss brings it back in about 10 minutes, then the gaps grow again.",
   },
   flashcards: {
     howItHelps: "Short question-answer pairs make retrieval fast and repeatable.",
@@ -55,7 +55,7 @@ export const METHOD_BEHAVIOR: Record<StudyMethodId, MethodBehavior> = {
     goals: ["memorize", "quick_review"],
     requiresMaterial: true,
     availableIn: "now",
-    behavior: "Cards are generated from the material; you flip and rate each one, and the deck's Leitner boxes and review dates update as you go.",
+    behavior: "Cards are generated from the material; you flip and rate each one, and FSRS sets its next review from how well you remembered it. The deck's five boxes show how settled each card is.",
   },
   feynman: {
     howItHelps: "Teaching a concept in plain words exposes the gaps that recognition hides.",
