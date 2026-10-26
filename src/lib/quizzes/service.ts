@@ -1,5 +1,7 @@
 import "server-only";
 
+import { after } from "next/server";
+
 import { defaultDifficulty, difficultyTargets, refreshMastery, weakConceptNames } from "@/lib/adaptive/engine";
 import { ServiceError } from "@/lib/errors";
 import { awardAttemptXp } from "@/lib/gamification/service";
@@ -278,7 +280,7 @@ export async function saveAnswer(input: {
       .select("id, quiz_id, user_id, mode, status, started_at, time_limit_seconds, quiz:quizzes!quiz_attempts_quiz_fk(config, material_id, title)")
       .eq("id", input.attemptId)
       .maybeSingle(),
-    supabase.from("quiz_questions").select("id, quiz_id, type, prompt, options, answer, explanation, points, source_excerpt").eq("id", input.questionId).maybeSingle(),
+    supabase.from("quiz_questions").select("id, quiz_id, concept_id, type, prompt, options, answer, explanation, points, source_excerpt").eq("id", input.questionId).maybeSingle(),
   ]);
   if (!attempt || !question || question.quiz_id !== attempt.quiz_id) throw new ServiceError("Question not found.", 404);
   if (attempt.status !== "in_progress") throw new ServiceError("This attempt has already been submitted.", 409);
@@ -343,6 +345,10 @@ export async function saveAnswer(input: {
   if (error) throw new Error(`quiz_answers: upsert failed: ${error.message}`);
 
   if (!immediate) return { saved: true, feedback: null };
+  // A practice answer checked on the spot is final, so it counts toward mastery now, not whenever the
+  // next recompute comes (an answer in a test that isn't submitted yet waits for the submission).
+  const conceptId = question.concept_id;
+  if (grade && conceptId) after(() => refreshMastery([conceptId]));
   return {
     saved: true,
     feedback: {

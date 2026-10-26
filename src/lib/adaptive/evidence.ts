@@ -64,6 +64,20 @@ function eventKind(kind: SessionItemKind): EngineEventKind {
   return kind === "feynman" ? "feynman" : kind === "mistake" ? "mistake" : kind === "recall" ? "recall" : "item";
 }
 
+type AttemptState = { status: string; mode: string; quiz: { feedback: string | null } | null };
+
+/**
+ * Whether an answer is final, so it counts: its attempt was submitted, or it is a practice answer that was
+ * checked on the spot (shown right or wrong, then locked). An answer in an unsubmitted test can still change
+ * and says nothing yet; it counts once the test is submitted.
+ */
+export function finalAnswer(attempt: AttemptState | null): boolean {
+  if (!attempt) return false;
+  if (attempt.status === "submitted") return true;
+  // Practice quizzes check each answer at once unless they were set to show feedback at the end.
+  return attempt.mode === "practice" && (attempt.quiz?.feedback ?? "immediate") !== "after";
+}
+
 /**
  * A session item's question type: its format when that is a quiz question type, otherwise its kind. A
  * scenario drill is a choice among 3–5 actions with a justification, not an open scenario question.
@@ -113,7 +127,9 @@ export async function collectEvidence(supabase: Client, userId: string, conceptI
         narrow(
           supabase
             .from("quiz_answers")
-            .select("question_id, is_correct, confidence, response_ms, answered_at, question:quiz_questions!quiz_answers_question_fk!inner(concept_id, difficulty, type, options)")
+            .select(
+              "question_id, is_correct, confidence, response_ms, answered_at, question:quiz_questions!quiz_answers_question_fk!inner(concept_id, difficulty, type, options), attempt:quiz_attempts!quiz_answers_attempt_fk!inner(status, mode, quiz:quizzes!quiz_attempts_quiz_fk(feedback:config->>feedback))",
+            )
             .eq("user_id", userId)
             .not("is_correct", "is", null)
             // A question left unanswered scores 0 in its attempt but says nothing about what the student knows.
@@ -163,6 +179,7 @@ export async function collectEvidence(supabase: Client, userId: string, conceptI
   for (const row of [...answers].reverse()) {
     const question = row.question as unknown as { concept_id: string | null; difficulty: QuestionDifficulty; type: QuestionType; options: unknown } | null;
     if (!question?.concept_id) continue;
+    if (!finalAnswer(row.attempt as unknown as AttemptState | null)) continue;
     const firstAttempt = !seenQuestions.has(row.question_id);
     seenQuestions.add(row.question_id);
     entry(question.concept_id).events.push({

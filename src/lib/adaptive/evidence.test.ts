@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { abilityFromTotals, abilityOf, BUCKETS_TTL_MS, chunked, collectEvidence, EVIDENCE_CAPS, forgetCachedBuckets, loadBuckets, optionCount, readPages } from "@/lib/adaptive/evidence";
+import { abilityFromTotals, abilityOf, BUCKETS_TTL_MS, chunked, collectEvidence, EVIDENCE_CAPS, finalAnswer, forgetCachedBuckets, loadBuckets, optionCount, readPages } from "@/lib/adaptive/evidence";
 import { fakeSupabase } from "@/test/fake-supabase";
 
 /** A client whose item_buckets read returns the next queued result and counts the reads. */
@@ -97,6 +97,7 @@ describe("collectEvidence", () => {
     answered_at: new Date(Date.UTC(2026, 9, 1) + index * 60_000).toISOString(),
     "question.concept_id": conceptId,
     question: { concept_id: conceptId, difficulty: "medium", type: "multiple_choice", options: [{}, {}, {}, {}] },
+    attempt: { status: "submitted", mode: "exam", quiz: { feedback: null } },
   });
   const tables = (answers: ReturnType<typeof answer>[]) => ({ quiz_answers: answers, study_session_items: [], flashcard_reviews: [], mistakes: [] });
 
@@ -106,8 +107,24 @@ describe("collectEvidence", () => {
     expect(small.byConcept.get("c1")?.events.map((event) => event.itemKey)).toEqual(["q:q1", "q:q2"]);
     expect(small.byConcept.get("c2")?.events).toHaveLength(1);
 
+    // An answer in a test not submitted yet can still change: it waits for the submission.
+    const pending = { ...answer(4, "c3"), attempt: { status: "in_progress", mode: "exam", quiz: { feedback: null } } };
+    expect((await collectEvidence(fakeSupabase(tables([pending])).client, "u1", null)).byConcept.has("c3")).toBe(false);
+
     const many = Array.from({ length: EVIDENCE_CAPS.answers + 5 }, (_, index) => answer(index, index < 5 ? "old" : "busy"));
     const capped = await collectEvidence(fakeSupabase(tables(many)).client, "u1", null);
     expect(capped.truncated).toBe(true);
+  });
+});
+
+describe("finalAnswer", () => {
+  it("counts submitted answers and practice answers checked on the spot", () => {
+    expect(finalAnswer({ status: "submitted", mode: "exam", quiz: null })).toBe(true);
+    expect(finalAnswer({ status: "in_progress", mode: "exam", quiz: null })).toBe(false);
+    expect(finalAnswer({ status: "in_progress", mode: "practice", quiz: { feedback: "immediate" } })).toBe(true);
+    // A practice quiz's default is to check each answer at once.
+    expect(finalAnswer({ status: "in_progress", mode: "practice", quiz: { feedback: null } })).toBe(true);
+    expect(finalAnswer({ status: "in_progress", mode: "practice", quiz: { feedback: "after" } })).toBe(false);
+    expect(finalAnswer(null)).toBe(false);
   });
 });
