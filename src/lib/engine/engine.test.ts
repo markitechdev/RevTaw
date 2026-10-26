@@ -51,6 +51,9 @@ describe("BKT (§7)", () => {
   it("sets guess by question type and predicts correctness for calibration", () => {
     expect(guessFloor("multiple_choice", 4)).toBe(0.25);
     expect(guessFloor("true_false", 2)).toBe(0.5);
+    // Four fixed choices, whatever the stored option count says.
+    expect(guessFloor("two_statement", null)).toBe(0.25);
+    expect(paramsFor("two_statement", 2, "medium").guess).toBe(0.25);
     expect(guessFloor("identification", null)).toBe(0);
     expect(predictedCorrect(1, 1, { guess: 0.25, slip: 0.1 })).toBeCloseTo(0.9);
     expect(predictedCorrect(0, 1, { guess: 0.25, slip: 0.1 })).toBeCloseTo(0.25);

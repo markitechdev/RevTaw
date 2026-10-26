@@ -5,7 +5,7 @@ import { finalizeQuestions, quizResponseSchema } from "@/lib/quizzes/generate";
 import { MaterialText } from "@/lib/quizzes/grounding";
 import { gradeObjective, nearMiss, normalizeText, textMatches } from "@/lib/quizzes/grade";
 import { parseQuizConfig } from "@/lib/quizzes/schemas";
-import { answerNote, DEFAULT_QUIZ_CONFIG, describeAnswer, distributeQuestions, typeCoverageError, type QuizConfig } from "@/lib/quizzes/types";
+import { answerNote, DEFAULT_QUIZ_CONFIG, describeAnswer, distributeQuestions, splitTwoStatements, TWO_STATEMENT_CHOICES, typeCoverageError, type QuizConfig } from "@/lib/quizzes/types";
 
 describe("distributeQuestions", () => {
   it("splits the count evenly and gives the remainder to the first types", () => {
@@ -329,5 +329,101 @@ describe("mixed quizzes keep every selected type", () => {
   it("asks for at least one question per selected type", () => {
     expect(typeCoverageError({ questionCount: 3, questionTypes: ["multiple_choice", "true_false", "essay", "scenario"] })).toMatch(/4 question types need at least 4 questions/);
     expect(typeCoverageError({ questionCount: 4, questionTypes: ["multiple_choice", "true_false", "essay", "scenario"] })).toBeNull();
+  });
+});
+
+describe("two-statement questions", () => {
+  const material = new MaterialText([TRANSCRIPT]);
+  const config: QuizConfig = { ...DEFAULT_QUIZ_CONFIG, questionCount: 5, questionTypes: ["two_statement", "true_false"] };
+  const pair = (first: [string, boolean], second: [string, boolean], prompt = "Which of these statements about the Calvin cycle are true?") => ({
+    type: "two_statement" as const,
+    difficulty: "medium" as const,
+    prompt,
+    statements: [
+      { text: first[0], is_true: first[1], why: `About "${first[0]}".` },
+      { text: second[0], is_true: second[1], why: `About "${second[0]}".` },
+    ],
+    explanation: "Because.",
+    concept: "Calvin cycle",
+    source_excerpt: "It takes place in the stroma of the chloroplast ... produce ATP and NADPH",
+  });
+
+  it("gets RevTaw's four choices in a fixed order, the answer they imply, and why each wrong one is wrong", () => {
+    const [question] = finalizeQuestions(
+      quizResponseSchema.parse({ title: "T", questions: [pair(["The Calvin cycle takes place in the stroma.", true], ["Statement 2: The Calvin cycle produces oxygen.", false])] }).questions,
+      config,
+      { material },
+    );
+    expect(question.type).toBe("two_statement");
+    if (question.type !== "two_statement") return;
+    expect(question.prompt).toBe("Which of these statements about the Calvin cycle are true?\nStatement 1: The Calvin cycle takes place in the stroma.\nStatement 2: The Calvin cycle produces oxygen.");
+    expect(question.options).toEqual(TWO_STATEMENT_CHOICES.map(({ id, text }) => ({ id, text })));
+    expect(question.answer?.option_id).toBe("a");
+    expect(question.answer?.rationales).toEqual({
+      b: 'Statement 1 is true: About "The Calvin cycle takes place in the stroma.". Statement 2 is false: About "Statement 2: The Calvin cycle produces oxygen.".',
+      c: 'Statement 2 is false: About "Statement 2: The Calvin cycle produces oxygen.".',
+      d: 'Statement 1 is true: About "The Calvin cycle takes place in the stroma.".',
+    });
+    // The explanation gives the verdict on both statements, so a right answer is explained too.
+    expect(question.explanation).toBe(`${question.answer?.rationales?.d} ${question.answer?.rationales?.c}`);
+    expect(splitTwoStatements(question.prompt)).toEqual({ lead: "Which of these statements about the Calvin cycle are true?", statements: ["The Calvin cycle takes place in the stroma.", "The Calvin cycle produces oxygen."] });
+    // Graded like multiple choice: the chosen choice against the answer, and a wrong one says why.
+    const answer = { option_id: "a", rationales: question.answer?.rationales };
+    expect(gradeObjective("two_statement", answer, { option_id: "a" }, 1)).toMatchObject({ isCorrect: true, score: 1 });
+    expect(gradeObjective("two_statement", answer, { option_id: "c" }, 1)).toMatchObject({ isCorrect: false, score: 0 });
+    expect(answerNote(answer, { option_id: "c" })?.text).toContain("Statement 2 is false");
+    expect(describeAnswer(answer, question.options ?? null)).toBe("Only statement 1 is true");
+  });
+
+  it("maps every truth pattern to its choice", () => {
+    const answers = ([[true, true], [false, true], [false, false]] as const).map(([first, second], index) => {
+      const [question] = finalizeQuestions(
+        quizResponseSchema.parse({ title: "T", questions: [pair([`Chlorophyll absorbs blue light ${index}.`, first], [`The Calvin cycle was discovered in 1950 ${index}.`, second])] }).questions,
+        config,
+      );
+      return question.type === "two_statement" ? question.answer?.option_id : null;
+    });
+    expect(answers).toEqual(["c", "b", "d"]);
+  });
+
+  it("drops a pair of identical statements and replaces a lead-in that gives a statement away", () => {
+    const kept = finalizeQuestions(
+      quizResponseSchema.parse({
+        title: "T",
+        questions: [
+          pair(["The Calvin cycle takes place in the stroma.", true], ["The Calvin cycle takes place in the stroma!", false]),
+          pair(["Chlorophyll absorbs light in the blue and red wavelengths.", true], ["ATP and NADPH are made in the stroma.", false], "Is it true that chlorophyll absorbs light in the blue and red wavelengths?"),
+        ],
+      }).questions,
+      config,
+    );
+    expect(kept).toHaveLength(1);
+    expect(splitTwoStatements(kept[0].prompt)?.lead).toBe("Which of these statements are true?");
+  });
+
+  it("doesn't ask a statement again as true/false", () => {
+    const kept = finalizeQuestions(
+      quizResponseSchema.parse({
+        title: "T",
+        questions: [
+          pair(["The Calvin cycle takes place in the stroma of the chloroplast.", true], ["Chlorophyll absorbs green light most strongly.", false]),
+          { type: "true_false", difficulty: "easy", prompt: "The Calvin cycle takes place in the stroma of the chloroplast.", answer: { value: true }, explanation: "Because.", concept: "Calvin cycle", source_excerpt: "" },
+          { type: "true_false", difficulty: "easy", prompt: "The Calvin cycle was discovered in 1950 by Melvin Calvin.", answer: { value: true }, explanation: "Because.", concept: "Calvin cycle", source_excerpt: "" },
+        ],
+      }).questions,
+      config,
+    );
+    expect(kept.map((question) => question.type)).toEqual(["two_statement", "true_false"]);
+    expect(kept[1].prompt).toContain("1950");
+  });
+
+  it("is written by the mock provider for every truth pattern", () => {
+    const prompt = `Material title: Photosynthesis
+Plan (produce exactly these counts, 4 questions in total):
+- two_statement: 4`;
+    const result = quizResponseSchema.parse(quizHeuristically(TRANSCRIPT, prompt));
+    const final = finalizeQuestions(result.questions, { ...DEFAULT_QUIZ_CONFIG, questionCount: 4, questionTypes: ["two_statement"] }, { material });
+    expect(final.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(final.map((question) => (question.type === "two_statement" ? question.answer?.option_id : null))).size).toBeGreaterThanOrEqual(3);
   });
 });

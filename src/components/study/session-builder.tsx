@@ -430,7 +430,7 @@ export function SessionBuilder({
                 ) : (
                   <Switch checked={timed} onChange={setTimed} disabled={pending} label={`Timed — ${minutes} minutes for the whole test`} />
                 )}
-                {method === "mixed_practice" && <p className="mt-1 text-xs text-muted-foreground">All nine question types, shuffled.</p>}
+                {method === "mixed_practice" && <p className="mt-1 text-xs text-muted-foreground">Every question type, shuffled.</p>}
               </fieldset>
             </div>
           )}

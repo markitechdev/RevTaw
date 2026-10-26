@@ -1,6 +1,7 @@
 import { BookOpen, CircleCheck, CircleDashed, CircleHelp, CircleX, Clock, NotebookPen, Target } from "lucide-react";
 import Link from "next/link";
 
+import { promptLead, StatementPair } from "@/components/quizzes/question-prompt";
 import { SelfGradeControls } from "@/components/quizzes/self-grade";
 import { StartAttemptButton } from "@/components/quizzes/start-attempt";
 import { AskWhyWrongButton } from "@/components/tutor/ask-why-wrong";
@@ -185,7 +186,8 @@ export function AttemptResults({ view, questionCount }: { view: AttemptResultsVi
                     </span>
                   </span>
                 </div>
-                <p className="mt-3 whitespace-pre-wrap font-medium leading-snug">{question.prompt}</p>
+                <p className="mt-3 whitespace-pre-wrap font-medium leading-snug">{promptLead(question.type, question.prompt)}</p>
+                <StatementPair type={question.type} prompt={question.prompt} />
                 {question.options && (
                   <ul className="mt-2 flex flex-col gap-1 text-sm">
                     {question.options.map((option, position) => {

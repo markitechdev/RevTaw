@@ -242,7 +242,7 @@ export const getAttemptRunner = cache(async (attemptId: string): Promise<Attempt
       type: question.type,
       difficulty: question.difficulty,
       prompt: question.prompt,
-      options: orderOptions(question.options as unknown as QuestionOption[] | null, shuffle, attempt.id, question.id),
+      options: orderOptions(question.type, question.options as unknown as QuestionOption[] | null, shuffle, attempt.id, question.id),
       points: question.points,
     })),
     answers: questions.flatMap((question) => {
@@ -276,7 +276,7 @@ export const getAttemptResults = cache(async (attemptId: string): Promise<Attemp
 
   const results: ResultQuestion[] = questions.map((question, index) => {
     const stored = answerByQuestion.get(question.id) ?? null;
-    const options = orderOptions(question.options as unknown as QuestionOption[] | null, shuffle, attempt.id, question.id);
+    const options = orderOptions(question.type, question.options as unknown as QuestionOption[] | null, shuffle, attempt.id, question.id);
     const answer = answerSchema.parse(question.answer) as QuestionAnswer;
     const parsed = stored?.response ? responseSchema.safeParse(stored.response) : null;
     const response = parsed?.success ? parsed.data : null;

@@ -19,7 +19,7 @@ export function QuestionInput({
 }) {
   const inputId = `answer-${question.id}`;
 
-  if (question.type === "multiple_choice") {
+  if (question.type === "multiple_choice" || question.type === "two_statement") {
     const selected = value && "option_id" in value ? value.option_id : null;
     return (
       <fieldset disabled={disabled} className="flex flex-col gap-2">

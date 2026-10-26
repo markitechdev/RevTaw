@@ -12,12 +12,13 @@ export type BktParams = { guess: number; slip: number; learn: number };
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
-/** Types the student types or writes, where a lucky guess is unlikely. */
-const OPTION_TYPES = new Set(["multiple_choice", "true_false"]);
+/** Types the student answers by picking an option, where a lucky guess is likely. */
+const OPTION_TYPES = new Set(["multiple_choice", "true_false", "two_statement"]);
 
-/** G: 1/k for k-option multiple choice, 0.5 for true/false, small for typed and open answers. */
+/** G: 1/k for k-option multiple choice, 1/4 for two statements (four fixed choices), 0.5 for true/false, small for typed and open answers. */
 export function guessFor(questionType: string | null | undefined, optionCount: number | null | undefined): number {
   if (questionType === "true_false") return ENGINE.bkt.guessTrueFalse;
+  if (questionType === "two_statement") return 1 / 4;
   if (questionType === "multiple_choice") {
     const k = optionCount && optionCount >= 2 ? optionCount : ENGINE.bkt.defaultOptionCount;
     return 1 / k;

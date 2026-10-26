@@ -61,7 +61,10 @@ export async function buildQuizExport(id: string, options: { answers: boolean })
   const questionBlocks: ExportBlock[] = [];
   rows.forEach((question, index) => {
     const concept = (question.concept as unknown as { name: string } | null)?.name;
-    questionBlocks.push(heading(`${index + 1}. ${question.prompt}`, 3));
+    // A two-statement question's statements go under its lead-in, one per line.
+    const [lead, ...statements] = question.prompt.split("\n");
+    questionBlocks.push(heading(`${index + 1}. ${lead}`, 3));
+    for (const line of statements) if (line.trim()) questionBlocks.push(paragraph(line.trim()));
     questionBlocks.push(paragraph(`${QUESTION_TYPE_BY_ID[question.type]?.name ?? question.type} · ${DIFFICULTY_LABEL[question.difficulty] ?? question.difficulty} · ${question.points} point${question.points === 1 ? "" : "s"}${concept ? ` · ${concept}` : ""}`, true));
     if (question.parsedOptions?.length) questionBlocks.push(bullets(question.parsedOptions.map((option) => `${option.id.toUpperCase()}. ${option.text}`)));
     else if (question.type === "true_false") questionBlocks.push(bullets(["True", "False"]));
@@ -97,7 +100,10 @@ export async function buildResultsExport(attemptId: string): Promise<ExportDocum
   const percent = results.attempt.max_score ? Math.round(((results.attempt.score ?? 0) / results.attempt.max_score) * 100) : null;
   const questionBlocks: ExportBlock[] = [];
   results.questions.forEach((question, index) => {
-    questionBlocks.push(heading(`${index + 1}. ${question.prompt}`, 3));
+    // A two-statement question's statements go under its lead-in, one per line.
+    const [lead, ...statements] = question.prompt.split("\n");
+    questionBlocks.push(heading(`${index + 1}. ${lead}`, 3));
+    for (const line of statements) if (line.trim()) questionBlocks.push(paragraph(line.trim()));
     questionBlocks.push(
       keyValues([
         { label: "Result", value: question.isCorrect === null ? "Not graded" : question.isCorrect ? "Correct" : "Incorrect" },

@@ -10,7 +10,7 @@ import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import { MaterialText, matchWords, overlap } from "@/lib/quizzes/grounding";
 import { optionSchema } from "@/lib/quizzes/schemas";
 import { normalizeText } from "@/lib/quizzes/text-match";
-import { distributeQuestions, QUESTION_TYPE_BY_ID, QUESTION_TYPE_IDS, type QuizConfig } from "@/lib/quizzes/types";
+import { distributeQuestions, QUESTION_TYPE_BY_ID, QUESTION_TYPE_IDS, TWO_STATEMENT_CHOICES, type QuizConfig } from "@/lib/quizzes/types";
 import { seededRandom, shuffled } from "@/lib/random";
 import type { QuestionDifficulty, QuestionType } from "@/lib/supabase/database.types";
 import { modelTitle } from "@/lib/ai/fields";
@@ -40,6 +40,14 @@ const generatedQuestionSchema = z.discriminatedUnion("type", [
     type: z.literal("true_false"),
     ...baseQuestion,
     answer: z.object({ value: z.boolean(), correction: z.string().trim().max(1000).optional() }),
+  }),
+  z.object({
+    type: z.literal("two_statement"),
+    ...baseQuestion,
+    statements: z.array(z.object({ text: text(600), is_true: z.boolean(), why: z.string().trim().max(600).optional() })).length(2),
+    // Written by RevTaw from the statements (tidyTwoStatement), never by the model.
+    options: z.array(optionSchema).optional(),
+    answer: z.object({ option_id: z.string().trim().min(1).max(4), rationales: z.record(z.string(), z.string().trim().min(1).max(600)).optional() }).optional(),
   }),
   z.object({
     type: z.literal("identification"),
@@ -92,6 +100,8 @@ const TYPE_RULES: Record<QuestionType, string> = {
     'exactly four options with ids "a"-"d" and exactly one correct per the material. Distractors are plausible to a student who half-knows the topic (related terms, common confusions, partly true statements), clearly wrong per the material, and in the same category, form and length as the correct option. Never "all of the above", "none of the above", "both a and b", or two options that mean the same. Avoid negative stems; if one is needed, write NOT or EXCEPT in capitals. Each option has "why": one sentence from the material on why it is right or wrong. "answer": {"option_id": "a"}',
   true_false:
     'a single declarative statement that is entirely true or entirely false per the material, never partly true. Make roughly half false by changing one meaningful detail (a term, cause, number or relationship), not by adding "not" or a trick of wording, and no absolute words (always, never, only) as giveaways unless the material uses them. "answer": {"value": true}; for a false statement also "correction": the true version of the statement',
+  two_statement:
+    'two statements about one concept, or about two concepts students mix up, each entirely true or entirely false per the material (make one false by changing one meaningful detail, as for true/false). "statements": [{"text": "...", "is_true": true, "why": "one sentence from the material on why it is true or false"}, {...}] in that order; "prompt": a one-line lead-in that names the topic without giving anything away (e.g. "Which of these statements about osmosis are true?"). RevTaw adds the choices (only statement 1, only statement 2, both, neither). Across the set, vary which statements are true. "source_excerpt": the material\'s words for both statements, the two quotes joined by " ... ". No "answer" field',
   identification:
     'describe a term, person, process or idea in enough detail that only one name fits, and ask for that name. "answer": {"accepted": ["the name as the material writes it", "exact synonyms or abbreviations the material uses"]}; never accept a broader or narrower term',
   fill_blank:
@@ -165,6 +175,47 @@ function tidyChoiceQuestion(question: ChoiceQuestion): ChoiceQuestion | null {
   return { ...question, options, answer: { option_id: correct, ...(Object.keys(rationales).length ? { rationales } : {}) } };
 }
 
+type TwoStatementQuestion = Extract<GeneratedQuestion, { type: "two_statement" }>;
+
+const DEFAULT_TWO_STATEMENT_LEAD = "Which of these statements are true?";
+
+/**
+ * A two-statement question as stored, or null when it can't be used (a statement empty, or the two the same).
+ * RevTaw writes the prompt (the lead-in, then "Statement 1: …" and "Statement 2: …" on their own lines), the
+ * four choices in their fixed order, the answer they imply, and why each wrong choice is wrong: which
+ * statement it misjudges and what the material says about it.
+ */
+function tidyTwoStatement(question: TwoStatementQuestion): TwoStatementQuestion | null {
+  const statements = question.statements.map((statement) => ({ ...statement, text: statement.text.replace(/^statement\s*[12]\s*[:.)-]\s*/i, "").replace(/\s+/g, " ").trim() }));
+  const [first, second] = statements;
+  if (matchWords(first.text).length < 3 || matchWords(second.text).length < 3 || overlap(first.text, second.text) >= 0.9) return null;
+  // A lead-in that repeats a statement (or has none) gives way to the plain one.
+  const lead = question.prompt.replace(/\s+/g, " ").trim();
+  const usable = lead && !/statement\s*[12]\s*:/i.test(lead) && statements.every((statement) => overlap(lead, statement.text) < 0.5);
+  const truth = [first.is_true, second.is_true] as const;
+  const correct = TWO_STATEMENT_CHOICES.find((choice) => choice.claims[0] === truth[0] && choice.claims[1] === truth[1])!;
+  // "Statement 2 is false: the material says it happens in the stroma." for each statement.
+  const verdicts = statements.map((statement, index) => {
+    const why = statement.why?.trim();
+    return `Statement ${index + 1} is ${statement.is_true ? "true" : "false"}${why ? `: ${/[.!?]["'”’)\]]*$/.test(why) ? why : `${why}.`}` : "."}`;
+  });
+  const rationales: Record<string, string> = {};
+  for (const choice of TWO_STATEMENT_CHOICES) {
+    if (choice.id === correct.id) continue;
+    const why = verdicts.filter((_, index) => choice.claims[index] !== truth[index]).join(" ");
+    rationales[choice.id] = why.length > 600 ? `${why.slice(0, 597).trimEnd()}…` : why;
+  }
+  return {
+    ...question,
+    statements,
+    prompt: `${usable ? lead : DEFAULT_TWO_STATEMENT_LEAD}\nStatement 1: ${first.text}\nStatement 2: ${second.text}`,
+    // The verdict on both statements explains the answer, right or wrong; the model's own explanation when it gave no reasons.
+    explanation: statements.every((statement) => statement.why?.trim()) ? verdicts.join(" ") : question.explanation,
+    options: TWO_STATEMENT_CHOICES.map(({ id, text }) => ({ id, text })),
+    answer: { option_id: correct.id, rationales },
+  };
+}
+
 type TrueFalseQuestion = Extract<GeneratedQuestion, { type: "true_false" }>;
 
 /** A true/false question as stored: a correction only for a false statement, and none that just repeats it. */
@@ -190,6 +241,9 @@ function answerKey(question: GeneratedQuestion): string | null {
 function sameQuestion(a: GeneratedQuestion, b: GeneratedQuestion): boolean {
   const similar = overlap(a.prompt, b.prompt);
   if (similar >= (a.type === "true_false" && b.type === "true_false" ? 0.6 : 0.8)) return true;
+  // A statement asked twice (on its own as true/false, or in two two-statement questions) gives itself away.
+  const statementsOf = (question: GeneratedQuestion) => (question.type === "two_statement" ? question.statements.map((statement) => statement.text) : question.type === "true_false" ? [question.prompt] : []);
+  if ((a.type === "two_statement" || b.type === "two_statement") && statementsOf(a).some((left) => statementsOf(b).some((right) => overlap(left, right) >= 0.6))) return true;
   const key = answerKey(a);
   return key !== null && a.type === b.type && key === answerKey(b);
 }
@@ -213,7 +267,14 @@ export function finalizeQuestions(questions: GeneratedQuestion[], config: QuizCo
   const kept: GeneratedQuestion[] = [];
   for (const generated of questions) {
     if (matchWords(generated.prompt).length === 0) continue;
-    let question = generated.type === "multiple_choice" ? tidyChoiceQuestion(generated) : generated.type === "true_false" ? tidyTrueFalse(generated) : generated;
+    let question =
+      generated.type === "multiple_choice"
+        ? tidyChoiceQuestion(generated)
+        : generated.type === "true_false"
+          ? tidyTrueFalse(generated)
+          : generated.type === "two_statement"
+            ? tidyTwoStatement(generated)
+            : generated;
     if (!question) continue;
     if (question.type === "fill_blank" && !/_{2,}/.test(question.prompt)) continue;
     if (context.material) {
@@ -308,7 +369,8 @@ JSON schema:
       "difficulty": "easy" | "medium" | "hard",
       "prompt": string,
       "options": [{"id": "a", "text": "...", "why": "..."}, ...] (multiple_choice only, exactly four),
-      "answer": object as described in the type rules,
+      "statements": [{"text": "...", "is_true": boolean, "why": "..."}, {...}] (two_statement only, exactly two),
+      "answer": object as described in the type rules (none for two_statement),
       "explanation": string,
       "concept": string,
       "source_excerpt": string

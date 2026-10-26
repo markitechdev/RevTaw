@@ -25,7 +25,8 @@ export type GradeResult = {
 export function gradeObjective(type: QuestionType, answer: QuestionAnswer, response: QuestionResponse | null, points: number): GradeResult | null {
   if (!response) return { isCorrect: false, score: 0, feedback: null, gradedBy: "auto" };
   switch (type) {
-    case "multiple_choice": {
+    case "multiple_choice":
+    case "two_statement": {
       const correct = "option_id" in answer && "option_id" in response && answer.option_id === response.option_id;
       return { isCorrect: correct, score: correct ? points : 0, feedback: null, gradedBy: "auto" };
     }

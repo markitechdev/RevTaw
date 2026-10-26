@@ -19,6 +19,7 @@ export type QuestionTypeInfo = {
 export const QUESTION_TYPES: readonly QuestionTypeInfo[] = [
   { id: "multiple_choice", name: "Multiple choice", description: "One correct option among four plausible choices.", grading: "auto", points: 1 },
   { id: "true_false", name: "True / False", description: "Decide whether a statement from the material is true.", grading: "auto", points: 1 },
+  { id: "two_statement", name: "Two statements", description: "Decide which of two statements from the material are true: one, both or neither.", grading: "auto", points: 1 },
   { id: "identification", name: "Identification", description: "Name the term, process or idea being described.", grading: "auto", points: 1 },
   { id: "fill_blank", name: "Fill in the blank", description: "Complete the missing word or phrase in a sentence.", grading: "auto", points: 1 },
   { id: "short_answer", name: "Short answer", description: "Answer in one or two sentences, graded against a model answer.", grading: "ai", points: 2 },
@@ -117,6 +118,29 @@ export type QuestionResponse = { option_id: string } | { value: boolean } | { te
 
 export function isObjectiveType(type: QuestionType): boolean {
   return QUESTION_TYPE_BY_ID[type].grading === "auto";
+}
+
+/** Types answered by picking one of the question's options (stored in `quiz_questions.options`). */
+export function hasOptions(type: QuestionType): boolean {
+  return type === "multiple_choice" || type === "two_statement";
+}
+
+/**
+ * The four choices of a two-statement question, always in this order (they read as a scale, so they are
+ * never shuffled), with what each says about the two statements.
+ */
+export const TWO_STATEMENT_CHOICES: ReadonlyArray<QuestionOption & { claims: readonly [boolean, boolean] }> = [
+  { id: "a", text: "Only statement 1 is true", claims: [true, false] },
+  { id: "b", text: "Only statement 2 is true", claims: [false, true] },
+  { id: "c", text: "Both statements are true", claims: [true, true] },
+  { id: "d", text: "Neither statement is true", claims: [false, false] },
+];
+
+/** The lead-in and the two statements of a two-statement prompt ("…\nStatement 1: …\nStatement 2: …"), or null. */
+export function splitTwoStatements(prompt: string): { lead: string; statements: [string, string] } | null {
+  const match = prompt.match(/^([\s\S]*?)\n?Statement 1: ([\s\S]+?)\nStatement 2: ([\s\S]+)$/);
+  if (!match) return null;
+  return { lead: match[1].trim(), statements: [match[2].trim(), match[3].trim()] };
 }
 
 /**

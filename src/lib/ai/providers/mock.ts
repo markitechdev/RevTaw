@@ -446,6 +446,20 @@ export function quizHeuristically(transcript: string, prompt: string) {
           });
           break;
         }
+        case "two_statement": {
+          // Both true, only the first, only the second, neither: in turn.
+          const other = facts[(serial + Math.max(1, Math.floor(facts.length / 2))) % facts.length] ?? fact;
+          const [firstTrue, secondTrue] = [[true, true], [true, false], [false, true], [false, false]][serial % 4];
+          const statement = (sentence: string, isTrue: boolean) => ({ text: isTrue ? sentence : negate(sentence), is_true: isTrue, why: `The material states: "${sentence}"` });
+          questions.push({
+            type: "two_statement",
+            ...base,
+            prompt: `Which of these statements about ${topic} are true?`,
+            statements: [statement(fact.sentence, firstTrue), statement(other === fact ? (fact.next ?? fact.sentence) : other.sentence, secondTrue)],
+            source_excerpt: other === fact ? fact.sentence : `${fact.sentence} ... ${other.sentence}`,
+          });
+          break;
+        }
         case "identification": {
           const term = fact.term ?? fact.heading;
           questions.push({

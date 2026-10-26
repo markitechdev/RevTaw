@@ -126,7 +126,7 @@ async function populateQuiz(
       type: question.type,
       difficulty: question.difficulty,
       prompt: question.prompt,
-      options: (question.type === "multiple_choice" ? question.options : null) as unknown as Json | null,
+      options: (question.type === "multiple_choice" || question.type === "two_statement" ? (question.options ?? null) : null) as unknown as Json | null,
       answer: question.answer as unknown as Json,
       explanation: question.explanation,
       concept_id: concepts.get(normalizeConceptName(question.concept)) ?? null,
@@ -170,10 +170,13 @@ async function populateQuiz(
 // Attempts
 // ---------------------------------------------------------------------------
 
-/** Option order shown to the student: stable per attempt so results match what they saw. */
-export function orderOptions(options: QuestionOption[] | null, shuffle: boolean, attemptId: string, questionId: string): QuestionOption[] | null {
+/**
+ * Option order shown to the student: stable per attempt so results match what they saw. Only
+ * multiple-choice options are shuffled; a two-statement question's choices keep their fixed order.
+ */
+export function orderOptions(type: QuestionType, options: QuestionOption[] | null, shuffle: boolean, attemptId: string, questionId: string): QuestionOption[] | null {
   if (!options) return null;
-  if (!shuffle) return options;
+  if (!shuffle || type !== "multiple_choice") return options;
   return shuffled(options, seededRandom(`${attemptId}:${questionId}`));
 }
 
@@ -242,6 +245,7 @@ function validateResponse(type: QuestionType, response: unknown, options: Questi
   const value = parsed.data;
   switch (type) {
     case "multiple_choice":
+    case "two_statement":
       if (!("option_id" in value) || !options?.some((option) => option.id === value.option_id)) {
         throw new ServiceError("Pick one of the options.", 400);
       }

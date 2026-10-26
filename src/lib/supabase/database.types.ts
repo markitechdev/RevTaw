@@ -58,6 +58,7 @@ export type QuestionType =
   | "identification"
   | "multiple_choice"
   | "true_false"
+  | "two_statement"
   | "fill_blank"
   | "short_answer"
   | "essay"

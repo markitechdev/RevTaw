@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 
 import { QuizCountdown } from "@/components/quizzes/quiz-countdown";
 import { QuestionInput } from "@/components/quizzes/question-input";
+import { promptLead, StatementPair } from "@/components/quizzes/question-prompt";
 import { Alert } from "@/components/forms/form-alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -252,8 +253,9 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
             </span>
           </div>
           <h2 id="question-heading" className="font-display tracking-display whitespace-pre-wrap text-lg font-medium leading-snug text-foreground">
-            {question.prompt}
+            {promptLead(question.type, question.prompt)}
           </h2>
+          <StatementPair type={question.type} prompt={question.prompt} />
 
           <div className="mt-5">
             <QuestionInput
