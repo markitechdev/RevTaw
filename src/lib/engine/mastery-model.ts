@@ -2,7 +2,7 @@ import { readAnswer, type ReadAnswer } from "@/lib/engine/answers";
 import { ENGINE } from "@/lib/engine/config";
 import { bucketKey, chooseDifficulty, eloStep, labelPrior, successProbability, targetSuccess } from "@/lib/engine/elo";
 import { recallAt, replay, type FsrsSnapshot, type GradedReview } from "@/lib/engine/fsrs";
-import { guessFloor, knownShare, paramsFor, shareOf, type KnowledgeAnswer } from "@/lib/engine/knowledge";
+import { guessFloor, isOptionType, knownShare, paramsFor, SCENARIO_CHOICE, shareOf, type KnowledgeAnswer } from "@/lib/engine/knowledge";
 import type { ConceptState } from "@/lib/engine/types";
 import { repeatedMisses, weaknessScore } from "@/lib/engine/weakness";
 import type { ConceptCategory } from "@/lib/materials/analysis-schema";
@@ -203,7 +203,6 @@ export function modelConcept(input: ConceptModelInput): ConceptModel {
   // Elo: quiz answers and session items (self-rated cards measure memory, not ability).
   let rating = input.ability;
   let ratingAnswers = 0;
-  let hardItemCorrect = false;
   const bucket = (label: QuestionDifficulty, type: string) => input.bucketDifficulty?.(bucketKey(label, type, input.category)) ?? labelPrior(label);
   for (const index of counted) {
     const event = events[index];
@@ -211,10 +210,21 @@ export function modelConcept(input: ConceptModelInput): ConceptModel {
     const label = event.difficulty ?? "medium";
     const type = event.questionType ?? event.kind;
     const probability = successProbability(rating, bucket(label, type), guessFloor(type, event.optionCount));
-    if (event.correct && real(index) && probability <= ENGINE.gates.hardItemSuccess) hardItemCorrect = true;
     rating = eloStep(rating, ratingAnswers, event.correct, probability, readings[index].weight);
     ratingAnswers += 1;
   }
+
+  // The hard-item gate: a right answer that took more than recognizing an option. A question given
+  // without options to pick from (typed, explained, worked out), a scenario choice with its justification,
+  // or a hard question answered without guessing. Self-rated cards can't show it.
+  const demandingCorrect = counted.some((index) => {
+    const event = events[index];
+    const reading = readings[index].reading;
+    if (event.kind === "flashcard" || !event.correct || reading === "rapid_guess") return false;
+    const type = event.questionType ?? event.kind;
+    if (!isOptionType(type) || type === SCENARIO_CHOICE) return true;
+    return event.difficulty === "hard" && reading === "known";
+  });
 
   // Misconceptions stay open until a correct answer on a later day clears them: one pass finds the last such day.
   let lastCorrectDay = "";
@@ -246,7 +256,7 @@ export function modelConcept(input: ConceptModelInput): ConceptModel {
   const firstCorrectDay = correctDays[0] ?? null;
   const gates: Gates = {
     evidence: answered >= ENGINE.gates.minAnswers,
-    hardItem: hardItemCorrect,
+    hardItem: demandingCorrect,
     noMisconception: openMisconceptions.length === 0,
     spaced: firstCorrectDay !== null && correctDays.some((day) => daysBetween(firstCorrectDay, day) >= ENGINE.gates.spacedDays),
   };

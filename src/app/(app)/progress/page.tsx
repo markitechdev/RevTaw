@@ -44,7 +44,7 @@ export default async function ProgressPage() {
       <AssistantPage context={{ kind: "progress" }} label="Your progress" />
       <PageHeader
         title="Progress"
-        description={`What your studying adds up to: scores, accuracy, time, mastery per concept and where you stand. A concept counts as mastered at ${MASTERY_THRESHOLD}%, once you have shown it on a hard question and again on another day; nothing is ever locked — RevTaw just recommends more practice.`}
+        description={`What your studying adds up to: scores, accuracy, time, mastery per concept and where you stand. A concept counts as mastered at ${MASTERY_THRESHOLD}%, once you have answered it right on a hard question or without choices, and again on another day; nothing is ever locked — RevTaw just recommends more practice.`}
         actions={
           <>
             <ExportMenu target={{ kind: "progress" }} label="Export report" />

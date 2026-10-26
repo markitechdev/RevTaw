@@ -44,8 +44,7 @@ export const ENGINE = {
   gates: {
     minAnswers: 3,
     evidenceCap: 59,
-    /** A correct answer on an item Elo predicted at this success or lower. */
-    hardItemSuccess: 0.7,
+    /** Until a right answer on a hard question, or one given without options to pick from (typed, explained, worked out, a justified scenario choice). */
     hardItemCap: 79,
     misconceptionCap: 79,
     /** A correct answer at least this many days after the first correct one. */

@@ -278,6 +278,22 @@ describe("concept model (§5–§8)", () => {
     expect(two.status).toBe("learning");
   });
 
+  it("keeps medium multiple choice below Strong until a hard or typed answer, at any rating", () => {
+    const days = ["2026-10-10", "2026-10-11", "2026-10-12", "2026-10-13"];
+    const picked = days.flatMap((day) => [answer(`${day}T02:00:00Z`, true), answer(`${day}T02:05:00Z`, true)]);
+    for (const ability of [0, 1.5]) {
+      const capped = run(picked, "2026-10-13T03:00:00Z", { ability });
+      expect(capped.mastery).toBe(79);
+      expect(capped.nextStep).toBe("hardItem");
+    }
+    const hard = run([...picked, answer("2026-10-13T02:10:00Z", true, { difficulty: "hard" })], "2026-10-13T03:00:00Z", { ability: 1.5 });
+    expect(hard.gates.hardItem).toBe(true);
+    expect(hard.mastery).toBeGreaterThan(79);
+    // A hard question answered while guessing doesn't show it.
+    const guessed = run([...picked, answer("2026-10-13T02:10:00Z", true, { difficulty: "hard", confidence: "guessing" })], "2026-10-13T03:00:00Z");
+    expect(guessed.gates.hardItem).toBe(false);
+  });
+
   it("counts a question once a day, so a retake right after the answers adds nothing", () => {
     const first = Array.from({ length: 10 }, (_, i) => answer(`2026-10-10T02:${String(i).padStart(2, "0")}:00Z`, i % 2 === 0, { itemKey: `same${i}` }));
     const retake = Array.from({ length: 10 }, (_, i) => answer(`2026-10-10T03:${String(i).padStart(2, "0")}:00Z`, true, { itemKey: `same${i}`, firstAttempt: false }));

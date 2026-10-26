@@ -36,7 +36,7 @@ type NextStep = NonNullable<ConceptMastery["next_step"]>;
 export const NEXT_STEP_LABEL: Record<NextStep, string> = {
   evidence: `Answer at least ${ENGINE.gates.minAnswers} questions on it`,
   noMisconception: "Fix the confident mistake, then get it right on another day",
-  hardItem: "Get a harder question right",
+  hardItem: "Get a hard question right, or one you answer without choices",
   spaced: "Get it right again on another day",
 };
 
