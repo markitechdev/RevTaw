@@ -278,7 +278,7 @@ export async function saveAnswer(input: {
       .select("id, quiz_id, user_id, mode, status, started_at, time_limit_seconds, quiz:quizzes!quiz_attempts_quiz_fk(config, material_id, title)")
       .eq("id", input.attemptId)
       .maybeSingle(),
-    supabase.from("quiz_questions").select("id, quiz_id, type, prompt, options, answer, explanation, points").eq("id", input.questionId).maybeSingle(),
+    supabase.from("quiz_questions").select("id, quiz_id, type, prompt, options, answer, explanation, points, source_excerpt").eq("id", input.questionId).maybeSingle(),
   ]);
   if (!attempt || !question || question.quiz_id !== attempt.quiz_id) throw new ServiceError("Question not found.", 404);
   if (attempt.status !== "in_progress") throw new ServiceError("This attempt has already been submitted.", 409);
@@ -313,6 +313,7 @@ export async function saveAnswer(input: {
           points: question.points,
           modelAnswer: answer.model_answer,
           rubric: answer.rubric,
+          sourceExcerpt: question.source_excerpt,
           studentAnswer: response.text,
         },
       ]);
@@ -376,6 +377,8 @@ type StoredQuestionRow = {
   explanation: string | null;
   concept_id: string | null;
   points: number;
+  /** Selected where open answers are graded. */
+  source_excerpt?: string | null;
 };
 
 async function recordMistake(
@@ -463,7 +466,7 @@ async function gradeAndSubmit(
   attempt: { id: string; quiz_id: string; user_id: string; started_at: string; time_limit_seconds: number | null; quiz: unknown },
 ): Promise<{ submitted: boolean; needsSelfCheck: number }> {
   const [{ data: questionRows }, { data: answerRows }] = await Promise.all([
-    supabase.from("quiz_questions").select("id, type, prompt, options, answer, explanation, concept_id, points").eq("quiz_id", attempt.quiz_id),
+    supabase.from("quiz_questions").select("id, type, prompt, options, answer, explanation, concept_id, points, source_excerpt").eq("quiz_id", attempt.quiz_id),
     supabase.from("quiz_answers").select("id, question_id, response, is_correct, score, feedback, graded_by").eq("attempt_id", attempt.id),
   ]);
   const questions = (questionRows ?? []) as StoredQuestionRow[];
@@ -485,6 +488,7 @@ async function gradeAndSubmit(
       points: question.points,
       modelAnswer: answer.model_answer,
       rubric: answer.rubric,
+      sourceExcerpt: question.source_excerpt,
       studentAnswer: response.text,
     });
   }
