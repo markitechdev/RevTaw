@@ -21,6 +21,7 @@ export type ContinueItem =
       methodLabel: string;
       material: { id: string; title: string } | null;
       answered: number;
+      /** The session's items (questions, cards to explain, problems…), 0 when it has none to count (flashcards, a timer, a map). */
       total: number;
       lastActiveAt: string;
       href: string;
@@ -41,6 +42,27 @@ export type ContinueItem =
     };
 
 const RECENT_WINDOW_MS = 21 * 86_400_000;
+
+type Client = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * How far an unfinished session got: its items answered out of all its items, or a practice test's
+ * questions answered out of its questions. (The session's own counter, items_total, counts answers, so it
+ * always equals what was answered.)
+ */
+async function sessionProgress(supabase: Client, session: { id: string; items_total: number; quiz_attempt_id: string | null }): Promise<{ answered: number; total: number }> {
+  if (session.quiz_attempt_id) {
+    const [{ data: attempt }, { count }] = await Promise.all([
+      supabase.from("quiz_attempts").select("question_count").eq("id", session.quiz_attempt_id).maybeSingle(),
+      supabase.from("quiz_answers").select("id", { count: "exact", head: true }).eq("attempt_id", session.quiz_attempt_id).not("response", "is", null),
+    ]);
+    return { answered: count ?? 0, total: attempt?.question_count ?? 0 };
+  }
+  const { data: items } = await supabase.from("study_session_items").select("answered_at").eq("session_id", session.id).limit(500);
+  const rows = items ?? [];
+  if (rows.length === 0) return { answered: session.items_total, total: 0 };
+  return { answered: rows.filter((item) => item.answered_at).length, total: rows.length };
+}
 
 export const getContinueItem = cache(async (): Promise<ContinueItem | null> => {
   const supabase = await createClient();
@@ -85,8 +107,7 @@ export const getContinueItem = cache(async (): Promise<ContinueItem | null> => {
       method: session.method,
       methodLabel: methodName(session.method),
       material: session.material,
-      answered: session.items_correct + session.items_incorrect,
-      total: session.items_total,
+      ...(await sessionProgress(supabase, session)),
       lastActiveAt: session.last_active_at,
       href: `${routes.study}/${session.id}`,
     };
