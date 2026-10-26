@@ -77,6 +77,8 @@ export function chunkSections(sections: ExtractedSection[]): Chunk[] {
   };
 
   for (const section of sections) {
+    // A chunk never spans pages that weren't read (a scanned page between two with text): its range would claim them.
+    if (bufferChars > 0 && section.page !== null && pageEnd !== null && section.page > pageEnd + 1) flush();
     for (const paragraph of splitIntoParagraphs(section.text)) {
       const firstLine = paragraph.split("\n")[0] ?? "";
       const headingLine = paragraph.split("\n").length === 1 && isHeadingLine(firstLine);

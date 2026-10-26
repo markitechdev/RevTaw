@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatScripts, htmlToText, scriptText } from "@/lib/materials/extract";
+import { formatScripts, hasReadableText, htmlToText, pageList, scriptText } from "@/lib/materials/extract";
 import { SCRIPT_MARK } from "@/lib/materials/extract-sandbox";
 
 describe("htmlToText", () => {
@@ -45,5 +45,18 @@ describe("superscripts and subscripts", () => {
     expect(formatScripts(`e${supOpen}x${supOpen}2${supClose}${supClose}`)).toBe("e^(x²)");
     // A mark cut off at the end of the text is dropped.
     expect(formatScripts(`10${supOpen}23`)).toBe("1023");
+  });
+});
+
+describe("unreadable PDF pages", () => {
+  it("counts a page with only its page number as unreadable", () => {
+    for (const text of ["", "12", "Page 3", "- 4 -", "5 of 20", "Pahina 6"]) expect(hasReadableText(text)).toBe(false);
+    for (const text of ["Chapter 1 Cells", "Cells\n7", "Ang Selula"]) expect(hasReadableText(text)).toBe(true);
+  });
+
+  it("lists pages as short ranges", () => {
+    expect(pageList([2])).toBe("2");
+    expect(pageList([2, 3])).toBe("2–3");
+    expect(pageList([2, 5, 6, 7, 9])).toBe("2, 5–7 and 9");
   });
 });

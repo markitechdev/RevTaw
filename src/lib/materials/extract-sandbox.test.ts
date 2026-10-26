@@ -2,7 +2,8 @@ import { constants, crc32, createDeflate, createDeflateRaw, deflateRawSync, defl
 
 import { describe, expect, it } from "vitest";
 
-import { formatScripts, htmlToText } from "@/lib/materials/extract";
+import { chunkSections } from "@/lib/materials/chunk";
+import { extractText, formatScripts, htmlToText } from "@/lib/materials/extract";
 import { EXTRACTION_LIMITS, extractInSandbox, SandboxError, type SandboxLimits, type SandboxOutput } from "@/lib/materials/extract-sandbox";
 
 // ---------------------------------------------------------------------------
@@ -187,6 +188,18 @@ describe("extractInSandbox", () => {
     expect(text).toContain("6.02 x 10²³");
     expect(text).toContain("H₂O");
     expect(text).not.toContain("1023");
+  }, 30_000);
+
+  it("says which PDF pages had no text to read, and refuses a scan with nothing but page numbers", async () => {
+    const mixed = buildPdf([["Chapter 1 Cells", "The cell is the basic unit of life."], ["2"], [], ["Chapter 4 Tissues", "A tissue is a group of similar cells."]]);
+    const result = await extractText("pdf", mixed, "application/pdf");
+    expect(result.sections.map((section) => section.page)).toEqual([1, 4]);
+    expect(result.notes).toEqual(["Pages 2–3 have no readable text (scanned or image-only), so nothing was made from them. To include them, upload those pages as photos or screenshots."]);
+    // A chunk never claims the pages in between.
+    expect(chunkSections(result.sections).map((chunk) => [chunk.pageStart, chunk.pageEnd])).toEqual([[1, 1], [4, 4]]);
+
+    const scanned = buildPdf([["Page 1"], ["Page 2"], ["- 3 -"]]);
+    await expect(extractText("pdf", scanned, "application/pdf")).rejects.toMatchObject({ name: "ExtractionError", message: expect.stringMatching(/scanned document/) });
   }, 30_000);
 
   it("reports a file the parser rejects", async () => {

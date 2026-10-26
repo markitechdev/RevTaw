@@ -78,15 +78,45 @@ async function runSandbox<K extends SandboxKind>(kind: K, bytes: Uint8Array, unr
   }
 }
 
+/** A line that is only a page number ("12", "Page 3", "- 4 -", "5 of 20", "Pahina 6"). */
+const PAGE_NUMBER_LINE = /^\s*(?:page|pahina|p\.)?\s*[-–—(]?\s*\d{1,4}\s*(?:(?:of|sa|\/)\s*\d{1,4})?\s*[-–—)]?\s*$/i;
+
+/** Whether a page has text to study: a scanned page has none, or only its page-number footer. */
+export function hasReadableText(text: string): boolean {
+  const body = text
+    .split("\n")
+    .filter((line) => !PAGE_NUMBER_LINE.test(line))
+    .join(" ");
+  return (body.match(/\p{L}/gu) ?? []).length >= 3;
+}
+
+/** Page numbers as short ranges: [2, 5, 6, 7, 9] → "2, 5–7 and 9". */
+export function pageList(pages: number[]): string {
+  const ranges: string[] = [];
+  for (let index = 0; index < pages.length; ) {
+    let end = index;
+    while (end + 1 < pages.length && pages[end + 1] === pages[end] + 1) end += 1;
+    ranges.push(end > index ? `${pages[index]}–${pages[end]}` : String(pages[index]));
+    index = end + 1;
+  }
+  return ranges.length > 1 ? `${ranges.slice(0, -1).join(", ")} and ${ranges[ranges.length - 1]}` : (ranges[0] ?? "");
+}
+
 async function extractPdf(bytes: Uint8Array): Promise<ExtractionResult> {
   const result = await runSandbox("pdf", bytes, "This PDF could not be read. It may be damaged or password-protected.");
-  const sections = result.pages
-    .map((page) => ({ page: page.num, text: normalizeWhitespace(formatScripts(page.text)) }))
-    .filter((section) => section.text.length > 0);
+  const pages = result.pages.map((page) => ({ page: page.num, text: normalizeWhitespace(formatScripts(page.text)) }));
+  // Scanned or image-only pages have no text layer (at most a page number): nothing can be read from them.
+  const sections = pages.filter((section) => hasReadableText(section.text));
   if (sections.length === 0) {
-    throw new ExtractionError(EMPTY_TEXT_MESSAGE, "pdf contained no text layer");
+    throw new ExtractionError(EMPTY_TEXT_MESSAGE, "pdf contained no readable text layer");
   }
-  return { sections, pageCount: result.total, method: "pdf-text", truncated: result.truncated };
+  const unreadable = pages.filter((section) => !hasReadableText(section.text)).map((section) => section.page);
+  const notes = unreadable.length
+    ? [
+        `${unreadable.length === 1 ? `Page ${unreadable[0]} has` : `Pages ${pageList(unreadable)} have`} no readable text (scanned or image-only), so nothing was made from ${unreadable.length === 1 ? "it" : "them"}. To include ${unreadable.length === 1 ? "it" : "them"}, upload ${unreadable.length === 1 ? "that page" : "those pages"} as photos or screenshots.`,
+      ]
+    : [];
+  return { sections, pageCount: result.total, method: "pdf-text", truncated: result.truncated, ...(notes.length ? { notes } : {}) };
 }
 
 async function extractDocx(bytes: Uint8Array): Promise<ExtractionResult> {
