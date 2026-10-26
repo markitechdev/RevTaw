@@ -25,6 +25,12 @@ type Client = SupabaseClient<Database>;
 
 export type ConceptEvidence = { events: EngineEvent[]; openMistakes: number };
 
+/** What one read found, and whether a cap cut older rows off (then some concepts may be missing answers). */
+export type EvidenceRead = { byConcept: Map<string, ConceptEvidence>; truncated: boolean };
+
+/** Rows read per kind of evidence, newest first. */
+export const EVIDENCE_CAPS = { answers: 10_000, items: 10_000, reviews: 10_000, mistakes: 5_000 } as const;
+
 export type ModelContext = {
   timeZone: string;
   /** The student's median response time per question type (null until there are enough timed answers). */
@@ -87,9 +93,10 @@ export async function readPages<T>(build: (from: number, to: number) => PromiseL
 /**
  * Every graded answer per concept, oldest first: quiz answers, study-session
  * items and flashcard reviews, plus open notebook mistakes. With
- * `conceptIds` the queries are narrowed to those concepts.
+ * `conceptIds` the queries are narrowed to those concepts. `truncated` says a
+ * kind reached its cap, so older answers were left out.
  */
-export async function collectEvidence(supabase: Client, userId: string, conceptIds: string[] | null): Promise<Map<string, ConceptEvidence>> {
+export async function collectEvidence(supabase: Client, userId: string, conceptIds: string[] | null): Promise<EvidenceRead> {
   const byConcept = new Map<string, ConceptEvidence>();
   const entry = (id: string) => {
     const value = byConcept.get(id) ?? { events: [], openMistakes: 0 };
@@ -116,7 +123,7 @@ export async function collectEvidence(supabase: Client, userId: string, conceptI
           .order("answered_at", { ascending: false })
           .order("id", { ascending: false })
           .range(from, to),
-      10_000,
+      EVIDENCE_CAPS.answers,
     ),
     readPages(
       (from, to) =>
@@ -134,7 +141,7 @@ export async function collectEvidence(supabase: Client, userId: string, conceptI
           .order("answered_at", { ascending: false })
           .order("id", { ascending: false })
           .range(from, to),
-      6_000,
+      EVIDENCE_CAPS.items,
     ),
     readPages(
       (from, to) =>
@@ -145,10 +152,11 @@ export async function collectEvidence(supabase: Client, userId: string, conceptI
           .order("reviewed_at", { ascending: false })
           .order("id", { ascending: false })
           .range(from, to),
-      10_000,
+      EVIDENCE_CAPS.reviews,
     ),
-    readPages((from, to) => narrow(supabase.from("mistakes").select("concept_id").eq("user_id", userId).is("resolved_at", null), "concept_id").order("id").range(from, to), 5_000),
+    readPages((from, to) => narrow(supabase.from("mistakes").select("concept_id").eq("user_id", userId).is("resolved_at", null), "concept_id").order("id").range(from, to), EVIDENCE_CAPS.mistakes),
   ]);
+  const truncated = answers.length >= EVIDENCE_CAPS.answers || items.length >= EVIDENCE_CAPS.items || reviews.length >= EVIDENCE_CAPS.reviews || mistakes.length >= EVIDENCE_CAPS.mistakes;
 
   // Quiz answers, oldest first, so the first answer to each question is its first attempt.
   const seenQuestions = new Set<string>();
@@ -208,7 +216,7 @@ export async function collectEvidence(supabase: Client, userId: string, conceptI
     if (row.concept_id) entry(row.concept_id).openMistakes += 1;
   }
   for (const value of byConcept.values()) value.events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
-  return byConcept;
+  return { byConcept, truncated };
 }
 
 /** How long a server instance reuses a student's response-time medians (they move slowly; every answer used to read 800 rows). */

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { abilityFromTotals, abilityOf, BUCKETS_TTL_MS, chunked, forgetCachedBuckets, loadBuckets, optionCount, readPages } from "@/lib/adaptive/evidence";
+import { abilityFromTotals, abilityOf, BUCKETS_TTL_MS, chunked, collectEvidence, EVIDENCE_CAPS, forgetCachedBuckets, loadBuckets, optionCount, readPages } from "@/lib/adaptive/evidence";
+import { fakeSupabase } from "@/test/fake-supabase";
 
 /** A client whose item_buckets read returns the next queued result and counts the reads. */
 function bucketClient(results: Array<{ data: Array<{ bucket_key: string; difficulty: number }> | null; error: { message: string } | null }>) {
@@ -80,5 +81,33 @@ describe("evidence helpers", () => {
     // The database's sums (student_elo_totals) give the same ability.
     expect(abilityFromTotals(1 * 10, 10)).toBeCloseTo(abilityOf([{ elo_rating: 1, elo_answers: 10 }]), 9);
     expect(abilityFromTotals(0, 0)).toBe(0);
+  });
+});
+
+describe("collectEvidence", () => {
+  /** A quiz answer as the read returns it (the embedded question, and its concept as the filter sees it). */
+  const answer = (index: number, conceptId: string) => ({
+    id: `a${index}`,
+    user_id: "u1",
+    question_id: `q${index}`,
+    is_correct: index % 2 === 0,
+    confidence: null,
+    response_ms: null,
+    response: "B",
+    answered_at: new Date(Date.UTC(2026, 9, 1) + index * 60_000).toISOString(),
+    "question.concept_id": conceptId,
+    question: { concept_id: conceptId, difficulty: "medium", type: "multiple_choice", options: [{}, {}, {}, {}] },
+  });
+  const tables = (answers: ReturnType<typeof answer>[]) => ({ quiz_answers: answers, study_session_items: [], flashcard_reviews: [], mistakes: [] });
+
+  it("groups answers by concept, oldest first, and says when a cap cut older ones off", async () => {
+    const small = await collectEvidence(fakeSupabase(tables([answer(2, "c1"), answer(1, "c1"), answer(3, "c2")])).client, "u1", null);
+    expect(small.truncated).toBe(false);
+    expect(small.byConcept.get("c1")?.events.map((event) => event.itemKey)).toEqual(["q:q1", "q:q2"]);
+    expect(small.byConcept.get("c2")?.events).toHaveLength(1);
+
+    const many = Array.from({ length: EVIDENCE_CAPS.answers + 5 }, (_, index) => answer(index, index < 5 ? "old" : "busy"));
+    const capped = await collectEvidence(fakeSupabase(tables(many)).client, "u1", null);
+    expect(capped.truncated).toBe(true);
   });
 });

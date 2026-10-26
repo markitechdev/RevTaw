@@ -35,13 +35,30 @@ export async function recomputeMasteryFor(supabase: Client, userId: string, conc
   const ids = conceptIds ? [...new Set(conceptIds.filter(Boolean))] : null;
   if (ids && ids.length === 0) return 0;
 
-  const evidence = await collectEvidence(supabase, userId, ids);
+  const read = await collectEvidence(supabase, userId, ids);
+  let evidence = read.byConcept;
   let targets = ids ?? [...evidence.keys()];
   if (!ids) {
     // A full run also refreshes concepts whose evidence was deleted, so no row is left stale.
     const practiced = await readPages((from, to) => supabase.from("concept_mastery").select("concept_id").eq("user_id", userId).gt("attempts", 0).order("concept_id").range(from, to), 10_000);
     targets = [...new Set([...targets, ...practiced.map((row) => row.concept_id)])];
   }
+  if (targets.length === 0) return 0;
+  // Concepts whose history a cap may have cut off: never written from an empty history.
+  const cutOff = new Set<string>();
+  if (read.truncated && !ids) {
+    // The latest answers of each kind didn't fit in one read, so concepts studied longer ago lost theirs:
+    // read again a chunk of concepts at a time, each modelled from its own history.
+    evidence = new Map();
+    for (const chunk of chunked(targets)) {
+      const part = await collectEvidence(supabase, userId, chunk);
+      for (const [conceptId, entry] of part.byConcept) evidence.set(conceptId, entry);
+      if (part.truncated) for (const conceptId of chunk) cutOff.add(conceptId);
+    }
+  } else if (read.truncated) {
+    for (const conceptId of targets) cutOff.add(conceptId);
+  }
+  targets = targets.filter((conceptId) => !(cutOff.has(conceptId) && !evidence.has(conceptId)));
   if (targets.length === 0) return 0;
   const context = await loadModelContext(supabase, userId, targets);
   const now = options.now ?? new Date();
