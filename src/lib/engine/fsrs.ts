@@ -117,11 +117,15 @@ export function preview(snapshot: FsrsSnapshot | null, now: Date, retention?: nu
   };
 }
 
-/** Probability of recalling it at `at` (1 when it was just reviewed; null before any review). */
+/**
+ * Probability of recalling it at `at` (1 when it was just reviewed; null before any review), on FSRS-6's
+ * forgetting curve with the time elapsed in fractional days: ts-fsrs's own reading counts whole days, so
+ * recall would stay at 1 for the first 24 hours and then drop in steps.
+ */
 export function recallAt(snapshot: FsrsSnapshot | null, at: Date): number | null {
   if (!snapshot || !snapshot.lastReview || snapshot.state === State.New) return null;
-  const f = scheduler("concept");
-  return f.get_retrievability(toCard(snapshot), at, false);
+  const elapsedDays = Math.max(0, (at.getTime() - new Date(snapshot.lastReview).getTime()) / 86_400_000);
+  return scheduler("concept").forgetting_curve(elapsedDays, snapshot.stability);
 }
 
 /** Leitner view of FSRS (§9): box 1 under 1 day of stability … box 5 beyond 21 days. */

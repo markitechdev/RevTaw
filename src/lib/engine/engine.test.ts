@@ -161,6 +161,17 @@ describe("FSRS (§9)", () => {
     expect(later).toBeGreaterThan(0.5);
   });
 
+  it("lets recall fade through the first day instead of holding at 1 for 24 hours", () => {
+    const reviewed = replay([{ at: "2026-10-01T09:00:00Z", rating: "good" }], "concept")!;
+    const at = (hours: number) => recallAt(reviewed, new Date(Date.parse("2026-10-01T09:00:00Z") + hours * 3_600_000))!;
+    expect(at(0)).toBeCloseTo(1, 6);
+    expect(at(12)).toBeLessThan(1);
+    expect(at(23)).toBeLessThan(at(12));
+    expect(at(36)).toBeLessThan(at(23));
+    // At the stability itself recall is the desired retention.
+    expect(recallAt(reviewed, new Date(Date.parse("2026-10-01T09:00:00Z") + reviewed.stability * 86_400_000))).toBeCloseTo(0.9, 3);
+  });
+
   it("previews later due dates for better ratings and shows Leitner boxes from stability", () => {
     const now = new Date("2026-10-20T08:00:00Z");
     const card = review(null, "good", new Date("2026-10-10T08:00:00Z"));
