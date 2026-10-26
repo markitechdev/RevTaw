@@ -8,13 +8,14 @@ export function parseTranscriptSections(transcript: string): Array<{ heading: st
   const sections: Array<{ heading: string; text: string }> = [];
   let current: { heading: string; text: string[] } | null = null;
   for (const line of transcript.split("\n")) {
-    const label = line.match(/^\[Section(?::\s*(.+?))?(?:,\s*pages?\s[^\]]+)?\]$/);
+    // "[Section: Heading, pages 2-3]", or "[Section 4, page 2]" for a section without a heading.
+    const label = line.match(/^\[Section(?::\s*(.+?)|\s+(\d+))?(?:,\s*pages?\s[^\]]+)?\]$/);
     if (label) {
       if (current) sections.push({ heading: current.heading, text: current.text.join("\n").trim() });
-      current = { heading: (label[1] ?? `Section ${sections.length + 1}`).trim(), text: [] };
+      current = { heading: (label[1] ?? `Section ${label[2] ?? sections.length + 1}`).trim(), text: [] };
       continue;
     }
-    if (/^\[Not included/.test(line)) continue;
+    if (/^\[(?:Not included|Skipped here)/.test(line)) continue;
     if (!current) current = { heading: "Overview", text: [] };
     current.text.push(line);
   }
