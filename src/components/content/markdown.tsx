@@ -118,26 +118,35 @@ export function parseMarkdown(source: string): Block[] {
   return blocks;
 }
 
-const INLINE = /(\*\*[^*]+\*\*|`[^`]+`|_[^_]+_|\*[^*]+\*)/g;
+/**
+ * Inline marks: `code`, **bold**, *italic* and _italic_. A mark opens only before a non-space and closes only
+ * after one, and a single * or _ never sits inside a word or number, so math stays math: "V = l * w * h",
+ * "2*3*4" and "a_1 + a_2" are not emphasis.
+ */
+const INLINE = /`([^`]+)`|\*\*(?=\S)([^*]*?\S)\*\*|(?<![\p{L}\p{N}*])\*(?=[^\s*])([^*\n]*?[^\s*])\*(?![\p{L}\p{N}*])|(?<![\p{L}\p{N}_])_(?=[^\s_])([^_\n]*?[^\s_])_(?![\p{L}\p{N}_])/gu;
 
 export function renderInline(text: string): ReactNode {
-  const parts = text.split(INLINE).filter((part) => part !== "");
-  return parts.map((part, index) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={index}>{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith("`") && part.endsWith("`")) {
-      return (
-        <code key={index} className="rounded bg-muted px-1 py-0.5 font-mono text-[0.9em]">
-          {part.slice(1, -1)}
-        </code>
+  const nodes: ReactNode[] = [];
+  let last = 0;
+  for (const match of text.matchAll(INLINE)) {
+    const start = match.index ?? 0;
+    if (start > last) nodes.push(<Fragment key={nodes.length}>{text.slice(last, start)}</Fragment>);
+    const [, code, strong, starred, underscored] = match;
+    if (code !== undefined) {
+      nodes.push(
+        <code key={nodes.length} className="rounded bg-muted px-1 py-0.5 font-mono text-[0.9em]">
+          {code}
+        </code>,
       );
+    } else if (strong !== undefined) {
+      nodes.push(<strong key={nodes.length}>{strong}</strong>);
+    } else {
+      nodes.push(<em key={nodes.length}>{starred ?? underscored}</em>);
     }
-    if ((part.startsWith("_") && part.endsWith("_")) || (part.startsWith("*") && part.endsWith("*"))) {
-      return <em key={index}>{part.slice(1, -1)}</em>;
-    }
-    return <Fragment key={index}>{part}</Fragment>;
-  });
+    last = start + match[0].length;
+  }
+  if (last < text.length) nodes.push(<Fragment key={nodes.length}>{text.slice(last)}</Fragment>);
+  return nodes;
 }
 
 export function Markdown({ source, className, lang }: { source: string; className?: string; lang?: string }) {

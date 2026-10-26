@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { parseMarkdown } from "@/components/content/markdown";
+import { createElement, Fragment } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+
+import { parseMarkdown, renderInline } from "@/components/content/markdown";
 
 describe("parseMarkdown", () => {
   it("parses paragraphs, headings, lists and code fences", () => {
@@ -40,5 +43,20 @@ describe("parseMarkdown", () => {
   it("never emits raw html", () => {
     const blocks = parseMarkdown('<script>alert(1)</script> <a href="javascript:x">link</a>');
     expect(blocks).toEqual([{ type: "paragraph", text: '<script>alert(1)</script> <a href="javascript:x">link</a>' }]);
+  });
+});
+
+describe("renderInline", () => {
+  const html = (text: string) => renderToStaticMarkup(createElement(Fragment, null, renderInline(text)));
+
+  it("renders code, bold and italic marks", () => {
+    expect(html("Use `x = 1`, **bold** and *italic* or _italic_.")).toBe('Use <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.9em]">x = 1</code>, <strong>bold</strong> and <em>italic</em> or <em>italic</em>.');
+  });
+
+  it("leaves math alone", () => {
+    expect(html("V = l * w * h")).toBe("V = l * w * h");
+    expect(html("2*3*4 = 24")).toBe("2*3*4 = 24");
+    expect(html("a_1 + a_2 = a_3")).toBe("a_1 + a_2 = a_3");
+    expect(html("snake_case_name")).toBe("snake_case_name");
   });
 });
