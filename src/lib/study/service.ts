@@ -4,7 +4,6 @@ import { weakConceptNames as masteryWeakConcepts } from "@/lib/adaptive/engine";
 import { markSmartBlock, startSmartSession } from "@/lib/adaptive/smart";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { isAiError } from "@/lib/ai";
-import { getConceptPerformance } from "@/lib/quizzes/queries";
 import { createQuiz, startAttempt } from "@/lib/quizzes/service";
 import { QUESTION_TYPE_IDS } from "@/lib/quizzes/types";
 import { loadMaterialContext } from "@/lib/reviewers/service";
@@ -78,15 +77,12 @@ function feynmanCount(minutes: number): number {
   return Math.max(1, Math.min(4, Math.round(minutes / 8)));
 }
 
-async function weakConceptNames(materialId: string | null = null, limit = 6): Promise<string[]> {
-  const fromMastery = await masteryWeakConcepts(materialId, limit);
-  if (fromMastery.length) return fromMastery;
-  const performance = await getConceptPerformance();
-  return performance
-    .filter((concept) => concept.accuracy < 0.7)
-    .sort((a, b) => a.accuracy - b.accuracy)
-    .slice(0, limit)
-    .map((concept) => concept.name);
+/**
+ * The material's concepts that need work, for a generator to start with. Only this material's: a new
+ * material has none yet, and the weak spots of another subject don't belong in its prompts.
+ */
+function weakConceptNames(materialId: string, limit = 6): Promise<string[]> {
+  return masteryWeakConcepts(materialId, limit);
 }
 
 /**
