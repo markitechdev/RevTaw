@@ -100,3 +100,55 @@ export function nearMiss(student: string, accepted: string[]): boolean {
     return editDistance(given, expected, allowed) <= allowed;
   });
 }
+
+/** Normalized text with hyphens and dots read as spaces ("light-dependent" = "light dependent"). */
+export function tidyText(value: string): string {
+  return normalizeText(value).replace(/[-.]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** Small words that carry no item of their own ("release OF energy", "ang mga"). */
+const FILLER_WORDS = new Set(["the", "a", "an", "of", "and", "in", "on", "to", "for", "by", "with", "from", "ang", "ng", "sa", "mga", "na", "at", "si"]);
+/** Generic nouns an answer may leave out ("energy carrier" for "energy carrier molecule"), unless they are the whole item. */
+const GENERIC_WORDS = new Set(["molecule", "molecules", "process", "processes", "compound", "compounds", "substance", "substances", "system"]);
+/** A line that negates what it names doesn't recall it: "not mitosis", "hindi mitosis". */
+const NEGATION = /(?:^|\s)(?:not|no|never|none|without|except|isnt|arent|doesnt|dont|hindi|wala|di)(?=\s|$)/;
+
+/** Forms of a word: itself and without a plural or verb ending ("cells", "released", "releasing"). */
+function wordForms(word: string): string[] {
+  if (word.length < 4) return [word];
+  const forms = [word];
+  for (const [ending, replacement] of [["es", ""], ["s", ""], ["ed", ""], ["ed", "e"], ["d", ""], ["ing", ""], ["ing", "e"]] as const) {
+    if (word.endsWith(ending) && word.length - ending.length >= 3) forms.push(word.slice(0, -ending.length) + replacement);
+  }
+  return forms;
+}
+
+function sameWord(a: string, b: string): boolean {
+  if (a === b) return true;
+  const forms = new Set(wordForms(a));
+  return wordForms(b).some((form) => forms.has(form));
+}
+
+/**
+ * Whether a remembered line or cell recalls one expected item (a list item, a palace stop, a table cell). Wording may differ (articles, plurals, word
+ * endings, word order, a note after the item: "prophase: chromosomes condense"), but every word that
+ * makes the item what it is must be there, so a fragment ("phase" for "Prophase"), a near neighbor
+ * ("light independent" for "light dependent", "Anaphase II" for "Anaphase I") or a negation ("not
+ * mitosis") doesn't count. No spelling slack: "ileum" and "ilium" are different organs.
+ */
+export function recallsItem(given: string, expected: string): boolean {
+  const a = tidyText(given);
+  const b = tidyText(expected);
+  if (!a || !b) return false;
+  if (a === b || a.replace(/\s/g, "") === b.replace(/\s/g, "")) return true;
+  if (NEGATION.test(a.replace(/'/g, "")) && !NEGATION.test(b.replace(/'/g, ""))) return false;
+  const givenWords = a.split(" ");
+  const contentWords = b.split(" ").filter((word) => !FILLER_WORDS.has(word));
+  const specific = contentWords.filter((word) => !GENERIC_WORDS.has(word));
+  const itemWords = specific.length > 0 ? specific : contentWords;
+  if (itemWords.length === 0) return false;
+  const found = itemWords.filter((word) => givenWords.some((other) => sameWord(other, word))).length;
+  // Short items need every word; a long description most of them (three of four, four of five…).
+  const needed = itemWords.length <= 3 ? itemWords.length : Math.ceil(itemWords.length * 0.75);
+  return found >= needed;
+}

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
 import { RunnerDone, RunnerSummary, useSessionCompletion, VerdictBox, type RunnerProps } from "@/components/study/runner-kit";
+import { sameRelation } from "@/lib/study/relations";
 import { PASS_SCORE } from "@/lib/study/verdict";
 import { SessionHeader } from "@/components/study/session-header";
 import { VisualView } from "@/components/study/visual-view";
@@ -166,7 +167,9 @@ function Exercise({ item, visual, answer, onAnswer, marks }: { item: Item; visua
       );
     }
     case "relationships": {
-      const options = [...new Set([...visual.links.map((link) => link.relation), ...STANDARD_RELATIONS])];
+      // The visual's own wordings, then the standard ones that don't repeat one of them in other words.
+      const own = [...new Set(visual.links.map((link) => link.relation))];
+      const options = [...own, ...STANDARD_RELATIONS.filter((standard) => !own.some((wording) => sameRelation(wording, standard)))];
       return (
         <ul className="flex flex-col gap-2 text-sm">
           {visual.links.map((link, index) => (

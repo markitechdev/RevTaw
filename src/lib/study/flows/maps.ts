@@ -6,6 +6,7 @@ import { generateRecallQuestions } from "@/lib/study/ai";
 import { conceptsFor, insertItems, loadOpenItem, openSession, recordItemResult, type Client, type FlowStartInput, type FlowStartResult, type ItemRow } from "@/lib/study/items";
 import { conceptMapSchema, mindMapSchema } from "@/lib/study/map-schemas";
 import { labelOf, RELATION_LABEL, subtreeIds, type ConceptMapData, type ConceptRelation, type MindMapData } from "@/lib/study/maps";
+import { sameRelation } from "@/lib/study/relations";
 import { generateConceptMap, generateMindMap } from "@/lib/study/prompts/maps";
 import { loadSession, SessionError, sessionTitle } from "@/lib/study/sessions";
 import type { Json, StudyMapKind, StudySession } from "@/lib/supabase/database.types";
@@ -186,7 +187,8 @@ export async function answerLink(input: { itemId: string; relation: ConceptRelat
   const relation = key.relation;
   const note = key.note ?? null;
   if (item.answered_at) return { isCorrect: Boolean(item.is_correct), relation, note };
-  const isCorrect = input.relation === relation;
+  // "causes" and "leads to", "requires" and "depends on" say the same thing: either counts.
+  const isCorrect = sameRelation(RELATION_LABEL[input.relation], RELATION_LABEL[relation]);
   const { from, to } = (item.analysis as { from: string; to: string }) ?? { from: "?", to: "?" };
   await recordItemResult(supabase, item, session, {
     response: input.relation,

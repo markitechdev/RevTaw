@@ -52,6 +52,9 @@ describe("list recall grading", () => {
     expect(itemMatches("ileum", "Ilium")).toBe(false);
     expect(itemMatches("cycle", "Calvin cycle")).toBe(false);
     expect(itemMatches("Krebs cycle", "Calvin cycle")).toBe(false);
+    expect(itemMatches("light reactions", "Light-independent reactions")).toBe(false);
+    expect(itemMatches("energy carrier", "Energy carrier molecule")).toBe(true);
+    expect(itemMatches("system", "Nervous system")).toBe(false);
   });
 
   it("gives no credit for writing one fragment on every line", () => {

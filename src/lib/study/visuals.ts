@@ -4,7 +4,8 @@
  * the pure helpers behind the "rebuild it from memory" exercises. Client-safe.
  */
 
-import { normalizeText } from "@/lib/quizzes/text-match";
+import { normalizeText, recallsItem } from "@/lib/quizzes/text-match";
+import { sameRelation } from "@/lib/study/relations";
 
 export type Visual =
   | { type: "table"; columns: string[]; rows: string[][] }
@@ -101,16 +102,9 @@ export type VisualAnswer =
   | { kind: "parents"; parents: Array<{ label: string; parent: string }> }
   | { kind: "relations"; relations: string[] };
 
-/** Lenient cell match: same normalized text, or most of the expected words present. */
+/** Lenient cell match: the cell's words in any order and form, but every word that makes it what it is (text-match.ts recallsItem). */
 export function cellMatches(given: string, expected: string): boolean {
-  const a = normalizeText(given);
-  const b = normalizeText(expected);
-  if (!a || !b) return false;
-  if (a === b) return true;
-  const words = b.split(" ").filter((word) => word.length >= 4);
-  if (words.length === 0) return a.includes(b);
-  const present = new Set(a.split(" "));
-  return words.filter((word) => present.has(word)).length / words.length >= 0.6;
+  return recallsItem(given, expected);
 }
 
 /** Grades a rebuild against the visual; marks say which parts were right. */
@@ -138,7 +132,8 @@ export function gradeVisual(visual: Visual, answer: VisualAnswer): { score: numb
     }
     case "relationships": {
       const given = answer.kind === "relations" ? answer.relations : [];
-      const marks = visual.links.map((link, index) => normalizeText(given[index] ?? "") === normalizeText(link.relation));
+      // A synonym of the material's wording counts ("causes" for "leads to").
+      const marks = visual.links.map((link, index) => sameRelation(given[index] ?? "", link.relation));
       return { score: Math.round((marks.filter(Boolean).length / Math.max(1, marks.length)) * 100), marks };
     }
   }

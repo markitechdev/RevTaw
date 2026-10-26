@@ -1,4 +1,4 @@
-import { normalizeText } from "@/lib/quizzes/text-match";
+import { recallsItem, tidyText } from "@/lib/quizzes/text-match";
 import type { MnemonicKind } from "@/lib/supabase/database.types";
 
 /**
@@ -59,53 +59,8 @@ export function targetIsOrdered(target: string): boolean {
   return /\b(order|ordered|sequence|steps?|stages?|phases?|first|then)\b/i.test(target);
 }
 
-/** Normalized text with hyphens and dots read as spaces ("light-dependent" = "light dependent"). */
-function tidy(value: string): string {
-  return normalizeText(value).replace(/[-.]+/g, " ").replace(/\s+/g, " ").trim();
-}
-
-/** Small words that carry no item of their own ("release OF energy", "ang mga"). */
-const FILLER_WORDS = new Set(["the", "a", "an", "of", "and", "in", "on", "to", "for", "by", "with", "from", "ang", "ng", "sa", "mga", "na", "at", "si"]);
-/** A line that negates what it names doesn't recall it: "not mitosis", "hindi mitosis". */
-const NEGATION = /(?:^|\s)(?:not|no|never|none|without|except|isnt|arent|doesnt|dont|hindi|wala|di)(?=\s|$)/;
-
-/** Forms of a word: itself and without a plural or verb ending ("cells", "released", "releasing"). */
-function wordForms(word: string): string[] {
-  if (word.length < 4) return [word];
-  const forms = [word];
-  for (const [ending, replacement] of [["es", ""], ["s", ""], ["ed", ""], ["ed", "e"], ["d", ""], ["ing", ""], ["ing", "e"]] as const) {
-    if (word.endsWith(ending) && word.length - ending.length >= 3) forms.push(word.slice(0, -ending.length) + replacement);
-  }
-  return forms;
-}
-
-function sameWord(a: string, b: string): boolean {
-  if (a === b) return true;
-  const forms = new Set(wordForms(a));
-  return wordForms(b).some((form) => forms.has(form));
-}
-
-/**
- * Whether one remembered line recalls one expected item. Wording may differ (articles, plurals, word
- * endings, word order, a note after the item: "prophase: chromosomes condense"), but every word that
- * makes the item what it is must be there, so a fragment ("phase" for "Prophase"), a near neighbor
- * ("light independent" for "light dependent", "Anaphase II" for "Anaphase I") or a negation ("not
- * mitosis") doesn't count. No spelling slack: "ileum" and "ilium" are different organs.
- */
-export function itemMatches(given: string, expected: string): boolean {
-  const a = tidy(given);
-  const b = tidy(expected);
-  if (!a || !b) return false;
-  if (a === b || a.replace(/\s/g, "") === b.replace(/\s/g, "")) return true;
-  if (NEGATION.test(a.replace(/'/g, "")) && !NEGATION.test(b.replace(/'/g, ""))) return false;
-  const givenWords = a.split(" ");
-  const itemWords = b.split(" ").filter((word) => !FILLER_WORDS.has(word));
-  if (itemWords.length === 0) return false;
-  const found = itemWords.filter((word) => givenWords.some((other) => sameWord(other, word))).length;
-  // Short items need every word; a long description most of them (three of four, four of five…).
-  const needed = itemWords.length <= 3 ? itemWords.length : Math.ceil(itemWords.length * 0.75);
-  return found >= needed;
-}
+/** Whether one remembered line recalls one expected item (lib/quizzes/text-match.ts). */
+export const itemMatches = recallsItem;
 
 /** Splits a recalled list into lines: one item per line, or separated by semicolons or commas (not inside brackets); numbering and bullets are ignored. */
 export function splitRecalledList(answer: string): string[] {
@@ -208,7 +163,7 @@ export function palaceStopCount(minutes: number, locations: number, concepts: nu
 
 /** Same place on a route, whatever the case and spacing. */
 export function sameLocation(a: string, b: string): boolean {
-  return tidy(a) === tidy(b);
+  return tidyText(a) === tidyText(b);
 }
 
 // ---------------------------------------------------------------------------
