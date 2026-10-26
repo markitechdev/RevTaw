@@ -51,10 +51,15 @@ function readTimer(state: Record<string, unknown>): TimerState {
   };
 }
 
-/** Advances past any phase whose end time has already passed (e.g. after a refresh). */
+/**
+ * Advances past any phase whose end time has already passed (e.g. after a refresh): a finished focus round
+ * counts and its break starts; a finished break waits for the student to start the next round. Rounds
+ * nobody started are never counted: a timer left running for hours used to show rounds and focus time for
+ * all of them.
+ */
 function settle(timer: TimerState, settings: Settings, now: number): TimerState {
   let current = timer;
-  for (let guard = 0; guard < 50; guard += 1) {
+  for (let guard = 0; guard < 3; guard += 1) {
     if (!current.phaseEndsAt || current.phase === "idle" || current.phase === "paused") return current;
     const endsAt = new Date(current.phaseEndsAt).getTime();
     if (endsAt > now) return current;
@@ -69,7 +74,7 @@ function settle(timer: TimerState, settings: Settings, now: number): TimerState 
         phaseEndsAt: new Date(endsAt + (long ? settings.longBreakMinutes : settings.breakMinutes) * 60_000).toISOString(),
       };
     } else {
-      current = { ...current, phase: "work", phaseEndsAt: new Date(endsAt + settings.workMinutes * 60_000).toISOString() };
+      current = { ...current, phase: "idle", phaseEndsAt: null };
     }
   }
   return current;
@@ -179,7 +184,7 @@ export function PomodoroRunner({ session, methodName, parentSessionId = null, pa
   }
 
   const activePhase = timer.phase === "paused" ? timer.pausedPhase : timer.phase;
-  const phaseLabel = activePhase === "work" ? "Focus" : activePhase === "long_break" ? "Long break" : activePhase === "break" ? "Break" : "Ready";
+  const phaseLabel = activePhase === "work" ? "Focus" : activePhase === "long_break" ? "Long break" : activePhase === "break" ? "Break" : timer.completedRounds > 0 ? "Break's over" : "Ready";
   const phaseTotal = activePhase === "work" ? settings.workMinutes * 60 : activePhase === "long_break" ? settings.longBreakMinutes * 60 : activePhase === "break" ? settings.breakMinutes * 60 : settings.workMinutes * 60;
   // Before the clock is available (server render, hydration) a running phase shows its full length; the first tick corrects it.
   const remaining = timer.phase === "paused" ? (timer.pausedRemainingSeconds ?? 0) : timer.phaseEndsAt ? (now === null ? phaseTotal : Math.max(0, Math.round((new Date(timer.phaseEndsAt).getTime() - now) / 1000))) : settings.workMinutes * 60;
@@ -217,7 +222,7 @@ export function PomodoroRunner({ session, methodName, parentSessionId = null, pa
           {timer.phase === "idle" && (
             <Button type="button" onClick={startWork}>
               <Play className="h-4 w-4" aria-hidden="true" />
-              Start focus ({settings.workMinutes} min)
+              {timer.completedRounds > 0 ? `Start round ${timer.completedRounds + 1}` : "Start focus"} ({settings.workMinutes} min)
             </Button>
           )}
           {(timer.phase === "work" || timer.phase === "break" || timer.phase === "long_break") && (
@@ -262,7 +267,7 @@ export function PomodoroRunner({ session, methodName, parentSessionId = null, pa
           </div>
         </dl>
         <p className="text-xs text-muted-foreground">
-          {settings.workMinutes}/{settings.breakMinutes} preset · long break every {ROUNDS_BEFORE_LONG_BREAK} rounds · your progress is saved if you refresh.
+          {settings.workMinutes}/{settings.breakMinutes} preset · long break every {ROUNDS_BEFORE_LONG_BREAK} rounds · each round starts when you start it · your progress is saved if you refresh.
         </p>
       </section>
     </div>
