@@ -195,12 +195,17 @@ async function extractImage(bytes: Uint8Array, mime: string): Promise<Extraction
 export function normalizeWhitespace(text: string): string {
   return text
     .replace(/\r\n?/g, "\n")
-    .replace(/ /g, " ")
+    .replace(/\u00a0/g, " ")
     .split("\n")
-    .map((line) => line.replace(/[ \t]+$/g, "").replace(/[ \t]{2,}/g, " "))
+    .map((line) => {
+      // Indentation stays (it carries the meaning of code and outlines); runs of spaces inside a line don't.
+      const [, indent, rest] = /^([ \t]*)(.*)$/.exec(line) ?? ["", "", line];
+      const body = rest.replace(/[ \t]+$/g, "").replace(/[ \t]{2,}/g, " ");
+      return body ? `${indent.replace(/\t/g, "    ").slice(0, 24)}${body}` : "";
+    })
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
-    .trim();
+    .replace(/^\n+|\s+$/g, "");
 }
 
 const SUPERSCRIPT: Record<string, string> = {
@@ -250,14 +255,53 @@ export function htmlToText(html: string): string {
   const withScripts = html
     .replace(/<sup[^>]*>([\s\S]*?)<\/sup>/gi, (_match, inner: string) => `${supOpen}${inner.replace(/<[^>]+>/g, "")}${supClose}`)
     .replace(/<sub[^>]*>([\s\S]*?)<\/sub>/gi, (_match, inner: string) => `${subOpen}${inner.replace(/<[^>]+>/g, "")}${subClose}`);
-  const withBreaks = withScripts
+  const withBreaks = listsToText(tablesToText(withScripts))
     .replace(/<\/(h[1-6])>/gi, "\n\n")
     .replace(/<(h[1-6])[^>]*>/gi, "\n\n")
-    .replace(/<\/p>|<\/li>|<\/tr>|<br\s*\/?>/gi, "\n")
-    .replace(/<li[^>]*>/gi, "• ")
-    .replace(/<\/td>|<\/th>/gi, "\t")
+    .replace(/<\/p>|<br\s*\/?>/gi, "\n")
     .replace(/<[^>]+>/g, "");
   return normalizeWhitespace(formatScripts(decodeEntities(withBreaks)));
+}
+
+/** A cell's or item's text on one line: its paragraphs joined, tags gone. */
+function inlineText(html: string): string {
+  return html
+    .replace(/<\/p>\s*<p[^>]*>|<br\s*\/?>/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Tables as one line per row, cells separated by " | " and empty cells kept, so a value stays in its column
+ * ("Acceleration | | m/s²" rather than "Acceleration" then "m/s²" on the next line).
+ */
+function tablesToText(html: string): string {
+  return html.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (_table, body: string) => {
+    const rows = [...body.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)].map((row) => [...row[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map((cell) => inlineText(cell[1])));
+    return `\n\n${rows.filter((cells) => cells.some(Boolean)).map((cells) => cells.join(" | ")).join("\n")}\n\n`;
+  });
+}
+
+/** Lists with their nesting (two spaces a level) and their numbers: "1. Mitosis" then "  • Prophase". */
+function listsToText(html: string): string {
+  const stack: Array<{ ordered: boolean; count: number }> = [];
+  return html.replace(/<(\/?)(ul|ol|li)\b[^>]*>/gi, (_tag, closing: string, name: string) => {
+    const tag = name.toLowerCase();
+    if (tag === "li") {
+      if (closing) return "";
+      const list = stack[stack.length - 1];
+      if (!list) return "\n• ";
+      list.count += 1;
+      return `\n${"  ".repeat(stack.length - 1)}${list.ordered ? `${list.count}. ` : "• "}`;
+    }
+    if (closing) {
+      stack.pop();
+      return stack.length ? "" : "\n\n";
+    }
+    stack.push({ ordered: tag === "ol", count: 0 });
+    return "";
+  });
 }
 
 const NAMED_ENTITIES: Record<string, string> = { nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };

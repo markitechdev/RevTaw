@@ -57,3 +57,17 @@ describe("chunkSections", () => {
     expect(chunks.map((chunk) => chunk.heading)).toEqual(["Chapter 1 Arrays", "Chapter 2 Lists"]);
   });
 });
+
+describe("structure kept through chunking", () => {
+  it("keeps code indentation inside a paragraph", () => {
+    const code = "def absolute(x):\n    if x < 0:\n        x = -x\n        print(\"was negative\")\n    return x";
+    expect(splitIntoParagraphs(code)).toEqual([code]);
+  });
+
+  it("never takes a table row or an indented line for a heading, and knows Filipino titles", () => {
+    expect(isHeadingLine("Feature | Mitosis | Meiosis")).toBe(false);
+    expect(isHeadingLine("  • Prophase")).toBe(false);
+    expect(isHeadingLine("Mga Uri ng Pangungusap")).toBe(true);
+    expect(isHeadingLine("Ang Siklo ng Tubig")).toBe(true);
+  });
+});

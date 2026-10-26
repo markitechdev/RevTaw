@@ -12,7 +12,8 @@ export type Chunk = {
 export const CHUNK_TARGET_CHARS = 3200;
 export const CHUNK_MAX_CHARS = 4800;
 
-const TITLE_CONNECTORS = new Set(["of", "and", "the", "in", "for", "to", "a", "an", "on", "at", "by", "vs", "with", "or"]);
+/** Small words a title leaves lowercase, English and Filipino ("Mga Uri ng Pangungusap", "Ang Siklo ng Tubig"). */
+const TITLE_CONNECTORS = new Set(["of", "and", "the", "in", "for", "to", "a", "an", "on", "at", "by", "vs", "with", "or", "ng", "sa", "mga", "ang", "na", "ni", "nina", "para", "ay"]);
 
 const HEADING_PATTERNS = [
   /^(chapter|unit|lesson|module|section|part|topic)\b[^\n]{0,80}$/i,
@@ -33,6 +34,8 @@ function isTitleCase(line: string): boolean {
 export function isHeadingLine(line: string): boolean {
   const trimmed = line.trim();
   if (trimmed.length < 3 || trimmed.length > 90) return false;
+  // A table row ("Feature | Mitosis | Meiosis") or an indented line (code, a nested list item) is never a title.
+  if (trimmed.includes(" | ") || /^\s/.test(line)) return false;
   if (/[.!?;,]$/.test(trimmed)) return false;
   if (trimmed.split(/\s+/).length > 12) return false;
   return HEADING_PATTERNS.some((pattern) => pattern.test(trimmed)) || isTitleCase(trimmed);
@@ -119,20 +122,21 @@ export function splitIntoParagraphs(text: string): string[] {
   let current: string[] = [];
   const flush = () => {
     if (current.length > 0) {
-      paragraphs.push(current.join("\n").trim());
+      paragraphs.push(current.join("\n").replace(/\s+$/, ""));
       current = [];
     }
   };
 
   for (const rawLine of text.split("\n")) {
-    const line = rawLine.trim();
-    if (!line) {
+    // Indentation stays: it is what makes code and nested lists readable.
+    const line = rawLine.replace(/\s+$/, "");
+    if (!line.trim()) {
       flush();
       continue;
     }
     if (isHeadingLine(line)) {
       flush();
-      paragraphs.push(line);
+      paragraphs.push(line.trim());
       continue;
     }
     current.push(line);

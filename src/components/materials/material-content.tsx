@@ -19,13 +19,17 @@ export function joinSoftBreaks(paragraph: string): string {
   let output = "";
   for (const line of lines) {
     const trimmed = line.trim();
+    // An indented line (code, a nested list item) and a table row keep their own line and indentation.
+    const keepsLine = /^\s/.test(line) || trimmed.includes(" | ");
     if (!output) {
-      output = trimmed;
+      output = keepsLine ? line.replace(/\s+$/, "") : trimmed;
       continue;
     }
     const previousEndsSentence = /[.!?:;]$/.test(output);
     const isListItem = LIST_MARKER.test(trimmed) || (starBullets && STAR_MARKER.test(trimmed));
-    if (isListItem || previousEndsSentence) {
+    if (keepsLine) {
+      output += `\n${line.replace(/\s+$/, "")}`;
+    } else if (isListItem || previousEndsSentence || / \| /.test(output.slice(output.lastIndexOf("\n") + 1))) {
       output += `\n${trimmed}`;
     } else {
       output += ` ${trimmed}`;

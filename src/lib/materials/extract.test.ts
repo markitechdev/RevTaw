@@ -1,11 +1,29 @@
 import { describe, expect, it } from "vitest";
 
-import { formatScripts, hasReadableText, htmlToText, pageList, scriptText } from "@/lib/materials/extract";
+import { formatScripts, hasReadableText, htmlToText, normalizeWhitespace, pageList, scriptText } from "@/lib/materials/extract";
 import { SCRIPT_MARK } from "@/lib/materials/extract-sandbox";
 
 describe("htmlToText", () => {
   it("keeps headings and list items on their own lines", () => {
-    expect(htmlToText("<h1>Cells</h1><p>Basic unit of life.</p><ul><li>Nucleus</li><li>Ribosome</li></ul>")).toBe("Cells\n\nBasic unit of life.\n• Nucleus\n• Ribosome");
+    expect(htmlToText("<h1>Cells</h1><p>Basic unit of life.</p><ul><li>Nucleus</li><li>Ribosome</li></ul>")).toBe("Cells\n\nBasic unit of life.\n\n• Nucleus\n• Ribosome");
+  });
+
+  it("keeps a list's nesting and numbers", () => {
+    const html = "<ol><li>Interphase</li><li>Mitosis<ul><li>Prophase</li><li>Metaphase</li></ul></li><li>Cytokinesis</li></ol><p>Next part.</p>";
+    expect(htmlToText(html)).toBe("1. Interphase\n2. Mitosis\n  • Prophase\n  • Metaphase\n3. Cytokinesis\n\nNext part.");
+  });
+
+  it("writes each table row on one line, empty cells kept in place", () => {
+    const html =
+      "<table><tr><th><p>Quantity</p></th><th><p>Symbol</p></th><th><p>Unit</p></th></tr><tr><td><p>Velocity</p></td><td><p>v</p></td><td><p>m/s</p></td></tr><tr><td><p>Acceleration</p></td><td><p></p></td><td><p>m/s<sup>2</sup></p></td></tr></table><p>After the table.</p>";
+    expect(htmlToText(html)).toBe("Quantity | Symbol | Unit\nVelocity | v | m/s\nAcceleration | | m/s²\n\nAfter the table.");
+  });
+});
+
+describe("normalizeWhitespace", () => {
+  it("keeps indentation, so code and outlines keep their meaning", () => {
+    expect(normalizeWhitespace("def absolute(x):\n    if x < 0:\n        x = -x\n    return x  \n\n\n\nend")).toBe("def absolute(x):\n    if x < 0:\n        x = -x\n    return x\n\nend");
+    expect(normalizeWhitespace("  \n\tTabbed   line   here")).toBe("    Tabbed line here");
   });
 
   it("decodes entities exactly once", () => {

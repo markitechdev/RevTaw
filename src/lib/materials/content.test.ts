@@ -12,3 +12,12 @@ describe("joinSoftBreaks", () => {
     expect(joinSoftBreaks("Shopping:\n* milk\n* eggs")).toBe("Shopping:\n* milk\n* eggs");
   });
 });
+
+describe("joinSoftBreaks keeps structure", () => {
+  it("keeps code lines and table rows on their own lines", () => {
+    const code = "def absolute(x):\n    if x < 0:\n        x = -x\n        print(\"was negative\")\n    return x";
+    expect(joinSoftBreaks(code)).toBe(code);
+    expect(joinSoftBreaks("Feature | Mitosis | Meiosis\nDivisions | One | Two")).toBe("Feature | Mitosis | Meiosis\nDivisions | One | Two");
+    expect(joinSoftBreaks("1. Mitosis\n  • Prophase\n  • Metaphase")).toBe("1. Mitosis\n  • Prophase\n  • Metaphase");
+  });
+});
