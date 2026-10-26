@@ -112,9 +112,10 @@ export async function regenerateSection(
 ): Promise<{ section: ReviewerSectionDraft; provider: string; model: string }> {
   const provider = getAiProvider("strong");
   const info = REVIEWER_KIND_BY_ID[kind];
-  const { transcript } = buildTranscript(chunks);
   const target = sections[index];
   if (!target) throw new Error("section index out of range");
+  // A long material leans toward the section's own topic, so its source text is in what the model reads.
+  const { transcript } = buildTranscript(chunks, undefined, { text: target.heading });
 
   const others = sections
     .map((section, position) => (position === index ? null : `- ${section.heading}`))
@@ -137,8 +138,8 @@ ${others || "(none)"}
 
 Section to rewrite:
 Heading: ${target.heading}
-Current content:
-${target.content.slice(0, 6000)}
+Current content (all of it, the student's own edits included):
+${target.content}
 
 ${instructions ? `Student's instructions: ${instructions}` : "Student's instructions: produce a better version — clearer, more complete, still grounded in the material."}
 
@@ -152,7 +153,8 @@ ${transcript}
     task: "regenerate_section",
     system,
     messages: [{ role: "user", content: user }],
-    maxTokens: 4000,
+    // Room to write a long section back whole (about 3 characters a token), on top of the reasoning.
+    maxTokens: Math.min(12_000, 3_000 + Math.ceil(target.content.length / 3)),
     temperature: 0.4,
   });
 
