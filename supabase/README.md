@@ -61,11 +61,18 @@ supabase db push
 | `0032_drop_unused_columns.sql` | drops columns nothing wrote: `archived_at` on `subjects`, `folders`, `reviewers`, `quizzes`, `flashcard_decks` and `tutor_conversations` (only materials and exams are archived) and `study_goals.subject_id`; their list indexes are rebuilt without it. It stops and changes nothing if one of those columns holds a value |
 | `0033_job_runs.sql` | `job_runs`: when each scheduled job (reminders, digest, embeddings, calendar, engine, archive) last finished, last succeeded and its last error; written by the jobs with the secret key and read by `/api/health`; students cannot read it |
 | `0034_ai_provider_budget.sql` | token budgets for an AI provider whose free allowance every student shares (Ollama Cloud): `ai_provider_usage` (all students, per UTC day; kept when an account is deleted) and `ai_provider_student_usage` (per student; deleted with the account); `reserve_ai_provider_tokens()` checks both budgets over the last 32 days and sets a call's estimate aside, one call at a time per provider, and `settle_ai_provider_tokens()` swaps it for the real count; `ai_provider_usage_summary()` for the service check; secret key only |
+| `0035_study_grading.sql` | answers Tamari couldn't check: `count_session_answer()` counts an ungraded answer (`p_correct` null) as answered only, and `count_session_grade()` adds the student's own mark later (caller's rights); `bucket_first_attempts()` skips quiz questions left blank |
+| `0036_two_statement_questions.sql` | `question_type` gains `two_statement` (run it on its own: a new enum value can't be used in the transaction that adds it) |
+| `0037_extraction_notes.sql` | `materials.extraction_note` (what reading the file left out or changed, kept through Re-analyze; status detail up to 2,000 characters) and `flashcard_decks.requested_count` and `focus` (a retried deck is the deck asked for) |
+| `0038_mastery_model_version.sql` | `concept_mastery.model_version`: which learning-engine version computed a row (2: the knowledge share); older rows are recomputed when next read |
+| `0039_concept_materials.sql` | `concept_materials`: every material a concept appears in (owner-only), backfilled from questions, session items, flashcards and mistakes, and a trigger that links a new concept to its first material |
+| `0040_mistake_retests.sql` | `mistakes.choices` and `context` (a retest shows the options or case its question needs; quiz mistakes backfilled from their questions) and `last_missed_at` (a right retest clears a mistake only on a later day; retests take the longest-standing misses first) |
 
 Never edit an applied migration; add a new numbered file instead. To bring a
 project at 0023 up to date in one go, run the update file shipped with the
 release (0024–0033 in one transaction: it changes nothing if any part fails).
 A project at 0033 needs only 0034 (it changes nothing in existing tables).
+A project at 0034 needs 0035 to 0040, each run in order.
 
 Leave the Data API's **Max rows** (in the dashboard: **Integrations → Data
 API → Settings**) at 1,000 or more, the default. RevTaw reads long lists

@@ -92,9 +92,9 @@ each job's last run). Errors and slow requests are in Vercel's Logs.
   permanently removes the file but keeps everything made from it
 - Reviewers in ten formats with editable, individually regenerable sections
   (Phase 3)
-- Quizzes with nine question types, practice and exam modes, timers,
-  server-side grading, results by concept and an automatic mistake notebook
-  (Phase 3)
+- Quizzes with ten question types (two-statement questions included),
+  practice and exam modes, timers, server-side grading, results by concept
+  and an automatic mistake notebook (Phase 3)
 - Study sessions: builder by material, time, goal and method; active recall,
   Feynman, practice testing, error review and Pomodoro, each with a saved
   summary; flashcards with spaced repetition (now FSRS, shown as Leitner
@@ -163,12 +163,14 @@ each job's last run). Errors and slow requests are in Vercel's Logs.
   them; a daily study digest and one-click unsubscribe by email (Resend);
   a "RevTaw Study" calendar in Google Calendar; opt-in, content-free usage
   analytics; and a service check at `/api/system/services`
-- The learning engine (learning engine round): mastery is the chance you've
-  learned a concept times how well you can recall it today (Bayesian
-  Knowledge Tracing × FSRS), held back until there is real evidence and
-  shown in six states (Needs foundation, Learning, Developing, Strong,
-  Mastered) with the step still missing; flashcards scheduled by FSRS-6
-  with short learning steps; question difficulty matched to you with Elo
+- The learning engine (learning engine round, revised in the study system
+  review round): mastery is the share of a concept you know, from your
+  answers corrected for lucky guesses and slips with the recent ones
+  counting most, times how well you can recall it today (FSRS), held back
+  until there is real evidence and shown in six states (Not started, Needs
+  foundation, Learning, Developing, Strong, Mastered) with the step still
+  missing; flashcards scheduled by FSRS-6 with short learning steps;
+  question difficulty matched to you with Elo
   and shared difficulty buckets refit every night; Tamari's plan and the
   recommendations ranked by weakness, fading recall and your next exam,
   with the study method picked by a rule table that says why; and an exam
@@ -193,6 +195,16 @@ each job's last run). Errors and slow requests are in Vercel's Logs.
   RevTaw's navy-and-blue design, with a small icon per type, one clear
   button, a plain-text part, phone and dark-mode layouts, and previews at
   `/dev/emails` while developing
+- Study features checked for accuracy and for learning (study system
+  review round): answers graded by one rule and never marked wrong when the
+  AI couldn't check them; quiz questions that quote the material, explain
+  every wrong choice and keep to the types and difficulty asked for;
+  generators that write fewer items rather than pad; mastery that follows
+  how well you really answer; readiness, plans and goals that count a
+  material's concepts you haven't practiced yet; mistake retests that show
+  their choices or case and count as learned only on a later day; Cornell
+  notes you write yourself; and sessions, plans and timers that count only
+  the work done
 
 ## Scripts
 
@@ -226,9 +238,9 @@ src/components        ui primitives, forms, app shell, Tamari, feature
                       components
 src/lib               supabase clients, ai providers, materials pipeline,
                       reviewers, quizzes, flashcards, study sessions, tutor,
-                      learning engine (FSRS, BKT, Elo, priority, method
-                      rules), adaptive layer (mastery, recommendations, smart
-                      study, the night run),
+                      learning engine (FSRS, knowledge share, Elo, priority,
+                      method rules), adaptive layer (mastery,
+                      recommendations, smart study, the night run),
                       planner (exams, plans, tasks, goals, calendar),
                       reminders, notifications and the email design system
                       (src/lib/email), preferences and

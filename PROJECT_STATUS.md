@@ -4,9 +4,159 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-26 (Tamari's smarter round, the Ollama Cloud round, Tamari's evaluation round, the unfinished sessions round, the email design round, Tamari's chat round and fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
+_Last updated: 2026-10-26 (the study system review round, Tamari's smarter round, the Ollama Cloud round, Tamari's evaluation round, the unfinished sessions round, the email design round, Tamari's chat round and fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
 
 ## Completed
+
+### Study system review round (accuracy, learning effectiveness, reliability)
+
+The owner asked for a complete review of every study feature, in the order
+accuracy, learning effectiveness, reliability, usability, performance,
+visual polish: grading, quiz types and difficulty, explanations, generated
+content against the source, mistakes, mastery and weak topics, study
+methods and sessions. Four reviews (quizzes; materials and generation;
+study methods and sessions, with simulated students; the learning engine,
+with simulated answer histories) found the issues below; each was checked
+in the code before it was fixed, one commit per fix, and covered by unit
+tests and the end-to-end suites. Migrations 0035–0040.
+
+- **Grading** — one rule turns a score into what the student is told and
+  what is stored (`src/lib/study/verdict.ts`: "Correct" and "Mostly right"
+  are exactly the answers counted as correct). An answer Tamari couldn't
+  check is saved without a grade (migration 0035): the student compares it
+  with the model answer and marks it, and nothing is filed or learned until
+  then (it used to be saved as wrong). Quiz answers marked "partly" right
+  no longer count as correct; a question left blank scores 0 on the test
+  but is not an answer anywhere else (mastery, the notebook, Progress, the
+  nightly difficulty refit). Grading runs on the strong model tier.
+  Identification answers keep letters and minus signs ("Vitamin A" is not
+  "vitamin"); a recalled list item must name the whole item; a synonym of
+  the material's relationship counts; a rebuilt flowchart or timeline
+  earns nothing for its starting shuffle; blurting counts the first
+  attempt (the retry follows the shown gaps); question generation rates
+  questions without moving mastery; map quizzes are answered with the map
+  hidden; a saved mnemonic starts with recall; a tutor session's score is
+  judged against the material, and no score is made up when the AI fails.
+- **Quizzes** — only the question types chosen; option letters follow the
+  order shown; the generator works to written rules per type and per
+  difficulty (easy, medium, hard and advanced are defined, not labels),
+  gives the reason behind every wrong option and the true version of a
+  false statement, must quote the material (quotes are checked) and doesn't
+  repeat a question from the material's earlier quizzes or ask one fact
+  twice in two formats; concept names are reused, so the same concept keeps
+  one mastery; a focus topic finds its sections in a long material;
+  **two-statement questions** (migration 0036: the student decides which of
+  two statements from the material are true); written answers get feedback
+  that explains the reasoning; the results page sorts only the answered
+  questions by concept.
+- **Materials and generation** — notes are read whatever bytes they start
+  with and however they're encoded; equations, exponents and subscripts,
+  code, outlines and tables survive extraction; a PDF's unreadable pages
+  are named and a scan isn't passed as ready; what a reading left out is
+  kept with the material (migration 0037); generators may write fewer
+  items than asked instead of padding with unsupported ones; flashcards are
+  checked card by card in any language; a retried deck is the deck asked
+  for; one overlong item in a material's analysis is left out instead of
+  failing the whole analysis (the prompt now states each limit); reviewer
+  formatting leaves math alone, and rewriting a section keeps the
+  student's edits.
+- **Mastery** (`src/lib/engine/knowledge.ts`, `mastery-model.ts`) —
+  Bayesian Knowledge Tracing treated a concept as one fact, learned or not:
+  a student right 61% of the time on four-option questions drifted to
+  "learned" and stayed there, and once it reached 1 no wrong answer could
+  lower it. It is replaced by K, the share of the concept the student
+  knows: each answer is read with BKT's guess and slip (P(right) =
+  G + K(1 − S − G)), and K is fitted to the answers by weighted least
+  squares from a light prior, the recent ones counting most (each newer
+  answer scales the older ones by 0.97; a half-life of 14 days before the
+  latest). Only the first answer to an item each day counts, so retaking a
+  quiz adds nothing. Mastery = 100 × K × recall (FSRS), with the gates
+  kept, and "a hard item" now means a right answer without choices to pick
+  from, a justified scenario, or a hard option question answered without
+  guessing. Simulated students land where their accuracy says (medians of
+  300 students with 20 answers over two days: 70% right on multiple choice
+  gives K ≈ 0.6, 90% typed ≈ 0.93), and 25 typed answers right over five
+  days followed by 15 wrong over three show mastery 43 (Learning), where
+  BKT showed 100 (Mastered). The concept's FSRS day is graded by its
+  guess-corrected share; recall fades through the day; a flashcard rated
+  Hard no longer reads as low confidence. Rows record the model that wrote
+  them (migration 0038), and older ones are recomputed.
+- **Weak topics, plans and readiness** — "weak topic" means the same
+  everywhere (`isWeakTopic()`); a concept counts in every material it
+  appears in (migration 0039, `concept_materials`); exam readiness counts
+  the key concepts not studied yet; Tamari keeps the weak-topic quiz when
+  new concepts come first, and its mistake count matches the notebook it
+  retests; Continue studying shows how far a session really got; a
+  refresh no longer wipes concepts studied long ago or undoes a newer
+  answer; deleting a quiz or a deck updates mastery; only a test's final
+  answers count. The next step and Progress say how long to wait before
+  the spaced answer (2 or more days after the first), and the open-mistakes
+  recommendation gives its real reason (open mistakes count toward the
+  weak-topic score, not mastery). A material is measured over all its
+  concepts (its analysis's key concepts and any practiced with it,
+  `conceptCoverage()` and `src/lib/planner/material-progress.ts`), the
+  ones not practiced yet counting as 0, as readiness does: the daily plan
+  adjustment no longer skips a task because one concept is strong, "Reach
+  80% mastery" and "Finish a material" goals aren't reached after a few
+  concepts, the plan weighs a partly practiced material like an untouched
+  one and its tasks say how much is practiced. Progress and its map count
+  a concept in every material it appears in, and their "weak" is
+  `isWeakTopic()`.
+- **Mistake notebook** — a retest shows what its question needs (migration
+  0040): the choices of a question answered by picking one, checked
+  against the right one without AI, and the case or situation of one that
+  refers to it. A right retest clears a mistake only on a later day than
+  its last miss (by the student's calendar); retests take the
+  longest-standing misses first, a missed one goes to the back, and the
+  student is told what the retest did. A mistake is due the day after its
+  last miss: Home lists today's to read now and retest tomorrow, and the
+  recommendation, the Study page's retest button and Tamari's Mistake
+  Review come once one is due, and Error Review and rapid review retest
+  the due ones while there are any; a misconception from today is explained
+  first (Feynman) and retested tomorrow, one from an earlier day goes
+  straight to Error Review (the rule table's `misconceptionDue`). Rapid
+  review no longer asks a retested mistake twice; recall feedback says why
+  a wrong statement is wrong, and judges a student's own example against
+  the definition; a two-statement answer's feedback gives each statement's
+  verdict once.
+- **Sessions and methods** — focus time is the time actually spent (a
+  session finished the next day doesn't count the night); cumulative review
+  mixes in earlier lessons of the same subject; blurting, chunking and
+  guided reading work through the whole material and start with a plan's
+  concepts; a new material's prompts don't focus on another subject's weak
+  spots; a failed start leaves no empty session; a late copy of an
+  explanation or blurt (a second tab) doesn't use up the retry; Pomodoro
+  counts only rounds the student starts, and a planned block runs its own
+  length; routines are saved only within a plan's limits; a map session
+  spent on the map is finished, not stopped early; a plan block stopped
+  early isn't shown as done; plan quizzes run untimed; a practice test's
+  summary counts only the answered questions and lists the blank ones; a
+  session's next review is when its concepts come due, not when some
+  flashcard is; a pre-test's summary doesn't credit a skipped study block;
+  Tamari's Weak Topic Quiz calls only the weak topics weak; a reading
+  question the material doesn't answer is set aside instead of graded;
+  faded examples ease off one step at a time after a struggle;
+  interleaving mixes materials of one subject; the flashcard methods say
+  FSRS schedules the cards (a missed card is back in about 10 minutes, the
+  Leitner boxes only show how settled a card is). **Cornell notes** is a
+  guided session the student writes: notes in their own words, cue
+  questions, the cues answered with the notes covered, and a summary
+  written without looking.
+- **Home** — reminders and XP are brought up to date inside the render
+  (they failed in `after()` with the streak tile hidden).
+- **Database** — 0035 (ungraded answers and the student's own mark), 0036
+  (two-statement questions; run on its own), 0037 (extraction notes, deck
+  requests), 0038 (mastery model version), 0039 (concept materials), 0040
+  (mistake retests). Run them in order before deploying.
+- **Not verified here** — the end-to-end suites generate and grade with
+  the mock provider: what Groq, Cloudflare and the other providers write
+  and grade under the new prompts (quoted sources, a reason per wrong
+  option, two-statement verdicts, fewer items rather than padding, a
+  3-sentence note at 30 minutes, a material over 140,000 characters) was
+  not run against the real models here (`npm run eval:tamari` covers
+  Tamari's chat only). The post-test of pre-testing is a new adaptive quiz,
+  so it can be harder than the pre-test. Tamari's new Taglish and Filipino
+  lines for the Weak Topic Quiz want a native speaker's read.
 
 ### Tamari's smarter round (the chat button on Home, answers from all notes)
 
@@ -1540,6 +1690,9 @@ BKT, Elo, Smart Study ranking) is the next round.
 
 ### Learning engine round (FSRS, BKT, Elo, priority and method rules)
 
+> The study system review round replaced this round's BKT with the
+> knowledge share K (`knowledge.ts`); the rest stands as described.
+
 The learning engine from the research doc "RevTaw Learning Intelligence
 Stack" (§5–§11). The models are pure functions in `src/lib/engine/`, tested
 against the doc's worked examples; every number lives in
@@ -1717,9 +1870,8 @@ tables.
 
 1. Tune the learning engine on real answers: calibration of predicted
    against actual correctness, next-day retests, the FSRS optimizer per
-   student once they have about a thousand reviews, and BKT parameters
-   fitted across students (pyBKT in the Python worker the research doc
-   allows).
+   student once they have about a thousand reviews, and the knowledge
+   model's guess and slip (and its recency) fitted across students.
 2. Background jobs for long generations (reviewers, quizzes, analysis of very
    long materials); the daily plan adjustment could move to the reminder
    scheduler (it still runs on page load).
@@ -2072,7 +2224,8 @@ linked).
   all of the student's chunks the same way (`notesPassages()`), with no
   keyword fallback.
 - **Learning engine** — `src/lib/engine/` (pure, client-safe): `config.ts`
-  (every tunable number), `answers.ts` (reading an answer), `bkt.ts`,
+  (every tunable number), `answers.ts` (reading an answer), `knowledge.ts`
+  (the knowledge share K: guess- and slip-corrected least squares),
   `fsrs.ts` (ts-fsrs wrapper: replay, review, preview, recall, Leitner
   view), `elo.ts` (ratings, buckets, the bucket fit, next difficulty),
   `weakness.ts`, `priority.ts`, `method-rules.ts`, `mastery-model.ts` (one
@@ -2205,8 +2358,14 @@ linked).
   incremental updates (the latest 10,000 answers per kind are read).
 - The learning engine's numbers are the research doc's starting values:
   until there are real answers to calibrate against, FSRS uses its default
-  parameters, BKT its set guess/slip/learn values and the buckets their
+  parameters, the knowledge model its set guess and slip values (and a
+  recency of 0.97 per answer, a 14-day half-life) and the buckets their
   label priors (a bucket needs answers from several students to move).
+- A material's concepts, for readiness, plans and goals, are its analysis's
+  key concepts plus any practiced with it, matched by name
+  (`conceptKey()`). Generators are told to reuse the key concepts' names,
+  but a key concept that no question or card names yet stays "not
+  practiced" (counted as 0) until one does.
 - Session items and flashcard generation also run inside a single request
   (`maxDuration = 120` for routes; Server Actions for sessions). Very long
   materials rely on the transcript budget.
@@ -2254,7 +2413,7 @@ linked).
   in the language the student writes in" rule.
 - Problems, scenarios, cases, stories and mnemonics are generated once per
   session from the material's transcript; AI-graded answers (working,
-  justifications, case fields, retellings) use the fast tier. A device that
+  justifications, case fields, retellings) use the strong tier. A device that
   the accuracy guard rejects (an acronym that does not spell the list) is
   dropped rather than regenerated.
 - Visual sets and maps are reused per material; the builder offers to draw
@@ -2506,7 +2665,7 @@ Flows verified end to end against a local Supabase-compatible stack
   chunking (read → recall → next, chunk text kept with the answer); question
   generation (ratings, the on-topic question scores higher, average quality
   survives a reload); teach-back (learner opener and questions, teaching
-  score); mixed practice with all nine question types; exam simulation in
+  score); mixed practice with all ten question types; exam simulation in
   exam mode; routines (create, start, run a block, back to routine, finish,
   edit, delete); Smart Study opening blurt; planner exam-simulation and
   exam-day rapid-review tasks start their own methods; mobile layouts
@@ -2701,6 +2860,40 @@ Flows verified end to end against a local Supabase-compatible stack
   reminders and the daily email carry unsubscribe links), the daily email's
   leads and the exam details read for it, reminder variants, and the
   welcome email.
+- Study system review round: every suite above run against the round's
+  build, with new checks in `study-e2e`, `methods-e2e`, `methods2-e2e`,
+  `adaptive-e2e`, `twostatement-e2e`, `twin-submit-e2e`, `rows-cap-e2e`,
+  `planner-e2e` and `dashboard-e2e`, and the new `pomodoro-e2e.mjs` and
+  `engine-e2e.mjs` (two materials sharing a concept: the concept linked to
+  both and shown on both, on Progress and on the map; an exam on one
+  counting its unpracticed concepts in readiness, its plan, its daily
+  adjustment and its goals; a practice answer updating mastery at once; an
+  exam-mode test's saved answers kept out of a full recompute until it is
+  submitted; Continue studying showing 1 of 6; a session's next review
+  taken from its concept; deleting a quiz taking its answers out of
+  mastery): a retest with its choices checked without AI and kept open on
+  the day of the miss, one on a later day clearing the mistake, today's
+  mistakes waiting a day before Home calls them due, an Error Review in
+  Tamari's plan, its quiz calling only the weak topic weak; a two-statement
+  verdict given once; a pre-test's gain not credited to a skipped study
+  block; the blank questions of a practice test listed on its summary; rapid
+  review saying why a right retest keeps the entry; late copies of a
+  Feynman explanation and a blurt from a second tab; Cornell notes from
+  notes to the finished page, the notes surviving a refresh; an SQ3R
+  question the material doesn't answer set aside; faded examples easing
+  off one step after a struggle; a map session finished without a quiz; a
+  plan block stopped early and started again; interleaving refusing
+  another subject's material; a 15-minute Focus Block and a timer left
+  running for three hours. Simulated answer histories for the mastery
+  model (accuracy, retakes, busy days, fading). SQL: 0039's trigger links a
+  concept inserted as a student, and 0040 backfills the choices of earlier
+  quiz mistakes and runs twice. Unit tests: the verdict rule, ungraded
+  answers and self-checks, the knowledge share and the concept model,
+  weakness, retests (choices, context, the later-day rule), the recall
+  checker's prompt, Pomodoro splits, routine limits, Cornell's stages,
+  fading, the practice-test summary, duplicate interleaving sessions,
+  concept coverage, material goals and plans for partly practiced
+  materials.
 - Tamari's answers (`npm run eval:tamari`, not part of `npm test`; needs AI
   keys in `.env.local` and is skipped without them): 25 cases sent to the
   real AI with the request the app builds, the chat review's test list
@@ -2746,8 +2939,9 @@ Flows verified end to end against a local Supabase-compatible stack
   skips), embeddings and hybrid
   ranking, Whisper and Azure requests, the digest and unsubscribe tokens,
   calendar encryption, events and sync, analytics payloads, endpoint and
-  site-address checks; the learning engine (BKT, answer readings, Elo and
-  the bucket fit, FSRS replay/preview/Leitner view, weakness, the priority
+  site-address checks; the learning engine (the knowledge share, answer
+  readings, Elo and the bucket fit, FSRS replay/preview/Leitner view,
+  weakness, the priority
   worked example, the method rules, the concept model's gates and states),
   FSRS card scheduling, evidence paging and the Tamari plan's new-concept
   block
