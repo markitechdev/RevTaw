@@ -2,7 +2,7 @@ import { readAnswer, type ReadAnswer } from "@/lib/engine/answers";
 import { ENGINE } from "@/lib/engine/config";
 import { bucketKey, chooseDifficulty, eloStep, labelPrior, successProbability, targetSuccess } from "@/lib/engine/elo";
 import { recallAt, replay, type FsrsSnapshot, type GradedReview } from "@/lib/engine/fsrs";
-import { guessFloor, knownShare, paramsFor } from "@/lib/engine/knowledge";
+import { guessFloor, knownShare, paramsFor, shareOf, type KnowledgeAnswer } from "@/lib/engine/knowledge";
 import type { ConceptState } from "@/lib/engine/types";
 import { repeatedMisses, weaknessScore } from "@/lib/engine/weakness";
 import type { ConceptCategory } from "@/lib/materials/analysis-schema";
@@ -131,27 +131,42 @@ function mostCommon<T>(values: T[]): T | null {
 }
 
 /**
- * One review per day for the concept (§9): Again if any first try at an
- * item that day was wrong, Hard if all were right but some fragile,
- * otherwise Good. Rapid guesses don't count.
+ * One review per day for the concept (§9), graded by the share of it the
+ * day's first tries show (guess- and slip-corrected, so a lucky true/false
+ * counts for little): Again under 0.6, Hard under 0.85 or when most right
+ * answers were unsure, otherwise Good. A single slip among twenty right
+ * answers is a good day, not a lapse. Rapid guesses don't count.
  */
 export function dailyReviews(events: EngineEvent[], readings: ReadAnswer[], timeZone: string, eventDays?: string[]): GradedReview[] {
-  const days = new Map<string, { at: string; seen: Set<string>; wrong: boolean; fragile: boolean; graded: number }>();
+  const { againBelow, hardBelow } = ENGINE.fsrs.dayGrade;
+  const days = new Map<string, { at: string; seen: Set<string>; answers: KnowledgeAnswer[]; right: number; unsure: number }>();
   events.forEach((event, index) => {
     const reading = readings[index];
     if (reading.reading === "rapid_guess") return;
     const day = eventDays?.[index] ?? dateIn(event.at, timeZone);
-    const entry = days.get(day) ?? { at: event.at, seen: new Set<string>(), wrong: false, fragile: false, graded: 0 };
+    const entry = days.get(day) ?? { at: event.at, seen: new Set<string>(), answers: [], right: 0, unsure: 0 };
     days.set(day, entry);
     if (entry.seen.has(event.itemKey)) return;
     entry.seen.add(event.itemKey);
     // The review happened at the day's last first try (a retake doesn't move it).
     entry.at = event.at;
-    entry.graded += 1;
-    if (!event.correct) entry.wrong = true;
-    else if (reading.grade === "hard") entry.fragile = true;
+    entry.answers.push({
+      correct: event.correct,
+      params: paramsFor(event.questionType ?? event.kind, event.optionCount, event.difficulty),
+      weight: event.kind === "flashcard" ? ENGINE.answers.flashcardWeight : 1,
+      at: new Date(event.at).getTime(),
+    });
+    if (event.correct) {
+      entry.right += 1;
+      if (reading.grade === "hard") entry.unsure += 1;
+    }
   });
-  return [...days.values()].filter((day) => day.graded > 0).map((day) => ({ at: day.at, rating: day.wrong ? "again" : day.fragile ? "hard" : "good" }));
+  return [...days.values()].flatMap((day) => {
+    const share = shareOf(day.answers);
+    if (share === null) return [];
+    const rating = share < againBelow ? "again" : share < hardBelow || day.unsure * 2 > day.right ? "hard" : "good";
+    return [{ at: day.at, rating }];
+  });
 }
 
 export function modelConcept(input: ConceptModelInput): ConceptModel {

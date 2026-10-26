@@ -96,6 +96,11 @@ export const ENGINE = {
     retention: 0.9,
     /** Leitner view: box 1 under 1 day of stability, 2 at 1–3, 3 at 3–7, 4 at 7–21, 5 beyond. */
     leitnerDays: [1, 3, 7, 21],
+    /**
+     * A concept's day of practice is one review, graded by the share of it the day's first tries show:
+     * Again under 0.6, Hard under 0.85 (or when most right answers were unsure), otherwise Good.
+     */
+    dayGrade: { againBelow: 0.6, hardBelow: 0.85 },
   },
 
   /** Smart Study priority (§10). */

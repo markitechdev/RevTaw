@@ -292,6 +292,21 @@ describe("concept model (§5–§8)", () => {
     expect(run([...first, ...nextDay], "2026-10-11T04:00:00Z").known).toBeGreaterThan(before.known);
   });
 
+  it("grades a day by how it went, so one slip in twenty is not forgetting", () => {
+    const days = ["01", "02", "03", "04", "05"];
+    const busy = days.flatMap((day) => Array.from({ length: 20 }, (_, i) => answer(`2026-10-${day}T02:${String(i).padStart(2, "0")}:00Z`, i !== 7, { ...typed, ...(i === 7 ? { confidence: "unsure" } : {}) })));
+    const light = days.map((day) => answer(`2026-10-${day}T02:00:00Z`, true, typed));
+    const nextDay = "2026-10-06T03:00:00Z";
+    const a = run(busy, nextDay);
+    const b = run(light, nextDay);
+    expect(a.fsrs?.lapses).toBe(0);
+    expect(a.fsrs?.stability).toBeCloseTo(b.fsrs!.stability, 5);
+    expect(a.mastery).toBeGreaterThan(85);
+    // A day mostly wrong is a lapse.
+    const bad = [...light, ...Array.from({ length: 10 }, (_, i) => answer(`2026-10-06T02:${String(i).padStart(2, "0")}:00Z`, i < 2, typed))];
+    expect(run(bad, "2026-10-06T03:00:00Z").fsrs?.lapses).toBe(1);
+  });
+
   it("models a long history quickly (each day worked out once, misconceptions in one pass)", () => {
     const start = Date.parse("2026-01-01T02:00:00Z");
     const history = Array.from({ length: 2000 }, (_, index) =>
