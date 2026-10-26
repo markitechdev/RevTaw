@@ -184,6 +184,7 @@ export function SmartSessionView({
                       </Badge>
                     )}
                     {block.status === "skipped" && <Badge tone="neutral">Skipped</Badge>}
+                    {block.status === "pending" && block.childStatus === "abandoned" && <Badge tone="warning">Stopped early</Badge>}
                     {block.status === "done" && accuracy !== null && accuracy !== undefined && (
                       <Badge tone={accuracy >= 0.8 ? "success" : accuracy >= 0.6 ? "warning" : "danger"}>{Math.round(accuracy * 100)}%</Badge>
                     )}
@@ -193,7 +194,7 @@ export function SmartSessionView({
                 </div>
               </div>
               <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-end">
-                {block.status === "done" && block.childSessionId && (
+                {(block.status === "done" || block.childStatus === "abandoned") && block.childSessionId && (
                   <Link href={`${routes.study}/${block.childSessionId}`} className={buttonClasses({ size: "sm", variant: "ghost" })}>
                     View summary
                   </Link>
@@ -203,7 +204,7 @@ export function SmartSessionView({
                     {(!strict || isNext) && (
                       <Button type="button" size="sm" variant={isNext ? "primary" : "secondary"} loading={busy === block.key && pending} onClick={() => start(block.key)} disabled={pending && busy !== block.key}>
                         {!(busy === block.key && pending) && <Play className="h-4 w-4" aria-hidden="true" />}
-                        {block.status === "in_progress" ? "Resume" : "Start"}
+                        {block.status === "in_progress" ? "Resume" : block.childStatus === "abandoned" ? "Start again" : "Start"}
                       </Button>
                     )}
                     {block.status === "pending" && (!strict || (isNext && block.method !== "practice_testing")) && (

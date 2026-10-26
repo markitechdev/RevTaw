@@ -228,7 +228,9 @@ export async function getSmartSessionView(sessionId: string, freshPlan: SmartPla
       if (child) {
         childStatus = child.status;
         childSummary = parseSessionSummary(child.summary);
-        status = child.status === "in_progress" ? "in_progress" : "done";
+        // A block stopped early isn't done: it can be started again or skipped (which then stands), and
+        // doesn't count as done.
+        if (block.status !== "skipped") status = child.status === "in_progress" ? "in_progress" : child.status === "completed" ? "done" : "pending";
       }
     }
     return { ...block, status, childStatus, childSummary };
