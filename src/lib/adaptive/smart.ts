@@ -277,7 +277,7 @@ export async function completeSmartSession(sessionId: string, options: { stopped
         ? "No block was completed. Try a shorter plan so the first block is easy to finish."
         : weak.length > 0
           ? `${weak.slice(0, 2).join(" and ")} still need${weak.length === 1 ? "s" : ""} work — Tamari's next plan will start there.`
-          : "Everything you practiced today held up. Let spaced repetition carry it; come back when cards are due.",
+          : "Everything you practiced today held up. RevTaw brings each concept back for review just before it would fade.",
     nextReviewAt: summaries.map((summary) => summary.nextReviewAt).filter((value): value is string => Boolean(value)).sort()[0] ?? null,
     // Tamari's reaction compares the plan's first quiz with its last retest ("Mas okay na").
     extra: {

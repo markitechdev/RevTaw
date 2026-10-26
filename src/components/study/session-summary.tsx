@@ -128,10 +128,13 @@ export function SessionSummaryCard({
               <span className="font-medium">Suggested next:</span> {summary.suggestedNext}
             </span>
           </p>
-          <p className="flex items-center gap-2 text-muted-foreground">
-            <CalendarClock className="h-4 w-4 shrink-0" aria-hidden="true" />
-            Next scheduled review: {formatDue(summary.nextReviewAt)}
-          </p>
+          {/* Shown when the session covered concepts (or cards) RevTaw schedules; a timer or a talk has none. */}
+          {summary.nextReviewAt && (
+            <p className="flex items-center gap-2 text-muted-foreground">
+              <CalendarClock className="h-4 w-4 shrink-0" aria-hidden="true" />
+              Next scheduled review: {formatDue(summary.nextReviewAt)}
+            </p>
+          )}
         </div>
 
         {actions && <div className="flex flex-wrap gap-2">{actions}</div>}

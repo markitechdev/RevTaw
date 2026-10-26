@@ -573,15 +573,22 @@ function storedFeynmanRound(item: StudySessionItem): FeynmanRoundResult {
 // Completion
 // ---------------------------------------------------------------------------
 
-async function nextFlashcardDue(supabase: Client): Promise<string | null> {
+/**
+ * When RevTaw next brings back what a session covered: the earliest review its concepts are due for (each
+ * concept's FSRS schedule, the one "Refresh … before it fades" follows). Null when it covered none.
+ */
+async function nextConceptReview(supabase: Client, conceptIds: ReadonlyArray<string | null>): Promise<string | null> {
+  const ids = [...new Set(conceptIds.filter((id): id is string => Boolean(id)))];
+  if (ids.length === 0) return null;
   const { data } = await supabase
-    .from("flashcards")
-    .select("due_at")
-    .eq("suspended", false)
-    .order("due_at", { ascending: true })
+    .from("concept_mastery")
+    .select("next_review_at")
+    .in("concept_id", ids)
+    .not("next_review_at", "is", null)
+    .order("next_review_at", { ascending: true })
     .limit(1)
     .maybeSingle();
-  return data?.due_at ?? null;
+  return data?.next_review_at ?? null;
 }
 
 /** Suggested next activity after an item-based session (§29). */
@@ -643,7 +650,7 @@ export async function completeItemSession(sessionId: string, focusSeconds: numbe
   const session = await loadSession(supabase, sessionId);
   const { data: items } = await supabase
     .from("study_session_items")
-    .select("prompt, is_correct, score, answered_at, concept:concepts!study_session_items_concept_fk(name)")
+    .select("prompt, is_correct, score, answered_at, concept_id, concept:concepts!study_session_items_concept_fk(name)")
     .eq("session_id", sessionId)
     .order("position");
   const answered = (items ?? []).filter((item) => item.answered_at);
@@ -686,7 +693,7 @@ export async function completeItemSession(sessionId: string, focusSeconds: numbe
         : graded.length === 0 && !mapOnly
           ? "Tamari couldn't check these answers, so they aren't counted. Repeat this session later to track your progress."
           : itemSessionNext(method, accuracy, weak),
-    nextReviewAt: await nextFlashcardDue(supabase),
+    nextReviewAt: await nextConceptReview(supabase, graded.map((item) => item.concept_id)),
     abandoned,
     extra,
   });
@@ -714,7 +721,8 @@ export async function completePomodoro(sessionId: string, focusSeconds: number, 
       completedRounds === 0
         ? "No full round was completed. Try the 15/5 preset to make the first round easy."
         : "Good focus block. Follow it with a quick Active Recall session on what you just studied so it sticks.",
-    nextReviewAt: await nextFlashcardDue(supabase),
+    // A timer covers no concepts, so nothing is scheduled from it.
+    nextReviewAt: null,
     extra: { completedRounds },
   });
 }
@@ -750,7 +758,7 @@ export async function syncPracticeTesting(session: StudySession): Promise<Sessio
 
   const { data: answers } = await supabase
     .from("quiz_answers")
-    .select("is_correct, response, question:quiz_questions!quiz_answers_question_fk(concept:concepts!quiz_questions_concept_fk(name))")
+    .select("is_correct, response, question:quiz_questions!quiz_answers_question_fk(concept_id, concept:concepts!quiz_questions_concept_fk(name))")
     .eq("attempt_id", attempt.id);
   // A question left blank scores 0 on the test but isn't an answer, and one still waiting for the student's
   // own mark has no result yet: neither counts as answered, nor makes its concept weak.
@@ -782,7 +790,7 @@ export async function syncPracticeTesting(session: StudySession): Promise<Sessio
     weakConcepts: weak,
     strongConcepts: strong,
     suggestedNext: suggestNext(total ? correct / total : null, weak, "practice_testing"),
-    nextReviewAt: await nextFlashcardDue(supabase),
+    nextReviewAt: await nextConceptReview(supabase, graded.map((answer) => (answer.question as unknown as { concept_id: string | null } | null)?.concept_id ?? null)),
     extra: { score: attempt.score, maxScore: attempt.max_score, attemptId: attempt.id, ...(unanswered > 0 ? { unanswered } : {}) },
   });
 }
