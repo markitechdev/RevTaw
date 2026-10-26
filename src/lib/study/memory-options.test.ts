@@ -36,8 +36,26 @@ describe("list recall grading", () => {
   it("matches items leniently but not by accident", () => {
     expect(itemMatches("prophase", "Prophase")).toBe(true);
     expect(itemMatches("the light dependent reactions", "Light-Dependent Reactions")).toBe(true);
+    expect(itemMatches("light-dependent reaction", "Light-Dependent Reactions")).toBe(true);
+    expect(itemMatches("Prophase: chromosomes condense", "Prophase")).toBe(true);
+    expect(itemMatches("carbon dioxide is released", "Release of carbon dioxide")).toBe(true);
     expect(itemMatches("ana", "Anaphase")).toBe(false);
     expect(itemMatches("", "Anaphase")).toBe(false);
+  });
+
+  it("doesn't take a fragment, a neighbor or a negation for the item", () => {
+    expect(itemMatches("phase", "Prophase")).toBe(false);
+    expect(itemMatches("light independent reactions", "Light-dependent reactions")).toBe(false);
+    expect(itemMatches("Anaphase II", "Anaphase I")).toBe(false);
+    expect(itemMatches("not mitosis", "Mitosis")).toBe(false);
+    expect(itemMatches("hindi mitosis", "Mitosis")).toBe(false);
+    expect(itemMatches("ileum", "Ilium")).toBe(false);
+    expect(itemMatches("cycle", "Calvin cycle")).toBe(false);
+    expect(itemMatches("Krebs cycle", "Calvin cycle")).toBe(false);
+  });
+
+  it("gives no credit for writing one fragment on every line", () => {
+    expect(gradeListRecall(stages, "phase\nphase\nphase\nphase").score).toBe(0);
   });
 
   it("scores the share recalled and checks the order", () => {
