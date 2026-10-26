@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
-import { UngradedCheck, VerdictBox } from "@/components/study/runner-kit";
+import { UngradedCheck, useAnsweredItems, VerdictBox } from "@/components/study/runner-kit";
 import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +48,7 @@ export function FeynmanRunner({ session, methodName, parentSessionId = null, par
   const [pending, startTransition] = useTransition();
   const [ending, setEnding] = useState(false);
   const shownAt = useRef<number>(0);
+  const { answered: done, markAnswered } = useAnsweredItems(items);
 
   useEffect(() => {
     shownAt.current = Date.now();
@@ -78,7 +79,10 @@ export function FeynmanRunner({ session, methodName, parentSessionId = null, par
       }
       const analysis = result.data.analysis;
       if (analysis) setRounds((state) => [...state, { round: result.data.round, ...analysis }]);
-      if (result.data.final) setFinalResult(result.data);
+      if (result.data.final) {
+        setFinalResult(result.data);
+        markAnswered(item.id);
+      }
     });
   };
 
@@ -127,7 +131,6 @@ export function FeynmanRunner({ session, methodName, parentSessionId = null, par
   }
 
   const latest = rounds[rounds.length - 1];
-  const done = items.filter((entry) => entry.answered_at).length;
   const awaitingImprovement = latest && !finalResult && rounds.length < 2;
 
   return (

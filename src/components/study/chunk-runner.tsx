@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
-import { RecallVerdict } from "@/components/study/runner-kit";
+import { RecallVerdict, useAnsweredItems } from "@/components/study/runner-kit";
 import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +45,7 @@ export function ChunkRunner({ session, methodName, parentSessionId = null, paren
   const [ending, setEnding] = useState(false);
   const shownAt = useRef<number>(0);
   const item = items[index];
+  const { answered: done, markAnswered } = useAnsweredItems(items);
 
   useEffect(() => {
     shownAt.current = Date.now();
@@ -74,6 +75,7 @@ export function ChunkRunner({ session, methodName, parentSessionId = null, paren
         return;
       }
       setResult(answered.data);
+      markAnswered(item.id);
     });
   };
 
@@ -121,7 +123,6 @@ export function ChunkRunner({ session, methodName, parentSessionId = null, paren
   }
 
   const chunk = chunkOf(item);
-  const done = items.filter((entry) => entry.answered_at).length;
 
   return (
     <div className="flex flex-col gap-4">

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
 import { ScheduleReviewsButton } from "@/components/planner/schedule-reviews-button";
-import { PointList, RecallVerdict, RunnerSummary, UngradedCheck, useSessionCompletion, VerdictBox, type RunnerProps } from "@/components/study/runner-kit";
+import { PointList, RecallVerdict, RunnerSummary, UngradedCheck, useAnsweredItems, useSessionCompletion, VerdictBox, type RunnerProps } from "@/components/study/runner-kit";
 import { PASS_SCORE } from "@/lib/study/verdict";
 import { SessionHeader } from "@/components/study/session-header";
 import { Badge } from "@/components/ui/badge";
@@ -79,7 +79,7 @@ function SectionText({ text }: { text: string }) {
 }
 
 /** Answer one item at a time (Reflect and Recite): the model answer appears only after the student answers. */
-function AnswerStep({ items, label, onDone, doneLabel, sections }: { items: Item[]; label: string; onDone: () => void; doneLabel: string; sections: ReadingState["sections"] }) {
+function AnswerStep({ items, label, onDone, onAnswered, doneLabel, sections }: { items: Item[]; label: string; onDone: () => void; onAnswered: (itemId: string) => void; doneLabel: string; sections: ReadingState["sections"] }) {
   const [index, setIndex] = useState(() => Math.max(0, items.findIndex((item) => !item.answered_at)));
   const [response, setResponse] = useState("");
   const [results, setResults] = useState<Record<string, RecallItemResult>>(() =>
@@ -112,6 +112,7 @@ function AnswerStep({ items, label, onDone, doneLabel, sections }: { items: Item
       return;
     }
     setResults((state) => ({ ...state, [item.id]: answered.data }));
+    onAnswered(item.id);
   };
 
   return (
@@ -202,6 +203,7 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
     return { itemId: done.id, comparison: ungraded ? null : (done.analysis as unknown as BlurtComparison), ungraded };
   });
   const [reread, setReread] = useState<number | null>(null);
+  const answeredItems = useAnsweredItems(session.items);
   const shownAt = useRef<number>(0);
 
   useEffect(() => {
@@ -216,7 +218,7 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
   const labels = READING_STAGE_LABEL[method];
   const questionItems = session.items.filter((item) => item.kind === "stage" && item.format === "question");
   const reflectItems = session.items.filter((item) => item.kind === "stage" && item.format === "reflect");
-  const answeredCount = session.items.filter((item) => item.answered_at).length;
+  const answeredCount = answeredItems.answered;
 
   const advance = (to: ReadingStage, payload: { expectations?: string; questions?: Array<{ section: number; question: string }> } = {}) => {
     setError(null);
@@ -253,6 +255,7 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
         return;
       }
       setSummaryResult(result.data);
+      answeredItems.markAnswered(result.data.itemId);
       setStage("done");
     });
   };
@@ -434,13 +437,13 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
 
       {stage === "reflect" && (
         <Panel title="Reflect" icon={Lightbulb} intro="Think about why and how — connect what you read to the rest of the material and to what you already know.">
-          {reflectItems.length > 0 ? <AnswerStep key="reflect" items={reflectItems} label="Reflect" sections={state.sections} doneLabel={`Next: ${labels.recite}`} onDone={() => advance("recite")} /> : <p className="text-sm text-muted-foreground">Preparing questions…</p>}
+          {reflectItems.length > 0 ? <AnswerStep key="reflect" items={reflectItems} label="Reflect" sections={state.sections} doneLabel={`Next: ${labels.recite}`} onDone={() => advance("recite")} onAnswered={answeredItems.markAnswered} /> : <p className="text-sm text-muted-foreground">Preparing questions…</p>}
         </Panel>
       )}
 
       {stage === "recite" && (
         <Panel title="Recite from memory" icon={ListChecks} intro="The text is hidden. Answer your own questions out of your head, then compare.">
-          {questionItems.length > 0 ? <AnswerStep key="recite" items={questionItems} label="Recite" sections={state.sections} doneLabel={`Next: ${labels.review}`} onDone={() => advance("review")} /> : <p className="text-sm text-muted-foreground">Loading your questions…</p>}
+          {questionItems.length > 0 ? <AnswerStep key="recite" items={questionItems} label="Recite" sections={state.sections} doneLabel={`Next: ${labels.review}`} onDone={() => advance("review")} onAnswered={answeredItems.markAnswered} /> : <p className="text-sm text-muted-foreground">Loading your questions…</p>}
         </Panel>
       )}
 

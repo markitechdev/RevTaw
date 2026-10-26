@@ -3,7 +3,7 @@
 import { CircleCheck, CircleDashed, CircleHelp, CircleX } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type ReactNode } from "react";
+import { useCallback, useState, useTransition, type ReactNode } from "react";
 
 import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
@@ -49,6 +49,18 @@ export function useSessionCompletion(session: SessionDetail) {
   };
 
   return { summary, stoppedEarly, ending, error, setError, finish, pending, startTransition };
+}
+
+/**
+ * How many of a session's items are answered: the ones stored before this visit and the ones answered since.
+ * The page's items don't refresh after each answer, so counting them alone would say "nothing answered" and
+ * ending the session would mark it stopped early.
+ */
+export function useAnsweredItems(items: ReadonlyArray<{ id: string; answered_at: string | null }>) {
+  const [answeredHere, setAnsweredHere] = useState<ReadonlySet<string>>(() => new Set());
+  const markAnswered = useCallback((id: string) => setAnsweredHere((state) => (state.has(id) ? state : new Set([...state, id]))), []);
+  const answered = new Set([...items.filter((item) => item.answered_at).map((item) => item.id), ...answeredHere]).size;
+  return { answered, markAnswered };
 }
 
 export function RunnerSummary({

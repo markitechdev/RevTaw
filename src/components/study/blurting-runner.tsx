@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
-import { UngradedCheck, VerdictBox } from "@/components/study/runner-kit";
+import { UngradedCheck, useAnsweredItems, VerdictBox } from "@/components/study/runner-kit";
 import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +50,7 @@ export function BlurtingRunner({ session, methodName, parentSessionId = null, pa
   const [pending, startTransition] = useTransition();
   const [ending, setEnding] = useState(false);
   const shownAt = useRef<number>(0);
+  const { answered: done, markAnswered } = useAnsweredItems(items);
 
   useEffect(() => {
     shownAt.current = Date.now();
@@ -81,7 +82,10 @@ export function BlurtingRunner({ session, methodName, parentSessionId = null, pa
       const analysis = result.data.analysis;
       if (analysis) setRounds((state) => [...state, { ...analysis, round: result.data.round }]);
       else setUnchecked({ ungraded: result.data.ungraded });
-      if (result.data.final) setSource(result.data.source);
+      if (result.data.final) {
+        setSource(result.data.source);
+        markAnswered(item.id);
+      }
     });
   };
 
@@ -131,7 +135,6 @@ export function BlurtingRunner({ session, methodName, parentSessionId = null, pa
   }
 
   const latest = rounds[rounds.length - 1];
-  const done = items.filter((entry) => entry.answered_at).length;
   const canRetry = latest && !source;
 
   return (
