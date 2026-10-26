@@ -158,7 +158,8 @@ export function dailyReviews(events: EngineEvent[], readings: ReadAnswer[], time
     });
     if (event.correct) {
       entry.right += 1;
-      if (reading.grade === "hard") entry.unsure += 1;
+      // Right but unsure or guessing, or a card recalled only with effort.
+      if (reading.grade === "hard" || event.rating === "hard") entry.unsure += 1;
     }
   });
   return [...days.values()].flatMap((day) => {

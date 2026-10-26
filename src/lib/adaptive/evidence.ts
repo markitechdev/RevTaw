@@ -9,7 +9,7 @@ import { SCENARIO_CHOICE } from "@/lib/engine/knowledge";
 import type { EngineEvent, EngineEventKind } from "@/lib/engine/mastery-model";
 import { parseAnalysisData, type ConceptCategory } from "@/lib/materials/analysis-schema";
 import { DEFAULT_TIMEZONE, isValidTimezone } from "@/lib/planner/dates";
-import type { ConfidenceLevel, Database, FlashcardRating, MasteryStatus, QuestionDifficulty, QuestionType, SessionItemKind } from "@/lib/supabase/database.types";
+import type { Database, MasteryStatus, QuestionDifficulty, QuestionType, SessionItemKind } from "@/lib/supabase/database.types";
 import { readPages as readAllPages } from "@/lib/supabase/paginate";
 
 /**
@@ -36,9 +36,6 @@ export type ModelContext = {
   /** Overall ability: where a concept's rating starts the first time it is answered. */
   ability: number;
 };
-
-/** Self-rated flashcards carry no confidence of their own; the rating stands in for it. */
-const RATING_CONFIDENCE: Record<FlashcardRating, ConfidenceLevel> = { again: "guessing", hard: "unsure", good: "somewhat_confident", easy: "very_confident" };
 
 const QUESTION_TYPES: ReadonlySet<string> = new Set<QuestionType>([
   "identification",
@@ -200,7 +197,9 @@ export async function collectEvidence(supabase: Client, userId: string, conceptI
       questionType: "flashcard",
       optionCount: null,
       firstAttempt: false,
-      confidence: RATING_CONFIDENCE[row.rating],
+      // A rating is how well the card was recalled, not how sure the student felt: "Hard" means recalled with
+      // effort, not unsure. The day's review reads the rating itself (mastery-model dailyReviews).
+      confidence: null,
       responseMs: row.response_ms,
       rating: row.rating,
     });

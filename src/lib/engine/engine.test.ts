@@ -294,6 +294,27 @@ describe("concept model (§5–§8)", () => {
     expect(guessed.gates.hardItem).toBe(false);
   });
 
+  it("stops flashcards alone at Developing and reads a Hard rating as effort, not doubt", () => {
+    const cards = ["01", "02", "03", "04", "05", "06", "07", "08"].map((day, index): EngineEvent => ({
+      at: `2026-10-${day}T02:00:00Z`,
+      kind: "flashcard",
+      itemKey: "c:card-1",
+      correct: true,
+      difficulty: "easy",
+      questionType: "flashcard",
+      optionCount: null,
+      firstAttempt: false,
+      confidence: null,
+      responseMs: 8_000,
+      rating: index % 2 === 0 ? "good" : "hard",
+    }));
+    const model = run(cards, "2026-10-08T03:00:00Z");
+    expect(model.mastery).toBe(79);
+    expect(model.nextStep).toBe("hardItem");
+    expect(model.underconfident).toBe(0);
+    expect(model.avgConfidence).toBeNull();
+  });
+
   it("counts a question once a day, so a retake right after the answers adds nothing", () => {
     const first = Array.from({ length: 10 }, (_, i) => answer(`2026-10-10T02:${String(i).padStart(2, "0")}:00Z`, i % 2 === 0, { itemKey: `same${i}` }));
     const retake = Array.from({ length: 10 }, (_, i) => answer(`2026-10-10T03:${String(i).padStart(2, "0")}:00Z`, true, { itemKey: `same${i}`, firstAttempt: false }));
