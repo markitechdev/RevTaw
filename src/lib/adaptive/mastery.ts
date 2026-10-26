@@ -4,8 +4,8 @@ import type { ConceptMastery, MasteryStatus, NextDifficulty } from "@/lib/supaba
 
 /**
  * How mastery is shown. The numbers come from the learning engine
- * (src/lib/engine: BKT × FSRS recall with evidence gates); this module only
- * names them. Client-safe.
+ * (src/lib/engine: the share known × FSRS recall, with evidence gates); this
+ * module only names them. Client-safe.
  */
 
 /** A concept counts as mastered from here (and only after every evidence gate is met). */

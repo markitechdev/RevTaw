@@ -6,15 +6,24 @@
  */
 
 export const ENGINE = {
-  /** Bayesian Knowledge Tracing (§7). */
-  bkt: {
-    /** P(L0): uploaded but not yet studied. */
+  /** Mastery rows store this; a row from an older model is recomputed on its next read. 2: knowledge share in place of BKT. */
+  modelVersion: 2,
+
+  /** How much of a concept the student knows (§7, revised: guess- and slip-corrected answers, see knowledge.ts). */
+  knowledge: {
+    /** Where a concept starts: uploaded but not yet studied. */
     prior: 0.2,
-    /** T: half the 0.3 used in published examples, so mastery isn't declared too fast. */
-    learn: 0.15,
-    /** G: 1/k for k-option multiple choice; true/false 0.5; typed or open answers 0.05. */
+    /** The start counts as this many typed answers: the first answer moves K a lot, not all the way. */
+    priorAnswers: 1,
+    /** Each newer answer scales the older ones by this much, so improvement shows. */
+    recency: 0.97,
+    /** An answer counts half as much this many days before the latest one (what was known then may have faded). */
+    halfLifeDays: 14,
+    /** G: 1/k for k-option multiple choice and scenario choices; true/false 0.5; typed or open answers 0.05. */
     guessTyped: 0.05,
     guessTrueFalse: 0.5,
+    /** A relationship picked from the concept map's six wordings, two pairs of which mean the same. */
+    guessRelation: 0.25,
     defaultOptionCount: 4,
     /** S by difficulty: missing an easy item says more than missing a hard one. */
     slip: { easy: 0.05, medium: 0.1, hard: 0.2 },
@@ -79,7 +88,6 @@ export const ENGINE = {
     weights: { gap: 0.6, confident: 0.25, repeated: 0.15 },
     flagAt: 0.3,
     windowDays: 30,
-    repeatedAt: 3,
   },
 
   /** Spaced repetition (§9). */

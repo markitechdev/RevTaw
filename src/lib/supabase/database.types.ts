@@ -521,6 +521,8 @@ type ConceptMasteryRow = {
   fsrs_reps: number;
   fsrs_lapses: number;
   fsrs_last_review: string | null;
+  /** Learning-engine version that computed the row (0038); older rows are recomputed on the next read. */
+  model_version: number;
 };
 
 type ItemBucketsRow = {

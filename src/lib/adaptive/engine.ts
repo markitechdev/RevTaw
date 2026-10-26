@@ -6,9 +6,9 @@ import { cache } from "react";
 
 import { abilityOf, chunked, collectEvidence, loadModelContext, readPages } from "@/lib/adaptive/evidence";
 import { needsRefresh } from "@/lib/adaptive/mastery";
-import { guessFloor } from "@/lib/engine/bkt";
 import { ENGINE } from "@/lib/engine/config";
 import { chooseDifficulty, labelPrior } from "@/lib/engine/elo";
+import { guessFloor } from "@/lib/engine/knowledge";
 import { modelConcept } from "@/lib/engine/mastery-model";
 import { CONCEPT_STATES } from "@/lib/engine/types";
 import { isWeak } from "@/lib/engine/weakness";
@@ -80,7 +80,7 @@ export async function recomputeMasteryFor(supabase: Client, userId: string, conc
       trend: model.trend,
       last_practiced_at: model.lastPracticedAt,
       next_review_at: model.nextReviewAt,
-      p_learned: model.pLearned,
+      p_learned: model.known,
       recall: model.recall,
       elo_rating: clamp(model.rating, -20, 20),
       elo_answers: model.ratingAnswers,
@@ -96,6 +96,7 @@ export async function recomputeMasteryFor(supabase: Client, userId: string, conc
       fsrs_reps: model.fsrs?.reps ?? 0,
       fsrs_lapses: model.fsrs?.lapses ?? 0,
       fsrs_last_review: model.fsrs?.lastReview ?? null,
+      model_version: ENGINE.modelVersion,
       computed_at: now.toISOString(),
     };
   });
@@ -150,15 +151,19 @@ export const MASTERY_STALE_MS = 20 * 60 * 60 * 1000;
 
 /**
  * Once per request: recompute the student's mastery when any practiced
- * concept was last computed before the stale cutoff, or never by the
- * learning engine (P(learned) is at least the learn rate once there is an
- * answer, so 0 means an older model wrote the row).
+ * concept was last computed before the stale cutoff, or by an older version
+ * of the learning engine.
  */
 const refreshStaleMastery = cache(async (): Promise<void> => {
   try {
     const supabase = await createClient();
     const cutoff = new Date(Date.now() - MASTERY_STALE_MS).toISOString();
-    const { data } = await supabase.from("concept_mastery").select("concept_id").gt("attempts", 0).or(`computed_at.lt.${cutoff},p_learned.eq.0`).limit(1);
+    const { data } = await supabase
+      .from("concept_mastery")
+      .select("concept_id")
+      .gt("attempts", 0)
+      .or(`computed_at.lt.${cutoff},model_version.lt.${ENGINE.modelVersion}`)
+      .limit(1);
     if (data && data.length > 0) await recomputeMastery(null);
   } catch (error) {
     // Next.js's own signals (such as "this route reads cookies, render it per request") must pass through.

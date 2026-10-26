@@ -4,10 +4,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { MASTERY_STALE_MS, recomputeMasteryFor } from "@/lib/adaptive/engine";
 import { chunked, conceptCategories, DEFAULT_CATEGORY, forgetCachedBuckets, optionCount } from "@/lib/adaptive/evidence";
-import { guessFloor } from "@/lib/engine/bkt";
 import { ENGINE } from "@/lib/engine/config";
 import { bucketKey, fitBucketDifficulty, labelPrior, type BucketObservation } from "@/lib/engine/elo";
 import { recallAt, type FsrsSnapshot } from "@/lib/engine/fsrs";
+import { guessFloor } from "@/lib/engine/knowledge";
 import { cardSnapshot } from "@/lib/flashcards/scheduler";
 import { addDays, dateIn, daysBetween, DEFAULT_TIMEZONE, isValidTimezone } from "@/lib/planner/dates";
 import { zonedInstant } from "@/lib/planner/time";

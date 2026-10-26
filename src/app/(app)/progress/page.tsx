@@ -219,7 +219,7 @@ export default async function ProgressPage() {
           <h2 id="mastery-heading" className={SECTION_TITLE}>
             Concept mastery
           </h2>
-          <p className="text-xs text-muted-foreground">{STATUS_BANDS}. Mastery is how likely you know it times how well you can recall it today, so it fades until the next review.</p>
+          <p className="text-xs text-muted-foreground">{STATUS_BANDS}. Mastery is how much of the concept you know, from your answers, times how well you can recall it today, so it fades until the next review.</p>
         </div>
         {practiced.length === 0 ? (
           <EmptyState

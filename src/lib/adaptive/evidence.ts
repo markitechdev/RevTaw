@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeConceptName } from "@/lib/concepts/service";
 import { median } from "@/lib/engine/answers";
 import { ENGINE } from "@/lib/engine/config";
+import { SCENARIO_CHOICE } from "@/lib/engine/knowledge";
 import type { EngineEvent, EngineEventKind } from "@/lib/engine/mastery-model";
 import { parseAnalysisData, type ConceptCategory } from "@/lib/materials/analysis-schema";
 import { DEFAULT_TIMEZONE, isValidTimezone } from "@/lib/planner/dates";
@@ -60,8 +61,12 @@ function eventKind(kind: SessionItemKind): EngineEventKind {
   return kind === "feynman" ? "feynman" : kind === "mistake" ? "mistake" : kind === "recall" ? "recall" : "item";
 }
 
-/** A session item's question type: its format when that is a quiz question type, otherwise its kind. */
+/**
+ * A session item's question type: its format when that is a quiz question type, otherwise its kind. A
+ * scenario drill is a choice among 3–5 actions with a justification, not an open scenario question.
+ */
 function itemType(kind: SessionItemKind, format: string | null): string {
+  if (kind === "scenario") return SCENARIO_CHOICE;
   return format && QUESTION_TYPES.has(format) ? format : kind;
 }
 

@@ -1,8 +1,8 @@
 import { readAnswer, type ReadAnswer } from "@/lib/engine/answers";
-import { bktUpdate, guessFloor, paramsFor } from "@/lib/engine/bkt";
 import { ENGINE } from "@/lib/engine/config";
 import { bucketKey, chooseDifficulty, eloStep, labelPrior, successProbability, targetSuccess } from "@/lib/engine/elo";
 import { recallAt, replay, type FsrsSnapshot, type GradedReview } from "@/lib/engine/fsrs";
+import { guessFloor, knownShare, paramsFor } from "@/lib/engine/knowledge";
 import type { ConceptState } from "@/lib/engine/types";
 import { repeatedMisses, weaknessScore } from "@/lib/engine/weakness";
 import type { ConceptCategory } from "@/lib/materials/analysis-schema";
@@ -10,16 +10,20 @@ import { dateIn, daysBetween } from "@/lib/planner/dates";
 import type { ConfidenceLevel, FlashcardRating, NextDifficulty, QuestionDifficulty } from "@/lib/supabase/database.types";
 
 /**
- * The concept model (research doc §5–§8): three estimators read the same
- * answers side by side.
+ * The concept model (research doc §5–§8, revised): three estimators read
+ * the same answers side by side.
  *
- *   BKT   has the student learned it?            → P(L)
- *   FSRS  can they still recall it today?        → R (one review per day)
- *   Elo   how able are they, how hard was it?    → rating, next difficulty
+ *   Knowledge  how much of it does the student know?  → K (knowledge.ts)
+ *   FSRS       can they still recall it today?        → R (one review per day)
+ *   Elo        how able are they, how hard was it?    → rating, next difficulty
  *
- * Mastery = 100 × P(L) × R, capped by gates that need real evidence; the
- * state, weakness and open misconceptions come from the same pass. Pure and
- * deterministic: concept_mastery is only a cache of this function's output.
+ * Mastery = 100 × K × R, capped by gates that need real evidence; the
+ * state, weakness and open misconceptions come from the same pass. Only the
+ * first answer to each question, card or session item on a day is evidence:
+ * a retake right after seeing the answers, or a card's learning steps a few
+ * minutes apart, show what is still in short-term memory, not what is known.
+ * Pure and deterministic: concept_mastery is only a cache of this
+ * function's output.
  */
 
 export type EngineEventKind = "quiz" | "recall" | "feynman" | "mistake" | "item" | "flashcard";
@@ -75,7 +79,8 @@ export type ConceptModel = {
   trend: number;
   lastPracticedAt: string | null;
   nextReviewAt: string | null;
-  pLearned: number;
+  /** K: the share of the concept the student knows (stored as p_learned). */
+  known: number;
   recall: number | null;
   rating: number;
   ratingAnswers: number;
@@ -138,9 +143,10 @@ export function dailyReviews(events: EngineEvent[], readings: ReadAnswer[], time
     const day = eventDays?.[index] ?? dateIn(event.at, timeZone);
     const entry = days.get(day) ?? { at: event.at, seen: new Set<string>(), wrong: false, fragile: false, graded: 0 };
     days.set(day, entry);
-    entry.at = event.at;
     if (entry.seen.has(event.itemKey)) return;
     entry.seen.add(event.itemKey);
+    // The review happened at the day's last first try (a retake doesn't move it).
+    entry.at = event.at;
     entry.graded += 1;
     if (!event.correct) entry.wrong = true;
     else if (reading.grade === "hard") entry.fragile = true;
@@ -159,44 +165,60 @@ export function modelConcept(input: ConceptModelInput): ConceptModel {
   const days = events.map((event) => dateIn(event.at, input.timeZone));
   const real = (index: number) => readings[index].reading !== "rapid_guess";
 
-  // BKT: every answer, weighted by how it was read.
-  let pLearned: number = ENGINE.bkt.prior;
+  // The evidence: each question's, card's or item's first answer on a day, oldest first.
+  const counted: number[] = [];
+  const seen = new Set<string>();
   events.forEach((event, index) => {
-    pLearned = bktUpdate(pLearned, event.correct, paramsFor(event.questionType ?? event.kind, event.optionCount, event.difficulty), weightOf(index));
+    const key = `${days[index]} ${event.itemKey}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    counted.push(index);
   });
+
+  // Knowledge: every counted answer, weighted by how it was read.
+  const known = knownShare(
+    counted.map((index) => ({
+      correct: events[index].correct,
+      params: paramsFor(events[index].questionType ?? events[index].kind, events[index].optionCount, events[index].difficulty),
+      weight: weightOf(index),
+      at: new Date(events[index].at).getTime(),
+    })),
+  );
 
   // Elo: quiz answers and session items (self-rated cards measure memory, not ability).
   let rating = input.ability;
   let ratingAnswers = 0;
   let hardItemCorrect = false;
   const bucket = (label: QuestionDifficulty, type: string) => input.bucketDifficulty?.(bucketKey(label, type, input.category)) ?? labelPrior(label);
-  events.forEach((event, index) => {
-    if (event.kind === "flashcard") return;
+  for (const index of counted) {
+    const event = events[index];
+    if (event.kind === "flashcard") continue;
     const label = event.difficulty ?? "medium";
     const type = event.questionType ?? event.kind;
     const probability = successProbability(rating, bucket(label, type), guessFloor(type, event.optionCount));
     if (event.correct && real(index) && probability <= ENGINE.gates.hardItemSuccess) hardItemCorrect = true;
     rating = eloStep(rating, ratingAnswers, event.correct, probability, readings[index].weight);
     ratingAnswers += 1;
-  });
+  }
 
   // Misconceptions stay open until a correct answer on a later day clears them: one pass finds the last such day.
   let lastCorrectDay = "";
   for (let index = 0; index < events.length; index += 1) {
     if (events[index].correct && real(index) && days[index] > lastCorrectDay) lastCorrectDay = days[index];
   }
-  const openMisconceptions = events.filter((_, index) => readings[index].reading === "misconception" && !(lastCorrectDay > days[index]));
+  const openMisconceptions = counted.filter((index) => readings[index].reading === "misconception" && !(lastCorrectDay > days[index])).map((index) => events[index]);
 
-  // Weakness: the gap in P(learned), confident errors and repeated misses, shrunk by evidence.
+  // Weakness: the gap in K, confident errors and how often it went wrong lately, shrunk by evidence.
   const windowStart = now.getTime() - ENGINE.weakness.windowDays * DAY_MS;
-  const recentMisses = events.filter((event, index) => !event.correct && real(index) && event.kind !== "flashcard" && new Date(event.at).getTime() >= windowStart);
+  const recentTries = counted.filter((index) => real(index) && events[index].kind !== "flashcard" && new Date(events[index].at).getTime() >= windowStart);
+  const recentMisses = recentTries.filter((index) => !events[index].correct);
   const confidentOpen = openMisconceptions.filter((event) => new Date(event.at).getTime() >= windowStart).length;
   const firstAttempts = events.filter((event) => event.firstAttempt && event.kind !== "flashcard").length;
   const weakness = weaknessScore({
     firstAttempts,
-    pLearned,
+    known,
     confidentShare: recentMisses.length > 0 ? confidentOpen / recentMisses.length : 0,
-    repeated: repeatedMisses(recentMisses.length, input.openMistakes),
+    repeated: repeatedMisses(recentMisses.length, recentTries.length, input.openMistakes),
   });
 
   // FSRS on the concept: one review per day, replayed from the history.
@@ -204,8 +226,8 @@ export function modelConcept(input: ConceptModelInput): ConceptModel {
   const recall = fsrs ? (recallAt(fsrs, now) ?? 1) : null;
 
   // Gates.
-  const answered = events.filter((_, index) => real(index)).length;
-  const correctDays = days.filter((_, index) => events[index].correct && real(index));
+  const answered = counted.filter((index) => real(index)).length;
+  const correctDays = counted.filter((index) => events[index].correct && real(index)).map((index) => days[index]);
   const firstCorrectDay = correctDays[0] ?? null;
   const gates: Gates = {
     evidence: answered >= ENGINE.gates.minAnswers,
@@ -215,7 +237,7 @@ export function modelConcept(input: ConceptModelInput): ConceptModel {
   };
   const unmet = GATE_ORDER.filter((gate) => !gates[gate.key]);
   const cap = unmet.reduce((lowest, gate) => Math.min(lowest, gate.cap), 100);
-  const raw = 100 * pLearned * (recall ?? 1);
+  const raw = 100 * known * (recall ?? 1);
   const mastery = events.length === 0 ? 0 : round2(Math.min(raw, cap));
   const status = stateFor(mastery, events.length, answered);
 
@@ -224,7 +246,8 @@ export function modelConcept(input: ConceptModelInput): ConceptModel {
   let streak = 0;
   for (let index = events.length - 1; index >= 0 && events[index].correct; index -= 1) streak += 1;
   let missesInARow = 0;
-  for (let index = events.length - 1; index >= 0; index -= 1) {
+  for (let position = counted.length - 1; position >= 0; position -= 1) {
+    const index = counted[position];
     if (events[index].kind === "flashcard" || !real(index)) continue;
     if (events[index].correct) break;
     missesInARow += 1;
@@ -234,9 +257,9 @@ export function modelConcept(input: ConceptModelInput): ConceptModel {
   const avgConfidence = withConfidence.length ? round2(withConfidence.reduce((sum, event) => sum + CONFIDENCE_VALUE[event.confidence!], 0) / withConfidence.length) : null;
   const timed = events.filter((event) => typeof event.responseMs === "number" && event.responseMs > 0);
   const avgResponseMs = timed.length ? Math.round(timed.reduce((sum, event) => sum + event.responseMs!, 0) / timed.length) : null;
-  const rate = (list: EngineEvent[]) => (list.length ? list.filter((event) => event.correct).length / list.length : null);
-  const recentRate = rate(events.slice(-3));
-  const earlierRate = rate(events.slice(-6, -3));
+  const rate = (list: number[]) => (list.length ? list.filter((index) => events[index].correct).length / list.length : null);
+  const recentRate = rate(counted.slice(-3));
+  const earlierRate = rate(counted.slice(-6, -3));
   const trend = recentRate !== null && earlierRate !== null ? round2((recentRate - earlierRate) * 100) : 0;
 
   // Next difficulty: the label whose predicted success is closest to the target for this state.
@@ -266,14 +289,14 @@ export function modelConcept(input: ConceptModelInput): ConceptModel {
     trend,
     lastPracticedAt: events.length ? events[events.length - 1].at : null,
     nextReviewAt: fsrs ? fsrs.due : null,
-    pLearned: round4(pLearned),
+    known: round4(known),
     recall: recall === null ? null : round4(recall),
     rating: round4(rating),
     ratingAnswers,
     weakness: round4(weakness),
     firstAttempts,
     gates,
-    // A gate is the next step only while it is what holds mastery down (a low P(learned) is its own problem).
+    // A gate is the next step only while it is what holds mastery down (a low K is its own problem).
     nextStep: unmet[0] && raw > cap ? unmet[0].key : null,
     fsrs,
   };

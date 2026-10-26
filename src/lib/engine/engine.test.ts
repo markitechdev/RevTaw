@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { median, readAnswer } from "@/lib/engine/answers";
-import { bktUpdate, guessFloor, paramsFor, predictedCorrect } from "@/lib/engine/bkt";
 import { chooseDifficulty, fitBucketDifficulty, kFactor, successProbability, targetSuccess } from "@/lib/engine/elo";
 import { describeWait, leitnerBox, preview, recallAt, replay, review, FsrsState } from "@/lib/engine/fsrs";
+import { guessFloor, knownShare, paramsFor, predictedCorrect, SCENARIO_CHOICE, type KnowledgeAnswer } from "@/lib/engine/knowledge";
 import { modelConcept, type EngineEvent } from "@/lib/engine/mastery-model";
 import { chooseMethod, PLAN_METHODS } from "@/lib/engine/method-rules";
 import { conceptsPerPlan, dueness, priorityScore, rankByPriority, urgency } from "@/lib/engine/priority";
@@ -31,21 +31,57 @@ function answer(at: string, correct: boolean, extra: Partial<EngineEvent> = {}):
   };
 }
 
-describe("BKT (§7)", () => {
-  const run = (type: string, options: number | null) => [1, 2, 3].reduce((p) => bktUpdate(p, true, paramsFor(type, options, "medium")), 0.2);
+describe("knowledge share (§7, revised)", () => {
+  const DAY = 86_400_000;
+  const T0 = Date.parse("2026-10-01T02:00:00Z");
+  /** One answer a minute from T0; `pattern` is the right/wrong sequence. */
+  const answers = (pattern: boolean[], type = "multiple_choice", options: number | null = 4, weight = 1): KnowledgeAnswer[] =>
+    pattern.map((correct, index) => ({ correct, params: paramsFor(type, options, "medium"), weight, at: T0 + index * 60_000 }));
+  /** `right` of `total` answers right, spread evenly. */
+  const alternating = (right: number, total: number) => Array.from({ length: total }, (_, index) => Math.floor(((index + 1) * right) / total) > Math.floor((index * right) / total));
 
-  it("takes three right answers in a row from 0.20 to the doc's values", () => {
-    expect(run("multiple_choice", 4)).toBeCloseTo(0.96, 2);
-    expect(run("true_false", 2)).toBeCloseTo(0.79, 2);
-    expect(run("identification", null)).toBeCloseTo(1, 2);
+  it("follows the share of right answers, corrected for guessing", () => {
+    expect(alternating(5, 10).filter(Boolean)).toHaveLength(5);
+    const mcqHalf = knownShare(answers(alternating(5, 10)));
+    expect(mcqHalf).toBeGreaterThan(0.2);
+    expect(mcqHalf).toBeLessThan(0.45);
+    expect(knownShare(answers(alternating(9, 10)))).toBeGreaterThan(0.8);
+    expect(knownShare(answers(alternating(4, 10), "identification", null))).toBeLessThan(0.45);
+    // Six of ten on true/false is about what guessing gives.
+    expect(knownShare(answers(alternating(6, 10), "true_false", 2))).toBeLessThan(0.35);
+    expect(knownShare(answers(alternating(10, 10)))).toBeLessThanOrEqual(1);
+    expect(knownShare(answers(alternating(3, 10), "true_false", 2))).toBe(0);
+    // No answers: the prior.
+    expect(knownShare([])).toBe(0.2);
   });
 
-  it("lets quarter-weight wrong guesses nudge P(L) down, not up", () => {
-    const params = paramsFor("multiple_choice", 4, "medium");
-    let p = 0.5;
-    for (let i = 0; i < 3; i += 1) p = bktUpdate(p, false, params, 0.25);
-    expect(p).toBeLessThan(0.5);
-    expect(p).toBeGreaterThan(bktUpdate(0.5, false, params, 1) - 0.2);
+  it("never locks: wrong answers after a long run of right ones bring it down", () => {
+    const history = answers([...Array(25).fill(true), ...Array(15).fill(false)], "identification", null);
+    expect(knownShare(history)).toBeLessThan(0.5);
+  });
+
+  it("counts recent answers most, and older ones less the longer before the latest they were", () => {
+    expect(knownShare(answers([...Array(10).fill(false), ...Array(10).fill(true)]))).toBeGreaterThan(knownShare(answers([...Array(10).fill(true), ...Array(10).fill(false)])));
+    const right = answers(Array(5).fill(true));
+    const wrongNow: KnowledgeAnswer = { correct: false, params: paramsFor("multiple_choice", 4, "medium"), weight: 1, at: T0 + 10 * 60_000 };
+    const wrongLater: KnowledgeAnswer = { ...wrongNow, at: T0 + 28 * DAY };
+    expect(knownShare([...right, wrongLater])).toBeLessThan(knownShare([...right, wrongNow]));
+  });
+
+  it("learns more from a typed answer than from one picked among options", () => {
+    const typed = knownShare(answers([true], "identification", null));
+    const picked = knownShare(answers([true]));
+    const trueFalse = knownShare(answers([true], "true_false", 2));
+    expect(typed).toBeGreaterThan(picked);
+    expect(picked).toBeGreaterThan(trueFalse);
+    expect(trueFalse).toBeGreaterThan(0.2);
+  });
+
+  it("lets quarter-weight answers move it a little", () => {
+    const full = knownShare(answers([true, true, true]));
+    const quarter = knownShare(answers([true, true, true], "multiple_choice", 4, 0.25));
+    expect(quarter).toBeGreaterThan(0.2);
+    expect(quarter).toBeLessThan(full);
   });
 
   it("sets guess by question type and predicts correctness for calibration", () => {
@@ -54,7 +90,11 @@ describe("BKT (§7)", () => {
     // Four fixed choices, whatever the stored option count says.
     expect(guessFloor("two_statement", null)).toBe(0.25);
     expect(paramsFor("two_statement", 2, "medium").guess).toBe(0.25);
+    // A scenario drill's choice and a relationship picked from the map's list can be guessed too.
+    expect(guessFloor(SCENARIO_CHOICE, null)).toBe(0.25);
+    expect(guessFloor("link", null)).toBe(0.25);
     expect(guessFloor("identification", null)).toBe(0);
+    expect(paramsFor("recall", null, "medium").guess).toBe(0.05);
     expect(predictedCorrect(1, 1, { guess: 0.25, slip: 0.1 })).toBeCloseTo(0.9);
     expect(predictedCorrect(0, 1, { guess: 0.25, slip: 0.1 })).toBeCloseTo(0.25);
   });
@@ -139,13 +179,18 @@ describe("FSRS (§9)", () => {
 
 describe("weakness (§6)", () => {
   it("matches the doc's examples and needs evidence", () => {
-    expect(weaknessScore({ firstAttempts: 10, pLearned: 0.2, confidentShare: 0, repeated: 0 })).toBeCloseTo(0.37, 2);
-    expect(weaknessScore({ firstAttempts: 3, pLearned: 0.3, confidentShare: 0, repeated: 0 })).toBeCloseTo(0.21, 2);
+    expect(weaknessScore({ firstAttempts: 10, known: 0.2, confidentShare: 0, repeated: 0 })).toBeCloseTo(0.37, 2);
+    expect(weaknessScore({ firstAttempts: 3, known: 0.3, confidentShare: 0, repeated: 0 })).toBeCloseTo(0.21, 2);
     expect(isWeak(0.37)).toBe(true);
     expect(isWeak(0.21)).toBe(false);
-    expect(weaknessScore({ firstAttempts: 0, pLearned: 0, confidentShare: 1, repeated: 1 })).toBe(0);
-    expect(repeatedMisses(3, 1)).toBe(1);
-    expect(repeatedMisses(3, 0)).toBe(0);
+    expect(weaknessScore({ firstAttempts: 0, known: 0, confidentShare: 1, repeated: 1 })).toBe(0);
+  });
+
+  it("weighs misses by how often it went wrong lately, while one is still open", () => {
+    expect(repeatedMisses(3, 3, 1)).toBe(1);
+    expect(repeatedMisses(3, 20, 2)).toBeCloseTo(0.15, 5);
+    expect(repeatedMisses(3, 3, 0)).toBe(0);
+    expect(repeatedMisses(0, 0, 1)).toBe(0);
   });
 });
 
@@ -196,12 +241,22 @@ describe("method rules (§11)", () => {
 });
 
 describe("concept model (§5–§8)", () => {
-  it("masters a concept answered right three times across days, on hard-enough items", () => {
-    const events = [answer("2026-10-10T02:00:00Z", true), answer("2026-10-11T02:00:00Z", true), answer("2026-10-12T02:00:00Z", true)];
-    const model = modelConcept({ events, openMistakes: 0, category: "understanding", ability: 0, timeZone: TZ, now: new Date("2026-10-12T03:00:00Z") });
-    expect(model.pLearned).toBeCloseTo(0.96, 2);
+  const typed = { questionType: "identification", optionCount: null } as const;
+  const run = (events: EngineEvent[], now: string, extra: { openMistakes?: number; ability?: number } = {}) =>
+    modelConcept({ events, openMistakes: extra.openMistakes ?? 0, category: "understanding", ability: extra.ability ?? 0, timeZone: TZ, now: new Date(now) });
+
+  it("masters a concept answered right on several days, one of them without options to pick from", () => {
+    const events = [
+      answer("2026-10-10T02:00:00Z", true),
+      answer("2026-10-10T02:05:00Z", true),
+      answer("2026-10-11T02:00:00Z", true, typed),
+      answer("2026-10-12T02:00:00Z", true),
+      answer("2026-10-12T02:05:00Z", true, typed),
+    ];
+    const model = run(events, "2026-10-12T03:00:00Z");
+    expect(model.known).toBeGreaterThan(0.9);
     expect(model.gates).toEqual({ evidence: true, hardItem: true, noMisconception: true, spaced: true });
-    expect(model.recall).toBeCloseTo(1, 1);
+    expect(model.recall).toBeGreaterThan(0.99);
     expect(model.mastery).toBeGreaterThanOrEqual(90);
     expect(model.status).toBe("mastered");
     expect(model.nextStep).toBeNull();
@@ -209,17 +264,32 @@ describe("concept model (§5–§8)", () => {
   });
 
   it("caps mastery until the evidence is there", () => {
-    const sameDay = [answer("2026-10-12T01:00:00Z", true), answer("2026-10-12T01:10:00Z", true), answer("2026-10-12T01:20:00Z", true)];
-    const now = new Date("2026-10-12T02:00:00Z");
-    const strong = modelConcept({ events: sameDay, openMistakes: 0, category: "understanding", ability: 0, timeZone: TZ, now });
+    const sameDay = ["01:00", "01:10", "01:20", "01:30"].map((time) => answer(`2026-10-12T${time}:00Z`, true, typed));
+    const now = "2026-10-12T02:00:00Z";
+    const strong = run(sameDay, now);
+    expect(100 * strong.known * strong.recall!).toBeGreaterThan(89);
     expect(strong.mastery).toBe(89);
     expect(strong.status).toBe("strong");
     expect(strong.nextStep).toBe("spaced");
 
-    const two = modelConcept({ events: sameDay.slice(0, 2), openMistakes: 0, category: "understanding", ability: 0, timeZone: TZ, now });
+    const two = run(sameDay.slice(0, 2), now);
     expect(two.mastery).toBeLessThanOrEqual(59);
     expect(two.nextStep).toBe("evidence");
     expect(two.status).toBe("learning");
+  });
+
+  it("counts a question once a day, so a retake right after the answers adds nothing", () => {
+    const first = Array.from({ length: 10 }, (_, i) => answer(`2026-10-10T02:${String(i).padStart(2, "0")}:00Z`, i % 2 === 0, { itemKey: `same${i}` }));
+    const retake = Array.from({ length: 10 }, (_, i) => answer(`2026-10-10T03:${String(i).padStart(2, "0")}:00Z`, true, { itemKey: `same${i}`, firstAttempt: false }));
+    const now = "2026-10-10T04:00:00Z";
+    const before = run(first, now, { openMistakes: 5 });
+    const after = run([...first, ...retake], now, { openMistakes: 0 });
+    expect(after.known).toBe(before.known);
+    expect(after.rating).toBe(before.rating);
+    expect(after.mastery).toBe(before.mastery);
+    // The same questions the next day are a real test again.
+    const nextDay = retake.map((event) => ({ ...event, at: event.at.replace("2026-10-10", "2026-10-11") }));
+    expect(run([...first, ...nextDay], "2026-10-11T04:00:00Z").known).toBeGreaterThan(before.known);
   });
 
   it("models a long history quickly (each day worked out once, misconceptions in one pass)", () => {
@@ -228,7 +298,7 @@ describe("concept model (§5–§8)", () => {
       answer(new Date(start + index * 3 * 3_600_000).toISOString(), index % 4 !== 0, index % 7 === 0 ? { confidence: "very_confident" } : {}),
     );
     const began = performance.now();
-    const model = modelConcept({ events: history, openMistakes: 3, category: "understanding", ability: 0, timeZone: TZ, now: new Date("2026-10-24T00:00:00Z") });
+    const model = run(history, "2026-10-24T00:00:00Z", { openMistakes: 3 });
     expect(performance.now() - began).toBeLessThan(1500);
     expect(model.misconceptions).toBe(0);
     expect(model.gates.spaced).toBe(true);
@@ -236,37 +306,37 @@ describe("concept model (§5–§8)", () => {
 
   it("keeps a confident error open until a correct answer on a later day", () => {
     const wrong = answer("2026-10-10T02:00:00Z", false, { confidence: "very_confident" });
-    const open = modelConcept({ events: [answer("2026-10-09T02:00:00Z", true), wrong, answer("2026-10-10T03:00:00Z", true)], openMistakes: 1, category: "understanding", ability: 0, timeZone: TZ, now: new Date("2026-10-10T04:00:00Z") });
+    const open = run([answer("2026-10-09T02:00:00Z", true), wrong, answer("2026-10-10T03:00:00Z", true)], "2026-10-10T04:00:00Z", { openMistakes: 1 });
     expect(open.misconceptions).toBe(1);
     expect(open.gates.noMisconception).toBe(false);
     expect(open.mastery).toBeLessThanOrEqual(79);
-    const cleared = modelConcept({ events: [answer("2026-10-09T02:00:00Z", true), wrong, answer("2026-10-11T03:00:00Z", true)], openMistakes: 0, category: "understanding", ability: 0, timeZone: TZ, now: new Date("2026-10-11T04:00:00Z") });
+    const cleared = run([answer("2026-10-09T02:00:00Z", true), wrong, answer("2026-10-11T03:00:00Z", true)], "2026-10-11T04:00:00Z");
     expect(cleared.misconceptions).toBe(0);
   });
 
   it("marks a concept missed again and again as needing a foundation, and aims easy", () => {
     const events = [0, 1, 2, 3, 4].map((day) => answer(`2026-10-0${day + 1}T02:00:00Z`, day === 2, { confidence: "unsure" }));
-    const model = modelConcept({ events, openMistakes: 4, category: "understanding", ability: 0, timeZone: TZ, now: new Date("2026-10-05T03:00:00Z") });
+    const model = run(events, "2026-10-05T03:00:00Z", { openMistakes: 4 });
     expect(model.status).toBe("weak");
     expect(model.weakness).toBeGreaterThan(0.3);
     expect(model.nextDifficulty).toBe("easy");
-    // No gate is what holds it down: the low P(learned) is.
+    // No gate is what holds it down: the low K is.
     expect(model.nextStep).toBeNull();
   });
 
   it("lets recall fade without new answers, so a mastered concept needs a refresh", () => {
-    const events = [answer("2026-08-01T02:00:00Z", true), answer("2026-08-03T02:00:00Z", true), answer("2026-08-06T02:00:00Z", true)];
-    const fresh = modelConcept({ events, openMistakes: 0, category: "understanding", ability: 0, timeZone: TZ, now: new Date("2026-08-06T03:00:00Z") });
-    const later = modelConcept({ events, openMistakes: 0, category: "understanding", ability: 0, timeZone: TZ, now: new Date("2026-10-06T03:00:00Z") });
+    const events = [answer("2026-08-01T02:00:00Z", true, typed), answer("2026-08-03T02:00:00Z", true), answer("2026-08-06T02:00:00Z", true, typed)];
+    const fresh = run(events, "2026-08-06T03:00:00Z");
+    const later = run(events, "2026-10-06T03:00:00Z");
     expect(later.recall!).toBeLessThan(fresh.recall!);
     expect(later.mastery).toBeLessThan(fresh.mastery);
-    expect(later.pLearned).toBe(fresh.pLearned);
+    expect(later.known).toBe(fresh.known);
   });
 
   it("barely moves on rapid guesses and starts a new concept at the student's ability", () => {
     const rapid = [1, 2, 3, 4, 5, 6].map((i) => answer(`2026-10-0${i}T02:00:00Z`, true, { responseMs: 1_000 }));
     const model = modelConcept({ events: rapid, openMistakes: 0, category: "understanding", ability: 0.5, timeZone: TZ, now: new Date("2026-10-06T03:00:00Z"), medianMs: { multiple_choice: 20_000 } });
-    expect(model.pLearned).toBeLessThan(0.8);
+    expect(model.known).toBeLessThan(0.8);
     const fresh = modelConcept({ events: [], openMistakes: 0, category: "understanding", ability: 0.5, timeZone: TZ, now: new Date("2026-10-06T03:00:00Z") });
     expect(fresh).toMatchObject({ status: "new", mastery: 0, rating: 0.5, recall: null, nextReviewAt: null });
   });
