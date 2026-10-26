@@ -1,4 +1,4 @@
-import { BookOpen, CircleCheck, CircleHelp, CircleX, Clock, NotebookPen, Target } from "lucide-react";
+import { BookOpen, CircleCheck, CircleDashed, CircleHelp, CircleX, Clock, NotebookPen, Target } from "lucide-react";
 import Link from "next/link";
 
 import { SelfGradeControls } from "@/components/quizzes/self-grade";
@@ -166,6 +166,10 @@ export function AttemptResults({ view, questionCount }: { view: AttemptResultsVi
                     {question.isCorrect === true ? (
                       <>
                         <CircleCheck className="h-4 w-4 text-success" aria-hidden="true" /> Correct
+                      </>
+                    ) : question.isCorrect === false && question.response === null ? (
+                      <>
+                        <CircleDashed className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Not answered
                       </>
                     ) : question.isCorrect === false ? (
                       <>

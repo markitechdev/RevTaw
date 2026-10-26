@@ -21,9 +21,10 @@ async function count(query: PromiseLike<{ count: number | null; error: { message
 export const getAnswerCounts = cache(async (): Promise<AnswerCounts> => {
   const supabase = await createClient();
   const [questions, gradedQuestions, correctQuestions, items, gradedItems, correctItems] = await Promise.all([
-    count(supabase.from("quiz_answers").select("id", { count: "exact", head: true })),
-    count(supabase.from("quiz_answers").select("id", { count: "exact", head: true }).not("is_correct", "is", null)),
-    count(supabase.from("quiz_answers").select("id", { count: "exact", head: true }).eq("is_correct", true)),
+    // A quiz question left unanswered has a row (it scores 0) but no response: not an answer.
+    count(supabase.from("quiz_answers").select("id", { count: "exact", head: true }).not("response", "is", null)),
+    count(supabase.from("quiz_answers").select("id", { count: "exact", head: true }).not("response", "is", null).not("is_correct", "is", null)),
+    count(supabase.from("quiz_answers").select("id", { count: "exact", head: true }).not("response", "is", null).eq("is_correct", true)),
     count(supabase.from("study_session_items").select("id", { count: "exact", head: true }).not("answered_at", "is", null)),
     count(supabase.from("study_session_items").select("id", { count: "exact", head: true }).not("answered_at", "is", null).not("is_correct", "is", null)),
     count(supabase.from("study_session_items").select("id", { count: "exact", head: true }).not("answered_at", "is", null).eq("is_correct", true)),

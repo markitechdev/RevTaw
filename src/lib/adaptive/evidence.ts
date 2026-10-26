@@ -105,7 +105,9 @@ export async function collectEvidence(supabase: Client, userId: string, conceptI
             .from("quiz_answers")
             .select("question_id, is_correct, confidence, response_ms, answered_at, question:quiz_questions!quiz_answers_question_fk!inner(concept_id, difficulty, type, options)")
             .eq("user_id", userId)
-            .not("is_correct", "is", null),
+            .not("is_correct", "is", null)
+            // A question left unanswered scores 0 in its attempt but says nothing about what the student knows.
+            .not("response", "is", null),
           "question.concept_id",
         )
           .order("answered_at", { ascending: false })

@@ -366,7 +366,7 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Finish with unanswered questions?">
         <div className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">
-            {unansweredCount} {unansweredCount === 1 ? "question is" : "questions are"} still blank and will be marked incorrect.
+            {unansweredCount} {unansweredCount === 1 ? "question is" : "questions are"} still blank. A blank question scores 0 on this quiz and shows as not answered.
           </p>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setConfirmOpen(false)}>

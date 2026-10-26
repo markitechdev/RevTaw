@@ -439,7 +439,7 @@ export async function submitAttempt(attemptId: string, options: { waitMs?: numbe
 
 async function gradeAndSubmit(
   supabase: Client,
-  attempt: { id: string; quiz_id: string; user_id: string; quiz: unknown },
+  attempt: { id: string; quiz_id: string; user_id: string; started_at: string; time_limit_seconds: number | null; quiz: unknown },
 ): Promise<{ submitted: boolean; needsSelfCheck: number }> {
   const [{ data: questionRows }, { data: answerRows }] = await Promise.all([
     supabase.from("quiz_questions").select("id, type, prompt, options, answer, explanation, concept_id, points").eq("quiz_id", attempt.quiz_id),
@@ -481,7 +481,9 @@ async function gradeAndSubmit(
   let score = 0;
   let maxScore = 0;
   let correctCount = 0;
-  const now = new Date().toISOString();
+  // An attempt whose time ran out while the student was away is submitted when they come back: it ended at its deadline.
+  const deadline = attemptDeadline(attempt);
+  const now = deadline && deadline < new Date().toISOString() ? deadline : new Date().toISOString();
   for (const question of questions) {
     maxScore += question.points;
     const stored = answers.get(question.id);
@@ -492,6 +494,8 @@ async function gradeAndSubmit(
     let feedback = stored?.feedback ?? null;
 
     if (!stored || !response) {
+      // Scores 0, like an exam. It is no evidence of what the student knows (time may have run out), so it
+      // doesn't go to the notebook and mastery leaves it out (adaptive/evidence.ts reads answered questions only).
       isCorrect = false;
       answerScore = 0;
       gradedBy = "auto";
@@ -528,7 +532,7 @@ async function gradeAndSubmit(
 
     score += answerScore ?? 0;
     if (isCorrect) correctCount += 1;
-    if (isCorrect === false) {
+    if (isCorrect === false && response) {
       await recordMistake(supabase, { id: attempt.id, user_id: attempt.user_id, material_id: quiz?.material_id ?? null }, question, response);
     }
   }
