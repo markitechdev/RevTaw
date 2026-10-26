@@ -7,6 +7,7 @@ import { generateJson } from "@/lib/ai/json";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
 import { points, studentLine, text } from "@/lib/study/prompts/shared";
+import { PASS_SCORE, verdictFor, type Verdict } from "@/lib/study/verdict";
 import { modelTitle } from "@/lib/ai/fields";
 
 /**
@@ -94,7 +95,6 @@ ${transcript}
 }
 
 export const recallComparisonSchema = z.object({
-  verdict: z.enum(["correct", "partial", "incorrect"]),
   score: z.number().min(0).max(100),
   correct_points: points,
   missing_points: points,
@@ -102,7 +102,8 @@ export const recallComparisonSchema = z.object({
   feedback: text(1500),
 });
 
-export type RecallComparison = z.infer<typeof recallComparisonSchema>;
+/** A checked recall answer as stored and shown; its verdict comes from the score by RevTaw's one rule (verdict.ts). */
+export type RecallComparison = z.infer<typeof recallComparisonSchema> & { verdict: Verdict };
 
 export async function compareRecallAnswer(input: {
   materialTitle: string;
@@ -117,7 +118,7 @@ Compare the student's answer with the model answer and key points only — never
 - "correct_points": key points the student covered (wording may differ).
 - "missing_points": key points not covered.
 - "incorrect_points": statements in the student's answer that contradict the model answer.
-- "score": 0-100 (share of key points covered, minus clear errors). "verdict": correct (>= 80), partial (40-79), incorrect (< 40 or blank).
+- "score": 0-100: the share of key points covered, minus clear errors; 0 for a blank or off-topic answer.
 - "feedback": 1-3 sentences to the student: what was right, what to add, one tip. Plain words.
 Respond with JSON only.`;
   const user = `Question: ${input.prompt}
@@ -132,7 +133,7 @@ Student answer: ${input.studentAnswer.slice(0, 4000) || "(blank)"}`;
     maxTokens: 1200,
     temperature: 0,
   });
-  return { comparison: result.data, provider: result.raw.provider, model: result.raw.model };
+  return { comparison: { ...result.data, verdict: verdictFor(result.data.score, PASS_SCORE.recall) }, provider: result.raw.provider, model: result.raw.model };
 }
 
 // ---------------------------------------------------------------------------

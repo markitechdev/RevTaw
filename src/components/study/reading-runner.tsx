@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Alert } from "@/components/forms/form-alert";
 import { ScheduleReviewsButton } from "@/components/planner/schedule-reviews-button";
 import { PointList, RunnerSummary, useSessionCompletion, VerdictBox, type RunnerProps } from "@/components/study/runner-kit";
+import { PASS_SCORE } from "@/lib/study/verdict";
 import { SessionHeader } from "@/components/study/session-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -134,7 +135,7 @@ function AnswerStep({ items, label, onDone, doneLabel, sections }: { items: Item
         </>
       ) : (
         <>
-          <VerdictBox verdict={result.comparison.verdict} score={result.comparison.score}>
+          <VerdictBox score={result.comparison.score} passAt={PASS_SCORE.recall}>
             <p className="mt-2">{result.comparison.feedback}</p>
           </VerdictBox>
           <div className="grid gap-3 text-sm sm:grid-cols-2">
@@ -478,7 +479,7 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
             </>
           ) : (
             <>
-              <VerdictBox verdict={comparison.score >= 80 ? "correct" : comparison.score >= 40 ? "partial" : "incorrect"} score={comparison.score}>
+              <VerdictBox score={comparison.score} passAt={PASS_SCORE.recall}>
                 <p className="mt-2">{comparison.feedback}</p>
               </VerdictBox>
               <div className="grid gap-3 text-sm sm:grid-cols-2">

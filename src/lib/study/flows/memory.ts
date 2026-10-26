@@ -42,6 +42,7 @@ import {
 import { palaceLocationSchema } from "@/lib/study/memory-schemas";
 import { checkRetell, generateAssociations, generateMnemonics, generateStories } from "@/lib/study/prompts/memory";
 import { loadSession, SessionError, sessionTitle, updateSessionState } from "@/lib/study/sessions";
+import { PASS_SCORE } from "@/lib/study/verdict";
 import type { Json, Mnemonic, MnemonicKind, StudySession } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -197,7 +198,7 @@ export async function practiceMnemonic(input: { itemId: string; optionIndex: num
   const option = view.options[chosen];
   const graded = gradeListRecall(view.items, input.answer);
   const score = listScore(graded, view.ordered && view.items.length > 1);
-  const result: MnemonicPracticeResult = { score, marks: graded.marks, inOrder: graded.inOrder, isCorrect: score >= 80, chosen };
+  const result: MnemonicPracticeResult = { score, marks: graded.marks, inOrder: graded.inOrder, isCorrect: score >= PASS_SCORE.list, chosen };
   await recordItemResult(supabase, item, session, {
     response: input.answer,
     analysis: { ...analysis, result } as unknown as Json,
@@ -581,7 +582,7 @@ export async function checkStoryRetell(input: { itemId: string; retell: string; 
     : await checkRetell({ title: view.title, facts: view.facts, retell: input.retell });
   const recalled = view.facts.map((_, index) => check.facts.find((fact) => fact.index === index + 1)?.recalled ?? false);
   const score = retellScore(recalled, check.incorrect.length);
-  const result: StoryResult = { score, isCorrect: score >= 80, recalled, incorrect: check.incorrect, feedback: check.feedback };
+  const result: StoryResult = { score, isCorrect: score >= PASS_SCORE.list, recalled, incorrect: check.incorrect, feedback: check.feedback };
   await recordItemResult(supabase, item, session, {
     response: input.retell,
     analysis: { ...view, result } as unknown as Json,

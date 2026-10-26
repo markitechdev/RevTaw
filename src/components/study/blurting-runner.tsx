@@ -6,18 +6,18 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
+import { VerdictBox } from "@/components/study/runner-kit";
 import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
-import { TINT } from "@/components/ui/tint";
 import { routes } from "@/lib/routes";
 import { compareBlurtAction, completeSessionAction } from "@/lib/study/actions";
 import type { BlurtResult } from "@/lib/study/advanced";
 import type { SessionDetail } from "@/lib/study/queries";
 import type { SessionSummary } from "@/lib/study/sessions";
-import { cn } from "@/lib/utils";
+import { PASS_SCORE } from "@/lib/study/verdict";
 
 type Round = BlurtResult["analysis"] & { round: number };
 
@@ -156,10 +156,7 @@ export function BlurtingRunner({ session, methodName, parentSessionId = null, pa
         <p className="text-sm text-muted-foreground">Write everything you remember about this section — definitions, steps, examples, numbers. Order and polish do not matter; coverage does.</p>
 
         {latest && (
-          <div className={cn("rounded-lg border p-4 text-sm", latest.score >= 70 ? TINT.success : TINT.warning)} role="status">
-            <p className="font-semibold">
-              Attempt {latest.round}: {Math.round(latest.score)}% remembered
-            </p>
+          <VerdictBox score={latest.score} passAt={PASS_SCORE.blurt} title={`Attempt ${latest.round}`} scoreLabel="remembered">
             <p className="mt-1">{latest.feedback}</p>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
@@ -179,7 +176,7 @@ export function BlurtingRunner({ session, methodName, parentSessionId = null, pa
                 <ul className="list-disc pl-4">{latest.forgotten_important.length ? latest.forgotten_important.map((point) => <li key={point}>{point}</li>) : <li className="list-none text-muted-foreground">None</li>}</ul>
               </div>
             </div>
-          </div>
+          </VerdictBox>
         )}
 
         {!source ? (

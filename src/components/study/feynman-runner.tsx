@@ -6,18 +6,18 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
+import { VerdictBox } from "@/components/study/runner-kit";
 import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
-import { TINT } from "@/components/ui/tint";
 import { routes } from "@/lib/routes";
 import { analyzeFeynmanAction, completeSessionAction } from "@/lib/study/actions";
 import type { SessionDetail } from "@/lib/study/queries";
 import type { FeynmanRoundResult } from "@/lib/study/service";
 import type { SessionSummary } from "@/lib/study/sessions";
-import { cn } from "@/lib/utils";
+import { PASS_SCORE } from "@/lib/study/verdict";
 
 type RoundRecord = { round: number } & FeynmanRoundResult["analysis"];
 
@@ -159,10 +159,7 @@ export function FeynmanRunner({ session, methodName, parentSessionId = null, par
         </p>
 
         {latest && (
-          <div className={cn("rounded-lg border p-4 text-sm", latest.score >= 70 ? TINT.success : TINT.warning)} role="status">
-            <p className="font-semibold">
-              Attempt {latest.round}: {Math.round(latest.score)}%
-            </p>
+          <VerdictBox score={latest.score} passAt={PASS_SCORE.feynman} title={`Attempt ${latest.round}`}>
             <p className="mt-1">{latest.feedback}</p>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
@@ -188,7 +185,7 @@ export function FeynmanRunner({ session, methodName, parentSessionId = null, par
                 Improve it: {latest.improve_prompt}
               </p>
             )}
-          </div>
+          </VerdictBox>
         )}
 
         {!finalResult ? (

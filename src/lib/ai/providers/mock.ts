@@ -1,6 +1,7 @@
 import { associationsHeuristically, caseEvaluationHeuristically, casesHeuristically, conceptMapHeuristically, mindMapHeuristically, mnemonicsHeuristically, problemEvaluationHeuristically, problemsHeuristically, readingAnswersHeuristically, reflectQuestionsHeuristically, retellCheckHeuristically, scenarioEvaluationHeuristically, scenariosHeuristically, storiesHeuristically, visualForSection, visualsHeuristically } from "@/lib/ai/providers/mock-study";
 import { collectFacts, isHeadingLike, keywordsOf, overlap, parseTranscriptSections, sentencesOf, splitInlineSections } from "@/lib/ai/providers/mock-text";
 import { AiError } from "@/lib/ai/errors";
+import { PASS_SCORE, verdictFor } from "@/lib/study/verdict";
 import type { AiGenerateOptions, AiGenerateResult, AiProvider } from "@/lib/ai/types";
 
 export { parseTranscriptSections } from "@/lib/ai/providers/mock-text";
@@ -665,7 +666,7 @@ export function questionEvaluationHeuristically(material: string, prompt: string
   };
 }
 
-/** Deterministic recall check: key-point overlap decides verdict and score. */
+/** Deterministic recall check: key-point overlap decides the score. */
 export function recallCompareHeuristically(prompt: string) {
   const model = prompt.match(/^Model answer:\s*(.+)$/m)?.[1] ?? "";
   const keyPoints = [...prompt.matchAll(/^- (.+)$/gm)].map((match) => match[1].trim()).filter((point) => !/^\(use/.test(point));
@@ -675,9 +676,9 @@ export function recallCompareHeuristically(prompt: string) {
   const blank = student.length < 3 || /^\(blank\)$/.test(student);
   const contradiction = /\bnot\b/i.test(student) && !/\bnot\b/i.test(model);
   const score = blank ? 0 : Math.max(0, Math.round(ratio * 100) - (contradiction ? 30 : 0));
-  const verdict = score >= 80 ? "correct" : score >= 40 ? "partial" : "incorrect";
+  // The verdict isn't part of the reply: RevTaw derives it from the score (lib/study/verdict.ts).
+  const verdict = verdictFor(score, PASS_SCORE.recall);
   return {
-    verdict,
     score,
     correct_points: hits,
     missing_points: misses,
@@ -685,8 +686,8 @@ export function recallCompareHeuristically(prompt: string) {
     feedback:
       verdict === "correct"
         ? `Well recalled — you covered ${hits.join(", ") || "the key idea"}.`
-        : verdict === "partial"
-          ? `Partly there: you mentioned ${hits.join(", ") || "part of it"}; the model answer also includes ${misses.slice(0, 2).join(", ")}.`
+        : verdict === "mostly" || verdict === "partial"
+          ? `${verdict === "mostly" ? "Mostly right" : "Partly there"}: you mentioned ${hits.join(", ") || "part of it"}; the model answer also includes ${misses.slice(0, 2).join(", ")}.`
           : blank
             ? "No answer yet — read the model answer, then try this prompt again later."
             : `Not quite. Re-read the source: the answer centers on ${expected.slice(0, 3).join(", ")}.`,

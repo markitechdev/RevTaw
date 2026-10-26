@@ -15,6 +15,7 @@ import { answerRecallAction, completeSessionAction } from "@/lib/study/actions";
 import type { SessionDetail } from "@/lib/study/queries";
 import type { RecallItemResult } from "@/lib/study/service";
 import type { SessionSummary } from "@/lib/study/sessions";
+import { PASS_SCORE, VERDICT_LABEL, verdictFor, type Verdict } from "@/lib/study/verdict";
 import { cn } from "@/lib/utils";
 
 /**
@@ -109,39 +110,26 @@ export function RunnerDone({ session, methodName, message, ending, onFinish }: {
   );
 }
 
-export type Verdict = "correct" | "partial" | "incorrect";
-
-export function verdictOf(score: number): Verdict {
-  return score >= 80 ? "correct" : score >= 40 ? "partial" : "incorrect";
-}
-
-/** Colored result box; the verdict is spelled out so status never relies on color alone (§41). */
-export function VerdictBox({ verdict, score, children }: { verdict: Verdict; score: number; children?: ReactNode }) {
+/**
+ * Colored result box; the verdict is spelled out so status never relies on color alone (§41). It comes from the
+ * score by the same rule that decided what was stored (lib/study/verdict.ts), so "Correct" and "Mostly right"
+ * are exactly the answers counted as correct. `verdict` is for exercises whose result isn't the score alone.
+ */
+export function VerdictBox({ score, passAt = PASS_SCORE.recall, verdict, title, scoreLabel, children }: { score: number; passAt?: number; verdict?: Verdict; title?: string; scoreLabel?: string; children?: ReactNode }) {
+  const shown = verdict ?? verdictFor(score, passAt);
+  const good = shown === "correct" || shown === "mostly";
   return (
-    <div
-      className={cn(
-        "rounded-lg border p-4 text-sm",
-        verdict === "correct" && TINT.success,
-        verdict === "partial" && TINT.warning,
-        verdict === "incorrect" && TINT.danger,
-      )}
-      role="status"
-    >
+    <div className={cn("rounded-lg border p-4 text-sm", good && TINT.success, shown === "partial" && TINT.warning, shown === "incorrect" && TINT.danger)} role="status">
       <p className="flex items-center gap-2 font-semibold">
-        {verdict === "correct" ? (
-          <>
-            <CircleCheck className="h-4 w-4 text-success" aria-hidden="true" /> Correct
-          </>
-        ) : verdict === "partial" ? (
-          <>
-            <CircleDashed className="h-4 w-4 text-warning" aria-hidden="true" /> Partly there
-          </>
+        {good ? (
+          <CircleCheck className="h-4 w-4 text-success" aria-hidden="true" />
+        ) : shown === "partial" ? (
+          <CircleDashed className="h-4 w-4 text-warning" aria-hidden="true" />
         ) : (
-          <>
-            <CircleX className="h-4 w-4 text-danger" aria-hidden="true" /> Not yet
-          </>
+          <CircleX className="h-4 w-4 text-danger" aria-hidden="true" />
         )}
-        <span className="font-normal text-muted-foreground">· {Math.round(score)}%</span>
+        {title ? `${title}: ${VERDICT_LABEL[shown]}` : VERDICT_LABEL[shown]}
+        <span className="font-normal text-muted-foreground">· {Math.round(score)}%{scoreLabel ? ` ${scoreLabel}` : ""}</span>
       </p>
       {children}
     </div>
@@ -201,7 +189,7 @@ export function RecallCard({ itemId, prompt, initial, onAnswered }: { itemId: st
         </>
       ) : (
         <>
-          <VerdictBox verdict={result.comparison.verdict} score={result.comparison.score}>
+          <VerdictBox score={result.comparison.score}>
             <p className="mt-1">{result.comparison.feedback}</p>
           </VerdictBox>
           <p className="rounded-lg bg-success-soft/50 p-2">

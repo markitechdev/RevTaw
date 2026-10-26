@@ -19,6 +19,7 @@ import {
 } from "@/lib/study/prompts/problems";
 import { FADE_LEVELS, fadeFormat, fadeSchedule, givenStepCount } from "@/lib/study/problem-options";
 import { SessionError, sessionTitle } from "@/lib/study/sessions";
+import { PASS_SCORE } from "@/lib/study/verdict";
 import type { Json, StudySessionItem } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -222,9 +223,9 @@ export async function evaluateProblemItem(input: { itemId: string; work: string;
     ).evaluation;
   } catch (error) {
     if (!isAiError(error)) throw error;
-    evaluation = { verdict: "partial", score: 50, final_answer_correct: false, correct_steps: [], errors: [], error_type: "unclassified", feedback: "Tamari can't check this right now, so compare your working with the solution yourself." };
+    evaluation = { score: 50, final_answer_correct: false, correct_steps: [], errors: [], error_type: "unclassified", feedback: "Tamari can't check this right now, so compare your working with the solution yourself." };
   }
-  const isCorrect = evaluation.score >= 60;
+  const isCorrect = evaluation.score >= PASS_SCORE.problem;
   const recorded = await recordItemResult(supabase, item, session, {
     response: input.work,
     analysis: { ...stored, evaluation } as unknown as Json,

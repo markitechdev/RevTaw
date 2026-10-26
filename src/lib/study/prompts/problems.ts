@@ -114,7 +114,6 @@ ${transcript}
 }
 
 export const problemEvaluationSchema = z.object({
-  verdict: z.enum(["correct", "partial", "incorrect"]),
   score: z.number().min(0).max(100),
   final_answer_correct: z.boolean().catch(false),
   correct_steps: points,
@@ -147,7 +146,7 @@ export async function evaluateProblemAnswer(input: {
 - Compare each step of the student's working with the reference solution; equivalent valid methods count as correct.
 - "correct_steps": steps (or ideas) the student got right. "errors": where the reasoning went wrong — the step and the issue.
 - "final_answer_correct": whether the student's final answer matches the reference (allow equivalent forms and rounding).
-- "score": 0-100 (method and steps about 70%, final answer about 30%). "verdict": correct (>= 80), partial (40-79), incorrect (< 40 or blank).
+- "score": 0-100 (method and steps about 70%, final answer about 30%); 0 for blank work.
 - "error_type": the main kind of mistake (misunderstood_concept, forgotten_information, calculation_error, misread_question, confused_concepts, unclassified).
 - "feedback": 1-3 encouraging, specific sentences.
 Respond with JSON only.`;

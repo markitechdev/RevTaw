@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
 import { PointList, RunnerDone, RunnerSummary, useSessionCompletion, VerdictBox, type RunnerProps } from "@/components/study/runner-kit";
+import { PASS_SCORE } from "@/lib/study/verdict";
 import { SessionHeader } from "@/components/study/session-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -215,7 +216,7 @@ export function ProblemRunner({ session, methodName, parentSessionId = null, par
               </>
             ) : (
               <>
-                <VerdictBox verdict={result.evaluation.verdict} score={result.evaluation.score}>
+                <VerdictBox score={result.evaluation.score} passAt={PASS_SCORE.problem}>
                   <p className="mt-2">{result.evaluation.feedback}</p>
                   <p className="mt-2 text-muted-foreground">Final answer: {result.evaluation.final_answer_correct ? "matches the solution." : "does not match the solution yet."}</p>
                 </VerdictBox>

@@ -18,6 +18,7 @@ import { RAPID_REVIEW_MINUTES } from "@/lib/study/catalog";
 import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
 import { conceptsFor, insertItems, loadOpenItem, openSession, reloadItem, settleAnsweredItem, storeItemAttempt, type Client, type FlowStartInput, type FlowStartResult, type ItemRow, type MaterialContext } from "@/lib/study/items";
 import { countSessionAnswer, loadSession, SessionError, sessionTitle } from "@/lib/study/sessions";
+import { PASS_SCORE } from "@/lib/study/verdict";
 import type { Json, SessionItemKind, StudySessionItem } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -335,14 +336,14 @@ export async function compareBlurtItem(input: { itemId: string; text: string; re
     response: input.text.slice(0, 8000),
     analysis: { rounds } as unknown as Json,
     score: best,
-    is_correct: final ? best >= 60 : null,
+    is_correct: final ? best >= PASS_SCORE.blurt : null,
     response_ms: input.responseMs,
     answered_at: final ? now : null,
   });
   // A double submit (or a second tab) stored this round first: its round stands.
   if (!stored) return storedBlurtRound(await reloadItem(supabase, item.id));
   if (final) {
-    const isCorrect = best >= 60;
+    const isCorrect = best >= PASS_SCORE.blurt;
     await settleAnsweredItem(supabase, item, session, {
       isCorrect,
       response: input.text,

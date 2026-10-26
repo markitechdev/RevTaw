@@ -1,18 +1,18 @@
 "use client";
 
-import { ArrowRight, CircleCheck, CircleDashed, CircleX, Eye } from "lucide-react";
+import { ArrowRight, Eye } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
+import { VerdictBox } from "@/components/study/runner-kit";
 import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { ChipGroup } from "@/components/ui/chip-group";
 import { Textarea } from "@/components/ui/input";
-import { TINT } from "@/components/ui/tint";
 import { CONFIDENCE_LEVELS } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
 import { RETRIEVAL_FORMAT_LABEL, type RetrievalFormat } from "@/lib/study/formats";
@@ -21,7 +21,7 @@ import type { SessionDetail } from "@/lib/study/queries";
 import type { RecallItemResult } from "@/lib/study/service";
 import type { SessionSummary } from "@/lib/study/sessions";
 import type { ConfidenceLevel } from "@/lib/supabase/database.types";
-import { cn } from "@/lib/utils";
+import { PASS_SCORE } from "@/lib/study/verdict";
 
 type Stored = RecallItemResult;
 
@@ -236,33 +236,9 @@ export function RecallRunner({ session, methodName, parentSessionId = null, pare
           </>
         ) : (
           <div className="flex flex-col gap-4">
-            <div
-              className={cn(
-                "rounded-lg border p-4 text-sm",
-                showing.comparison.verdict === "correct" && TINT.success,
-                showing.comparison.verdict === "partial" && TINT.warning,
-                showing.comparison.verdict === "incorrect" && TINT.danger,
-              )}
-              role="status"
-            >
-              <p className="flex items-center gap-2 font-semibold">
-                {showing.comparison.verdict === "correct" ? (
-                  <>
-                    <CircleCheck className="h-4 w-4 text-success" aria-hidden="true" /> Correct
-                  </>
-                ) : showing.comparison.verdict === "partial" ? (
-                  <>
-                    <CircleDashed className="h-4 w-4 text-warning" aria-hidden="true" /> Partly there
-                  </>
-                ) : (
-                  <>
-                    <CircleX className="h-4 w-4 text-danger" aria-hidden="true" /> Not yet
-                  </>
-                )}
-                <span className="font-normal text-muted-foreground">· {Math.round(showing.comparison.score)}%</span>
-              </p>
+            <VerdictBox score={showing.comparison.score} passAt={PASS_SCORE.recall}>
               <p className="mt-2">{showing.comparison.feedback}</p>
-            </div>
+            </VerdictBox>
 
             <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="rounded-lg bg-muted/60 p-3 text-sm">

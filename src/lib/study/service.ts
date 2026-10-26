@@ -23,6 +23,7 @@ import { loadOpenItem, recordItemResult, reloadItem, settleAnsweredItem, storeIt
 import type { StudyMethodId } from "@/lib/study/methods";
 import type { ProblemDifficulty } from "@/lib/study/prompts/problems";
 import { completeSession, createSession, loadSession, SessionError, sessionTitle, suggestNext, updateSessionState, type SessionSummary } from "@/lib/study/sessions";
+import { countsAsCorrect, PASS_SCORE, verdictFor } from "@/lib/study/verdict";
 import type { ConfidenceLevel, Json, SessionGoal, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { startTutorSession } from "@/lib/tutor/service";
@@ -431,7 +432,7 @@ export async function answerRecallItem(input: { itemId: string; response: string
     if (!isAiError(error)) throw error;
     // Without AI the student still sees the model answer; nothing is scored.
     comparison = {
-      verdict: "partial",
+      verdict: verdictFor(50, PASS_SCORE.recall),
       score: 50,
       correct_points: [],
       missing_points: [],
@@ -439,7 +440,7 @@ export async function answerRecallItem(input: { itemId: string; response: string
       feedback: "Tamari can't check this right now, so compare your answer with the model answer yourself.",
     };
   }
-  const isCorrect = comparison.score >= 60;
+  const isCorrect = countsAsCorrect(comparison.verdict);
   // Items keep what they carried before the answer (a chunk's reading text, a guided-reading question's section).
   const carried = (item.analysis && typeof item.analysis === "object" && !Array.isArray(item.analysis) ? item.analysis : {}) as Record<string, unknown>;
   const retest = item.kind === "mistake" && item.source_mistake_id ? item.source_mistake_id : null;
@@ -512,7 +513,7 @@ export async function analyzeFeynmanItem(input: { itemId: string; explanation: s
     };
   }
   const final = round >= FEYNMAN_MAX_ROUNDS || analysis.score >= 85;
-  const isCorrect = analysis.score >= 70;
+  const isCorrect = analysis.score >= PASS_SCORE.feynman;
   const now = new Date().toISOString();
   const previous = (item.analysis as unknown as { rounds?: unknown[] } | null)?.rounds ?? [];
   const stored = await storeItemAttempt(supabase, item, {

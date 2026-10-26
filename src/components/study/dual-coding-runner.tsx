@@ -4,7 +4,8 @@ import { ArrowDown, ArrowRight, ArrowUp, Check, Image as ImageIcon, RotateCcw } 
 import { useEffect, useRef, useState } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
-import { RunnerDone, RunnerSummary, useSessionCompletion, VerdictBox, verdictOf, type RunnerProps } from "@/components/study/runner-kit";
+import { RunnerDone, RunnerSummary, useSessionCompletion, VerdictBox, type RunnerProps } from "@/components/study/runner-kit";
+import { PASS_SCORE } from "@/lib/study/verdict";
 import { SessionHeader } from "@/components/study/session-header";
 import { VisualView } from "@/components/study/visual-view";
 import { Badge } from "@/components/ui/badge";
@@ -326,7 +327,7 @@ export function DualCodingRunner({ session, methodName, parentSessionId = null, 
               </div>
             ) : (
               <>
-                <VerdictBox verdict={verdictOf(check.score)} score={check.score}>
+                <VerdictBox score={check.score} passAt={PASS_SCORE.visual}>
                   <p className="mt-2">{check.isCorrect ? "Rebuilt from memory." : "Compare with the original below, then try it again in your head."}</p>
                 </VerdictBox>
                 <div className="rounded-lg border border-border bg-background p-3">

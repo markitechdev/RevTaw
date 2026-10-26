@@ -97,7 +97,6 @@ export function problemEvaluationHeuristically(prompt: string) {
   const finalCorrect = !blank && pointCoverage([finalAnswer], work).ratio === 1;
   const score = blank ? 0 : Math.round(coverage.ratio * 70 + (finalCorrect ? 30 : 0));
   return {
-    verdict: score >= 80 ? "correct" : score >= 40 ? "partial" : "incorrect",
     score,
     final_answer_correct: finalCorrect,
     correct_steps: coverage.covered,

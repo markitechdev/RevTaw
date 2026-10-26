@@ -1,23 +1,23 @@
 "use client";
 
-import { ArrowRight, BookOpen, CircleCheck, CircleDashed, CircleX, Eye } from "lucide-react";
+import { ArrowRight, BookOpen, Eye } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
+import { VerdictBox } from "@/components/study/runner-kit";
 import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
-import { TINT } from "@/components/ui/tint";
 import { routes } from "@/lib/routes";
 import { answerRecallAction, completeSessionAction } from "@/lib/study/actions";
 import type { SessionDetail } from "@/lib/study/queries";
 import type { RecallItemResult } from "@/lib/study/service";
 import type { SessionSummary } from "@/lib/study/sessions";
-import { cn } from "@/lib/utils";
+import { PASS_SCORE } from "@/lib/study/verdict";
 
 type ChunkText = { title: string; main_idea: string; details: string[]; mini_summary: string };
 
@@ -197,25 +197,9 @@ export function ChunkRunner({ session, methodName, parentSessionId = null, paren
               </>
             ) : (
               <>
-                <div className={cn("rounded-lg border p-4 text-sm", result.comparison.verdict === "correct" && TINT.success, result.comparison.verdict === "partial" && TINT.warning, result.comparison.verdict === "incorrect" && TINT.danger)} role="status">
-                  <p className="flex items-center gap-2 font-semibold">
-                    {result.comparison.verdict === "correct" ? (
-                      <>
-                        <CircleCheck className="h-4 w-4 text-success" aria-hidden="true" /> Correct
-                      </>
-                    ) : result.comparison.verdict === "partial" ? (
-                      <>
-                        <CircleDashed className="h-4 w-4 text-warning" aria-hidden="true" /> Partly there
-                      </>
-                    ) : (
-                      <>
-                        <CircleX className="h-4 w-4 text-danger" aria-hidden="true" /> Not yet
-                      </>
-                    )}
-                    <span className="font-normal text-muted-foreground">· {Math.round(result.comparison.score)}%</span>
-                  </p>
+                <VerdictBox score={result.comparison.score} passAt={PASS_SCORE.recall}>
                   <p className="mt-2">{result.comparison.feedback}</p>
-                </div>
+                </VerdictBox>
                 <div className="rounded-lg bg-success-soft/50 p-3 text-sm">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Model answer</p>
                   <p className="mt-1 whitespace-pre-wrap">{result.modelAnswer}</p>

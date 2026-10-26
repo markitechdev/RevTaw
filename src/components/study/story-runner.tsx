@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Field } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
 import { PointList, RunnerDone, RunnerSummary, useSessionCompletion, VerdictBox, type RunnerProps } from "@/components/study/runner-kit";
+import { PASS_SCORE } from "@/lib/study/verdict";
 import { SessionHeader } from "@/components/study/session-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -249,7 +250,7 @@ export function StoryRunner({ session, methodName, parentSessionId = null, paren
 
         {result && (
           <>
-            <VerdictBox verdict={result.isCorrect ? "correct" : result.score >= 40 ? "partial" : "incorrect"} score={result.score}>
+            <VerdictBox score={result.score} passAt={PASS_SCORE.list}>
               <p className="mt-1">
                 {/^You kept \d+ of \d+ facts/.test(result.feedback) ? result.feedback : `You kept ${kept} of ${view.facts.length} facts. ${result.feedback}`}
               </p>

@@ -6,6 +6,7 @@ import { conceptsFor, insertItems, loadOpenItem, openSession, recordItemResult, 
 import { generateVisualSet, visualSetSchema } from "@/lib/study/prompts/visual";
 import { SessionError, sessionTitle } from "@/lib/study/sessions";
 import { gradeVisual, visualAsText, type VisualAnswer, type VisualTopic } from "@/lib/study/visuals";
+import { PASS_SCORE } from "@/lib/study/verdict";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { titleWithSuffix } from "@/lib/text/clamp";
@@ -79,7 +80,7 @@ export async function checkVisualItem(input: { itemId: string; answer: VisualAns
   if (!analysis.topic) throw new SessionError("This visual is incomplete.", 422);
   if (item.answered_at && analysis.check) return analysis.check;
   const graded = gradeVisual(analysis.topic.visual, input.answer);
-  const check: VisualCheck = { ...graded, isCorrect: graded.score >= 60 };
+  const check: VisualCheck = { ...graded, isCorrect: graded.score >= PASS_SCORE.visual };
   await recordItemResult(supabase, item, session, {
     response: JSON.stringify(input.answer),
     analysis: { ...analysis, check } as unknown as Json,

@@ -10,6 +10,7 @@ import { conceptsFor, insertItems, openSession, recordItemResult, type Client, t
 import { answerReadingQuestions, generateReflectQuestions } from "@/lib/study/prompts/reading";
 import { MAX_QUESTIONS_PER_SECTION, READING_STAGES, readReadingState, type ReadingMethod, type ReadingStage, type ReadingState } from "@/lib/study/reading-options";
 import { loadSession, SessionError, sessionTitle } from "@/lib/study/sessions";
+import { PASS_SCORE } from "@/lib/study/verdict";
 import type { Json, StudySession } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -206,7 +207,7 @@ export async function submitReadingSummary(input: { sessionId: string; summary: 
     .select("*")
     .single();
   if (error || !inserted) throw new Error(`study_session_items: insert failed: ${error?.message}`);
-  await recordItemResult(supabase, inserted, session, { response: input.summary, analysis: comparison as unknown as Json, score: comparison.score, isCorrect: comparison.score >= 60, responseMs: input.responseMs, mistake: null });
+  await recordItemResult(supabase, inserted, session, { response: input.summary, analysis: comparison as unknown as Json, score: comparison.score, isCorrect: comparison.score >= PASS_SCORE.recall, responseMs: input.responseMs, mistake: null });
   state.stage = "done";
   await saveState(supabase, { ...session, state: { ...((session.state as Record<string, unknown>) ?? {}), index: position + 1 } as Json }, state);
   return { comparison };

@@ -17,6 +17,7 @@ import {
   type JustificationEvaluation,
 } from "@/lib/study/prompts/applied";
 import { SessionError, sessionTitle } from "@/lib/study/sessions";
+import { PASS_SCORE } from "@/lib/study/verdict";
 import type { Json } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -211,7 +212,7 @@ export async function evaluateCaseItem(input: { itemId: string; answer: CaseAnsw
     const neutral = { score: 50, feedback: "Not checked — Tamari can't check this right now." };
     evaluation = { fields: { problem: neutral, evidence: neutral, solutions: neutral, best_solution: neutral, justification: neutral }, overall: 50, strengths: [], gaps: [], feedback: "Tamari can't check this right now, so compare your analysis with the expert one yourself." };
   }
-  const isCorrect = evaluation.overall >= 60;
+  const isCorrect = evaluation.overall >= PASS_SCORE.case;
   await recordItemResult(supabase, item, session, {
     response: JSON.stringify(answer),
     analysis: { case: view, evaluation } as unknown as Json,

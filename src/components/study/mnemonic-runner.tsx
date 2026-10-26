@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { Field } from "@/components/forms/field";
 import { Alert } from "@/components/forms/form-alert";
 import { RunnerDone, RunnerSummary, useSessionCompletion, VerdictBox, type RunnerProps } from "@/components/study/runner-kit";
+import { PASS_SCORE } from "@/lib/study/verdict";
 import { SessionHeader } from "@/components/study/session-header";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
@@ -289,7 +290,7 @@ export function MnemonicRunner({ session, methodName, parentSessionId = null, pa
 
         {result && (
           <>
-            <VerdictBox verdict={result.isCorrect ? "correct" : result.score >= 40 ? "partial" : "incorrect"} score={result.score}>
+            <VerdictBox score={result.score} passAt={PASS_SCORE.list}>
               <p className="mt-1">
                 You recalled {recalled} of {view.items.length}
                 {view.ordered && view.items.length > 1 && recalled > 1 ? (result.inOrder ? ", in the right order." : " — but the order slipped.") : "."}

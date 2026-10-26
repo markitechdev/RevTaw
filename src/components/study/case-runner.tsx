@@ -4,7 +4,8 @@ import { ArrowRight, Briefcase, Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
-import { PointList, RunnerDone, RunnerSummary, useSessionCompletion, VerdictBox, verdictOf, type RunnerProps } from "@/components/study/runner-kit";
+import { PointList, RunnerDone, RunnerSummary, useSessionCompletion, VerdictBox, type RunnerProps } from "@/components/study/runner-kit";
+import { PASS_SCORE } from "@/lib/study/verdict";
 import { SessionHeader } from "@/components/study/session-header";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -173,7 +174,7 @@ export function CaseRunner({ session, methodName, parentSessionId = null, parent
             </>
           ) : (
             <>
-              <VerdictBox verdict={verdictOf(result.evaluation.overall)} score={result.evaluation.overall}>
+              <VerdictBox score={result.evaluation.overall} passAt={PASS_SCORE.case}>
                 <p className="mt-2">{result.evaluation.feedback}</p>
               </VerdictBox>
               <ul className="flex flex-col gap-3">

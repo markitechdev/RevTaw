@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
 import { PointList, RunnerDone, RunnerSummary, useSessionCompletion, VerdictBox, type RunnerProps } from "@/components/study/runner-kit";
+import { scenarioVerdict } from "@/lib/study/verdict";
 import { SessionHeader } from "@/components/study/session-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -183,7 +184,7 @@ export function ScenarioRunner({ session, methodName, parentSessionId = null, pa
           </>
         ) : (
           <>
-            <VerdictBox verdict={result.isCorrect ? "correct" : result.correctChoice || result.score >= 40 ? "partial" : "incorrect"} score={result.score}>
+            <VerdictBox verdict={scenarioVerdict(result)} score={result.score}>
               <p className="mt-2">{result.correctChoice ? "You picked the best action." : "Another action was better here."} {result.evaluation.feedback}</p>
             </VerdictBox>
             <div className="rounded-lg bg-success-soft/50 p-3 text-sm">
