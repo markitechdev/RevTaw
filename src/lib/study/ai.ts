@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { knownConceptsLine } from "@/lib/concepts/service";
-import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
+import { buildTranscript, coverageNote, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
 import { points, studentLine, text } from "@/lib/study/prompts/shared";
 import { PASS_SCORE, verdictFor, type Verdict } from "@/lib/study/verdict";
@@ -64,7 +64,8 @@ export async function generateRecallQuestions(input: {
   knownConcepts?: string[];
 }): Promise<{ questions: RecallQuestion[]; provider: string; model: string }> {
   const provider = getAiProvider("strong");
-  const { transcript } = buildTranscript(input.chunks);
+  // A long material leans toward the focus concepts; the rest keeps reading order.
+  const { transcript, coverageRatio, focused } = buildTranscript(input.chunks, undefined, input.focusConcepts.length ? { text: input.focusConcepts.join(", "), share: 0.5 } : null);
   const formats = input.formats?.length ? input.formats : null;
   const system = `You are RevTaw's active-recall coach. You write recall prompts a student answers from memory before seeing the solution.
 
@@ -79,7 +80,7 @@ ${formats ? `- "format": rotate through these formats in order and label each pr
 - Respond with a single JSON object matching the schema. No commentary.`;
   const user = `Material title: ${input.materialTitle}
 Student: ${studentLine(input.student)}
-${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${knownConceptsLine(input.knownConcepts ?? [])}${input.emphasis?.length ? `High-value topics to prioritize: ${input.emphasis.join(", ")}\n` : ""}${input.recentMistakes.length ? `Recent mistakes:\n${input.recentMistakes.map((item) => `- ${item}`).join("\n")}\n` : ""}${formats ? `Formats to rotate: ${formats.join(", ")}\n` : ""}
+${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${knownConceptsLine(input.knownConcepts ?? [])}${coverageNote(coverageRatio, focused)}${input.emphasis?.length ? `High-value topics to prioritize: ${input.emphasis.join(", ")}\n` : ""}${input.recentMistakes.length ? `Recent mistakes:\n${input.recentMistakes.map((item) => `- ${item}`).join("\n")}\n` : ""}${formats ? `Formats to rotate: ${formats.join(", ")}\n` : ""}
 Produce exactly ${input.count} prompts.
 
 JSON schema: { "questions": [{ "prompt": string, "model_answer": string, "key_points": string[], "concept": string, "source_excerpt": string${formats ? ', "format": string' : ""} }] }
@@ -169,7 +170,7 @@ export async function pickFeynmanConcepts(input: {
   knownConcepts?: string[];
 }): Promise<{ concepts: FeynmanConcept[]; provider: string; model: string }> {
   const provider = getAiProvider("strong");
-  const { transcript } = buildTranscript(input.chunks);
+  const { transcript, coverageRatio, focused } = buildTranscript(input.chunks, undefined, input.focusConcepts.length ? { text: input.focusConcepts.join(", "), share: 0.5 } : null);
   const system = `You are RevTaw's Feynman-technique coach. Pick the concepts from a student's material that are worth explaining in plain words, and write the ideal beginner-level explanation for each.
 
 Rules:
@@ -182,7 +183,7 @@ Rules:
 - Respond with a single JSON object matching the schema. No commentary.`;
   const user = `Material title: ${input.materialTitle}
 Student: ${studentLine(input.student)}
-${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${knownConceptsLine(input.knownConcepts ?? [])}
+${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${knownConceptsLine(input.knownConcepts ?? [])}${coverageNote(coverageRatio, focused)}
 Produce exactly ${input.count} concepts.
 
 JSON schema: { "concepts": [{ "concept": string, "ideal_explanation": string, "key_points": string[], "source_excerpt": string }] }

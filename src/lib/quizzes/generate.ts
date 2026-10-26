@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { knownConceptsLine } from "@/lib/concepts/service";
-import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
+import { buildTranscript, coverageNote, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import { MaterialText, matchWords, overlap } from "@/lib/quizzes/grounding";
 import { optionSchema } from "@/lib/quizzes/schemas";
@@ -83,6 +83,8 @@ export type GenerateQuizResult = {
   provider: string;
   model: string;
   coverageRatio: number;
+  /** A long material was cut to the quiz's focus (its topic, or the student's weak concepts) first. */
+  focused: boolean;
 };
 
 const TYPE_RULES: Record<QuestionType, string> = {
@@ -254,7 +256,9 @@ export async function generateQuiz(
   options: { previous?: string[]; knownConcepts?: string[] } = {},
 ): Promise<GenerateQuizResult> {
   const provider = getAiProvider("strong");
-  const { transcript, coverageRatio } = buildTranscript(chunks);
+  // A long material is cut to the quiz's topic first, or leans toward the student's weak concepts.
+  const focus = config.focus ? { text: config.focus } : adaptive?.focusConcepts.length ? { text: adaptive.focusConcepts.join(", "), share: 0.5 } : null;
+  const { transcript, coverageRatio, focused } = buildTranscript(chunks, undefined, focus);
   // The latest earlier questions, short, so the model can steer clear of them.
   const previous = (options.previous ?? []).slice(0, 25).map((prompt) => (prompt.length > 160 ? `${prompt.slice(0, 157)}…` : prompt).replace(/\s+/g, " "));
   const plan = distributeQuestions(config.questionCount, config.questionTypes);
@@ -291,7 +295,7 @@ ${adaptive?.focusConcepts.length ? `- Give about 40% of the questions to these c
 
   const user = `Material title: ${materialTitle}
 Student: ${studentLine(student)}
-${config.focus ? `Focus only on this topic/chapter if the material covers it: ${config.focus}\n` : ""}${knownConceptsLine(options.knownConcepts ?? [])}${coverageRatio < 1 ? `Note: only the first ${Math.round(coverageRatio * 100)}% of the material is included; cover what you can see.\n` : ""}${previous.length ? `The student's earlier quizzes on this material already asked these; write different questions (other facts, or the same idea from a new angle):\n${previous.map((prompt) => `- ${prompt}`).join("\n")}\n` : ""}
+${config.focus ? `Focus only on this topic/chapter if the material covers it: ${config.focus}\n` : ""}${knownConceptsLine(options.knownConcepts ?? [])}${coverageNote(coverageRatio, focused)}${previous.length ? `The student's earlier quizzes on this material already asked these; write different questions (other facts, or the same idea from a new angle):\n${previous.map((prompt) => `- ${prompt}`).join("\n")}\n` : ""}
 Plan (produce exactly these counts, ${config.questionCount} questions in total):
 ${plan.map((item) => `- ${item.type}: ${item.count}`).join("\n")}
 
@@ -330,5 +334,6 @@ ${transcript}
     provider: result.raw.provider,
     model: result.raw.model,
     coverageRatio,
+    focused,
   };
 }

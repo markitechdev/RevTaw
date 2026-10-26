@@ -4,6 +4,7 @@ import { refreshMastery } from "@/lib/adaptive/engine";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { ServiceError } from "@/lib/errors";
 import { generateFlashcards } from "@/lib/flashcards/generate";
+import { coverageDetail } from "@/lib/materials/analyze";
 import { describeWait } from "@/lib/engine/fsrs";
 import { currentSnapshot, ratingWaits, scheduleCard, scheduleColumns } from "@/lib/flashcards/scheduler";
 import { claimForRetry, retryRefusal } from "@/lib/generation/retry";
@@ -71,7 +72,8 @@ async function populateDeck(
     if (error) throw new Error(`flashcards: insert failed: ${error.message}`);
     const notes: string[] = [];
     if (result.cards.length < options.count) notes.push(`${result.cards.length} of ${options.count} requested cards could be supported by the material.`);
-    if (result.coverageRatio < 1) notes.push(`Built from the first ${Math.round(result.coverageRatio * 100)}% of a very long material.`);
+    const coverage = coverageDetail(result.coverageRatio, result.focused, "the sections on your focus");
+    if (coverage) notes.push(coverage);
     const detail = notes.length ? notes.join(" ") : null;
     const { error: readyError } = await supabase
       .from("flashcard_decks")

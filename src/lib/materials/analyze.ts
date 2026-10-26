@@ -4,6 +4,7 @@ import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { analysisResponseSchema, type AnalysisResponse } from "@/lib/materials/analysis-schema";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
+import { focusTerms, scoreChunk } from "@/lib/tutor/context";
 import { CORE_STUDY_METHODS } from "@/lib/study/methods";
 import type { AiPreferences } from "@/lib/preferences/schema";
 import type { EducationLevel, StudyGoal } from "@/lib/supabase/database.types";
@@ -65,42 +66,98 @@ function schemaDescription(): string {
 }`;
 }
 
-/**
- * Builds the material transcript within the character budget. Chunks are
- * included in order with their headings and page ranges; when the material
- * is too long, the remaining headings are listed so the model knows what it
- * did not see, and the coverage ratio is reported to the student.
- */
-export function buildTranscript(chunks: AnalysisChunkInput[], budget = ANALYSIS_CHAR_BUDGET) {
-  const totalChars = chunks.reduce((sum, chunk) => sum + chunk.content.length, 0);
-  const parts: string[] = [];
-  let used = 0;
-  let included = 0;
+/** How a long material is cut down to the budget: what to put first, and how much of the budget it may take. */
+export type TranscriptFocus = {
+  /** A topic, chapter or concept names; the sections that match it go in first. */
+  text: string | null;
+  /** The share of the budget the matching sections may fill (the rest keeps the material's reading order). */
+  share?: number;
+};
 
-  for (const chunk of chunks) {
-    const remaining = budget - used;
-    if (remaining <= 0) break;
-    const partial = chunk.content.length > remaining;
-    // Don't bother with a tiny tail of the next section.
-    if (partial && included > 0 && remaining < 500) break;
-    const label = [
-      chunk.heading ? `Section: ${chunk.heading}` : `Section ${chunk.position + 1}`,
-      chunk.pageStart !== null
-        ? chunk.pageEnd !== null && chunk.pageEnd !== chunk.pageStart
-          ? `pages ${chunk.pageStart}-${chunk.pageEnd}`
-          : `page ${chunk.pageStart}`
-        : null,
-    ]
-      .filter(Boolean)
-      .join(", ");
-    const content = partial ? chunk.content.slice(0, remaining) : chunk.content;
-    parts.push(`[${label}]\n${content}`);
+function sectionLabel(chunk: AnalysisChunkInput): string {
+  return [
+    chunk.heading ? `Section: ${chunk.heading}` : `Section ${chunk.position + 1}`,
+    chunk.pageStart !== null
+      ? chunk.pageEnd !== null && chunk.pageEnd !== chunk.pageStart
+        ? `pages ${chunk.pageStart}-${chunk.pageEnd}`
+        : `page ${chunk.pageStart}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
+/**
+ * Builds the material transcript within the character budget, each section labeled with its heading and
+ * pages. A material that fits goes in whole. A longer one is cut: the sections that match the focus first
+ * (when one is given and any section matches), then the rest in reading order, the last section cut to fit.
+ * Skipped stretches are marked and the headings left out are listed, so the model knows what it did not
+ * see; the coverage ratio is reported to the student, and `focused` says whether the focus chose sections
+ * (so "the first N%" would be wrong).
+ */
+/** The note that tells a generator how much of a long material it sees (empty when it sees all of it). */
+export function coverageNote(coverageRatio: number, focused: boolean): string {
+  if (coverageRatio >= 1) return "";
+  const share = Math.round(coverageRatio * 100);
+  return focused
+    ? `Note: the material is too long to include whole; below are the sections that match the focus and as much of the rest as fits (${share}% of it); cover what you can see.\n`
+    : `Note: only the first ${share}% of the material is included; cover what you can see.\n`;
+}
+
+/** The same for the student, on what was made from a long material. */
+export function coverageDetail(coverageRatio: number, focused: boolean, focusLabel: string): string | null {
+  if (coverageRatio >= 1) return null;
+  const share = Math.round(coverageRatio * 100);
+  return focused ? `Built from ${share}% of a very long material, ${focusLabel} first.` : `Built from the first ${share}% of a very long material.`;
+}
+
+export function buildTranscript(chunks: AnalysisChunkInput[], budget = ANALYSIS_CHAR_BUDGET, focus: TranscriptFocus | null = null) {
+  const totalChars = chunks.reduce((sum, chunk) => sum + chunk.content.length, 0);
+  const chosen = new Map<number, string>();
+  let used = 0;
+  const add = (index: number, content: string) => {
+    chosen.set(index, content);
     used += content.length;
-    included += 1;
-    if (partial) break;
+  };
+
+  let focused = false;
+  const terms = focus?.text && totalChars > budget ? focusTerms(focus.text) : [];
+  if (terms.length > 0) {
+    const allowance = Math.round(budget * Math.min(1, Math.max(0, focus?.share ?? 1)));
+    const ranked = chunks
+      .map((chunk, index) => ({ index, score: scoreChunk(chunk, terms) }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score || a.index - b.index);
+    for (const { index } of ranked) {
+      if (used + chunks[index].content.length <= allowance) add(index, chunks[index].content);
+    }
+    // The best match alone is bigger than the allowance: its beginning.
+    if (chosen.size === 0 && ranked.length > 0 && allowance >= 500) add(ranked[0].index, chunks[ranked[0].index].content.slice(0, allowance));
+    focused = chosen.size > 0;
   }
 
-  const omitted = chunks.slice(included);
+  for (let index = 0; index < chunks.length; index += 1) {
+    if (chosen.has(index)) continue;
+    const remaining = budget - used;
+    if (remaining <= 0) break;
+    const content = chunks[index].content;
+    if (content.length <= remaining) {
+      add(index, content);
+      continue;
+    }
+    // Don't bother with a tiny tail of the next section.
+    if (chosen.size === 0 || remaining >= 500) add(index, content.slice(0, remaining));
+    break;
+  }
+
+  const parts: string[] = [];
+  let previous = -1;
+  for (const index of [...chosen.keys()].sort((a, b) => a - b)) {
+    if (index > previous + 1) parts.push(`[Skipped here: ${index - previous - 1} section(s)]`);
+    parts.push(`[${sectionLabel(chunks[index])}]\n${chosen.get(index)}`);
+    previous = index;
+  }
+  const omitted = chunks.filter((_, index) => !chosen.has(index));
   if (omitted.length > 0) {
     const headings = omitted.map((chunk) => chunk.heading).filter((heading): heading is string => Boolean(heading));
     parts.push(
@@ -111,6 +168,7 @@ export function buildTranscript(chunks: AnalysisChunkInput[], budget = ANALYSIS_
   return {
     transcript: parts.join("\n\n"),
     coverageRatio: totalChars === 0 ? 1 : Math.min(1, used / totalChars),
+    focused,
   };
 }
 

@@ -49,7 +49,12 @@ function stem(word: string): string {
   return word.replace(/(ies|es|s|ing|ed)$/u, "");
 }
 
-export function scoreChunk(chunk: ContextChunk, queryTerms: string[]): number {
+/** The words of a query to score passages by: content words, stemmed, once each. */
+export function focusTerms(text: string): string[] {
+  return [...new Set(tokenize(text).map(stem))];
+}
+
+export function scoreChunk(chunk: Pick<ContextChunk, "heading" | "content">, queryTerms: string[]): number {
   if (queryTerms.length === 0) return 0;
   const words = tokenize(chunk.content).map(stem);
   if (words.length === 0) return 0;
@@ -81,7 +86,7 @@ export type SelectedContext = {
  * order from the top.
  */
 export function selectContext(chunks: ContextChunk[], query: string, selection: string | null, budgetChars = 14_000, ranked: string[] | null = null): SelectedContext {
-  const terms = [...new Set(tokenize(`${query} ${selection ?? ""}`).map(stem))];
+  const terms = focusTerms(`${query} ${selection ?? ""}`);
   const picked = new Map<string, ContextChunk>();
   let used = 0;
 

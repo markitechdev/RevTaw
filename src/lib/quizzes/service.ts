@@ -8,6 +8,7 @@ import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { claimForRetry, retryRefusal } from "@/lib/generation/retry";
 import { addMistake, removeQuizMistake } from "@/lib/mistakes/notebook";
 import { CORRECT_THRESHOLD, gradeObjective, gradeOpenAnswers, normalizeText, type GradeResult, type OpenAnswerItem } from "@/lib/quizzes/grade";
+import { coverageDetail } from "@/lib/materials/analyze";
 import { generateQuiz } from "@/lib/quizzes/generate";
 import { answerSchema, parseQuizConfig, responseSchema } from "@/lib/quizzes/schemas";
 import {
@@ -140,7 +141,8 @@ async function populateQuiz(
     if (result.questions.length < config.questionCount) {
       notes.push(`${result.questions.length} of ${config.questionCount} requested questions could be supported by the material.`);
     }
-    if (result.coverageRatio < 1) notes.push(`Built from the first ${Math.round(result.coverageRatio * 100)}% of a very long material.`);
+    const coverage = coverageDetail(result.coverageRatio, result.focused, config.focus ? "the sections on your topic" : "the sections on the concepts you find hardest");
+    if (coverage) notes.push(coverage);
     const detail = notes.length ? notes.join(" ") : null;
 
     const { error: readyError } = await supabase

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { knownConceptsLine } from "@/lib/concepts/service";
-import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
+import { buildTranscript, coverageNote, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import { modelTitle } from "@/lib/ai/fields";
 import { clampTitle } from "@/lib/text/clamp";
@@ -31,6 +31,8 @@ export type GenerateFlashcardsResult = {
   provider: string;
   model: string;
   coverageRatio: number;
+  /** A long material was cut to the deck's focus first. */
+  focused: boolean;
 };
 
 function studentLine(student: StudentContext): string {
@@ -70,7 +72,7 @@ export async function generateFlashcards(
   student: StudentContext,
 ): Promise<GenerateFlashcardsResult> {
   const provider = getAiProvider("strong");
-  const { transcript, coverageRatio } = buildTranscript(chunks);
+  const { transcript, coverageRatio, focused } = buildTranscript(chunks, undefined, options.focus ? { text: options.focus } : null);
 
   const system = `You are RevTaw's flashcard writer. You turn a student's uploaded material into flashcards for spaced repetition.
 
@@ -86,7 +88,7 @@ Card rules:
 
   const user = `Material title: ${materialTitle}
 Student: ${studentLine(student)}
-${options.focus ? `Focus on: ${options.focus}\n` : ""}${knownConceptsLine(options.knownConcepts ?? [])}${coverageRatio < 1 ? `Note: only the first ${Math.round(coverageRatio * 100)}% of the material is included.\n` : ""}
+${options.focus ? `Focus on: ${options.focus}\n` : ""}${knownConceptsLine(options.knownConcepts ?? [])}${coverageNote(coverageRatio, focused)}
 Produce exactly ${options.count} cards.
 
 JSON schema:
@@ -113,5 +115,6 @@ ${transcript}
     provider: result.raw.provider,
     model: result.raw.model,
     coverageRatio,
+    focused,
   };
 }
