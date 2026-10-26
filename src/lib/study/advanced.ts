@@ -77,6 +77,7 @@ export async function startRetrievalPractice(supabase: Client, userId: string, i
     recentMistakes: [],
     student: context.student,
     formats,
+    knownConcepts: context.knownConcepts,
   });
   if (generated.questions.length === 0) throw new SessionError("No retrieval exercises could be written from this material.", 422);
   const sessionId = await openSession(supabase, userId, {
@@ -122,6 +123,7 @@ export async function startRapidReview(supabase: Client, userId: string, input: 
     recentMistakes: mistakeRows.map((mistake) => mistake.question_text.slice(0, 200)),
     student: context.student,
     emphasis,
+    knownConcepts: context.knownConcepts,
   });
   const sessionId = await openSession(supabase, userId, {
     method: "rapid_review",
@@ -186,7 +188,7 @@ export async function startCumulativeReview(supabase: Client, userId: string, in
   for (const [index, materialId] of lineup.entries()) {
     if (counts[index] <= 0) continue;
     const context = index === 0 ? current : await loadMaterialContext(supabase, materialId);
-    const generated = await generateRecallQuestions({ materialTitle: context.material.title, chunks: context.chunks, count: counts[index], focusConcepts: await weakNames(materialId, 4), recentMistakes: [], student: context.student });
+    const generated = await generateRecallQuestions({ materialTitle: context.material.title, chunks: context.chunks, count: counts[index], focusConcepts: await weakNames(materialId, 4), recentMistakes: [], student: context.student, knownConcepts: context.knownConcepts });
     rows.push(...(await recallItemsFor(supabase, userId, context, generated.questions, { sessionId, startPosition: 0, materialId })));
   }
   if (rows.length === 0) throw new SessionError("No recall prompts could be written.", 422);
@@ -216,7 +218,7 @@ export async function startInterleaving(supabase: Client, userId: string, input:
   });
   const perContext = await Promise.all(
     contexts.map(async (context) => {
-      const generated = await generateRecallQuestions({ materialTitle: context.material.title, chunks: context.chunks, count: perMaterial, focusConcepts: await weakNames(context.material.id, 4), recentMistakes: [], student: context.student });
+      const generated = await generateRecallQuestions({ materialTitle: context.material.title, chunks: context.chunks, count: perMaterial, focusConcepts: await weakNames(context.material.id, 4), recentMistakes: [], student: context.student, knownConcepts: context.knownConcepts });
       return recallItemsFor(supabase, userId, context, generated.questions, { sessionId, startPosition: 0, materialId: context.material.id });
     }),
   );

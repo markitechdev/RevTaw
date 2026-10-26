@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
+import { knownConceptsLine } from "@/lib/concepts/service";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
 import { points, studentLine, text } from "@/lib/study/prompts/shared";
@@ -59,6 +60,8 @@ export async function generateRecallQuestions(input: {
   formats?: RetrievalFormat[];
   /** Extra emphasis (rapid review: exam topics, important facts). */
   emphasis?: string[];
+  /** The names the material's concepts already go by, to reuse. */
+  knownConcepts?: string[];
 }): Promise<{ questions: RecallQuestion[]; provider: string; model: string }> {
   const provider = getAiProvider("strong");
   const { transcript } = buildTranscript(input.chunks);
@@ -69,14 +72,14 @@ Rules:
 - Each prompt asks for something the material states explicitly: a definition, a process, a reason, a formula, a comparison. No yes/no questions, no multiple choice.
 - "model_answer": the answer in 1-3 sentences in the material's own words.
 - "key_points": 2-5 short points a complete answer must contain (used to grade the student's answer).
-- "concept": the 1-4 word concept being recalled (reuse the same wording for the same concept).
+- "concept": the 1-4 word concept being recalled (reuse the same wording for the same concept; when the message lists the material's concept names, a prompt on one of them uses that name, and only a concept not listed gets a new one).
 - "source_excerpt": a short verbatim quote (max 300 chars) that supports the model answer.
 - Cover different parts of the material; prioritize the focus concepts and recent mistakes when given.
 ${formats ? `- "format": rotate through these formats in order and label each prompt with the format it uses: ${formats.map((format) => `${format} (${FORMAT_RULES[format]})`).join("; ")}.\n` : ""}- Use ONLY the material between <material> tags.
 - Respond with a single JSON object matching the schema. No commentary.`;
   const user = `Material title: ${input.materialTitle}
 Student: ${studentLine(input.student)}
-${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${input.emphasis?.length ? `High-value topics to prioritize: ${input.emphasis.join(", ")}\n` : ""}${input.recentMistakes.length ? `Recent mistakes:\n${input.recentMistakes.map((item) => `- ${item}`).join("\n")}\n` : ""}${formats ? `Formats to rotate: ${formats.join(", ")}\n` : ""}
+${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${knownConceptsLine(input.knownConcepts ?? [])}${input.emphasis?.length ? `High-value topics to prioritize: ${input.emphasis.join(", ")}\n` : ""}${input.recentMistakes.length ? `Recent mistakes:\n${input.recentMistakes.map((item) => `- ${item}`).join("\n")}\n` : ""}${formats ? `Formats to rotate: ${formats.join(", ")}\n` : ""}
 Produce exactly ${input.count} prompts.
 
 JSON schema: { "questions": [{ "prompt": string, "model_answer": string, "key_points": string[], "concept": string, "source_excerpt": string${formats ? ', "format": string' : ""} }] }
@@ -162,6 +165,8 @@ export async function pickFeynmanConcepts(input: {
   count: number;
   focusConcepts: string[];
   student: StudentContext;
+  /** The names the material's concepts already go by, to reuse. */
+  knownConcepts?: string[];
 }): Promise<{ concepts: FeynmanConcept[]; provider: string; model: string }> {
   const provider = getAiProvider("strong");
   const { transcript } = buildTranscript(input.chunks);
@@ -172,11 +177,12 @@ Rules:
 - "ideal_explanation": 3-6 sentences a beginner could follow, grounded strictly in the material, using one concrete example from it when available. Clearly separate any analogy from the actual definition.
 - "key_points": 3-6 points a good explanation must contain.
 - "source_excerpt": a short verbatim quote (max 300 chars) that supports the explanation.
+- "concept": the concept's name, 1-4 words; when the message lists the material's concept names, a concept on the list uses that name.
 - Prefer the focus concepts when given. Use ONLY the material between <material> tags.
 - Respond with a single JSON object matching the schema. No commentary.`;
   const user = `Material title: ${input.materialTitle}
 Student: ${studentLine(input.student)}
-${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}
+${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${knownConceptsLine(input.knownConcepts ?? [])}
 Produce exactly ${input.count} concepts.
 
 JSON schema: { "concepts": [{ "concept": string, "ideal_explanation": string, "key_points": string[], "source_excerpt": string }] }

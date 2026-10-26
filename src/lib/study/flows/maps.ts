@@ -117,7 +117,7 @@ export async function quizBranch(input: { sessionId: string; nodeId: string }): 
     .filter(Boolean)
     .slice(0, 8);
   const context = await loadMaterialContext(supabase, session.material_id!);
-  const generated = await generateRecallQuestions({ materialTitle: context.material.title, chunks: context.chunks, count: 3, focusConcepts: labels, recentMistakes: [], student: context.student, emphasis: labels });
+  const generated = await generateRecallQuestions({ materialTitle: context.material.title, chunks: context.chunks, count: 3, focusConcepts: labels, recentMistakes: [], student: context.student, emphasis: labels, knownConcepts: context.knownConcepts });
   if (generated.questions.length === 0) throw new SessionError("No questions could be written for that branch.", 422);
   const concepts = await conceptsFor(supabase, session.user_id, context, generated.questions.map((question) => question.concept));
   const start = await nextPosition(supabase, session.id);

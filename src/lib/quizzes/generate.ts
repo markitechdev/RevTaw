@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
+import { knownConceptsLine } from "@/lib/concepts/service";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import { MaterialText, matchWords, overlap } from "@/lib/quizzes/grounding";
@@ -250,7 +251,7 @@ export async function generateQuiz(
   config: QuizConfig,
   student: StudentContext,
   adaptive: AdaptiveTargets | null = null,
-  options: { previous?: string[] } = {},
+  options: { previous?: string[]; knownConcepts?: string[] } = {},
 ): Promise<GenerateQuizResult> {
   const provider = getAiProvider("strong");
   const { transcript, coverageRatio } = buildTranscript(chunks);
@@ -281,7 +282,7 @@ Quality rules:
 - No duplicate or near-duplicate questions (two questions that test the same fact are duplicates); cover different parts of the material. No trivia about formatting or page numbers.
 - Questions must be unambiguous with exactly one defensible answer (or one model answer for open types). The wording (grammar, a repeated word, "a"/"an") must not give the answer away, and no question may answer another.
 - "explanation": 1-3 sentences on why the correct answer is right, citing the material in plain words.
-- "concept": the 1-4 word concept the question tests (reuse the same wording for the same concept).
+- "concept": the 1-4 word concept the question tests (reuse the same wording for the same concept; when the message lists the material's concept names, a question on one of them uses that name, and only a concept not listed gets a new one).
 - "source_excerpt": a short verbatim quote (max 300 chars) copied exactly from the material that supports the answer.
 - "difficulty": ${difficultyRule}.
 ${adaptive?.focusConcepts.length ? `- Give about 40% of the questions to these concepts the student struggles with: ${adaptive.focusConcepts.join(", ")}; cover the rest of the material with the remainder.` : ""}
@@ -290,7 +291,7 @@ ${adaptive?.focusConcepts.length ? `- Give about 40% of the questions to these c
 
   const user = `Material title: ${materialTitle}
 Student: ${studentLine(student)}
-${config.focus ? `Focus only on this topic/chapter if the material covers it: ${config.focus}\n` : ""}${coverageRatio < 1 ? `Note: only the first ${Math.round(coverageRatio * 100)}% of the material is included; cover what you can see.\n` : ""}${previous.length ? `The student's earlier quizzes on this material already asked these; write different questions (other facts, or the same idea from a new angle):\n${previous.map((prompt) => `- ${prompt}`).join("\n")}\n` : ""}
+${config.focus ? `Focus only on this topic/chapter if the material covers it: ${config.focus}\n` : ""}${knownConceptsLine(options.knownConcepts ?? [])}${coverageRatio < 1 ? `Note: only the first ${Math.round(coverageRatio * 100)}% of the material is included; cover what you can see.\n` : ""}${previous.length ? `The student's earlier quizzes on this material already asked these; write different questions (other facts, or the same idea from a new angle):\n${previous.map((prompt) => `- ${prompt}`).join("\n")}\n` : ""}
 Plan (produce exactly these counts, ${config.questionCount} questions in total):
 ${plan.map((item) => `- ${item.type}: ${item.count}`).join("\n")}
 

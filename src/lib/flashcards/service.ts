@@ -48,7 +48,7 @@ async function populateDeck(
   options: { count: number; focus: string | null },
 ): Promise<{ status: "ready" | "failed"; detail: string | null }> {
   try {
-    const result = await generateFlashcards(context.material.title, context.chunks, options, context.student);
+    const result = await generateFlashcards(context.material.title, context.chunks, { ...options, knownConcepts: context.knownConcepts }, context.student);
     if (result.cards.length === 0) throw new ServiceError("No cards could be written from this material.", 422);
     const concepts = await ensureConcepts(
       supabase,

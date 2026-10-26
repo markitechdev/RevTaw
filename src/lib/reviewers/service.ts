@@ -1,6 +1,7 @@
 import "server-only";
 
 import { isAiError } from "@/lib/ai";
+import { materialConceptNames } from "@/lib/concepts/service";
 import { ServiceError } from "@/lib/errors";
 import { claimForRetry, retryRefusal } from "@/lib/generation/retry";
 import type { AnalysisChunkInput } from "@/lib/materials/analyze";
@@ -33,6 +34,9 @@ export async function loadMaterialContext(supabase: Client, materialId: string) 
     throw new ServiceError("This material has not finished processing yet.", 409);
   }
 
+  // The names the material's concepts go by, so generators keep one name (and one mastery) per concept.
+  const knownConcepts = await materialConceptNames(supabase, material);
+
   const chunkInput: AnalysisChunkInput[] = chunks.map((chunk) => ({
     position: chunk.position,
     heading: chunk.heading,
@@ -45,6 +49,7 @@ export async function loadMaterialContext(supabase: Client, materialId: string) 
     material,
     chunks: chunkInput,
     chunkIds: chunks.map((chunk) => chunk.id),
+    knownConcepts,
     student: {
       educationLevel: profile?.education_level ?? null,
       mainGoal: profile?.main_goal ?? null,

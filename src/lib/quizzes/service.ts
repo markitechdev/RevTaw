@@ -104,7 +104,7 @@ async function populateQuiz(
       .order("created_at", { ascending: false })
       .limit(100);
     const previous = (earlier ?? []).map((row) => row.prompt);
-    const result = await generateQuiz(context.material.title, context.chunks, config, context.student, adaptive, { previous });
+    const result = await generateQuiz(context.material.title, context.chunks, config, context.student, adaptive, { previous, knownConcepts: context.knownConcepts });
     if (result.questions.length === 0) {
       throw new ServiceError("No usable questions could be written from this material. Try a different type or a longer material.", 422);
     }

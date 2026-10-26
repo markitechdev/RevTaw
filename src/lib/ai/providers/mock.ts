@@ -1,6 +1,7 @@
 import { associationsHeuristically, caseEvaluationHeuristically, casesHeuristically, conceptMapHeuristically, mindMapHeuristically, mnemonicsHeuristically, problemEvaluationHeuristically, problemsHeuristically, readingAnswersHeuristically, reflectQuestionsHeuristically, retellCheckHeuristically, scenarioEvaluationHeuristically, scenariosHeuristically, storiesHeuristically, visualForSection, visualsHeuristically } from "@/lib/ai/providers/mock-study";
 import { collectFacts, isHeadingLike, keywordsOf, overlap, parseTranscriptSections, sentencesOf, splitInlineSections } from "@/lib/ai/providers/mock-text";
 import { AiError } from "@/lib/ai/errors";
+import { conceptCore, normalizeConceptName } from "@/lib/concepts/service";
 import { PASS_SCORE, verdictFor } from "@/lib/study/verdict";
 import type { AiGenerateOptions, AiGenerateResult, AiProvider } from "@/lib/ai/types";
 
@@ -387,6 +388,8 @@ export function quizHeuristically(transcript: string, prompt: string) {
     const match = pair.trim().match(/^(.+?):\s*(easy|medium|hard|advanced)$/);
     if (match) targets.set(conceptKey(match[1]), match[2] === "advanced" ? "hard" : (match[2] as "easy" | "medium" | "hard"));
   }
+  const known = [...(prompt.match(/^Concept names this material already uses[^:]*: (.+)$/m)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+  const knownName = (name: string) => known.find((other) => conceptCore(normalizeConceptName(other)) === conceptCore(normalizeConceptName(name))) ?? name;
   const focusLine = prompt.match(/concepts the student struggles with:\s*(.+?);\s*cover the rest/)?.[1];
   const focus = new Set((focusLine?.split(",") ?? []).map((name) => conceptKey(name)).filter(Boolean));
   const allFacts = collectFacts(transcript);
@@ -403,7 +406,8 @@ export function quizHeuristically(transcript: string, prompt: string) {
       const fact = facts[cursor % facts.length];
       const serial = cursor;
       cursor += 1;
-      const topic = fact.term ?? fact.heading;
+      // Like a real model, a question on a concept the material already names uses that name.
+      const topic = knownName(fact.term ?? fact.heading);
       const base = {
         difficulty: fixedDifficulty ?? (targets.size ? (targets.get(conceptKey(topic)) ?? "medium") : difficulties[serial % 3]),
         explanation: `The material states: "${fact.sentence}"`,

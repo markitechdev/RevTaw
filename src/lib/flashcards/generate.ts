@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
+import { knownConceptsLine } from "@/lib/concepts/service";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import { modelTitle } from "@/lib/ai/fields";
@@ -65,7 +66,7 @@ export function finalizeCards(cards: GeneratedCard[], count: number): GeneratedC
 export async function generateFlashcards(
   materialTitle: string,
   chunks: AnalysisChunkInput[],
-  options: { count: number; focus: string | null },
+  options: { count: number; focus: string | null; knownConcepts?: string[] },
   student: StudentContext,
 ): Promise<GenerateFlashcardsResult> {
   const provider = getAiProvider("strong");
@@ -78,14 +79,14 @@ Card rules:
 - Mix card styles: term → definition, question → answer, blank → missing phrase, formula → meaning. Prefer the material's own wording.
 - Cover the whole material evenly; no duplicates or trivial variations; skip page numbers and formatting trivia.
 - "hint": optional short nudge (max 100 chars) that does not give the answer away, or null.
-- "concept": the 1-4 word concept the card belongs to (reuse the same wording for the same concept).
+- "concept": the 1-4 word concept the card belongs to (reuse the same wording for the same concept; when the message lists the material's concept names, a card on one of them uses that name, and only a concept not listed gets a new one).
 - "source_excerpt": a short verbatim quote (max 300 chars) from the material supporting the back.
 - Use ONLY the material between <material> tags. Never invent facts.
 - Respond with a single JSON object matching the schema. No commentary.`;
 
   const user = `Material title: ${materialTitle}
 Student: ${studentLine(student)}
-${options.focus ? `Focus on: ${options.focus}\n` : ""}${coverageRatio < 1 ? `Note: only the first ${Math.round(coverageRatio * 100)}% of the material is included.\n` : ""}
+${options.focus ? `Focus on: ${options.focus}\n` : ""}${knownConceptsLine(options.knownConcepts ?? [])}${coverageRatio < 1 ? `Note: only the first ${Math.round(coverageRatio * 100)}% of the material is included.\n` : ""}
 Produce exactly ${options.count} cards.
 
 JSON schema:

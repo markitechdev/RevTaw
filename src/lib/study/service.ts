@@ -224,6 +224,7 @@ async function startRecallSession(supabase: Client, userId: string, input: Start
     focusConcepts: weak,
     recentMistakes: (mistakes ?? []).map((mistake) => mistake.question_text.slice(0, 200)),
     student: context.student,
+    knownConcepts: context.knownConcepts,
   });
   if (generated.questions.length === 0) throw new SessionError("No recall prompts could be written from this material.", 422);
 
@@ -266,6 +267,7 @@ async function startFeynmanSession(supabase: Client, userId: string, input: Star
     count: feynmanCount(input.plannedMinutes),
     focusConcepts: weak,
     student: context.student,
+    knownConcepts: context.knownConcepts,
   });
   if (generated.concepts.length === 0) throw new SessionError("No explainable concepts were found in this material.", 422);
   const concepts = await ensureConcepts(supabase, userId, generated.concepts.map((item) => item.concept), {
