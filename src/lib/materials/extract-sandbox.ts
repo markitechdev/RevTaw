@@ -36,9 +36,16 @@ export const EXTRACTION_LIMITS: SandboxLimits = {
   maxChars: 1_500_000,
 };
 
+/**
+ * Superscript and subscript text is wrapped in these private-use marks (Word math, raised or lowered PDF text,
+ * so "10" + raised "23" doesn't read "1023"); extract.ts writes it out as "10²³" or "x^(n+1)".
+ */
+export const SCRIPT_MARK = { supOpen: "\uE000", supClose: "\uE001", subOpen: "\uE002", subClose: "\uE003" } as const;
+
 export type SandboxOutput =
   | { kind: "pdf"; pages: Array<{ num: number; text: string }>; total: number; truncated: boolean }
-  | { kind: "docx"; html: string; truncated: boolean }
+  /** `equations`: Word equations turned into text; `images`: pictures skipped (text only). */
+  | { kind: "docx"; html: string; truncated: boolean; equations: number; images: number }
   | { kind: "doc"; text: string; truncated: boolean };
 
 export type SandboxFailure = "timeout" | "memory" | "crashed" | "output" | "parse";
@@ -62,6 +69,186 @@ const MAX_STDERR_BYTES = 16 * 1024;
  * its environment and stdin, and answers `{ ok, result }` or `{ ok: false }`.
  */
 const CHILD_SOURCE = String.raw`
+const SUP = ["\uE000", "\uE001"];
+const SUB = ["\uE002", "\uE003"];
+const sup = (text) => (text ? SUP[0] + text + SUP[1] : "");
+const sub = (text) => (text ? SUB[0] + text + SUB[1] : "");
+
+// --- Word equations (OMML), which mammoth drops: each becomes a run of plain text, "s = ut + 1/2 at²".
+const MATH = "http://schemas.openxmlformats.org/officeDocument/2006/math";
+const WORD = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+const kids = (node) => (node ? Array.from(node.childNodes).filter((child) => child.nodeType === 1) : []);
+const child = (node, name) => kids(node).find((item) => item.localName === name);
+const attr = (node, name, fallback) => {
+  if (!node) return fallback;
+  const value = node.getAttributeNS(MATH, name) || node.getAttribute("m:" + name);
+  return value || fallback;
+};
+const seq = (node) => kids(node).map(linear).join("");
+const atomic = (text) => /^[\p{L}\p{N}.,]+$/u.test(text) || /^\(.*\)$/.test(text);
+const group = (text) => (atomic(text) ? text : "(" + text + ")");
+function linear(node) {
+  const name = node.localName;
+  if (name.endsWith("Pr")) return "";
+  switch (name) {
+    case "r":
+      return kids(node).filter((item) => item.localName === "t").map((item) => item.textContent).join("");
+    case "t":
+      return node.textContent;
+    case "f":
+      return group(seq(child(node, "num"))) + "/" + group(seq(child(node, "den")));
+    case "sSup":
+      return seq(child(node, "e")) + sup(seq(child(node, "sup")));
+    case "sSub":
+      return seq(child(node, "e")) + sub(seq(child(node, "sub")));
+    case "sSubSup":
+      return seq(child(node, "e")) + sub(seq(child(node, "sub"))) + sup(seq(child(node, "sup")));
+    case "sPre":
+      return sub(seq(child(node, "sub"))) + sup(seq(child(node, "sup"))) + seq(child(node, "e"));
+    case "rad": {
+      const degree = seq(child(node, "deg"));
+      return (degree ? sup(degree) : "") + "√" + group(seq(child(node, "e")));
+    }
+    case "nary": {
+      const symbol = attr(child(child(node, "naryPr"), "chr"), "val", "∫");
+      return symbol + sub(seq(child(node, "sub"))) + sup(seq(child(node, "sup"))) + " " + seq(child(node, "e"));
+    }
+    case "d": {
+      const props = child(node, "dPr");
+      const open = attr(child(props, "begChr"), "val", "(");
+      const close = attr(child(props, "endChr"), "val", ")");
+      const separator = attr(child(props, "sepChr"), "val", "|");
+      return open + kids(node).filter((item) => item.localName === "e").map(seq).join(separator) + close;
+    }
+    case "func": {
+      const argument = seq(child(node, "e"));
+      return seq(child(node, "fName")) + (atomic(argument) ? " " + argument : argument.startsWith("(") ? argument : "(" + argument + ")");
+    }
+    case "acc":
+      return seq(child(node, "e")) + attr(child(child(node, "accPr"), "chr"), "val", "̂");
+    case "bar":
+      return seq(child(node, "e")) + "̅";
+    case "limLow":
+      return seq(child(node, "e")) + sub(seq(child(node, "lim")));
+    case "limUpp":
+      return seq(child(node, "e")) + sup(seq(child(node, "lim")));
+    case "eqArr":
+      return kids(node).filter((item) => item.localName === "e").map(seq).join("; ");
+    case "m":
+      return "[" + kids(node).filter((item) => item.localName === "mr").map((row) => kids(row).filter((item) => item.localName === "e").map(seq).join(" ")).join("; ") + "]";
+    default:
+      return seq(node);
+  }
+}
+const inside = (node, name) => {
+  for (let parent = node.parentNode; parent; parent = parent.parentNode) if (parent.localName === name && parent.namespaceURI === MATH) return true;
+  return false;
+};
+async function linearizeMath(input) {
+  const JSZip = (await import("jszip")).default;
+  const { DOMParser, XMLSerializer } = await import("@xmldom/xmldom");
+  const zip = await JSZip.loadAsync(input);
+  const file = zip.file("word/document.xml");
+  if (!file) return { buffer: input, equations: 0 };
+  // Most documents have no equations: look for one while streaming, without holding the whole XML.
+  const hasMath = await new Promise((resolve, reject) => {
+    let tail = "";
+    let found = false;
+    file
+      .nodeStream()
+      .on("data", (chunk) => {
+        if (found) return;
+        const text = tail + chunk.toString("latin1");
+        if (text.indexOf("oMath") >= 0) {
+          found = true;
+          resolve(true);
+        }
+        tail = text.slice(-8);
+      })
+      .on("end", () => resolve(found))
+      .on("error", reject);
+  });
+  if (!hasMath) return { buffer: input, equations: 0 };
+  const xml = await file.async("string");
+  const doc = new DOMParser().parseFromString(xml, "text/xml");
+  const replace = (node, text) => {
+    const run = doc.createElementNS(WORD, "w:r");
+    const textNode = doc.createElementNS(WORD, "w:t");
+    textNode.setAttribute("xml:space", "preserve");
+    textNode.appendChild(doc.createTextNode(text));
+    run.appendChild(textNode);
+    node.parentNode.replaceChild(run, node);
+  };
+  let equations = 0;
+  // Display equations (one or more in a paragraph of their own), then the inline ones.
+  for (const para of Array.from(doc.getElementsByTagNameNS(MATH, "oMathPara"))) {
+    if (!para.parentNode || inside(para, "oMathPara")) continue;
+    const maths = kids(para).filter((item) => item.localName === "oMath");
+    equations += maths.length;
+    replace(para, maths.map(linear).join("; "));
+  }
+  for (const math of Array.from(doc.getElementsByTagNameNS(MATH, "oMath"))) {
+    if (!math.parentNode || inside(math, "oMathPara") || inside(math, "oMath")) continue;
+    equations += 1;
+    replace(math, linear(math));
+  }
+  zip.file("word/document.xml", new XMLSerializer().serializeToString(doc));
+  return { buffer: await zip.generateAsync({ type: "nodebuffer" }), equations };
+}
+
+// --- PDF text with raised and lowered text marked: pdf-parse's own line rules, plus scripts.
+async function pdfPageText(page) {
+  const viewport = page.getViewport({ scale: 1 });
+  const content = await page.getTextContent();
+  const out = [];
+  let lastX;
+  let lastY;
+  let lineHeight = 0;
+  // The line's baseline and body size: what a smaller, raised or lowered item is measured against.
+  let baseY;
+  let baseSize = 0;
+  for (const item of content.items) {
+    if (!("str" in item)) continue;
+    const [x, y] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
+    const size = Math.hypot(item.transform[2], item.transform[3]) || item.height || 0;
+    let text = item.str;
+    // A shorter item set above or below the line's baseline, right after the text it belongs to ("10" "23").
+    const touching = lastX !== undefined && x - lastX < Math.max(2, baseSize * 0.5);
+    const offset = baseY === undefined ? 0 : Math.abs(y - baseY);
+    const script = text.trim() !== "" && baseSize > 0 && size > 0 && size < baseSize * 0.85 && touching && offset > baseSize * 0.15 && offset < baseSize;
+    if (script) {
+      while (out.length && out[out.length - 1] !== "\n" && out[out.length - 1].trim() === "") out.pop();
+      out.push(y < baseY ? sup(text.trim()) : sub(text.trim()));
+      lastX = x + item.width;
+      continue;
+    }
+    const sameLine = lastY !== undefined && Math.abs(lastY - y) <= 4.6;
+    if (lastY !== undefined && !sameLine) {
+      const previous = out.length ? out[out.length - 1] : undefined;
+      const startsLine = text.startsWith("\n") || (text.trim() === "" && item.hasEOL);
+      if (previous !== undefined && !previous.endsWith("\n") && !startsLine && Math.abs(lastY - y) - 1 > lineHeight) {
+        out.push("\n");
+        lineHeight = 0;
+      }
+    }
+    const newLine = !out.length || out[out.length - 1].endsWith("\n");
+    if (newLine || baseY === undefined || !sameLine) {
+      baseY = y;
+      baseSize = size;
+    } else if (size > baseSize) {
+      baseSize = size;
+    }
+    if (sameLine && lastX !== undefined && Math.abs(lastX - x) > 7) text = "\t" + text;
+    out.push(text);
+    lastX = x + item.width;
+    lastY = y;
+    lineHeight = Math.max(lineHeight, item.height);
+    if (item.hasEOL) out.push("\n");
+    if (item.hasEOL || text.endsWith("\n")) lineHeight = 0;
+  }
+  return out.join("");
+}
+
 const kind = process.env.REVTAW_KIND;
 const maxPages = Number(process.env.REVTAW_MAX_PAGES);
 const maxChars = Number(process.env.REVTAW_MAX_CHARS);
@@ -82,8 +269,10 @@ try {
       let chars = 0;
       const last = Math.min(total, maxPages);
       for (let num = 1; num <= last && chars < maxChars; num += 1) {
-        const page = (await parser.getText({ partial: [num] })).pages[0];
-        const text = (page ? page.text : "").slice(0, maxChars - chars);
+        // pdf.js's own document when pdf-parse exposes it (raised and lowered text marked); pdf-parse's text otherwise.
+        const doc = parser.doc;
+        const pageText = doc && typeof doc.getPage === "function" ? await pdfPageText(await doc.getPage(num)) : ((await parser.getText({ partial: [num] })).pages[0] || {}).text || "";
+        const text = pageText.slice(0, maxChars - chars);
         chars += text.length;
         pages.push({ num, text });
       }
@@ -93,10 +282,18 @@ try {
     }
   } else if (kind === "docx") {
     const mammoth = (await import("mammoth")).default;
-    // Images are not needed for text: skip their base64 copies entirely.
-    const options = { convertImage: mammoth.images.imgElement(async () => ({ src: "" })) };
-    const { value } = await mammoth.convertToHtml({ buffer: input }, options);
-    result = { kind, html: value.slice(0, maxChars), truncated: value.length > maxChars };
+    // Word equations become text first; a document whose XML can't be rewritten is read as it is.
+    let prepared = { buffer: input, equations: 0 };
+    try {
+      prepared = await linearizeMath(input);
+    } catch {
+      prepared = { buffer: input, equations: 0 };
+    }
+    // Images are not needed for text: skip their base64 copies entirely (and count them, to say so).
+    let images = 0;
+    const options = { convertImage: mammoth.images.imgElement(async () => { images += 1; return { src: "" }; }) };
+    const { value } = await mammoth.convertToHtml({ buffer: prepared.buffer }, options);
+    result = { kind, html: value.slice(0, maxChars), truncated: value.length > maxChars, equations: prepared.equations, images };
   } else if (kind === "doc") {
     const WordExtractor = (await import("word-extractor")).default;
     const document = await new WordExtractor().extract(input);

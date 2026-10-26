@@ -2,7 +2,7 @@ import "server-only";
 
 import { getAiProvider } from "@/lib/ai";
 import { charsetOf, decodeText, type TextEncoding } from "@/lib/materials/detect";
-import { EXTRACTION_LIMITS, extractInSandbox, SandboxError, type SandboxKind, type SandboxOutput } from "@/lib/materials/extract-sandbox";
+import { EXTRACTION_LIMITS, extractInSandbox, SandboxError, SCRIPT_MARK, type SandboxKind, type SandboxOutput } from "@/lib/materials/extract-sandbox";
 import type { MaterialSource } from "@/lib/supabase/database.types";
 
 /** A page or section of extracted text, in reading order. */
@@ -19,6 +19,8 @@ export type ExtractionResult = {
   method: "pdf-text" | "docx" | "doc" | "plain-text" | "ai-vision";
   /** True when only the first part was read (EXTRACTION_LIMITS: pages or characters). */
   truncated?: boolean;
+  /** What the student should know about how the text was read (equations converted, pictures skipped). */
+  notes?: string[];
 };
 
 export class ExtractionError extends Error {
@@ -79,7 +81,7 @@ async function runSandbox<K extends SandboxKind>(kind: K, bytes: Uint8Array, unr
 async function extractPdf(bytes: Uint8Array): Promise<ExtractionResult> {
   const result = await runSandbox("pdf", bytes, "This PDF could not be read. It may be damaged or password-protected.");
   const sections = result.pages
-    .map((page) => ({ page: page.num, text: normalizeWhitespace(page.text) }))
+    .map((page) => ({ page: page.num, text: normalizeWhitespace(formatScripts(page.text)) }))
     .filter((section) => section.text.length > 0);
   if (sections.length === 0) {
     throw new ExtractionError(EMPTY_TEXT_MESSAGE, "pdf contained no text layer");
@@ -94,7 +96,11 @@ async function extractDocx(bytes: Uint8Array): Promise<ExtractionResult> {
   if (text.length === 0) {
     throw new ExtractionError(EMPTY_TEXT_MESSAGE, "docx contained no text");
   }
-  return { sections: [{ page: null, text }], pageCount: null, method: "docx", truncated: result.truncated };
+  const notes = [
+    result.equations > 0 ? `${result.equations === 1 ? "An equation was" : `${result.equations} equations were`} turned into plain text (like "s = ut + 1/2 at²"); check formulas against your file.` : null,
+    result.images > 0 ? `${result.images === 1 ? "A picture was" : `${result.images} pictures were`} skipped: RevTaw reads the text of a document, not its images. Upload a picture on its own to have it read.` : null,
+  ].filter((note): note is string => note !== null);
+  return { sections: [{ page: null, text }], pageCount: null, method: "docx", truncated: result.truncated, ...(notes.length ? { notes } : {}) };
 }
 
 async function extractDoc(bytes: Uint8Array): Promise<ExtractionResult> {
@@ -167,16 +173,61 @@ export function normalizeWhitespace(text: string): string {
     .trim();
 }
 
+const SUPERSCRIPT: Record<string, string> = {
+  "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
+  "+": "⁺", "-": "⁻", "−": "⁻", "=": "⁼", "(": "⁽", ")": "⁾", n: "ⁿ", i: "ⁱ",
+};
+const SUBSCRIPT: Record<string, string> = {
+  "0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉",
+  "+": "₊", "-": "₋", "−": "₋", "=": "₌", "(": "₍", ")": "₎",
+  a: "ₐ", e: "ₑ", o: "ₒ", x: "ₓ", h: "ₕ", k: "ₖ", l: "ₗ", m: "ₘ", n: "ₙ", p: "ₚ", s: "ₛ", t: "ₜ", i: "ᵢ", j: "ⱼ", r: "ᵣ", u: "ᵤ", v: "ᵥ",
+};
+
+/**
+ * Superscript or subscript text written so it can't be misread: Unicode where every character has a form
+ * ("10²³", "H₂O", "m/s²"), otherwise a caret or underscore ("x^(n+1)", "v_max"). Letters set high that read as
+ * words (the "st" of "1st") stay plain.
+ */
+export function scriptText(kind: "sup" | "sub", value: string): string {
+  const text = value.trim();
+  if (!text) return "";
+  const table = kind === "sup" ? SUPERSCRIPT : SUBSCRIPT;
+  const characters = [...text];
+  if (characters.every((character) => table[character])) return characters.map((character) => table[character]).join("");
+  // Ordinals and abbreviations set high ("1st", "Mme") read right as plain letters; so does a footnote mark ("[1]").
+  if (kind === "sup" && (/^\p{L}{2,}$/u.test(text) || /^\[\d+\]$/.test(text))) return text;
+  const mark = kind === "sup" ? "^" : "_";
+  return /^[\p{L}\p{N}]+$/u.test(text) && (kind === "sub" || characters.length === 1) ? `${mark}${text}` : `${mark}(${text})`;
+}
+
+/** Writes out the superscript and subscript marks of extracted text (SCRIPT_MARK), innermost first. */
+export function formatScripts(text: string): string {
+  const { supOpen, supClose, subOpen, subClose } = SCRIPT_MARK;
+  const innermost = new RegExp(`${supOpen}([^${supOpen}${supClose}${subOpen}${subClose}]*)${supClose}|${subOpen}([^${supOpen}${supClose}${subOpen}${subClose}]*)${subClose}`, "g");
+  let current = text;
+  for (let round = 0; round < 8 && innermost.test(current); round += 1) {
+    innermost.lastIndex = 0;
+    current = current.replace(innermost, (_match, raised: string | undefined, lowered: string | undefined) => (raised !== undefined ? scriptText("sup", raised) : scriptText("sub", lowered ?? "")));
+    innermost.lastIndex = 0;
+  }
+  // A mark left unmatched (cut text) is dropped rather than shown.
+  return current.replace(new RegExp(`[${supOpen}${supClose}${subOpen}${subClose}]`, "g"), "");
+}
+
 /** Minimal HTML → text that turns headings into their own lines and keeps list items. */
 export function htmlToText(html: string): string {
-  const withBreaks = html
+  const { supOpen, supClose, subOpen, subClose } = SCRIPT_MARK;
+  const withScripts = html
+    .replace(/<sup[^>]*>([\s\S]*?)<\/sup>/gi, (_match, inner: string) => `${supOpen}${inner.replace(/<[^>]+>/g, "")}${supClose}`)
+    .replace(/<sub[^>]*>([\s\S]*?)<\/sub>/gi, (_match, inner: string) => `${subOpen}${inner.replace(/<[^>]+>/g, "")}${subClose}`);
+  const withBreaks = withScripts
     .replace(/<\/(h[1-6])>/gi, "\n\n")
     .replace(/<(h[1-6])[^>]*>/gi, "\n\n")
     .replace(/<\/p>|<\/li>|<\/tr>|<br\s*\/?>/gi, "\n")
     .replace(/<li[^>]*>/gi, "• ")
     .replace(/<\/td>|<\/th>/gi, "\t")
     .replace(/<[^>]+>/g, "");
-  return normalizeWhitespace(decodeEntities(withBreaks));
+  return normalizeWhitespace(formatScripts(decodeEntities(withBreaks)));
 }
 
 const NAMED_ENTITIES: Record<string, string> = { nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };

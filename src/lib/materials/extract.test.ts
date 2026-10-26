@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { htmlToText } from "@/lib/materials/extract";
+import { formatScripts, htmlToText, scriptText } from "@/lib/materials/extract";
+import { SCRIPT_MARK } from "@/lib/materials/extract-sandbox";
 
 describe("htmlToText", () => {
   it("keeps headings and list items on their own lines", () => {
@@ -20,5 +21,29 @@ describe("htmlToText", () => {
 
   it("leaves unknown named entities alone", () => {
     expect(htmlToText("<p>&copy; 2026 &unknown;</p>")).toBe("&copy; 2026 &unknown;");
+  });
+});
+
+describe("superscripts and subscripts", () => {
+  it("writes them so they can't be misread", () => {
+    expect(scriptText("sup", "23")).toBe("²³");
+    expect(scriptText("sup", "-3")).toBe("⁻³");
+    expect(scriptText("sup", "n+1")).toBe("ⁿ⁺¹");
+    expect(scriptText("sup", "2x")).toBe("^(2x)");
+    expect(scriptText("sup", "a")).toBe("^a");
+    expect(scriptText("sup", "st")).toBe("st");
+    expect(scriptText("sup", "[1]")).toBe("[1]");
+    expect(scriptText("sub", "2")).toBe("₂");
+    expect(scriptText("sub", "max")).toBe("ₘₐₓ");
+    expect(scriptText("sub", "eq")).toBe("_eq");
+    expect(scriptText("sub", "")).toBe("");
+  });
+
+  it("reads Word's superscripts and subscripts, and marks nested ones innermost first", () => {
+    expect(htmlToText("<p>6.02 × 10<sup>23</sup> per mole; H<sub>2</sub>O; x<sup><em>n</em></sup>; the 1<sup>st</sup> law</p>")).toBe("6.02 × 10²³ per mole; H₂O; xⁿ; the 1st law");
+    const { supOpen, supClose } = SCRIPT_MARK;
+    expect(formatScripts(`e${supOpen}x${supOpen}2${supClose}${supClose}`)).toBe("e^(x²)");
+    // A mark cut off at the end of the text is dropped.
+    expect(formatScripts(`10${supOpen}23`)).toBe("1023");
   });
 });

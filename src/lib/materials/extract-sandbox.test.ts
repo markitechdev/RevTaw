@@ -1,7 +1,8 @@
-import { constants, crc32, createDeflate, createDeflateRaw, deflateRawSync } from "node:zlib";
+import { constants, crc32, createDeflate, createDeflateRaw, deflateRawSync, deflateSync } from "node:zlib";
 
 import { describe, expect, it } from "vitest";
 
+import { formatScripts, htmlToText } from "@/lib/materials/extract";
 import { EXTRACTION_LIMITS, extractInSandbox, SandboxError, type SandboxLimits, type SandboxOutput } from "@/lib/materials/extract-sandbox";
 
 // ---------------------------------------------------------------------------
@@ -146,6 +147,46 @@ describe("extractInSandbox", () => {
     const docx = buildDocx({ name: "word/document.xml", data: Buffer.from(`${DOC_OPEN}${paragraph("Cell membranes are selectively permeable")}${DOC_CLOSE}`) });
     const result = await extractInSandbox("docx", docx);
     expect(result.kind === "docx" && result.html).toContain("Cell membranes are selectively permeable");
+  }, 30_000);
+
+  it("turns Word equations into text instead of dropping them, and counts skipped pictures", async () => {
+    const MATH_OPEN = '<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><w:body>';
+    const run = (text: string) => `<m:r><m:t>${text}</m:t></m:r>`;
+    const inline = `<w:p><w:r><w:t xml:space="preserve">The final velocity is </w:t></w:r><m:oMath>${run("v")}${run("=")}${run("u")}${run("+")}${run("a")}${run("t")}</m:oMath><w:r><w:t xml:space="preserve"> and the displacement is</w:t></w:r></w:p>`;
+    const display = `<w:p><m:oMathPara><m:oMath>${run("s")}${run("=")}${run("ut")}${run("+")}<m:f><m:num>${run("1")}</m:num><m:den>${run("2")}</m:den></m:f>${run("a")}<m:sSup><m:e>${run("t")}</m:e><m:sup>${run("2")}</m:sup></m:sSup></m:oMath></m:oMathPara></w:p>`;
+    const root = `<w:p><m:oMath><m:rad><m:radPr><m:degHide m:val="1"/></m:radPr><m:deg/><m:e>${run("b")}<m:sSup><m:e/><m:sup>${run("2")}</m:sup></m:sSup>${run("−4ac")}</m:e></m:rad></m:oMath></w:p>`;
+    const raised = '<w:p><w:r><w:t xml:space="preserve">Avogadro constant: 6.02 × 10</w:t></w:r><w:r><w:rPr><w:vertAlign w:val="superscript"/></w:rPr><w:t>23</w:t></w:r><w:r><w:t xml:space="preserve"> per mole. Water is H</w:t></w:r><w:r><w:rPr><w:vertAlign w:val="subscript"/></w:rPr><w:t>2</w:t></w:r><w:r><w:t>O.</w:t></w:r></w:p>';
+    const docx = buildDocx({ name: "word/document.xml", data: Buffer.from(`${MATH_OPEN}${inline}${display}${root}${raised}${DOC_CLOSE}`) });
+    const result = await extractInSandbox("docx", docx);
+    expect(result.kind).toBe("docx");
+    if (result.kind !== "docx") return;
+    expect(result.equations).toBe(3);
+    expect(result.images).toBe(0);
+    const text = htmlToText(result.html);
+    expect(text).toContain("The final velocity is v=u+at and the displacement is");
+    expect(text).toContain("s=ut+1/2at²");
+    expect(text).toContain("√(b²−4ac)");
+    expect(text).toContain("Avogadro constant: 6.02 × 10²³ per mole. Water is H₂O.");
+  }, 30_000);
+
+  it("marks raised and lowered PDF text instead of running it into the line", async () => {
+    // "6.02 x 10" with a smaller "23" set up against it, and "H" with a smaller "2" set down, then "O".
+    const ops = [
+      "BT /F1 12 Tf 72 720 Td (Avogadro: 6.02 x 10) Tj ET",
+      "BT /F1 7 Tf 174.7 725 Td (23) Tj ET",
+      "BT /F1 12 Tf 72 690 Td (Water is H) Tj ET",
+      "BT /F1 7 Tf 131.4 686 Td (2) Tj ET",
+      "BT /F1 12 Tf 135.4 690 Td (O) Tj ET",
+    ].join("\n");
+    const flate = { bytes: deflateSync(Buffer.from(ops)) };
+    const pdf = buildPdf([["unused"]], { flate: flate.bytes });
+    const result = await extractInSandbox("pdf", pdf);
+    expect(result.kind).toBe("pdf");
+    if (result.kind !== "pdf") return;
+    const text = formatScripts(result.pages[0].text);
+    expect(text).toContain("6.02 x 10²³");
+    expect(text).toContain("H₂O");
+    expect(text).not.toContain("1023");
   }, 30_000);
 
   it("reports a file the parser rejects", async () => {

@@ -13,5 +13,8 @@ export const PARSER_MODULES = {
   // pdf.js polyfills DOMMatrix, ImageData and Path2D from it in Node and fails to load without it.
   pdfCanvas: () => import("@napi-rs/canvas"),
   docx: () => import("mammoth"),
+  // Word equations are rewritten as text before mammoth reads the file.
+  docxZip: () => import("jszip"),
+  docxXml: () => import("@xmldom/xmldom"),
   doc: () => import("word-extractor"),
 } as const;

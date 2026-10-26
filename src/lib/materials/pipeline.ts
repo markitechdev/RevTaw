@@ -118,7 +118,7 @@ export async function processMaterial(
 
     // Embedding runs beside the analysis; if it fails, search uses words until the backfill job catches up.
     const [analysisDetail] = await Promise.all([runAnalysis(supabase, material, chunks), embedMaterialQuietly(supabase, material.id)]);
-    const detail = [analysisDetail, extraction.truncated ? truncationNote(extraction) : null].filter(Boolean).join(" ") || null;
+    const detail = [analysisDetail, extraction.truncated ? truncationNote(extraction) : null, ...(extraction.notes ?? [])].filter(Boolean).join(" ") || null;
     await setStatus(supabase, material.id, "ready", detail);
     track(material.user_id, "material_processed", { source: material.source, status: "ready", method: extraction.method, chunks: chunks.length });
     return { status: "ready", detail };
