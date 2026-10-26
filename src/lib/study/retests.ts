@@ -1,6 +1,7 @@
 import "server-only";
 
 import { retestViewFor } from "@/lib/mistakes/retest";
+import { retestCutoff } from "@/lib/quizzes/queries";
 import type { Client, ItemRow } from "@/lib/study/items";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -25,21 +26,29 @@ const RETEST_COLUMNS = "id, question_text, correct_answer, explanation, concept_
 
 /**
  * Open entries to retest (of one material, or all), the longest-standing miss first: a missed retest dates
- * its miss again, so it waits behind the others, and the mistakes just made come last instead of first.
+ * its miss again, so it waits behind the others. Only the ones missed before today while there are any: a
+ * right retest clears those now, and today's count only from tomorrow. With none of those, today's mistakes
+ * are retested for practice.
  */
 export async function mistakesToRetest(supabase: Client, options: { materialId: string | null; limit: number }): Promise<RetestMistake[]> {
-  let query = supabase
-    .from("mistakes")
-    .select(RETEST_COLUMNS)
-    .is("resolved_at", null)
-    .order("last_missed_at", { ascending: true })
-    .order("created_at", { ascending: true })
-    .order("id")
-    .limit(Math.max(1, options.limit));
-  if (options.materialId) query = query.eq("material_id", options.materialId);
-  const { data, error } = await query;
-  if (error) throw new Error(`mistakes: retest read failed: ${error.message}`);
-  return (data ?? []) as unknown as RetestMistake[];
+  const cutoff = await retestCutoff();
+  const read = async (dueOnly: boolean) => {
+    let query = supabase
+      .from("mistakes")
+      .select(RETEST_COLUMNS)
+      .is("resolved_at", null)
+      .order("last_missed_at", { ascending: true })
+      .order("created_at", { ascending: true })
+      .order("id")
+      .limit(Math.max(1, options.limit));
+    if (options.materialId) query = query.eq("material_id", options.materialId);
+    if (dueOnly) query = query.lt("last_missed_at", cutoff);
+    const { data, error } = await query;
+    if (error) throw new Error(`mistakes: retest read failed: ${error.message}`);
+    return (data ?? []) as unknown as RetestMistake[];
+  };
+  const due = await read(true);
+  return due.length > 0 ? due : read(false);
 }
 
 /**

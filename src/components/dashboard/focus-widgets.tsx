@@ -13,7 +13,7 @@ import { getContinueItem } from "@/lib/dashboard/queries";
 import { SOURCE_LABEL } from "@/lib/materials/constants";
 import { countMaterials } from "@/lib/materials/queries";
 import { getDueToday } from "@/lib/planner/queries";
-import { countOpenMistakes } from "@/lib/quizzes/queries";
+import { countMistakesDue } from "@/lib/quizzes/queries";
 import { routes } from "@/lib/routes";
 import { methodName, unfinishedKind } from "@/lib/study/catalog";
 import { cn } from "@/lib/utils";
@@ -255,7 +255,7 @@ type DueRow = {
 /** Everything due today in one list, one action per row (§5): flashcards, reviews, planned sessions, tasks, mistakes. */
 export async function DueTodayWidget({ planning }: { planning: Promise<unknown> }) {
   await planning;
-  const [due, openMistakes] = await Promise.all([getDueToday(), countOpenMistakes()]);
+  const [due, mistakes] = await Promise.all([getDueToday(), countMistakesDue()]);
   const rows: DueRow[] = [];
 
   if (due.overdueCount > 0) {
@@ -280,8 +280,11 @@ export async function DueTodayWidget({ planning }: { planning: Promise<unknown> 
       action: { href: first.materialId ? `${routes.study}?method=active_recall&material=${first.materialId}` : `${routes.study}?method=active_recall`, label: "Recall" },
     });
   }
-  if (openMistakes > 0) {
-    rows.push({ key: "mistakes", icon: NotebookPen, title: `${openMistakes} mistake${openMistakes === 1 ? "" : "s"} to retest`, meta: "From your mistake notebook", action: { href: `${routes.study}?method=error_review`, label: "Retest" } });
+  if (mistakes.due > 0) {
+    rows.push({ key: "mistakes", icon: NotebookPen, title: `${mistakes.due} mistake${mistakes.due === 1 ? "" : "s"} to retest`, meta: "From your mistake notebook", action: { href: `${routes.study}?method=error_review`, label: "Retest" } });
+  } else if (mistakes.today > 0) {
+    // A retest counts only on a later day than the miss: today's mistakes are read today and retested tomorrow.
+    rows.push({ key: "mistakes", icon: NotebookPen, title: `${mistakes.today} mistake${mistakes.today === 1 ? "" : "s"} from today`, meta: "Read why now; retest tomorrow, when a right answer counts", action: { href: routes.mistakes, label: "Read" } });
   }
 
   const planned = due.plannedMinutes;

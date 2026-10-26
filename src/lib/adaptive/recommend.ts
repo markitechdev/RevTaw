@@ -6,7 +6,7 @@ import { getMasterySummary, type MasteryView } from "@/lib/adaptive/engine";
 import { methodFor, rankConcepts, type RankedConcept } from "@/lib/adaptive/focus";
 import { ENGINE } from "@/lib/engine/config";
 import { countDueCards } from "@/lib/flashcards/queries";
-import { countOpenMistakes } from "@/lib/quizzes/queries";
+import { countMistakesDue } from "@/lib/quizzes/queries";
 import { routes } from "@/lib/routes";
 import { BUILDER_METHOD_IDS, methodName } from "@/lib/study/catalog";
 import type { StudyMethodId } from "@/lib/study/methods";
@@ -66,7 +66,8 @@ function standing(concept: RankedConcept): string {
 
 /** Ranked list of what to do next (research doc §10–§11): the top concepts by priority, each with the rule table's method and why. */
 export const getRecommendations = cache(async (limit = 4): Promise<Recommendation[]> => {
-  const [summary, ranked, dueCards, openMistakes] = await Promise.all([getMasterySummary(), rankConcepts({ includeUnpracticed: true }), countDueCards(), countOpenMistakes()]);
+  // Mistakes whose retest can count today (missed before today): today's come up tomorrow.
+  const [summary, ranked, dueCards, { due: openMistakes }] = await Promise.all([getMasterySummary(), rankConcepts({ includeUnpracticed: true }), countDueCards(), countMistakesDue()]);
   const items: Recommendation[] = [];
 
   // The two highest-priority concepts, plus the worst open misconception: a confident error is fixed first.
@@ -98,7 +99,7 @@ export const getRecommendations = cache(async (limit = 4): Promise<Recommendatio
     items.push({
       id: "mistakes",
       title: `Retest ${openMistakes} open mistake${openMistakes === 1 ? "" : "s"}`,
-      reason: "A retest shows whether each one is fixed. Until then they count toward their concepts' weak-topic score; a right retest on a later day than the miss marks one learned.",
+      reason: "You missed these on an earlier day, so a right retest now marks each one learned. Until then they count toward their concepts' weak-topic score.",
       method: "error_review",
       minutes: Math.min(20, Math.max(5, openMistakes * 2)),
       href: sessionHref("error_review", null),

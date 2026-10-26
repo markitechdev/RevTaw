@@ -34,7 +34,10 @@ export type TamariPlanInput = {
   misconception: string | null;
   /** The concept missed most often lately. */
   repeated: { name: string; count: number } | null;
-  /** Open mistakes the plan's Error Review retests: all of the material's, or all of them without one. */
+  /**
+   * Mistakes the plan's Mistake Review retests, the material's (or all of them without one): the open ones
+   * missed before today, which a right retest clears now (today's count only from tomorrow).
+   */
   openMistakes: number;
   dueCards: number;
 };

@@ -17,7 +17,7 @@ import { countDueCards } from "@/lib/flashcards/queries";
 import { listMaterials } from "@/lib/materials/queries";
 import { getPreferences } from "@/lib/preferences/queries";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
-import { countOpenMistakes } from "@/lib/quizzes/queries";
+import { countMistakesDue } from "@/lib/quizzes/queries";
 import { routes } from "@/lib/routes";
 import { isPlanMethod, methodName, unfinishedKind } from "@/lib/study/catalog";
 import { getMnemonicCounts } from "@/lib/study/flows/memory";
@@ -33,11 +33,11 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
   const params = await searchParams;
   const { user, profile } = await getCurrentUserWithProfile();
   if (!user) redirect(routes.login);
-  const [materials, unfinished, finished, openMistakes, dueCards, activity, routines, mnemonics, preferences] = await Promise.all([
+  const [materials, unfinished, finished, mistakes, dueCards, activity, routines, mnemonics, preferences] = await Promise.all([
     listMaterials(),
     listSessions({ status: "in_progress", limit: 60 }),
     listSessions({ status: "finished", limit: 8 }),
-    countOpenMistakes(),
+    countMistakesDue(),
     countDueCards(),
     getActivityStats(),
     listRoutines(),
@@ -81,10 +81,11 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
                 Review {dueCards} due card{dueCards === 1 ? "" : "s"}
               </Link>
             )}
-            {openMistakes > 0 && (
+            {/* Mistakes due for a retest (missed before today); an Error Review from the builder takes today's too. */}
+            {mistakes.due > 0 && (
               <Link href={`${routes.study}?method=error_review`} className={buttonClasses({ variant: "secondary", size: "sm" })}>
                 <NotebookPen className="h-4 w-4" aria-hidden="true" />
-                Retest {openMistakes} mistake{openMistakes === 1 ? "" : "s"}
+                Retest {mistakes.due} mistake{mistakes.due === 1 ? "" : "s"}
               </Link>
             )}
           </>
@@ -100,7 +101,7 @@ export default async function StudyPage({ searchParams }: PageProps<"/study">) {
             materials={readyMaterials}
             waitingMaterials={waitingMaterials}
             defaultMinutes={profile?.preferred_session_minutes ?? 30}
-            openMistakes={openMistakes}
+            openMistakes={mistakes.due + mistakes.today}
             dueCards={dueCards}
             initialMethod={typeof params.method === "string" ? params.method : undefined}
             initialMaterialId={typeof params.material === "string" ? params.material : undefined}

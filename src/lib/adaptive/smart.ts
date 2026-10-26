@@ -6,6 +6,7 @@ import { BLOCK_METHODS, examInScope, isWeakConcept, methodFor, rankConcepts } fr
 import { conceptsPerPlan } from "@/lib/engine/priority";
 import { countDueCards } from "@/lib/flashcards/queries";
 import { getPreferences } from "@/lib/preferences/queries";
+import { countMistakesDue } from "@/lib/quizzes/queries";
 import { BUILDER_METHOD_IDS, isBuilderMethod } from "@/lib/study/catalog";
 import { PLAN_MAX_BLOCKS, PLAN_MAX_MINUTES } from "@/lib/study/plan-limits";
 import { completeSession, createSession, loadSession, SessionError, updateSessionState, type SessionSummary, parseSessionSummary } from "@/lib/study/sessions";
@@ -120,11 +121,9 @@ async function planContext(request: { materialId: string | null; minutes: number
 
   const rows = (mistakes ?? []) as unknown as Array<{ concept_id: string | null; material_id: string | null; resolved_at: string | null; concept: { name: string } | null }>;
   const relevant = material ? rows.filter((row) => row.material_id === material.id) : rows;
-  // Every open mistake the block's Error Review would retest (the material's, or all of them), not only the last 30 days'.
-  let openQuery = supabase.from("mistakes").select("id", { count: "exact", head: true }).is("resolved_at", null);
-  if (material) openQuery = openQuery.eq("material_id", material.id);
-  const { count: openCount } = await openQuery;
-  const openMistakes = openCount ?? relevant.filter((row) => !row.resolved_at).length;
+  // The mistakes the block's Error Review retests (the material's, or all of them), not only the last 30 days':
+  // the open ones missed before today, which a right retest clears now. Today's come up tomorrow.
+  const { due: openMistakes } = await countMistakesDue(material?.id ?? null);
   // The concept missed most often lately, if it still has an open mistake.
   const counts = new Map<string, { name: string; count: number; open: boolean }>();
   for (const row of relevant) {

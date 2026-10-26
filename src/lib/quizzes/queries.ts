@@ -7,6 +7,9 @@ import { attemptDeadline, orderOptions } from "@/lib/quizzes/service";
 import { answerSchema, parseQuizConfig, responseSchema } from "@/lib/quizzes/schemas";
 import { answerNote, describeAnswer, describeResponse, type AnswerNote, type QuestionAnswer, type QuestionOption, type QuestionResponse, type QuizConfig } from "@/lib/quizzes/types";
 import { pageOf, type Page } from "@/lib/pagination";
+import { todayIn } from "@/lib/planner/dates";
+import { zonedInstant } from "@/lib/planner/time";
+import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import type { ConfidenceLevel, Json, Mistake, Quiz, QuizAttempt, QuizQuestion } from "@/lib/supabase/database.types";
 import { fetchPage, readPages } from "@/lib/supabase/paginate";
 import { createClient } from "@/lib/supabase/server";
@@ -400,6 +403,29 @@ export const countOpenMistakes = cache(async (): Promise<number> => {
   const supabase = await createClient();
   const { count } = await supabase.from("mistakes").select("id", { count: "exact", head: true }).is("resolved_at", null);
   return count ?? 0;
+});
+
+/** When the student's today began: a mistake last missed before then can be cleared by a retest now. */
+export async function retestCutoff(): Promise<string> {
+  const { profile } = await getCurrentUserWithProfile();
+  const timezone = profile?.timezone ?? null;
+  return zonedInstant(todayIn(timezone), "00:00", timezone).toISOString();
+}
+
+/**
+ * Open mistakes by when a retest can count (one material's, or all of them): `due` were last missed before
+ * today, the student's day, so a right retest today marks them learned; `today` were missed today and are due
+ * tomorrow (mistakes/retest.ts: a retest counts only on a later day than the miss).
+ */
+export const countMistakesDue = cache(async (materialId: string | null = null): Promise<{ due: number; today: number }> => {
+  const supabase = await createClient();
+  const startOfToday = await retestCutoff();
+  const open = () => {
+    const query = supabase.from("mistakes").select("id", { count: "exact", head: true }).is("resolved_at", null);
+    return materialId ? query.eq("material_id", materialId) : query;
+  };
+  const [{ count: due }, { count: all }] = await Promise.all([open().lt("last_missed_at", startOfToday), open()]);
+  return { due: due ?? 0, today: Math.max(0, (all ?? 0) - (due ?? 0)) };
 });
 
 export type ConceptPerformance = {
