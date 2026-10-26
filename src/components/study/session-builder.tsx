@@ -124,6 +124,8 @@ export function SessionBuilder({
   const [pomodoro, setPomodoro] = useState<{ work: number; rest: number }>({ work: 25, rest: 5 });
   const [topic, setTopic] = useState("");
   const [extraMaterials, setExtraMaterials] = useState<string[]>([]);
+  // Interleaving mixes materials of one subject: the chosen material's (none when it has no subject).
+  const chosenSubject = materials.find((material) => material.id === materialId)?.subject ?? null;
   const [showAllMethods, setShowAllMethods] = useState(false);
   const [methodFilter, setMethodFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -145,7 +147,11 @@ export function SessionBuilder({
       setError(`${STUDY_METHOD_BY_ID[method].name} needs a material. Upload one first or pick another method.`);
       return;
     }
-    const others = extraMaterials.filter((id) => id !== materialId);
+    // Picked before the main material changed to another subject: those aren't mixed in.
+    const others = extraMaterials.filter((id) => {
+      const subject = materials.find((material) => material.id === id)?.subject ?? null;
+      return id !== materialId && !(chosenSubject && subject && subject !== chosenSubject);
+    });
     if (method === "interleaving" && others.length === 0) {
       setError("Interleaving mixes materials: tick at least one more material to combine.");
       return;
@@ -374,12 +380,21 @@ export function SessionBuilder({
             <ChipGroup
               type="multiple"
               name="interleave-material"
-              legend="Materials to mix in (up to three more)"
+              legend="Materials to mix in (up to three more, from the same subject)"
               value={extraMaterials}
               onChange={(next) => setExtraMaterials(next.slice(0, 3))}
               options={materials
                 .filter((material) => material.id !== materialId)
-                .map((material) => ({ value: material.id, label: material.title, hint: material.subject ?? undefined, disabled: pending || (!extraMaterials.includes(material.id) && extraMaterials.length >= 3) }))}
+                .map((material) => {
+                  // Mixing pays off between related topics, so another subject's materials can't be mixed in.
+                  const otherSubject = Boolean(chosenSubject && material.subject && material.subject !== chosenSubject);
+                  return {
+                    value: material.id,
+                    label: material.title,
+                    hint: otherSubject ? `${material.subject} — another subject` : (material.subject ?? undefined),
+                    disabled: pending || otherSubject || (!extraMaterials.includes(material.id) && extraMaterials.length >= 3),
+                  };
+                })}
               look="card"
             />
           )}

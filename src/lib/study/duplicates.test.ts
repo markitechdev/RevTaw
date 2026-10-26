@@ -83,6 +83,14 @@ describe("telling copies of a session apart", () => {
     expect(isCopyOf(signatureForStart({ method: "pomodoro", materialId: null, plannedMinutes: 25, topic: "Physics" }), loose as never)).toBe(false);
   });
 
+  it("tells interleaving sessions apart by every material they mix, in any order", () => {
+    const mix = session({ method: "interleaving", material_id: "m1", material_ids: ["m1", "m2"] });
+    expect(isCopyOf(signatureForStart({ method: "interleaving", materialId: "m2", materialIds: ["m1"], plannedMinutes: 15 }), mix as never)).toBe(true);
+    expect(isCopyOf(signatureForStart({ method: "interleaving", materialId: "m1", materialIds: ["m3"], plannedMinutes: 15 }), mix as never)).toBe(false);
+    expect(isCopyOf(signatureForStart({ method: "interleaving", materialId: "m1", materialIds: ["m2", "m3"], plannedMinutes: 15 }), mix as never)).toBe(false);
+    expect(signatureKey(signatureForStart({ method: "interleaving", materialId: "m2", materialIds: ["m1"], plannedMinutes: 15 }))).toBe(signatureKey(signatureForStart({ method: "interleaving", materialId: "m1", materialIds: ["m2"], plannedMinutes: 15 })));
+  });
+
   it("compares text without case, extra spaces or look-alike characters", () => {
     expect(normalizeForMatch("  Chapter  4 ")).toBe("chapter 4");
     expect(normalizeForMatch("ＣＨＡＰＴＥＲ")).toBe("chapter");

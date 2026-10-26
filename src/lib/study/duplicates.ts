@@ -47,6 +47,8 @@ export type SessionSignature = {
   minutes?: number;
   /** Pomodoro: the topic typed in (the material's own title, the default topic, counts as none). */
   topic?: string | null;
+  /** Interleaving: every material it mixes, sorted (the first one alone doesn't tell two mixes apart). */
+  materialIds?: string[];
 };
 
 /** An unfinished session as the check reads it: a few columns and state fields, never the whole row. */
@@ -64,11 +66,18 @@ export type CopyRow = {
   routine_id: string | null;
   topic: string | null;
   task_id: string | null;
+  /** Interleaving: the materials it mixes. */
+  material_ids?: unknown;
   material: { title: string } | null;
 };
 
 const COPY_COLUMNS =
-  "id, title, method, material_id, planned_minutes, started_at, last_active_at, parent_id:state->>parentId, deck_id:state->>deckId, mode:state->>mode, routine_id:state->>routineId, topic:state->>topic, task_id:state->>taskId, material:materials!study_sessions_material_fk(title)";
+  "id, title, method, material_id, planned_minutes, started_at, last_active_at, parent_id:state->>parentId, deck_id:state->>deckId, mode:state->>mode, routine_id:state->>routineId, topic:state->>topic, task_id:state->>taskId, material_ids:state->materialIds, material:materials!study_sessions_material_fk(title)";
+
+/** A set of material ids as one comparable value. */
+function idSet(value: unknown): string {
+  return Array.isArray(value) ? [...new Set(value.filter((id): id is string => typeof id === "string"))].sort().join(",") : "";
+}
 
 /** Text compared the way a student reads it: case, spacing and look-alike characters aside. */
 export function normalizeForMatch(value: string | null | undefined): string {
@@ -86,7 +95,7 @@ function ownTopic(topic: string | null | undefined, materialTitle: string | null
 }
 
 /** Whether an unfinished session is a copy of the one about to start. */
-export function isCopyOf(signature: SessionSignature, row: Pick<CopyRow, "method" | "material_id" | "planned_minutes" | "parent_id" | "deck_id" | "mode" | "routine_id" | "topic" | "material">): boolean {
+export function isCopyOf(signature: SessionSignature, row: Pick<CopyRow, "method" | "material_id" | "planned_minutes" | "parent_id" | "deck_id" | "mode" | "routine_id" | "topic" | "material"> & { material_ids?: unknown }): boolean {
   if (row.parent_id) return false;
   if (row.method !== signature.method) return false;
   if (signature.materialId !== undefined && (row.material_id ?? null) !== signature.materialId) return false;
@@ -101,6 +110,8 @@ export function isCopyOf(signature: SessionSignature, row: Pick<CopyRow, "method
       return signature.minutes === undefined || row.planned_minutes === signature.minutes;
     case "pomodoro":
       return ownTopic(row.topic, row.material?.title) === ownTopic(signature.topic, row.material?.title);
+    case "interleaving":
+      return signature.materialIds === undefined || idSet(row.material_ids) === idSet(signature.materialIds);
     default:
       return true;
   }
@@ -116,14 +127,20 @@ export function signatureKey(signature: SessionSignature): string {
     signature.routineId ?? "",
     signature.minutes ?? "",
     normalizeForMatch(signature.topic),
+    idSet(signature.materialIds),
   ].join("|");
 }
 
 /** What a start asks for, as a signature (the session builder, Tamari's offers, a planner task). */
-export function signatureForStart(input: { method: StudyMethodId; materialId: string | null; plannedMinutes: number; topic?: string | null }): SessionSignature {
+export function signatureForStart(input: { method: StudyMethodId; materialId: string | null; plannedMinutes: number; topic?: string | null; materialIds?: string[] }): SessionSignature {
   // A plan's length is rounded the way the plan stores it (at least five minutes).
   if (input.method === "smart_study") return { method: input.method, materialId: input.materialId ?? undefined, minutes: Math.max(5, Math.round(input.plannedMinutes)) };
   if (input.method === "pomodoro") return { method: input.method, materialId: input.materialId, topic: input.topic?.trim() || null };
+  // The same mix of materials, whichever was picked first (the session stores them in the order picked).
+  if (input.method === "interleaving") {
+    const ids = [...new Set([input.materialId, ...(input.materialIds ?? [])].filter((id): id is string => Boolean(id)))].slice(0, 4);
+    return { method: input.method, materialIds: ids };
+  }
   return { method: input.method, materialId: input.materialId };
 }
 

@@ -196,6 +196,11 @@ export async function startInterleaving(supabase: Client, userId: string, input:
   const ids = [...new Set([input.materialId, ...(input.materialIds ?? [])].filter((id): id is string => Boolean(id)))].slice(0, 4);
   if (ids.length < 2) throw new SessionError("Pick at least two materials to interleave.", 400);
   const contexts = await Promise.all(ids.map((id) => loadMaterialContext(supabase, id)));
+  // Interleaving helps by making the student tell similar ideas apart; unrelated subjects give nothing to
+  // compare. Materials filed under different subjects aren't mixed (ones without a subject can't be told).
+  if (new Set(contexts.map((context) => context.material.subject_id).filter(Boolean)).size > 1) {
+    throw new SessionError("Interleaving works on related topics: pick materials from the same subject.", 400);
+  }
   const total = Math.max(ids.length * 2, recallCount(input.plannedMinutes));
   const perMaterial = Math.max(1, Math.round(total / ids.length));
   // The prompts are written before the session is opened, so a failed start leaves nothing behind.
