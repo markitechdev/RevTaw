@@ -6,7 +6,7 @@ import { AuthCard } from "@/components/auth/auth-card";
 import { ResendVerificationForm } from "@/components/auth/resend-verification-form";
 import { Alert } from "@/components/forms/form-alert";
 import { TEXT_LINK } from "@/components/ui/text-link";
-import { getPendingEmail } from "@/lib/auth/pending-email";
+import { getPendingVerification } from "@/lib/auth/pending-email";
 import { routes } from "@/lib/routes";
 import { turnstileSiteKey } from "@/lib/security/turnstile";
 
@@ -16,7 +16,10 @@ export const metadata: Metadata = {
 
 export default async function VerifyEmailPage({ searchParams }: PageProps<"/verify-email">) {
   const params = await searchParams;
-  const email = await getPendingEmail();
+  const pending = await getPendingVerification();
+  const email = pending?.email ?? null;
+  // Each email sent has its own `resendAt`, so each starts a new countdown on the button.
+  const cooldown = pending && pending.resendInSeconds > 0 ? { seconds: pending.resendInSeconds, key: String(pending.resendAt) } : null;
   const reason = typeof params.reason === "string" ? params.reason : "";
   const error = typeof params.error === "string" ? params.error : "";
   const captchaSiteKey = await turnstileSiteKey();
@@ -71,7 +74,7 @@ export default async function VerifyEmailPage({ searchParams }: PageProps<"/veri
           </div>
         </div>
 
-        <ResendVerificationForm email={email} captchaSiteKey={captchaSiteKey} />
+        <ResendVerificationForm email={email} cooldown={cooldown} captchaSiteKey={captchaSiteKey} />
       </div>
     </AuthCard>
   );

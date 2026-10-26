@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { authErrorMessage } from "@/lib/auth/errors";
 import { clearPendingEmail, getPendingEmail, setPendingEmail } from "@/lib/auth/pending-email";
 import { getRecoveryState } from "@/lib/auth/recovery";
+import { VERIFICATION_RESEND_SECONDS } from "@/lib/auth/resend-cooldown";
 import { LEGAL_VERSION } from "@/lib/legal";
 import { getSiteUrl } from "@/lib/env";
 import {
@@ -35,6 +36,14 @@ function callbackUrl(next: string): string {
 
 function tooManyAttempts(retryAfterSeconds: number, what: string): string {
   return `Too many ${what}. Please try again in ${describeRetry(retryAfterSeconds)}.`;
+}
+
+/**
+ * One verification email a minute per address: the sign-up's and every resend count, so the server
+ * refuses exactly what the Resend button's countdown holds back. Counted for every address alike.
+ */
+function verificationEmailLimit(email: string) {
+  return rateLimit(`resend:email:${email}`, 1, VERIFICATION_RESEND_SECONDS * 1000);
 }
 
 /** For whoever runs RevTaw: an email Supabase did not send (its email limits, or an error). Never the address. */
@@ -97,8 +106,10 @@ export async function registerAction(
   }
 
   // Either a new account or an existing one: both get the same screen so the
-  // form cannot be used to check whether an email address is registered.
-  await setPendingEmail(email);
+  // form cannot be used to check whether an email address is registered. The
+  // verification email just sent starts the minute before another may go.
+  await verificationEmailLimit(email);
+  await setPendingEmail(email, VERIFICATION_RESEND_SECONDS);
   redirect(routes.verifyEmail);
 }
 
@@ -269,9 +280,13 @@ export async function resendVerificationAction(
   }
 
   const email = parsed.data;
-  const perEmail = await rateLimit(`resend:email:${email}`, 1, MINUTE);
+  const perEmail = await verificationEmailLimit(email);
   if (!perEmail.ok) {
-    return errorState("We just sent an email to that address. Please wait a minute before trying again.");
+    // The button counts down what is left of the minute (another tab or device sent the last one).
+    await setPendingEmail(email, perEmail.retryAfterSeconds);
+    return errorState(
+      `We just sent an email to that address. You can ask for another one in ${describeRetry(perEmail.retryAfterSeconds)}.`,
+    );
   }
 
   const auth = await createAuthClient();
@@ -284,6 +299,6 @@ export async function resendVerificationAction(
   // As with reset links: the same answer whatever Supabase says, so the form reveals nothing.
   if (error) logUnsentEmail("verification", error);
 
-  await setPendingEmail(email);
+  await setPendingEmail(email, VERIFICATION_RESEND_SECONDS);
   return successState(`If ${email} is registered and not yet verified, a new link is on its way.`);
 }
