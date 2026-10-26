@@ -11,10 +11,12 @@ import { CORRECT_THRESHOLD, gradeObjective, gradeOpenAnswers, normalizeText, typ
 import { generateQuiz } from "@/lib/quizzes/generate";
 import { answerSchema, parseQuizConfig, responseSchema } from "@/lib/quizzes/schemas";
 import {
+  answerNote,
   defaultExamMinutes,
   describeAnswer,
   describeResponse,
   isObjectiveType,
+  type AnswerNote,
   QUESTION_TYPE_BY_ID,
   type QuestionAnswer,
   type QuestionOption,
@@ -215,6 +217,8 @@ export type AnswerFeedback = {
   points: number;
   correctAnswer: string;
   explanation: string | null;
+  /** Why the chosen option is wrong, or the true version of a false statement. */
+  note: AnswerNote | null;
   feedback: string | null;
 };
 
@@ -332,6 +336,7 @@ export async function saveAnswer(input: {
       points: question.points,
       correctAnswer: describeAnswer(answer, options),
       explanation: question.explanation,
+      note: grade ? answerNote(answer, response) : null,
       feedback: grade?.feedback ?? null,
     },
   };
@@ -373,7 +378,8 @@ async function recordMistake(
     question: question.prompt,
     studentAnswer: describeResponse(response, options) ?? null,
     correctAnswer: describeAnswer(answer, options),
-    explanation: question.explanation,
+    // Why their choice was wrong (or the true version of a false statement), then why the answer is right.
+    explanation: [answerNote(answer, response)?.text, question.explanation].filter(Boolean).join(" ") || null,
     quiz: { attemptId: attempt.id, questionId: question.id },
   });
 }

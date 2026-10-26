@@ -5,7 +5,7 @@ import { cache } from "react";
 import { settleGenerationStatus } from "@/lib/generation/stale";
 import { attemptDeadline, orderOptions } from "@/lib/quizzes/service";
 import { answerSchema, parseQuizConfig, responseSchema } from "@/lib/quizzes/schemas";
-import { describeAnswer, describeResponse, type QuestionAnswer, type QuestionOption, type QuestionResponse, type QuizConfig } from "@/lib/quizzes/types";
+import { answerNote, describeAnswer, describeResponse, type AnswerNote, type QuestionAnswer, type QuestionOption, type QuestionResponse, type QuizConfig } from "@/lib/quizzes/types";
 import { pageOf, type Page } from "@/lib/pagination";
 import type { ConfidenceLevel, Json, Mistake, Quiz, QuizAttempt, QuizQuestion } from "@/lib/supabase/database.types";
 import { fetchPage, readPages } from "@/lib/supabase/paginate";
@@ -143,6 +143,8 @@ export type ResultQuestion = RunnerQuestion & {
   sourceExcerpt: string | null;
   concept: { id: string; name: string } | null;
   correctAnswer: string;
+  /** Why the chosen option is wrong, or the true version of a false statement. */
+  note: AnswerNote | null;
   answer: QuestionAnswer;
   response: QuestionResponse | null;
   studentAnswer: string | null;
@@ -299,6 +301,7 @@ export const getAttemptResults = cache(async (attemptId: string): Promise<Attemp
       concept: question.concept,
       answer,
       correctAnswer: describeAnswer(answer, options),
+      note: answerNote(answer, response),
       response,
       studentAnswer: describeResponse(response, options),
       answerId: stored?.id ?? null,

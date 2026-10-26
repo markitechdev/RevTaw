@@ -423,7 +423,11 @@ export function quizHeuristically(transcript: string, prompt: string) {
             type: "multiple_choice",
             ...base,
             prompt: fact.term ? `Which term is described here: "${fact.definition}"?` : "Which of these statements is supported by the material?",
-            options: rotated.map((text, position) => ({ id: ids[position], text })),
+            options: rotated.map((text, position) => ({
+              id: ids[position],
+              text,
+              why: text === (fact.term ?? fact.sentence) ? `The material states: "${fact.sentence}"` : `The material doesn't describe "${text}" this way.`,
+            })),
             answer: { option_id: ids[rotated.indexOf(fact.term ?? fact.sentence)] },
           });
           break;
@@ -434,7 +438,7 @@ export function quizHeuristically(transcript: string, prompt: string) {
             type: "true_false",
             ...base,
             prompt: truthy ? fact.sentence : negate(fact.sentence),
-            answer: { value: truthy },
+            answer: truthy ? { value: true } : { value: false, correction: fact.sentence },
           });
           break;
         }

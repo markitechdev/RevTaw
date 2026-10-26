@@ -227,6 +227,11 @@ export function AttemptResults({ view, questionCount }: { view: AttemptResultsVi
                 </dl>
                 {/* Tamari's or the student's own feedback; an auto-graded answer only carries a note (a near-miss spelling). */}
                 {question.feedback && question.response !== null && (question.gradedBy !== "auto" || question.isCorrect === false) && <p className="mt-3 text-sm">{question.feedback}</p>}
+                {question.note && (
+                  <p className="mt-2 text-sm">
+                    <span className="font-medium">{question.note.label}:</span> {question.note.text}
+                  </p>
+                )}
                 {question.explanation && <p className="mt-2 text-sm text-muted-foreground">{question.explanation}</p>}
                 {question.sourceExcerpt && (
                   <p className="mt-2 border-l-2 border-primary/40 pl-3 text-xs italic text-muted-foreground">Source: “{question.sourceExcerpt}”</p>

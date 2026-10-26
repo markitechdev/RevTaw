@@ -4,7 +4,7 @@ import { gradeHeuristically, quizHeuristically } from "@/lib/ai/providers/mock";
 import { finalizeQuestions, quizResponseSchema } from "@/lib/quizzes/generate";
 import { gradeObjective, nearMiss, normalizeText, textMatches } from "@/lib/quizzes/grade";
 import { parseQuizConfig } from "@/lib/quizzes/schemas";
-import { DEFAULT_QUIZ_CONFIG, describeAnswer, distributeQuestions, typeCoverageError, type QuizConfig } from "@/lib/quizzes/types";
+import { answerNote, DEFAULT_QUIZ_CONFIG, describeAnswer, distributeQuestions, typeCoverageError, type QuizConfig } from "@/lib/quizzes/types";
 
 describe("distributeQuestions", () => {
   it("splits the count evenly and gives the remainder to the first types", () => {
@@ -107,7 +107,67 @@ describe("finalizeQuestions", () => {
     }).questions;
     const kept = finalizeQuestions(questions, config);
     expect(kept.map((question) => question.prompt)).toEqual(["Q1?", "The ____ cycle"]);
-    expect(kept[0].type === "multiple_choice" && kept[0].answer.option_id).toBe("a");
+    const first = kept[0];
+    expect(first.type === "multiple_choice" && first.options.find((option) => option.id === first.answer.option_id)?.text).toBe("x");
+  });
+
+  const choice = (prompt: string, texts: string[], answer = "a") => ({
+    type: "multiple_choice" as const,
+    difficulty: "medium" as const,
+    prompt,
+    options: texts.map((text, index) => ({ id: "abcd"[index], text, why: `Why ${text}.` })),
+    answer: { option_id: answer },
+    explanation: "Because.",
+    concept: "Photosynthesis",
+    source_excerpt: "",
+  });
+  const config: QuizConfig = { ...DEFAULT_QUIZ_CONFIG, questionCount: 5, questionTypes: ["multiple_choice", "true_false"] };
+
+  it("drops multiple choice with a catch-all option or two options that say the same", () => {
+    const kept = finalizeQuestions(
+      [
+        choice("Where does the Calvin cycle happen?", ["Stroma", "Thylakoid", "Nucleus", "All of the above"]),
+        choice("What absorbs light?", ["Chlorophyll", "chlorophyll.", "Starch", "Water"]),
+        choice("Which is wala sa nabanggit?", ["Isa", "Dalawa", "Tatlo", "Wala sa nabanggit"]),
+        choice("What does the Calvin cycle fix?", ["Carbon dioxide", "Oxygen", "Nitrogen", "Water"]),
+      ] as never,
+      config,
+    );
+    expect(kept.map((question) => question.prompt)).toEqual(["What does the Calvin cycle fix?"]);
+  });
+
+  it("shuffles the options once, keeps the right answer, and hides each option's why in the answer", () => {
+    const [kept] = finalizeQuestions([choice("What does the Calvin cycle fix?", ["Carbon dioxide", "Oxygen", "Nitrogen", "Water"])] as never, config);
+    if (kept.type !== "multiple_choice") throw new Error("expected multiple choice");
+    expect(kept.options.map((option) => option.id)).toEqual(["a", "b", "c", "d"]);
+    expect(kept.options.every((option) => !("why" in option))).toBe(true);
+    expect(kept.options.find((option) => option.id === kept.answer.option_id)?.text).toBe("Carbon dioxide");
+    for (const option of kept.options) expect(kept.answer.rationales?.[option.id]).toBe(`Why ${option.text}.`);
+    // The same question always comes out the same.
+    const [again] = finalizeQuestions([choice("What does the Calvin cycle fix?", ["Carbon dioxide", "Oxygen", "Nitrogen", "Water"])] as never, config);
+    expect(again).toEqual(kept);
+  });
+
+  it("keeps a true/false correction only for a false statement that it really corrects", () => {
+    const tf = (prompt: string, value: boolean, correction?: string) => ({ type: "true_false" as const, difficulty: "easy" as const, prompt, answer: { value, correction }, explanation: "Because.", concept: "Calvin cycle", source_excerpt: "" });
+    const kept = finalizeQuestions(
+      [
+        tf("The Calvin cycle happens in the thylakoid.", false, "The Calvin cycle happens in the stroma."),
+        tf("The Calvin cycle uses ATP.", true, "The Calvin cycle uses ATP."),
+        tf("Chlorophyll reflects green light.", false, "Chlorophyll reflects green light."),
+      ] as never,
+      config,
+    );
+    expect(kept.map((question) => question.answer)).toEqual([{ value: false, correction: "The Calvin cycle happens in the stroma." }, { value: true }]);
+  });
+});
+
+describe("answer notes", () => {
+  it("says why a wrong choice is wrong and gives the true version of a false statement", () => {
+    expect(answerNote({ option_id: "a", rationales: { a: "Right.", b: "Oxygen is released, not fixed." } }, { option_id: "b" })).toEqual({ label: "Why your choice is wrong", text: "Oxygen is released, not fixed." });
+    expect(answerNote({ option_id: "a", rationales: { a: "Right." } }, { option_id: "a" })).toBeNull();
+    expect(answerNote({ value: false, correction: "It happens in the stroma." }, { value: true })).toEqual({ label: "The true statement", text: "It happens in the stroma." });
+    expect(answerNote({ value: true }, { value: false })).toBeNull();
   });
 });
 

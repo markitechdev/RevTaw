@@ -51,8 +51,8 @@ export const optionSchema = z.object({
 assertSameType<z.output<typeof optionSchema>, QuestionOption>();
 
 export const answerSchema = z.union([
-  z.object({ option_id: z.string().trim().min(1).max(4) }),
-  z.object({ value: z.boolean() }),
+  z.object({ option_id: z.string().trim().min(1).max(4), rationales: z.record(z.string(), z.string().trim().min(1).max(600)).optional() }),
+  z.object({ value: z.boolean(), correction: z.string().trim().min(1).max(1000).optional() }),
   z.object({ accepted: z.array(z.string().trim().min(1).max(300)).min(1).max(12) }),
   z.object({ model_answer: z.string().trim().min(1).max(4000), rubric: z.array(z.string().trim().min(1).max(300)).max(8) }),
 ]);

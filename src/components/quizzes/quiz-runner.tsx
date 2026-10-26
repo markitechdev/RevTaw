@@ -317,6 +317,11 @@ export function QuizRunner({ view }: { view: AttemptRunnerView }) {
                   <span className="font-medium">Correct answer:</span> {currentFeedback.correctAnswer}
                 </p>
               )}
+              {currentFeedback.note && (
+                <p className="mt-2">
+                  <span className="font-medium">{currentFeedback.note.label}:</span> {currentFeedback.note.text}
+                </p>
+              )}
               {currentFeedback.feedback && <p className="mt-2">{currentFeedback.feedback}</p>}
               {currentFeedback.graded && currentFeedback.explanation && <p className="mt-2 text-muted-foreground">{currentFeedback.explanation}</p>}
             </div>

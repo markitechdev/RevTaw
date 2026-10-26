@@ -101,8 +101,16 @@ export const DEFAULT_QUIZ_CONFIG: QuizConfig = {
 /** A multiple-choice option (validated by `optionSchema`). */
 export type QuestionOption = { id: string; text: string };
 
-/** The stored correct answer, by question type (validated by `answerSchema`). */
-export type QuestionAnswer = { option_id: string } | { value: boolean } | { accepted: string[] } | { model_answer: string; rubric: string[] };
+/**
+ * The stored correct answer, by question type (validated by `answerSchema`). Kept on the server until the
+ * question is answered: a multiple-choice answer carries why each option is right or wrong (`rationales`,
+ * by option id), a true/false answer the true version of a false statement (`correction`).
+ */
+export type QuestionAnswer =
+  | { option_id: string; rationales?: Record<string, string> }
+  | { value: boolean; correction?: string }
+  | { accepted: string[] }
+  | { model_answer: string; rubric: string[] };
 
 /** A student's response (validated by `responseSchema`). */
 export type QuestionResponse = { option_id: string } | { value: boolean } | { text: string };
@@ -154,6 +162,19 @@ export function describeAnswer(answer: QuestionAnswer, options: QuestionOption[]
   if ("value" in answer) return answer.value ? "True" : "False";
   if ("accepted" in answer) return answer.accepted[0] ?? "";
   return answer.model_answer;
+}
+
+/** What the student should know beyond the correct answer: why their option is wrong, or the true version of a false statement. */
+export type AnswerNote = { label: string; text: string };
+
+export function answerNote(answer: QuestionAnswer, response: QuestionResponse | null): AnswerNote | null {
+  if ("option_id" in answer) {
+    if (!response || !("option_id" in response) || response.option_id === answer.option_id) return null;
+    const why = answer.rationales?.[response.option_id];
+    return why ? { label: "Why your choice is wrong", text: why } : null;
+  }
+  if ("value" in answer && answer.value === false && answer.correction) return { label: "The true statement", text: answer.correction };
+  return null;
 }
 
 /** Human-readable form of a student's response. */

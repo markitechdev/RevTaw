@@ -7,7 +7,9 @@ import { generateJson } from "@/lib/ai/json";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import { optionSchema } from "@/lib/quizzes/schemas";
+import { normalizeText } from "@/lib/quizzes/text-match";
 import { distributeQuestions, QUESTION_TYPE_BY_ID, QUESTION_TYPE_IDS, type QuizConfig } from "@/lib/quizzes/types";
+import { seededRandom, shuffled } from "@/lib/random";
 import type { QuestionDifficulty, QuestionType } from "@/lib/supabase/database.types";
 import { modelTitle } from "@/lib/ai/fields";
 import { clampTitle } from "@/lib/text/clamp";
@@ -22,17 +24,20 @@ const baseQuestion = {
   source_excerpt: z.string().trim().max(1000).default(""),
 };
 
+/** An option as the model writes it: with why it is right or wrong (moved into the hidden answer before storing). */
+const generatedOptionSchema = optionSchema.extend({ why: z.string().trim().max(600).optional() });
+
 const generatedQuestionSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("multiple_choice"),
     ...baseQuestion,
-    options: z.array(optionSchema).min(3).max(6),
-    answer: z.object({ option_id: z.string().trim().min(1).max(4) }),
+    options: z.array(generatedOptionSchema).min(3).max(6),
+    answer: z.object({ option_id: z.string().trim().min(1).max(4), rationales: z.record(z.string(), z.string().trim().min(1).max(600)).optional() }),
   }),
   z.object({
     type: z.literal("true_false"),
     ...baseQuestion,
-    answer: z.object({ value: z.boolean() }),
+    answer: z.object({ value: z.boolean(), correction: z.string().trim().max(1000).optional() }),
   }),
   z.object({
     type: z.literal("identification"),
@@ -80,13 +85,13 @@ export type GenerateQuizResult = {
 
 const TYPE_RULES: Record<QuestionType, string> = {
   multiple_choice:
-    'exactly four options with ids "a"-"d"; one correct; distractors must be plausible (related terms, common confusions) but clearly wrong according to the material; "answer": {"option_id": "a"}',
+    'exactly four options with ids "a"-"d" and exactly one correct per the material. Distractors are plausible to a student who half-knows the topic (related terms, common confusions, partly true statements), clearly wrong per the material, and in the same category, form and length as the correct option. Never "all of the above", "none of the above", "both a and b", or two options that mean the same. Avoid negative stems; if one is needed, write NOT or EXCEPT in capitals. Each option has "why": one sentence from the material on why it is right or wrong. "answer": {"option_id": "a"}',
   true_false:
-    'a single declarative statement; roughly half false, made false by changing one specific detail; "answer": {"value": true}',
+    'a single declarative statement that is entirely true or entirely false per the material, never partly true. Make roughly half false by changing one meaningful detail (a term, cause, number or relationship), not by adding "not" or a trick of wording, and no absolute words (always, never, only) as giveaways unless the material uses them. "answer": {"value": true}; for a false statement also "correction": the true version of the statement',
   identification:
-    'describe a term, person, process or idea and ask for its name; "answer": {"accepted": ["canonical name", "acceptable variants"]}',
+    'describe a term, person, process or idea in enough detail that only one name fits, and ask for that name. "answer": {"accepted": ["the name as the material writes it", "exact synonyms or abbreviations the material uses"]}; never accept a broader or narrower term',
   fill_blank:
-    'a sentence from the material with one key word or phrase replaced by "____"; "answer": {"accepted": ["missing phrase", "variants"]}',
+    'a sentence from the material with one key term (not a filler word) replaced by "____"; the rest of the sentence leaves only one term that fits. "answer": {"accepted": ["the missing term as the material writes it", "exact variants"]}',
   short_answer:
     'answerable in 1-2 sentences; "answer": {"model_answer": "...", "rubric": ["point the answer must contain", ...]}',
   essay:
@@ -98,6 +103,17 @@ const TYPE_RULES: Record<QuestionType, string> = {
   problem_solving:
     'poses a problem that must be worked out step by step (numbers, formulas or procedures from the material); "answer": {"model_answer": "steps and final answer", "rubric": [...]}',
 };
+
+/**
+ * What each difficulty asks of the student. Difficulty is the thinking a question takes, not longer
+ * wording: an easy question recalls, a medium one understands or applies, a hard one analyzes.
+ */
+const DIFFICULTY_RULES = `Difficulty levels (the thinking a question takes, not longer wording):
+- easy: recall one fact the material states directly (a definition, name, number or step). Multiple-choice distractors come from other parts of the material.
+- medium: understand or apply one idea: answer from a paraphrase rather than the material's exact words, explain why, or pick the example that fits. Distractors are closely related terms or ideas.
+- hard: analyze: connect two or more ideas from different parts of the material, apply them to a new situation, or tell apart closely related concepts. Distractors are common misconceptions or partly true statements.
+- advanced (adaptive targets only): like hard, with more than one step of reasoning and no hints in the question.
+For open questions, difficulty is how much reasoning the model answer needs.`;
 
 function studentLine(student: StudentContext): string {
   return (
@@ -114,6 +130,52 @@ function normalizePrompt(prompt: string): string {
   return prompt.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+/** Options that make a multiple-choice answer a matter of test-taking rather than of the material. */
+const CATCH_ALL_OPTION = /\b(?:all|none|neither|both) of (?:the )?(?:above|these|them)\b|^(?:all|none) (?:of )?(?:the )?above\.?$|^both [a-f] and [a-f]\.?$|lahat ng (?:nabanggit|nasa itaas)|wala sa (?:nabanggit|mga ito|nasa itaas)/i;
+const OPTION_IDS = ["a", "b", "c", "d", "e", "f"];
+
+type ChoiceQuestion = Extract<GeneratedQuestion, { type: "multiple_choice" }>;
+
+/**
+ * A multiple-choice question as it is stored, or null when it can't be used: duplicate ids, an answer that
+ * isn't an option, two options that say the same thing, or a catch-all option ("all of the above"). The
+ * options are shuffled once (models tend to put the right one first) and lettered a, b, c… in the new order;
+ * each option's "why" moves into the answer (`rationales`), which stays on the server until it's answered.
+ */
+function tidyChoiceQuestion(question: ChoiceQuestion): ChoiceQuestion | null {
+  const ids = question.options.map((option) => option.id.toLowerCase());
+  if (new Set(ids).size !== ids.length) return null;
+  const answerId = question.answer.option_id.toLowerCase();
+  if (!ids.includes(answerId)) return null;
+  const texts = question.options.map((option) => normalizeText(option.text));
+  if (texts.some((value) => !value) || new Set(texts).size !== texts.length) return null;
+  if (question.options.some((option) => CATCH_ALL_OPTION.test(option.text.trim()))) return null;
+  const order = shuffled(
+    question.options.map((_, index) => index),
+    seededRandom(question.prompt),
+  );
+  const rationales: Record<string, string> = {};
+  const options = order.map((from, position) => {
+    const option = question.options[from];
+    const why = option.why?.trim() || question.answer.rationales?.[option.id]?.trim() || question.answer.rationales?.[option.id.toLowerCase()]?.trim();
+    if (why) rationales[OPTION_IDS[position]] = why;
+    return { id: OPTION_IDS[position], text: option.text };
+  });
+  const correct = OPTION_IDS[order.findIndex((from) => ids[from] === answerId)];
+  return { ...question, options, answer: { option_id: correct, ...(Object.keys(rationales).length ? { rationales } : {}) } };
+}
+
+type TrueFalseQuestion = Extract<GeneratedQuestion, { type: "true_false" }>;
+
+/** A true/false question as stored: a correction only for a false statement, and none that just repeats it. */
+function tidyTrueFalse(question: TrueFalseQuestion): TrueFalseQuestion | null {
+  const correction = question.answer.correction?.trim();
+  if (question.answer.value || !correction) return { ...question, answer: { value: question.answer.value } };
+  // "False" with a "true version" identical to the statement contradicts itself.
+  if (normalizeText(correction) === normalizeText(question.prompt)) return null;
+  return { ...question, answer: { value: false, correction } };
+}
+
 /**
  * Validates and tidies the model output: drops duplicates and questions whose
  * answer does not fit their type, then trims to the requested count.
@@ -121,16 +183,11 @@ function normalizePrompt(prompt: string): string {
 export function finalizeQuestions(questions: GeneratedQuestion[], config: QuizConfig): GeneratedQuestion[] {
   const seen = new Set<string>();
   const kept: GeneratedQuestion[] = [];
-  for (const question of questions) {
-    const key = normalizePrompt(question.prompt);
+  for (const generated of questions) {
+    const key = normalizePrompt(generated.prompt);
     if (!key || seen.has(key)) continue;
-    if (question.type === "multiple_choice") {
-      const ids = question.options.map((option) => option.id.toLowerCase());
-      if (new Set(ids).size !== ids.length) continue;
-      if (!ids.includes(question.answer.option_id.toLowerCase())) continue;
-      question.options = question.options.map((option) => ({ ...option, id: option.id.toLowerCase() }));
-      question.answer = { option_id: question.answer.option_id.toLowerCase() };
-    }
+    const question = generated.type === "multiple_choice" ? tidyChoiceQuestion(generated) : generated.type === "true_false" ? tidyTrueFalse(generated) : generated;
+    if (!question) continue;
     if (question.type === "fill_blank" && !/_{2,}/.test(question.prompt)) continue;
     seen.add(key);
     kept.push(question);
@@ -181,13 +238,15 @@ ${QUESTION_TYPE_IDS.filter((type) => config.questionTypes.includes(type))
   .map((type) => `- ${type} (${QUESTION_TYPE_BY_ID[type].name}): ${TYPE_RULES[type]}`)
   .join("\n")}
 
+${DIFFICULTY_RULES}
+
 Quality rules:
-- Every question must be answerable from the material alone; the correct answer must be explicitly supported by it. Never invent facts.
-- No duplicate or near-duplicate questions; cover different parts of the material. No trivia about formatting or page numbers.
-- Questions must be unambiguous with exactly one defensible answer (or one model answer for open types).
-- "explanation": 1-3 sentences on why the answer is correct, citing the material in plain words.
+- Every question must be answerable from the material alone; the correct answer must be explicitly supported by it. Never invent facts. If the material can't support the requested count, write fewer questions.
+- No duplicate or near-duplicate questions (two questions that test the same fact are duplicates); cover different parts of the material. No trivia about formatting or page numbers.
+- Questions must be unambiguous with exactly one defensible answer (or one model answer for open types). The wording (grammar, a repeated word, "a"/"an") must not give the answer away, and no question may answer another.
+- "explanation": 1-3 sentences on why the correct answer is right, citing the material in plain words.
 - "concept": the 1-4 word concept the question tests (reuse the same wording for the same concept).
-- "source_excerpt": a short verbatim quote (max 300 chars) from the material that supports the answer.
+- "source_excerpt": a short verbatim quote (max 300 chars) copied exactly from the material that supports the answer.
 - "difficulty": ${difficultyRule}.
 ${adaptive?.focusConcepts.length ? `- Give about 40% of the questions to these concepts the student struggles with: ${adaptive.focusConcepts.join(", ")}; cover the rest of the material with the remainder.` : ""}
 - Keep the material's language and terminology. Write for a student, clearly.
@@ -207,7 +266,7 @@ JSON schema:
       "type": one of ${config.questionTypes.map((type) => `"${type}"`).join(", ")},
       "difficulty": "easy" | "medium" | "hard",
       "prompt": string,
-      "options": [{"id": "a", "text": "..."}, ...] (multiple_choice only, exactly four),
+      "options": [{"id": "a", "text": "...", "why": "..."}, ...] (multiple_choice only, exactly four),
       "answer": object as described in the type rules,
       "explanation": string,
       "concept": string,
