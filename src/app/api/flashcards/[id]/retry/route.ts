@@ -11,7 +11,8 @@ export const maxDuration = 120;
 export const runtime = "nodejs";
 
 const paramsSchema = z.object({ id: z.uuid() });
-const bodySchema = z.object({ count: z.number().int().min(FLASHCARD_MIN).max(FLASHCARD_MAX).default(20), focus: z.string().trim().max(200).nullable().default(null) });
+// Both optional: a retry without them makes the deck the student asked for the first time.
+const bodySchema = z.object({ count: z.number().int().min(FLASHCARD_MIN).max(FLASHCARD_MAX).optional(), focus: z.string().trim().max(200).nullable().optional() });
 
 /** Re-runs generation for a failed deck. */
 export async function POST(request: Request, context: RouteContext<"/api/flashcards/[id]/retry">) {

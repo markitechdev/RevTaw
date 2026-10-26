@@ -12,7 +12,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
 import { Select } from "@/components/ui/select";
-import { FLASHCARD_MAX, FLASHCARD_MIN, FLASHCARD_PRESETS } from "@/lib/flashcards/constants";
+import { FLASHCARD_DEFAULT, FLASHCARD_MAX, FLASHCARD_MIN, FLASHCARD_PRESETS } from "@/lib/flashcards/constants";
 import { clearQueryParam } from "@/lib/hooks/query-param";
 import { routes } from "@/lib/routes";
 
@@ -30,7 +30,7 @@ export function NewDeckButton({
   const router = useRouter();
   const [open, setOpen] = useState(defaultOpen && (Boolean(materialId) || materials.length > 0));
   const [material, setMaterial] = useState(materialId ?? materials[0]?.id ?? "");
-  const [count, setCount] = useState<number>(20);
+  const [count, setCount] = useState<number>(FLASHCARD_DEFAULT);
   const [custom, setCustom] = useState(false);
   const [focus, setFocus] = useState("");
   const [error, setError] = useState<string | null>(null);

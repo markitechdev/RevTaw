@@ -3,6 +3,7 @@ import "server-only";
 import { refreshMastery } from "@/lib/adaptive/engine";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { ServiceError } from "@/lib/errors";
+import { FLASHCARD_DEFAULT } from "@/lib/flashcards/constants";
 import { generateFlashcards } from "@/lib/flashcards/generate";
 import { coverageDetail } from "@/lib/materials/analyze";
 import { describeWait } from "@/lib/engine/fsrs";
@@ -23,7 +24,7 @@ export async function createDeck(materialId: string, options: { count: number; f
   const context = await loadMaterialContext(supabase, materialId);
   const { data: deck, error } = await supabase
     .from("flashcard_decks")
-    .insert({ user_id: context.material.user_id, material_id: materialId, title: titleWithSuffix(context.material.title, "Flashcards"), status: "generating" })
+    .insert({ user_id: context.material.user_id, material_id: materialId, title: titleWithSuffix(context.material.title, "Flashcards"), status: "generating", requested_count: options.count, focus: options.focus })
     .select("id")
     .single();
   if (error || !deck) throw new Error(`flashcard_decks: insert failed: ${error?.message}`);
@@ -31,15 +32,17 @@ export async function createDeck(materialId: string, options: { count: number; f
   return { id: deck.id, ...result };
 }
 
-export async function retryDeck(deckId: string, options: { count: number; focus: string | null }): Promise<{ status: "ready" | "failed"; detail: string | null }> {
+/** Retries a failed deck with what the student asked for the first time, unless the request says otherwise. */
+export async function retryDeck(deckId: string, options: { count?: number; focus?: string | null } = {}): Promise<{ status: "ready" | "failed"; detail: string | null }> {
   const supabase = await createClient();
-  const { data: deck } = await supabase.from("flashcard_decks").select("id, material_id, status, status_detail, updated_at").eq("id", deckId).maybeSingle();
+  const { data: deck } = await supabase.from("flashcard_decks").select("id, material_id, status, status_detail, updated_at, requested_count, focus").eq("id", deckId).maybeSingle();
   if (!deck) throw new ServiceError("Deck not found.", 404);
   const context = await loadMaterialContext(supabase, deck.material_id);
   // Only a failed deck (or one cut off while generating) is regenerated, by one request at a time.
   if (!(await claimForRetry(supabase, "flashcard_decks", deck.id))) throw new ServiceError(retryRefusal(deck.status, "deck"), 409);
   await supabase.from("flashcards").delete().eq("deck_id", deck.id);
-  return populateDeck(supabase, deck.id, context, options);
+  const settings = { count: options.count ?? deck.requested_count ?? FLASHCARD_DEFAULT, focus: options.focus !== undefined ? options.focus : deck.focus };
+  return populateDeck(supabase, deck.id, context, settings);
 }
 
 async function populateDeck(
