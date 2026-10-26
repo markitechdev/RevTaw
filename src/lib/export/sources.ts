@@ -128,7 +128,7 @@ export async function buildResultsExport(attemptId: string): Promise<ExportDocum
             { label: "Points", value: `${results.attempt.score ?? 0} / ${results.attempt.max_score ?? 0}` },
             { label: "Correct", value: `${results.attempt.correct_count ?? 0} / ${results.attempt.question_count ?? results.questions.length}` },
           ]),
-          table(["Concept", "Correct", "Questions"], results.conceptSummary.map((entry) => [entry.name, String(entry.correct), String(entry.total)])),
+          table(["Concept", "Correct", "Answered"], results.conceptSummary.map((entry) => [entry.name, String(entry.correct), String(entry.total)])),
         ],
       },
       { heading: "Questions", blocks: questionBlocks },

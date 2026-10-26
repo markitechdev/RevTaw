@@ -38,7 +38,7 @@ export function AttemptResults({ view, questionCount }: { view: AttemptResultsVi
     percent >= 90
       ? "Excellent. These concepts are close to mastered — a spaced review in a few days will lock them in."
       : percent >= 70
-        ? "Solid work. Review the items you missed below; their concepts are now in your mistake notebook."
+        ? "Solid work. Review the items you missed below; your wrong answers are now in your mistake notebook."
         : percent >= 50
           ? "A fair start. Re-read the source sections for the concepts listed under Needs work, then retake the quiz."
           : "This material needs another pass. Open the reviewer, study the weak concepts, and try again — mistakes are expected on the first attempt.";
@@ -134,7 +134,7 @@ export function AttemptResults({ view, questionCount }: { view: AttemptResultsVi
                 </ul>
               </div>
             )}
-            {conceptSummary.length === 0 && <p className="text-muted-foreground">No concept data for this attempt.</p>}
+            {conceptSummary.length === 0 && <p className="text-muted-foreground">No answers with a result to sort by concept.</p>}
           </CardContent>
         </Card>
       </div>

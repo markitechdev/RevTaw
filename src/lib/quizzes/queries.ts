@@ -285,11 +285,15 @@ export const getAttemptResults = cache(async (attemptId: string): Promise<Attemp
     const response = parsed?.success ? parsed.data : null;
     if (stored && response && !stored.graded_by) needsSelfCheck += 1;
 
-    const key = question.concept?.id ?? "__none";
-    const entry = concepts.get(key) ?? { id: question.concept?.id ?? null, name: question.concept?.name ?? "General", correct: 0, total: 0 };
-    entry.total += 1;
-    if (stored?.is_correct) entry.correct += 1;
-    concepts.set(key, entry);
+    // By concept, the answers with a result: a question left blank scores 0 on the test but says nothing about
+    // its concept (it isn't filed in the notebook either), and one waiting for the student's own mark has no result yet.
+    if (response && stored && stored.is_correct !== null) {
+      const key = question.concept?.id ?? "__none";
+      const entry = concepts.get(key) ?? { id: question.concept?.id ?? null, name: question.concept?.name ?? "General", correct: 0, total: 0 };
+      entry.total += 1;
+      if (stored.is_correct) entry.correct += 1;
+      concepts.set(key, entry);
+    }
 
     return {
       id: question.id,
