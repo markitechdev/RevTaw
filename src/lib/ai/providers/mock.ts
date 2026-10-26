@@ -548,7 +548,7 @@ export function gradeHeuristically(prompt: string) {
 /** Deterministic flashcards: definitions as term → definition, then question and cloze cards from sentences. */
 export function flashcardsHeuristically(transcript: string, prompt: string) {
   const materialTitle = prompt.match(/Material title:\s*(.+)/)?.[1]?.trim() ?? "Material";
-  const count = Number(prompt.match(/Produce exactly (\d+) cards/)?.[1] ?? "20");
+  const count = Number(prompt.match(/Produce (?:exactly|up to) (\d+) cards/)?.[1] ?? "20");
   const facts = collectFacts(transcript);
   const cards: Array<{ front: string; back: string; hint: string | null; concept: string; source_excerpt: string }> = [];
   // Pass 0 writes one card per fact; later passes add a second style for the same facts.
@@ -580,7 +580,7 @@ export function flashcardsHeuristically(transcript: string, prompt: string) {
 
 /** Deterministic recall prompts: definitions first, then "what does the material say" prompts. */
 export function recallQuestionsHeuristically(transcript: string, prompt: string) {
-  const count = Number(prompt.match(/Produce exactly (\d+) prompts/)?.[1] ?? "5");
+  const count = Number(prompt.match(/Produce (?:exactly|up to) (\d+) prompts/)?.[1] ?? "5");
   const focus = (prompt.match(/Focus concepts[^:]*:\s*(.+)/)?.[1] ?? "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
   const formats = (prompt.match(/^Formats to rotate:\s*(.+)$/m)?.[1] ?? "").split(",").map((item) => item.trim()).filter(Boolean);
   const facts = collectFacts(transcript);
@@ -722,7 +722,7 @@ export function recallCompareHeuristically(prompt: string) {
 
 /** Deterministic Feynman concepts: definitions with their following sentence as the ideal explanation. */
 export function feynmanConceptsHeuristically(transcript: string, prompt: string) {
-  const count = Number(prompt.match(/Produce exactly (\d+) concepts/)?.[1] ?? "3");
+  const count = Number(prompt.match(/Produce (?:exactly|up to) (\d+) concepts/)?.[1] ?? "3");
   const facts = collectFacts(transcript);
   const withTerms = facts.filter((fact) => fact.term);
   const pool = withTerms.length ? withTerms : facts;

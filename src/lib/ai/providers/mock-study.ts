@@ -61,7 +61,7 @@ function solutionFor(fact: MockFact) {
 }
 
 export function problemsHeuristically(transcript: string, prompt: string) {
-  const count = Number(prompt.match(/Produce exactly (\d+) problems/)?.[1] ?? "3");
+  const count = Number(prompt.match(/Produce (?:exactly|up to) (\d+) problems/)?.[1] ?? "3");
   const mode = prompt.match(/^Mode: (worked|faded|practice)$/m)?.[1] ?? "practice";
   const fixed = prompt.match(/Every problem is "(easy|medium|hard|challenge)"/)?.[1] ?? null;
   const facts = collectFacts(transcript);
@@ -111,7 +111,7 @@ export function problemEvaluationHeuristically(prompt: string) {
 // ---------------------------------------------------------------------------
 
 export function scenariosHeuristically(transcript: string, prompt: string) {
-  const count = Number(prompt.match(/Produce exactly (\d+) scenarios/)?.[1] ?? "3");
+  const count = Number(prompt.match(/Produce (?:exactly|up to) (\d+) scenarios/)?.[1] ?? "3");
   const facts = collectFacts(transcript);
   const pool = facts.length ? facts : [{ term: null, definition: null, sentence: "The material describes one main idea.", heading: "Overview", next: null }];
   const scenarios = Array.from({ length: Math.min(count, pool.length) }, (_, index) => {
@@ -151,7 +151,7 @@ export function scenarioEvaluationHeuristically(prompt: string) {
 }
 
 export function casesHeuristically(transcript: string, prompt: string) {
-  const count = Number(prompt.match(/Produce exactly (\d+) cases/)?.[1] ?? "1");
+  const count = Number(prompt.match(/Produce (?:exactly|up to) (\d+) cases/)?.[1] ?? "1");
   const sections = parseTranscriptSections(transcript);
   const pool = sections.length ? sections : [{ heading: "Overview", text: transcript }];
   const cases = Array.from({ length: Math.min(count, pool.length) }, (_, index) => {
@@ -233,7 +233,7 @@ export function readingAnswersHeuristically(material: string, prompt: string) {
 }
 
 export function reflectQuestionsHeuristically(material: string, prompt: string) {
-  const count = Number(prompt.match(/Produce exactly (\d+) questions/)?.[1] ?? "3");
+  const count = Number(prompt.match(/Produce (?:exactly|up to) (\d+) questions/)?.[1] ?? "3");
   const transcript = readingSections(material).map((section) => `[Section: ${section.heading}]\n${section.text}`).join("\n\n");
   const facts = collectFacts(transcript);
   const kinds = ["why", "how", "what_if", "connect"] as const;
@@ -287,7 +287,7 @@ export function visualForSection(heading: string, body: string, kind: number) {
 }
 
 export function visualsHeuristically(transcript: string, prompt: string) {
-  const count = Number(prompt.match(/Produce exactly (\d+) topics/)?.[1] ?? "3");
+  const count = Number(prompt.match(/Produce (?:exactly|up to) (\d+) topics/)?.[1] ?? "3");
   const sections = splitInlineSections(transcript);
   const topics = sections.slice(0, count).map((section, index) => {
     const sentences = sentencesOf(section.text);
@@ -365,7 +365,7 @@ function mnemonicOptionsFor(items: string[]) {
 
 /** Lists worth a mnemonic: the material's topics in order, then the key ideas of each section. */
 export function mnemonicsHeuristically(transcript: string, prompt: string) {
-  const count = Number(prompt.match(/Produce exactly (\d+) targets/)?.[1] ?? "3");
+  const count = Number(prompt.match(/Produce (?:exactly|up to) (\d+) targets/)?.[1] ?? "3");
   const title = prompt.match(/^Material title:\s*(.+)$/m)?.[1]?.trim() || "the material";
   const sections = splitInlineSections(transcript);
   const candidates: Array<{ target: string; items: string[]; ordered: boolean; concept: string }> = [];
@@ -394,7 +394,7 @@ const STORY_HEROES = ["Mira", "Tomas", "Ana"];
 
 /** Story method: one story per section, each sentence of the section a fact carried by its own paragraph. */
 export function storiesHeuristically(transcript: string, prompt: string) {
-  const count = Number(prompt.match(/Produce exactly (\d+) stories/)?.[1] ?? "2");
+  const count = Number(prompt.match(/Produce (?:exactly|up to) (\d+) stories/)?.[1] ?? "2");
   const groups = splitInlineSections(transcript)
     .map((section) => ({ heading: section.heading, facts: sentencesOf(section.text).slice(0, 6) }))
     .filter((group) => group.facts.length >= 2);

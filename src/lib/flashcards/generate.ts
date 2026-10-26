@@ -7,6 +7,7 @@ import { generateJson } from "@/lib/ai/json";
 import { knownConceptsLine } from "@/lib/concepts/service";
 import { buildTranscript, coverageNote, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
+import { upTo } from "@/lib/study/prompts/shared";
 import { modelTitle } from "@/lib/ai/fields";
 import { clampTitle } from "@/lib/text/clamp";
 
@@ -20,7 +21,7 @@ const cardSchema = z.object({
 
 export const flashcardResponseSchema = z.object({
   title: modelTitle(),
-  cards: z.array(cardSchema).min(1).max(80),
+  cards: z.array(cardSchema).max(80),
 });
 
 export type GeneratedCard = z.infer<typeof cardSchema>;
@@ -89,7 +90,7 @@ Card rules:
   const user = `Material title: ${materialTitle}
 Student: ${studentLine(student)}
 ${options.focus ? `Focus on: ${options.focus}\n` : ""}${knownConceptsLine(options.knownConcepts ?? [])}${coverageNote(coverageRatio, focused)}
-Produce exactly ${options.count} cards.
+${upTo(options.count, "cards")}
 
 JSON schema:
 {

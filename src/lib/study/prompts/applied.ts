@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
-import { GROUNDING_RULE, points, studentLine, text } from "@/lib/study/prompts/shared";
+import { GROUNDING_RULE, points, studentLine, text, upTo } from "@/lib/study/prompts/shared";
 import { modelTitle } from "@/lib/ai/fields";
 
 /**
@@ -42,7 +42,6 @@ export const scenarioSetSchema = z.object({
           option_feedback: scenario.options.map((_, index) => scenario.option_feedback[index] ?? (index === Math.min(scenario.best_option, scenario.options.length - 1) ? scenario.rationale : "This is not the best action here.")),
         })),
     )
-    .min(1)
     .max(8),
 });
 
@@ -64,7 +63,7 @@ Rules:
 - Respond with a single JSON object matching the schema. No commentary.`;
   const user = `Material title: ${input.materialTitle}
 Student: ${studentLine(input.student)}
-${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}Produce exactly ${input.count} scenarios.
+${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${upTo(input.count, "scenarios")}
 
 JSON schema: { "scenarios": [{ "title": string, "situation": string, "question": string, "options": string[], "best_option": number, "option_feedback": string[], "rationale": string, "key_points": string[], "concept": string }] }
 
@@ -139,7 +138,6 @@ export const caseSetSchema = z.object({
         concept: text(120),
       }),
     )
-    .min(1)
     .max(4),
 });
 
@@ -161,7 +159,7 @@ Rules:
 - Respond with a single JSON object matching the schema. No commentary.`;
   const user = `Material title: ${input.materialTitle}
 Student: ${studentLine(input.student)}
-${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}Produce exactly ${input.count} cases.
+${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${upTo(input.count, "cases")}
 
 JSON schema: { "cases": [{ "title": string, "case_text": string, "task": string, "model": { "problem": string, "evidence": string[], "solutions": string[], "best_solution": string, "justification": string }, "concept": string }] }
 

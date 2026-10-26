@@ -7,7 +7,7 @@ import { generateJson } from "@/lib/ai/json";
 import { knownConceptsLine } from "@/lib/concepts/service";
 import { buildTranscript, coverageNote, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
-import { points, studentLine, text } from "@/lib/study/prompts/shared";
+import { points, studentLine, text, upTo } from "@/lib/study/prompts/shared";
 import { PASS_SCORE, verdictFor, type Verdict } from "@/lib/study/verdict";
 import { modelTitle } from "@/lib/ai/fields";
 
@@ -32,7 +32,6 @@ export const recallQuestionsSchema = z.object({
         format: z.enum(RETRIEVAL_FORMATS).optional().catch(undefined),
       }),
     )
-    .min(1)
     .max(30),
 });
 
@@ -81,7 +80,7 @@ ${formats ? `- "format": rotate through these formats in order and label each pr
   const user = `Material title: ${input.materialTitle}
 Student: ${studentLine(input.student)}
 ${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${knownConceptsLine(input.knownConcepts ?? [])}${coverageNote(coverageRatio, focused)}${input.emphasis?.length ? `High-value topics to prioritize: ${input.emphasis.join(", ")}\n` : ""}${input.recentMistakes.length ? `Recent mistakes:\n${input.recentMistakes.map((item) => `- ${item}`).join("\n")}\n` : ""}${formats ? `Formats to rotate: ${formats.join(", ")}\n` : ""}
-Produce exactly ${input.count} prompts.
+${upTo(input.count, "prompts")}
 
 JSON schema: { "questions": [{ "prompt": string, "model_answer": string, "key_points": string[], "concept": string, "source_excerpt": string${formats ? ', "format": string' : ""} }] }
 
@@ -154,7 +153,6 @@ export const feynmanConceptsSchema = z.object({
         source_excerpt: z.string().trim().max(600).default(""),
       }),
     )
-    .min(1)
     .max(8),
 });
 
@@ -184,7 +182,7 @@ Rules:
   const user = `Material title: ${input.materialTitle}
 Student: ${studentLine(input.student)}
 ${input.focusConcepts.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${knownConceptsLine(input.knownConcepts ?? [])}${coverageNote(coverageRatio, focused)}
-Produce exactly ${input.count} concepts.
+${upTo(input.count, "concepts")}
 
 JSON schema: { "concepts": [{ "concept": string, "ideal_explanation": string, "key_points": string[], "source_excerpt": string }] }
 
@@ -305,7 +303,6 @@ export const chunkPlanSchema = z.object({
         concept: text(120),
       }),
     )
-    .min(1)
     .max(12),
 });
 

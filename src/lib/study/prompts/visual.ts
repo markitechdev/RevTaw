@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
-import { GROUNDING_RULE, studentLine, text } from "@/lib/study/prompts/shared";
+import { GROUNDING_RULE, studentLine, text, upTo } from "@/lib/study/prompts/shared";
 import type { Visual, VisualTopic } from "@/lib/study/visuals";
 import { modelTitle } from "@/lib/ai/fields";
 
@@ -72,7 +72,6 @@ export function tidyVisual(visual: Visual): Visual {
 export const visualSetSchema = z.object({
   topics: z
     .array(z.object({ title: modelTitle(), concept: text(120), text: text(1500), visual: visualSchema }))
-    .min(1)
     .max(6),
 });
 
@@ -92,7 +91,7 @@ Rules:
 - Respond with a single JSON object matching the schema. No commentary.`;
   const user = `Material title: ${input.materialTitle}
 Student: ${studentLine(input.student)}
-Produce exactly ${input.count} topics.
+${upTo(input.count, "topics")}
 
 JSON schema: { "topics": [{ "title": string, "concept": string, "text": string, "visual": { "type": "table", "columns": string[], "rows": string[][] } | { "type": "flowchart", "steps": [{ "label": string, "detail": string }] } | { "type": "timeline", "events": [{ "when": string, "label": string, "detail": string }] } | { "type": "hierarchy", "root": string, "children": [{ "label": string, "children": [{ "label": string }] }] } | { "type": "relationships", "nodes": string[], "links": [{ "from": string, "to": string, "relation": string }] } }] }
 

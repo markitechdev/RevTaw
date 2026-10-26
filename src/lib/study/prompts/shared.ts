@@ -22,5 +22,14 @@ export function studentLine(student: StudentContext): string {
   );
 }
 
+/**
+ * How many items to write: up to the count, fewer when the material doesn't have that many distinct things to
+ * ask about. A fixed count ("exactly 20") next to "use only the material" leaves a model two ways out, both
+ * wrong: rephrase the same fact, or add facts the material doesn't state.
+ */
+export function upTo(count: number, noun: string): string {
+  return `Produce up to ${count} ${noun}: fewer when the material supports fewer distinct ones, and an empty list when it supports none. Never pad with rephrasings of an item or with anything the material doesn't state.`;
+}
+
 /** The grounding rule every generator repeats: only the material, never invented sources. */
 export const GROUNDING_RULE = "Use ONLY the material between <material> tags. Never invent formulas, data, quotations, page references or definitions the material does not support.";

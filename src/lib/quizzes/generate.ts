@@ -70,7 +70,7 @@ const generatedQuestionSchema = z.discriminatedUnion("type", [
 
 export const quizResponseSchema = z.object({
   title: modelTitle(),
-  questions: z.array(generatedQuestionSchema).min(1).max(60),
+  questions: z.array(generatedQuestionSchema).max(60),
 });
 
 export type GeneratedQuestion = z.infer<typeof generatedQuestionSchema>;
@@ -387,7 +387,7 @@ ${adaptive?.focusConcepts.length ? `- Give about 40% of the questions to these c
   const user = `Material title: ${materialTitle}
 Student: ${studentLine(student)}
 ${config.focus ? `Focus only on this topic/chapter if the material covers it: ${config.focus}\n` : ""}${knownConceptsLine(options.knownConcepts ?? [])}${coverageNote(coverageRatio, focused)}${previous.length ? `The student's earlier quizzes on this material already asked these; write different questions (other facts, or the same idea from a new angle):\n${previous.map((prompt) => `- ${prompt}`).join("\n")}\n` : ""}
-Plan (produce exactly these counts, ${config.questionCount} questions in total):
+Plan (at most these counts, ${config.questionCount} questions in total; fewer of a type when the material has no more distinct facts to ask about, and none when it has none):
 ${plan.map((item) => `- ${item.type}: ${item.count}`).join("\n")}
 
 JSON schema:

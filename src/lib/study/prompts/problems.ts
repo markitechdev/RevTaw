@@ -6,7 +6,7 @@ import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { PROBLEM_DIFFICULTIES, type ProblemDifficulty } from "@/lib/study/problem-options";
-import { GROUNDING_RULE, MISTAKE_TYPES, points, studentLine, text } from "@/lib/study/prompts/shared";
+import { GROUNDING_RULE, MISTAKE_TYPES, points, studentLine, text, upTo } from "@/lib/study/prompts/shared";
 
 /**
  * Prompts behind worked examples, faded worked examples and practice
@@ -44,7 +44,6 @@ export const problemSetSchema = z.object({
           .transform((value) => value ?? null),
       }),
     )
-    .min(1)
     .max(10),
 });
 
@@ -96,7 +95,7 @@ Rules:
   const user = `Material title: ${input.materialTitle}
 Student: ${studentLine(input.student)}
 Mode: ${input.mode}
-${input.focusConcepts?.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}Produce exactly ${input.count} problems.
+${input.focusConcepts?.length ? `Focus concepts (weak for this student): ${input.focusConcepts.join(", ")}\n` : ""}${upTo(input.count, "problems")}
 
 JSON schema: { "problems": [{ "concept": string, "difficulty": "easy" | "medium" | "hard" | "challenge", "problem": string, "solution": { "steps": [{ "step": string, "explanation": string }], "final_answer": string, "alternative_approach": string | null }, "key_points": string[], "practice": null | { "problem": string, "solution": { ... }, "key_points": string[] } }] }
 

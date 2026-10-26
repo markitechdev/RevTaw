@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
-import { GROUNDING_RULE, studentLine, text } from "@/lib/study/prompts/shared";
+import { GROUNDING_RULE, studentLine, text, upTo } from "@/lib/study/prompts/shared";
 import { modelTitle } from "@/lib/ai/fields";
 
 /**
@@ -29,7 +29,6 @@ export const mnemonicSetSchema = z.object({
           .max(3),
       }),
     )
-    .min(1)
     .max(5),
 });
 
@@ -51,7 +50,7 @@ Rules:
 - Respond with a single JSON object: { "targets": [{ "target": string, "items": string[], "ordered": boolean, "concept": string, "options": [{ "kind": string, "content": string, "explanation": string }] }] }`;
   const user = `Material title: ${input.materialTitle}
 Student: ${studentLine(input.student)}
-Produce exactly ${input.count} targets.
+${upTo(input.count, "targets")}
 
 <material>
 ${transcript}
@@ -87,7 +86,6 @@ export const storySetSchema = z.object({
         accuracy_note: z.string().trim().max(400).nullable().optional(),
       }),
     )
-    .min(1)
     .max(3),
 });
 
@@ -108,7 +106,7 @@ Rules:
 - Respond with a single JSON object: { "stories": [{ "title": string, "concept": string, "facts": string[], "paragraphs": [{ "text": string, "facts": number[] }], "accuracy_note": string | null }] }`;
   const user = `Material title: ${input.materialTitle}
 Student: ${studentLine(input.student)}
-Produce exactly ${input.count} stories.
+${upTo(input.count, "stories")}
 
 <material>
 ${transcript}

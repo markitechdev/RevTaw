@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
-import { GROUNDING_RULE, points, text } from "@/lib/study/prompts/shared";
+import { GROUNDING_RULE, points, text, upTo } from "@/lib/study/prompts/shared";
 
 /**
  * Prompts behind the guided reading methods SQ3R and PQ4R (spec §16): model
@@ -65,7 +65,6 @@ export const reflectQuestionsSchema = z.object({
         concept: text(120),
       }),
     )
-    .min(1)
     .max(6),
 });
 
@@ -80,7 +79,7 @@ export async function generateReflectQuestions(input: { materialTitle: string; s
 - ${GROUNDING_RULE}
 Respond with JSON only: { "questions": [{ "kind": string, "prompt": string, "model_answer": string, "key_points": string[], "concept": string }] }`;
   const user = `Material title: ${input.materialTitle}
-Produce exactly ${input.count} questions.
+${upTo(input.count, "questions")}
 
 <material>
 ${sectionsBlock(input.sections)}
