@@ -65,6 +65,16 @@ async function HomeTamari({ language, planning, today, size, lgSize }: { languag
   return <TamariHome line={line} today={today} size={size} lgSize={lgSize} />;
 }
 
+/**
+ * Waits for the background syncs inside the render, where they may read the request's cookies. Without it,
+ * a Home with the streak tile hidden finished rendering first, and the syncs' later reads failed in the
+ * after() phase ("cookies() inside after()"), so reminders and XP weren't brought up to date.
+ */
+async function SyncsDone({ syncs }: { syncs: Promise<unknown> }) {
+  await syncs;
+  return null;
+}
+
 function longDate(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", { timeZone: "UTC", weekday: "long", month: "long", day: "numeric" });
 }
@@ -82,7 +92,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
 
   // Plans adjust before anything reads today's tasks (widgets that show plan data wait for
   // this); XP, badges and reminders are brought up to date next, alongside the page. The
-  // streak tile waits for them, and after() keeps the request alive until they finish.
+  // streak tile waits for them, and so does an empty boundary at the end of the page, so they
+  // finish inside the render, where they may read the session's cookies; after() keeps the
+  // request alive if the student leaves first.
   const planning = rebalanceAllPlans().catch((error: unknown) => {
     console.error("dashboard: plan rebalance failed", error);
     return [];
@@ -145,6 +157,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           </div>
         }
       />
+      <Suspense fallback={null}>
+        <SyncsDone syncs={syncs} />
+      </Suspense>
     </div>
   );
 }
