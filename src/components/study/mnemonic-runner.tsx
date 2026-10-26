@@ -61,7 +61,9 @@ export function MnemonicRunner({ session, methodName, parentSessionId = null, pa
     ),
   );
   const initialDraft = draftOf(item);
-  const [stage, setStage] = useState<"learn" | "practice">(initialDraft ? "practice" : "learn");
+  // A saved mnemonic is reviewed from its cue first: showing the list before the test would turn recall into reading.
+  const startsWithRecall = (entry: typeof item | undefined, draft: ReturnType<typeof draftOf>) => Boolean(draft) || Boolean(entry && mnemonicViewOf(entry.analysis)?.fromSaved);
+  const [stage, setStage] = useState<"learn" | "practice">(startsWithRecall(item, initialDraft) ? "practice" : "learn");
   const [chosen, setChosen] = useState(initialDraft?.chosen ?? 0);
   const [answer, setAnswer] = useState(initialDraft?.answer ?? "");
   const [own, setOwn] = useState<{ open: boolean; content: string; explanation: string }>({ open: false, content: "", explanation: "" });
@@ -123,10 +125,10 @@ export function MnemonicRunner({ session, methodName, parentSessionId = null, pa
     });
   };
 
-  const check = () => {
+  const check = (given = answer) => {
     setError(null);
     startTransition(async () => {
-      const response = await practiceMnemonicAction({ itemId: item.id, optionIndex: chosen, answer, responseMs: Math.min(86_400_000, Date.now() - shownAt.current) });
+      const response = await practiceMnemonicAction({ itemId: item.id, optionIndex: chosen, answer: given, responseMs: Math.min(86_400_000, Date.now() - shownAt.current) });
       if (!response.ok) {
         setError(response.message);
         return;
@@ -142,7 +144,7 @@ export function MnemonicRunner({ session, methodName, parentSessionId = null, pa
     }
     const upcoming = draftOf(items[index + 1]);
     setIndex(index + 1);
-    setStage(upcoming ? "practice" : "learn");
+    setStage(startsWithRecall(items[index + 1], upcoming) ? "practice" : "learn");
     setChosen(upcoming?.chosen ?? 0);
     setAnswer(upcoming?.answer ?? "");
     setOwn({ open: false, content: "", explanation: "" });
@@ -277,10 +279,27 @@ export function MnemonicRunner({ session, methodName, parentSessionId = null, pa
               />
             </Field>
             <div className="flex flex-wrap justify-between gap-2 border-t border-border pt-4">
-              <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setStage("learn")}>
-                Look at the list again
-              </Button>
-              <Button type="button" size="sm" loading={pending} disabled={!answer.trim()} onClick={check}>
+              {view.fromSaved ? (
+                // Reviewing a saved mnemonic: not remembering is an answer too (it shows the list and counts as not yet).
+                <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => check("")}>
+                  I don&apos;t remember — show me
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={pending}
+                  onClick={() => {
+                    // Back to studying: the next try is written from memory again, not finished from the list.
+                    setAnswer("");
+                    setStage("learn");
+                  }}
+                >
+                  Look at the list again
+                </Button>
+              )}
+              <Button type="button" size="sm" loading={pending} disabled={!answer.trim()} onClick={() => check()}>
                 {!pending && <Check className="h-4 w-4" aria-hidden="true" />}
                 Check my list
               </Button>
