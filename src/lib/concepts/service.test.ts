@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { conceptCore, ensureConcepts, knownConceptsLine, normalizeConceptName } from "@/lib/concepts/service";
+import { conceptCore, conceptCoverage, ensureConcepts, knownConceptsLine, normalizeConceptName } from "@/lib/concepts/service";
 import { fakeSupabase } from "@/test/fake-supabase";
 
 describe("normalizeConceptName", () => {
@@ -41,6 +41,19 @@ describe("conceptCore", () => {
     for (const name of ["Photosynthesis process", "Role of the stroma", "Overview of the process of photosynthesis", "Calvin cycle"]) {
       expect(conceptCore(core(name))).toBe(core(name));
     }
+  });
+});
+
+describe("conceptCoverage", () => {
+  it("counts the listed concepts and any practiced one they don't list, each once", () => {
+    // "Photosynthesis process" is Photosynthesis; Stomata isn't listed but was practiced.
+    expect(conceptCoverage(["Photosynthesis", "Calvin cycle", "Chlorophyll"], ["Photosynthesis process", "Stomata"])).toEqual({ practiced: 2, total: 4 });
+    expect(conceptCoverage(["Photosynthesis", "Chlorophyll"], ["Chlorophyll", "photosynthesis"])).toEqual({ practiced: 2, total: 2 });
+    // Two practiced rows of one concept count once: Chlorophyll is still not practiced.
+    expect(conceptCoverage([], ["Osmosis", "osmosis"])).toEqual({ practiced: 1, total: 1 });
+    expect(conceptCoverage(["Photosynthesis", "Calvin cycle", "Chlorophyll"], ["Photosynthesis", "Photosynthesis process", "Calvin cycle"])).toEqual({ practiced: 2, total: 3 });
+    expect(conceptCoverage([], [])).toBeNull();
+    expect(conceptCoverage(["", "  "], [])).toBeNull();
   });
 });
 

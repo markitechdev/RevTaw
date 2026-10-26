@@ -26,8 +26,8 @@ export const GOAL_KINDS: ReadonlyArray<{ id: GoalKind; label: string; unit: stri
   { id: "focus_minutes", label: "Study time", unit: "min", hint: "e.g. Study 60 minutes today", periods: ["day", "week"], needsMaterial: false, defaultTarget: 60 },
   { id: "flashcards_reviewed", label: "Flashcards reviewed", unit: "cards", hint: "e.g. Complete 50 flashcards this week", periods: ["day", "week"], needsMaterial: false, defaultTarget: 50 },
   { id: "questions_answered", label: "Questions answered", unit: "questions", hint: "Quiz and recall answers", periods: ["day", "week"], needsMaterial: false, defaultTarget: 20 },
-  { id: "mastery", label: "Reach mastery", unit: "%", hint: "e.g. Reach 80% mastery of a material", periods: ["once"], needsMaterial: true, defaultTarget: 80 },
-  { id: "finish_material", label: "Finish a material", unit: "", hint: "e.g. Finish Chapter 4 before Friday — done when its concepts are strong or you tick it off", periods: ["once"], needsMaterial: true, defaultTarget: 1 },
+  { id: "mastery", label: "Reach mastery", unit: "%", hint: "e.g. Reach 80% mastery of a material — its concepts you haven't practiced yet count as 0", periods: ["once"], needsMaterial: true, defaultTarget: 80 },
+  { id: "finish_material", label: "Finish a material", unit: "", hint: "e.g. Finish Chapter 4 before Friday — done when every concept in it reaches 60% or you tick it off", periods: ["once"], needsMaterial: true, defaultTarget: 1 },
 ];
 
 export const GOAL_KIND_BY_ID = Object.fromEntries(GOAL_KINDS.map((kind) => [kind.id, kind])) as Record<GoalKind, (typeof GOAL_KINDS)[number]>;

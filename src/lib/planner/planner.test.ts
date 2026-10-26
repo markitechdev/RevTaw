@@ -10,6 +10,7 @@ const material = (overrides: Partial<PlanMaterial> = {}): PlanMaterial => ({
   difficulty: "intermediate",
   conceptHeavy: false,
   mastery: null,
+  coverage: null,
   weakConcepts: [],
   openMistakes: 0,
   hasFlashcards: false,
@@ -118,6 +119,22 @@ describe("plan generator", () => {
     expect(plan.warnings.join(" ")).toMatch(/every remaining day/);
     expect(plan.tasks.every((task) => task.method === "pomodoro")).toBe(true);
     expect(plan.tasks[0].title).toBe("Focused study: Chapter 4");
+  });
+
+  it("doesn't treat a material as done after a few of its concepts", () => {
+    // One concept of thirty answered well: planned like an untouched material, not like one at 95%.
+    const partly = material({ id: "m1", mastery: 95, coverage: { practiced: 1, total: 30 } });
+    const untouched = material({ id: "m2", title: "Cell respiration" });
+    const plan = generatePlan({ ...base, materials: [partly, untouched] });
+    const firstPasses = (id: string) => plan.tasks.filter((task) => task.phase === "coverage" && task.materialId === id).length;
+    expect(Math.abs(firstPasses("m1") - firstPasses("m2"))).toBeLessThanOrEqual(1);
+    const recall = plan.tasks.find((task) => task.materialId === "m1" && task.method === "active_recall");
+    expect(recall?.reason).toBe("You've practiced 1 of 30 concepts in Photosynthesis so far (95% on those).");
+    const test = plan.tasks.find((task) => task.materialId === "m1" && task.method === "practice_testing" && task.phase === "review");
+    expect(test?.reason).toMatch(/\(1 of 30 concepts practiced, 95% on those\)/);
+    // Every concept practiced: the average is the material's mastery.
+    const whole = generatePlan({ ...base, materials: [material({ mastery: 72, coverage: { practiced: 12, total: 12 } })] });
+    expect(whole.tasks.find((task) => task.method === "active_recall")?.reason).toBe("Photosynthesis sits at 72% mastery.");
   });
 
   it("handles a past exam and the exam day itself", () => {

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { parseAnalysisData } from "@/lib/materials/analysis-schema";
+import type { ConceptCoverage } from "@/lib/planner/material-progress";
 import type { createClient } from "@/lib/supabase/server";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
@@ -49,6 +50,42 @@ export function conceptCore(key: string): string {
     core = next;
   }
   return core;
+}
+
+/** The key that joins two names of one concept: "Photosynthesis process" is Photosynthesis. */
+export function conceptKey(name: string): string {
+  return conceptCore(normalizeConceptName(name));
+}
+
+/**
+ * How many of some materials' concepts the student has practiced: the concepts are the materials' key
+ * concepts (`listed`) plus any practiced concept they don't list, matched by `conceptKey`, so two practiced
+ * rows of one concept (from before such names were joined) count once. Null when there are none.
+ */
+export function conceptCoverage(listed: Iterable<string>, practiced: ReadonlyArray<string>): ConceptCoverage | null {
+  const all = new Set<string>();
+  const done = new Set<string>();
+  for (const name of listed) {
+    const key = conceptKey(name);
+    if (key) all.add(key);
+  }
+  for (const name of practiced) {
+    const key = conceptKey(name);
+    if (!key) continue;
+    all.add(key);
+    done.add(key);
+  }
+  return all.size > 0 ? { practiced: done.size, total: all.size } : null;
+}
+
+/** Each material's key concept names, from its analysis (materials without one are left out). */
+export async function materialKeyConcepts(supabase: Client, materialIds: ReadonlyArray<string>): Promise<Map<string, string[]>> {
+  const ids = [...new Set(materialIds)];
+  if (ids.length === 0) return new Map();
+  const { data, error } = await supabase.from("material_analyses").select("material_id, key_concepts:data->key_concepts").in("material_id", ids);
+  if (error) console.error("material_analyses: key concepts read failed", error.message);
+  const rows = (data ?? []) as unknown as Array<{ material_id: string; key_concepts: unknown }>;
+  return new Map(rows.map((row) => [row.material_id, parseAnalysisData({ key_concepts: row.key_concepts ?? [] }).key_concepts.map((concept) => concept.name)]));
 }
 
 /**

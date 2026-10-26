@@ -4,11 +4,11 @@ import { cache } from "react";
 
 import { listMastery } from "@/lib/adaptive/engine";
 import { inAnyMaterial } from "@/lib/adaptive/mastery";
-import { conceptCore, normalizeConceptName } from "@/lib/concepts/service";
+import { conceptCoverage, materialKeyConcepts } from "@/lib/concepts/service";
 import { countDueCards } from "@/lib/flashcards/queries";
-import { parseAnalysisData } from "@/lib/materials/analysis-schema";
 import { addDays, daysBetween } from "@/lib/planner/dates";
 import { readinessScore } from "@/lib/planner/generate";
+import type { ConceptCoverage } from "@/lib/planner/material-progress";
 import { plannerClock } from "@/lib/planner/service";
 import type { Exam, MaterialStatus, ReminderStatus, StudyPlan, StudyTask } from "@/lib/supabase/database.types";
 import { readPagesQuietly } from "@/lib/supabase/paginate";
@@ -42,7 +42,7 @@ export type ExamSummary = Exam & {
   /** Average mastery of the practiced concepts of the exam's materials. */
   averageMastery: number | null;
   /** Concepts of the exam's materials practiced, of all of them (the analyses' key concepts and any practiced); null without either. */
-  concepts: { practiced: number; total: number } | null;
+  concepts: ConceptCoverage | null;
   readiness: number | null;
 };
 
@@ -50,27 +50,22 @@ async function decorateExams(exams: Array<Exam & { subject: ExamSummary["subject
   if (exams.length === 0) return [];
   const supabase = await createClient();
   const examMaterialIds = [...new Set(exams.flatMap((exam) => exam.exam_materials.map((link) => link.material?.id).filter((id): id is string => Boolean(id))))];
-  const [tasks, mastery, analyses] = await Promise.all([
+  const [tasks, mastery, keyConcepts] = await Promise.all([
     // Skipped tasks never count, so they are not read.
     readPagesQuietly("study_tasks: exam progress", (from, to) => supabase.from("study_tasks").select("exam_id, status").in("exam_id", exams.map((exam) => exam.id)).neq("status", "skipped").order("id").range(from, to), 5000),
     listMastery(),
-    examMaterialIds.length ? supabase.from("material_analyses").select("material_id, key_concepts:data->key_concepts").in("material_id", examMaterialIds) : Promise.resolve({ data: [] }),
+    materialKeyConcepts(supabase, examMaterialIds),
   ]);
-  // Each material's key concepts, by the same key that joins names to one concept ("Photosynthesis process" is Photosynthesis).
-  const conceptKey = (name: string) => conceptCore(normalizeConceptName(name));
-  const keyConcepts = new Map<string, string[]>();
-  for (const row of (analyses.data ?? []) as Array<{ material_id: string; key_concepts: unknown }>) {
-    keyConcepts.set(row.material_id, parseAnalysisData({ key_concepts: row.key_concepts ?? [] }).key_concepts.map((concept) => conceptKey(concept.name)));
-  }
   return exams.map((exam) => {
     const materials = [...exam.exam_materials].sort((a, b) => a.position - b.position).map((link) => link.material).filter((material): material is { id: string; title: string; status: string } => Boolean(material));
     const materialIds = new Set(materials.map((material) => material.id));
     const rows = mastery.filter((row) => row.attempts > 0 && inAnyMaterial(row.concept, materialIds));
     const averageMastery = rows.length ? Math.round(rows.reduce((sum, row) => sum + Number(row.mastery), 0) / rows.length) : null;
     // Every concept the exam covers: its materials' key concepts, plus any practiced one they don't list.
-    const all = new Set(materials.flatMap((material) => keyConcepts.get(material.id) ?? []));
-    for (const row of rows) all.add(conceptKey(row.concept!.name));
-    const concepts = all.size > 0 ? { practiced: rows.length, total: Math.max(all.size, rows.length) } : null;
+    const concepts = conceptCoverage(
+      materials.flatMap((material) => keyConcepts.get(material.id) ?? []),
+      rows.map((row) => row.concept?.name ?? ""),
+    );
     const own = tasks.filter((task) => task.exam_id === exam.id && task.status !== "skipped");
     const tasksDone = own.filter((task) => task.status === "done").length;
     const plan = Array.isArray(exam.plan) ? (exam.plan[0] ?? null) : exam.plan;

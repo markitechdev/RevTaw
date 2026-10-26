@@ -2,11 +2,13 @@ import "server-only";
 
 import { listMastery } from "@/lib/adaptive/engine";
 import { conceptMaterialIds, isWeakTopic } from "@/lib/adaptive/mastery";
+import { conceptCoverage } from "@/lib/concepts/service";
 import { ServiceError } from "@/lib/errors";
 import { countDueCards } from "@/lib/flashcards/queries";
 import { parseAnalysisData } from "@/lib/materials/analysis-schema";
 import { addDays, dateIn, daysBetween, isIsoDate, todayIn, weekdayOf } from "@/lib/planner/dates";
 import { generatePlan, type PlanMaterial, type PlannedTask } from "@/lib/planner/generate";
+import { coveredMastery, partlyPracticed } from "@/lib/planner/material-progress";
 import { activitySchema, examFormSchema, type ExamFormValues } from "@/lib/planner/schemas";
 import { methodNeedsMaterial } from "@/lib/planner/types";
 import { getCurrentUserWithProfile } from "@/lib/profile/queries";
@@ -157,6 +159,10 @@ async function planMaterials(supabase: Client, materialIds: string[]): Promise<P
         difficulty: analysis?.difficulty ?? null,
         conceptHeavy: concepts.length > 0 && deep / concepts.length >= 0.5,
         mastery: average,
+        coverage: conceptCoverage(
+          concepts.map((concept) => concept.name),
+          rows.map((row) => row.concept?.name ?? ""),
+        ),
         weakConcepts: rows.filter(isWeakTopic).map((row) => row.concept?.name ?? "").filter(Boolean).slice(0, 6),
         openMistakes: mistakeCount.get(material.id) ?? 0,
         hasFlashcards: deckMaterials.has(material.id),
@@ -308,11 +314,15 @@ export async function rebalancePlan(planId: string, options: { force?: boolean }
   for (const material of materials) {
     if (material.mastery === null) continue;
     const pending = tasks.filter((task) => task.status === "pending" && task.material_id === material.id && task.scheduled_for >= today && task.kind === "plan");
-    if (material.mastery >= 85 && pending.length > 2) {
+    // Strong means the whole material: its concepts not practiced yet count as 0. Weak means the concepts
+    // practiced so far are going badly.
+    const shown = coveredMastery(material.mastery, material.coverage) ?? material.mastery;
+    const partial = partlyPracticed(material.coverage) ? material.coverage : null;
+    if (shown >= 85 && pending.length > 2) {
       const victim = [...pending].reverse().find((task) => task.method === "active_recall" || task.method === "review");
       if (victim) {
-        await supabase.from("study_tasks").update({ status: "skipped", reason: `${victim.reason ?? ""} Skipped by RevTaw: ${material.title} is already at ${Math.round(material.mastery)}% mastery.`.trim().slice(0, 400) }).eq("id", victim.id);
-        notes.push(`${material.title} is strong (${Math.round(material.mastery)}%): one recall task skipped.`);
+        await supabase.from("study_tasks").update({ status: "skipped", reason: `${victim.reason ?? ""} Skipped by RevTaw: ${material.title} is already at ${Math.round(shown)}% mastery.`.trim().slice(0, 400) }).eq("id", victim.id);
+        notes.push(`${material.title} is strong (${Math.round(shown)}%): one recall task skipped.`);
       }
     } else if (material.mastery < 40 && daysLeft >= 2) {
       const alreadyAdded = tasks.some((task) => task.material_id === material.id && task.status === "pending" && task.reason?.startsWith("Added by RevTaw"));
@@ -325,14 +335,14 @@ export async function rebalancePlan(planId: string, options: { force?: boolean }
           kind: "plan",
           method: "active_recall",
           title: clampTitle(`Extra recall: ${material.title}`),
-          reason: clampText(`Added by RevTaw: ${material.title} is at ${Math.round(material.mastery)}% mastery${material.weakConcepts.length ? ` (${material.weakConcepts.slice(0, 2).join(", ")})` : ""}.`, 400),
+          reason: clampText(`Added by RevTaw: ${material.title} is at ${Math.round(material.mastery)}% mastery${partial ? ` on the ${partial.practiced} of ${partial.total} concepts practiced so far` : ""}${material.weakConcepts.length ? ` (${material.weakConcepts.slice(0, 2).join(", ")})` : ""}.`, 400),
           scheduled_for: date,
           position: 40,
           minutes: 15,
           concepts: material.weakConcepts.slice(0, 6),
         });
         usedByDay.set(date, (usedByDay.get(date) ?? 0) + 15);
-        notes.push(`${material.title} is weak (${Math.round(material.mastery)}%): an extra recall task was added.`);
+        notes.push(`${material.title} is weak (${Math.round(material.mastery)}%${partial ? ` on ${partial.practiced} of ${partial.total} concepts` : ""}): an extra recall task was added.`);
       }
     }
   }

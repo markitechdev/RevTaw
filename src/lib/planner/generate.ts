@@ -1,4 +1,5 @@
 import { addDays, daysBetween, weekdayOf } from "@/lib/planner/dates";
+import { coveredMastery, masteryWords, partlyPracticed, type ConceptCoverage } from "@/lib/planner/material-progress";
 import type { StudyMethodId } from "@/lib/study/methods";
 import type { ConfidenceLevel, ExamPriority, PlanMode } from "@/lib/supabase/database.types";
 
@@ -29,6 +30,8 @@ export type PlanMaterial = {
   conceptHeavy: boolean;
   /** Average mastery of practiced concepts (0-100), null when untouched. */
   mastery: number | null;
+  /** Its concepts practiced, of all of them (the analysis's key concepts and any practiced); null when neither names any. */
+  coverage: ConceptCoverage | null;
   weakConcepts: string[];
   openMistakes: number;
   hasFlashcards: boolean;
@@ -96,9 +99,18 @@ export function studyDaysBetween(today: string, examDate: string, availableDays:
 
 type DayPlan = { date: string; used: number; tasks: PlannedTask[] };
 
+/**
+ * What a material is taken to be at when planning: its practiced concepts at their mastery, and an
+ * untouched material, or the concepts of one not practiced yet, at `unknown`. One concept answered well
+ * doesn't make a material of thirty look done.
+ */
+function plannedMastery(material: PlanMaterial, unknown: number): number {
+  return coveredMastery(material.mastery, material.coverage, unknown) ?? unknown;
+}
+
 function materialWeight(material: PlanMaterial): number {
   const size = Math.max(15, material.estimatedMinutes ?? 60);
-  const gap = (100 - (material.mastery ?? 55)) / 100;
+  const gap = (100 - plannedMastery(material, 55)) / 100;
   return size * (1 + gap) * (material.openMistakes > 0 ? 1.1 : 1);
 }
 
@@ -157,7 +169,13 @@ function titleFor(method: StudyMethodId | "review", material: PlanMaterial | nul
 function coverageReason(method: StudyMethodId, material: PlanMaterial, pass: number): string {
   const weak = material.weakConcepts.slice(0, 2).join(" and ");
   if (method === "active_recall") {
-    if (pass === 0) return material.mastery === null ? `First pass on ${material.title}: pull the key ideas from memory before re-reading them.` : `${material.title} sits at ${Math.round(material.mastery)}% mastery${weak ? ` — ${weak} first` : ""}.`;
+    if (pass === 0) {
+      if (material.mastery === null) return `First pass on ${material.title}: pull the key ideas from memory before re-reading them.`;
+      const first = weak ? ` — ${weak} first` : "";
+      return partlyPracticed(material.coverage)
+        ? `You've practiced ${material.coverage.practiced} of ${material.coverage.total} concepts in ${material.title} so far (${Math.round(material.mastery)}% on those)${first}.`
+        : `${material.title} sits at ${Math.round(material.mastery)}% mastery${first}.`;
+    }
     return weak ? `Second recall pass, aimed at ${weak}.` : `Second recall pass over ${material.title} to lock it in.`;
   }
   if (method === "feynman") return `Concept-heavy material: explaining ${weak || "the main ideas"} to a beginner shows what you only half understand.`;
@@ -198,7 +216,7 @@ export function generatePlan(input: PlanInput): GeneratedPlan {
   const free = (day: DayPlan) => minutesPerDay - day.used;
   const totalMistakes = input.materials.reduce((sum, material) => sum + material.openMistakes, 0);
   const anyFlashcards = input.materials.some((material) => material.hasFlashcards) || input.dueCards > 0;
-  const weakest = [...input.materials].sort((a, b) => (a.mastery ?? 50) - (b.mastery ?? 50));
+  const weakest = [...input.materials].sort((a, b) => plannedMastery(a, 50) - plannedMastery(b, 50));
 
   if (mode === "cram") {
     for (const day of days) {
@@ -310,7 +328,7 @@ export function generatePlan(input: PlanInput): GeneratedPlan {
           if (!method) continue;
           const reason =
             method === "practice_testing"
-              ? `Adaptive test on ${material.title}${material.mastery !== null ? ` (${Math.round(material.mastery)}% mastery)` : ""} to confirm the first pass held.`
+              ? `Adaptive test on ${material.title}${material.mastery !== null ? ` (${masteryWords(material.mastery, material.coverage)})` : ""} to confirm the first pass held.`
               : method === "feynman"
                 ? `Explain ${material.weakConcepts.slice(0, 2).join(" and ") || material.title} to a beginner — the gaps show up in your own words.`
                 : `Recall pass over ${material.title}${material.weakConcepts.length ? ` (${material.weakConcepts.slice(0, 2).join(", ")})` : ""} to keep it strong.`;
@@ -369,10 +387,10 @@ export function generatePlan(input: PlanInput): GeneratedPlan {
  * completion. Concepts of those materials not practiced yet count as 0 (`concepts`: practiced of all), so
  * one concept answered well isn't "67% ready" for an exam on thirty.
  */
-export function readinessScore(input: { averageMastery: number | null; concepts?: { practiced: number; total: number } | null; tasksDone: number; tasksTotal: number }): number | null {
+export function readinessScore(input: { averageMastery: number | null; concepts?: ConceptCoverage | null; tasksDone: number; tasksTotal: number }): number | null {
   if (input.averageMastery === null && input.tasksTotal === 0) return null;
   const completion = input.tasksTotal > 0 ? input.tasksDone / input.tasksTotal : 0;
-  if (input.averageMastery === null) return Math.round(completion * 50);
-  const coverage = input.concepts && input.concepts.total > 0 ? Math.min(1, input.concepts.practiced / input.concepts.total) : 1;
-  return Math.round(input.averageMastery * coverage * 0.7 + completion * 100 * 0.3);
+  const known = coveredMastery(input.averageMastery, input.concepts);
+  if (known === null) return Math.round(completion * 50);
+  return Math.round(known * 0.7 + completion * 100 * 0.3);
 }

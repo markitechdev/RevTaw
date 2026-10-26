@@ -2,7 +2,9 @@ import "server-only";
 
 import { listMastery } from "@/lib/adaptive/engine";
 import { conceptMaterialIds } from "@/lib/adaptive/mastery";
+import { conceptCoverage, conceptKey, materialKeyConcepts } from "@/lib/concepts/service";
 import { addDays, dateIn, weekStartOf } from "@/lib/planner/dates";
+import { materialGoalProgress } from "@/lib/planner/material-progress";
 import { PlannerError, plannerClock } from "@/lib/planner/service";
 import { goalFormSchema } from "@/lib/planner/schemas";
 import { GOAL_KIND_BY_ID } from "@/lib/planner/types";
@@ -77,13 +79,16 @@ export async function listGoalsWithProgress(): Promise<GoalProgress[]> {
   const needsActivity = rows.some((goal) => goal.kind !== "mastery" && goal.kind !== "finish_material");
   const earliest = addDays(weekStartOf(today), -7);
   const since = `${earliest}T00:00:00Z`;
+  const materialGoals = rows.filter((goal) => goal.kind === "mastery" || goal.kind === "finish_material");
   // Newest first, so a cap drops last week's rows before this week's.
-  const [sessions, reviews, answers, items, mastery] = await Promise.all([
+  const [sessions, reviews, answers, items, mastery, keyConcepts] = await Promise.all([
     needsActivity ? readPagesQuietly("goals: sessions", (from, to) => supabase.from("study_sessions").select("method, started_at, completed_at, focus_seconds, status").gte("started_at", since).order("started_at", { ascending: false }).order("id").range(from, to), 1000) : Promise.resolve([]),
     needsActivity ? readPagesQuietly("goals: reviews", (from, to) => supabase.from("flashcard_reviews").select("reviewed_at").gte("reviewed_at", since).order("reviewed_at", { ascending: false }).order("id").range(from, to), 2000) : Promise.resolve([]),
     needsActivity ? readPagesQuietly("goals: answers", (from, to) => supabase.from("quiz_answers").select("answered_at").gte("answered_at", since).order("answered_at", { ascending: false }).order("id").range(from, to), 2000) : Promise.resolve([]),
     needsActivity ? readPagesQuietly("goals: session items", (from, to) => supabase.from("study_session_items").select("answered_at").gte("answered_at", since).not("answered_at", "is", null).order("answered_at", { ascending: false }).order("id").range(from, to), 2000) : Promise.resolve([]),
-    rows.some((goal) => goal.kind === "mastery" || goal.kind === "finish_material") ? listMastery() : Promise.resolve([]),
+    materialGoals.length ? listMastery() : Promise.resolve([]),
+    // A material's goal counts all its concepts: its analysis's key concepts and any practiced.
+    materialKeyConcepts(supabase, materialGoals.flatMap((goal) => (goal.material_id ? [goal.material_id] : []))),
   ]);
 
   const inRange = (iso: string | null, start: string | null, end: string | null) => {
@@ -112,23 +117,37 @@ export async function listGoalsWithProgress(): Promise<GoalProgress[]> {
         current = answers.filter((answer) => inRange(answer.answered_at, start, end)).length + items.filter((item) => inRange(item.answered_at, start, end)).length;
         detail = `${current} of ${goal.target} questions`;
         break;
-      case "mastery": {
-        const rowsFor = mastery.filter((row) => row.attempts > 0 && goal.material_id !== null && conceptMaterialIds(row.concept).includes(goal.material_id));
-        current = rowsFor.length ? Math.round(rowsFor.reduce((sum, row) => sum + Number(row.mastery), 0) / rowsFor.length) : 0;
-        detail = rowsFor.length ? `${current}% average over ${rowsFor.length} concept${rowsFor.length === 1 ? "" : "s"}` : "No concepts practiced yet";
-        break;
-      }
+      case "mastery":
       case "finish_material": {
         const rowsFor = mastery.filter((row) => row.attempts > 0 && goal.material_id !== null && conceptMaterialIds(row.concept).includes(goal.material_id));
-        const strong = rowsFor.filter((row) => Number(row.mastery) >= 60).length;
-        current = goal.status === "completed" ? 1 : rowsFor.length > 0 && strong === rowsFor.length && rowsFor.length >= 3 ? 1 : 0;
-        detail = goal.status === "completed" ? "Done" : rowsFor.length ? `${strong} of ${rowsFor.length} concepts strong` : "Not started";
+        const listed = (goal.material_id && keyConcepts.get(goal.material_id)) || [];
+        const coverage = conceptCoverage(
+          listed,
+          rowsFor.map((row) => row.concept?.name ?? ""),
+        );
+        // One mastery per concept: rows of one concept from before such names were joined are averaged.
+        const byConcept = new Map<string, number[]>();
+        for (const row of rowsFor) {
+          const key = conceptKey(row.concept?.name ?? "") || row.concept_id;
+          byConcept.set(key, [...(byConcept.get(key) ?? []), Number(row.mastery)]);
+        }
+        const perConcept = [...byConcept.values()].map((values) => values.reduce((sum, value) => sum + value, 0) / values.length);
+        ({ current, detail } = materialGoalProgress(goal.kind, perConcept, coverage, listed.length > 0));
+        if (goal.status === "completed") {
+          // Reached (or ticked off) earlier: it stays reached, and a mastery goal still says where the material is now.
+          if (goal.kind === "finish_material") {
+            current = 1;
+            detail = "Done";
+          } else if (current < goal.target) {
+            detail = `Reached earlier · now ${detail}`;
+          }
+        }
         break;
       }
     }
     const target = goal.target;
     const reached = goal.status === "completed" || current >= target;
-    const percent = Math.max(0, Math.min(100, Math.round((Math.min(current, target) / target) * 100)));
+    const percent = reached ? 100 : Math.max(0, Math.min(100, Math.round((Math.min(current, target) / target) * 100)));
     results.push({ goal, current, target, percent, label: goalTitle(goal, goal.material?.title ?? null), detail, reached, periodStart: start, periodEnd: end });
   }
 
