@@ -1,6 +1,7 @@
 import "server-only";
 
 import { listMastery } from "@/lib/adaptive/engine";
+import { isWeakTopic } from "@/lib/adaptive/mastery";
 import { ServiceError } from "@/lib/errors";
 import { countDueCards } from "@/lib/flashcards/queries";
 import { parseAnalysisData } from "@/lib/materials/analysis-schema";
@@ -156,7 +157,7 @@ async function planMaterials(supabase: Client, materialIds: string[]): Promise<P
         difficulty: analysis?.difficulty ?? null,
         conceptHeavy: concepts.length > 0 && deep / concepts.length >= 0.5,
         mastery: average,
-        weakConcepts: rows.filter((row) => row.status === "weak" || row.status === "learning").map((row) => row.concept?.name ?? "").filter(Boolean).slice(0, 6),
+        weakConcepts: rows.filter(isWeakTopic).map((row) => row.concept?.name ?? "").filter(Boolean).slice(0, 6),
         openMistakes: mistakeCount.get(material.id) ?? 0,
         hasFlashcards: deckMaterials.has(material.id),
       };

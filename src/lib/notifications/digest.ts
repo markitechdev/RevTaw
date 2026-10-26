@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { isWeakTopic } from "@/lib/adaptive/mastery";
 import { getPublicSiteUrl } from "@/lib/env";
 import { renderEmail, siteEmailOptions, type EmailSection } from "@/lib/email/render";
 import { examEmail, reviewReminderEmail, todaysPlanEmail } from "@/lib/email/templates";
@@ -165,16 +166,21 @@ async function examDetails(client: Client, userId: string, examId: string): Prom
   const materialIds = ((links.data ?? []) as Array<{ material_id: string }>).map((link) => link.material_id);
   let weakTopics: string[] = [];
   if (materialIds.length > 0) {
+    // The lowest-mastery concepts, then the weak topics among them (the same definition as Home and Tamari).
     const { data } = await client
       .from("concept_mastery")
-      .select("mastery, concept:concepts!concept_mastery_concept_fk!inner(name, material_id)")
+      .select("mastery, attempts, first_attempts, status, weakness, misconceptions, concept:concepts!concept_mastery_concept_fk!inner(name, material_id)")
       .eq("user_id", userId)
       .in("concept.material_id", materialIds)
-      .in("status", ["weak", "learning"])
       .gt("attempts", 0)
       .order("mastery")
-      .limit(3);
-    weakTopics = ((data ?? []) as unknown as Array<{ concept: { name: string } | null }>).map((row) => row.concept?.name ?? "").filter(Boolean);
+      .limit(50);
+    type Row = Parameters<typeof isWeakTopic>[0] & { concept: { name: string } | null };
+    weakTopics = ((data ?? []) as unknown as Row[])
+      .filter(isWeakTopic)
+      .map((row) => row.concept?.name ?? "")
+      .filter(Boolean)
+      .slice(0, 3);
   }
   return { progress: statuses.length ? { done: statuses.filter((task) => task.status === "done").length, total: statuses.length } : null, weakTopics };
 }

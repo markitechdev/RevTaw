@@ -160,7 +160,15 @@ describe("digest content", () => {
       if (call.table === "study_tasks" && call.filters.exam_id === "e1") return { data: [{ status: "done" }, { status: "pending" }, { status: "done" }] };
       if (call.table === "study_tasks") return { data: [] };
       if (call.table === "exam_materials") return { data: [{ material_id: "m1" }] };
-      if (call.table === "concept_mastery") return { data: [{ mastery: 20, concept: { name: "Glycolysis" } }, { mastery: 35, concept: { name: "ATP yield" } }] };
+      if (call.table === "concept_mastery")
+        return {
+          data: [
+            // One wrong answer so far: still being measured, not a weak topic.
+            { mastery: 12, attempts: 1, first_attempts: 1, status: "learning", weakness: 0.15, misconceptions: 0, concept: { name: "Krebs cycle" } },
+            { mastery: 20, attempts: 5, first_attempts: 5, status: "weak", weakness: 0.4, misconceptions: 0, concept: { name: "Glycolysis" } },
+            { mastery: 35, attempts: 4, first_attempts: 4, status: "learning", weakness: 0.2, misconceptions: 1, concept: { name: "ATP yield" } },
+          ],
+        };
       return {};
     });
     const content = await digestContent(client, "ana", "2026-10-22", "Asia/Manila");

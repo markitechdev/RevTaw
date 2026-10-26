@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MASTERY_SPACING_DAYS, MASTERY_THRESHOLD, needsRefresh, NEXT_STEP_LABEL, STATUS_BANDS, STATUS_LABEL } from "@/lib/adaptive/mastery";
+import { isWeakTopic, MASTERY_SPACING_DAYS, MASTERY_THRESHOLD, needsRefresh, NEXT_STEP_LABEL, STATUS_BANDS, STATUS_LABEL } from "@/lib/adaptive/mastery";
 import { CONCEPT_STATES } from "@/lib/engine/types";
 
 describe("mastery labels", () => {
@@ -16,6 +16,19 @@ describe("mastery labels", () => {
     expect(MASTERY_SPACING_DAYS).toBe(2);
     expect(NEXT_STEP_LABEL.spaced).toBe("Get it right again 2 or more days after the first time");
     expect(NEXT_STEP_LABEL.hardItem).toMatch(/hard question.*without choices/);
+  });
+
+  it("calls a topic weak on evidence, not on a low number alone", () => {
+    const row = { attempts: 6, first_attempts: 6, status: "learning" as const, weakness: 0.1, misconceptions: 0 };
+    expect(isWeakTopic({ ...row, attempts: 0, first_attempts: 0 })).toBe(false);
+    // One or two answers are still being measured, however they went.
+    expect(isWeakTopic({ ...row, attempts: 2, first_attempts: 2, weakness: 0.3 })).toBe(false);
+    expect(isWeakTopic({ ...row, weakness: 0.3 })).toBe(true);
+    expect(isWeakTopic({ ...row, status: "weak" })).toBe(true);
+    // A confident wrong answer is worth fixing from the first one.
+    expect(isWeakTopic({ ...row, attempts: 1, first_attempts: 1, misconceptions: 1 })).toBe(true);
+    // Under 60% only because recall faded: a refresh, not a weak topic.
+    expect(isWeakTopic({ ...row, weakness: 0.05 })).toBe(false);
   });
 
   it("shows a faded strong or mastered concept as a refresh", () => {

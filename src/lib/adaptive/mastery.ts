@@ -45,6 +45,19 @@ export const NEXT_STEP_LABEL: Record<NextStep, string> = {
 
 const rank = (status: MasteryStatus) => CONCEPT_STATES.indexOf(status);
 
+/**
+ * A weak topic, wherever RevTaw names one (Home, Tamari, the planner, a material's page): a concept the
+ * student holds a confident wrong idea about, or one practiced enough to tell (three answers) that needs a
+ * foundation or is flagged by the weakness score. Not just a low number: a concept with one or two answers
+ * is still being measured, and one that faded since it was learned needs a refresh, not a foundation.
+ */
+export function isWeakTopic(row: Pick<ConceptMastery, "attempts" | "first_attempts" | "status" | "weakness" | "misconceptions">): boolean {
+  if (row.attempts <= 0) return false;
+  if (row.misconceptions > 0) return true;
+  if (row.status === "weak") return true;
+  return row.first_attempts >= ENGINE.gates.minAnswers && Number(row.weakness) >= ENGINE.weakness.flagAt;
+}
+
 /** Was strong or mastered, and has dropped because recall faded: show it as a refresh, not a failure. */
 export function needsRefresh(row: Pick<ConceptMastery, "status" | "best_status" | "recall">): boolean {
   if (!row.best_status || rank(row.best_status) < rank("strong") || rank(row.status) >= rank(row.best_status)) return false;

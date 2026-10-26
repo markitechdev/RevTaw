@@ -4,7 +4,7 @@ import { cache } from "react";
 
 import { listMastery, type MasteryView } from "@/lib/adaptive/engine";
 import { conceptCategories, DEFAULT_CATEGORY } from "@/lib/adaptive/evidence";
-import { ENGINE } from "@/lib/engine/config";
+import { isWeakTopic } from "@/lib/adaptive/mastery";
 import { chooseMethod, PLAN_METHODS, type MethodPick } from "@/lib/engine/method-rules";
 import { rankByPriority, type PriorityInput, type Ranked } from "@/lib/engine/priority";
 import type { ConceptState } from "@/lib/engine/types";
@@ -137,10 +137,9 @@ export async function rankConcepts(options: { materialId?: string | null; includ
   return rankByPriority(items);
 }
 
-/** A topic the student would call weak: flagged by the weakness score, under 60%, or holding a confident mistake. */
-export function isWeakTopic(concept: FocusConcept): boolean {
-  if (!concept.row) return false;
-  return concept.state === "weak" || concept.state === "learning" || concept.row.misconceptions > 0 || Number(concept.row.weakness) >= ENGINE.weakness.flagAt;
+/** A ranked concept that is a weak topic (the shared definition in adaptive/mastery). */
+export function isWeakConcept(concept: FocusConcept): boolean {
+  return concept.row !== null && isWeakTopic(concept.row);
 }
 
 /** Methods a Tamari plan block can run (a block can't nest a plan of its own). */

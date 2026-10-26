@@ -106,12 +106,12 @@ export function SessionSummaryCard({
             <p className="text-sm">{summary.topics.length ? summary.topics.join(", ") : "—"}</p>
           </div>
           <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-danger">Weak concepts</p>
-            <p className="text-sm">{summary.weakConcepts.length ? summary.weakConcepts.join(", ") : "None this session"}</p>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-danger">Missed this session</p>
+            <p className="text-sm">{summary.weakConcepts.length ? summary.weakConcepts.join(", ") : "Nothing"}</p>
           </div>
           <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-success">Strong concepts</p>
-            <p className="text-sm">{summary.strongConcepts.length ? summary.strongConcepts.join(", ") : "None yet"}</p>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-success">Right every time</p>
+            <p className="text-sm">{summary.strongConcepts.length ? summary.strongConcepts.join(", ") : "None this session"}</p>
           </div>
         </div>
 

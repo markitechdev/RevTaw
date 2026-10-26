@@ -5,13 +5,12 @@ import { unstable_rethrow } from "next/navigation";
 import { cache } from "react";
 
 import { abilityOf, chunked, collectEvidence, loadModelContext, readPages } from "@/lib/adaptive/evidence";
-import { needsRefresh } from "@/lib/adaptive/mastery";
+import { isWeakTopic, needsRefresh } from "@/lib/adaptive/mastery";
 import { ENGINE } from "@/lib/engine/config";
 import { chooseDifficulty, labelPrior } from "@/lib/engine/elo";
 import { guessFloor } from "@/lib/engine/knowledge";
 import { modelConcept } from "@/lib/engine/mastery-model";
 import { CONCEPT_STATES } from "@/lib/engine/types";
-import { isWeak } from "@/lib/engine/weakness";
 import { awardMasteredXp } from "@/lib/gamification/service";
 import type { ConceptMastery, Database, MasteryStatus, QuestionDifficulty } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -205,7 +204,7 @@ export type MasterySummary = {
   developing: MasteryView[];
   strong: MasteryView[];
   mastered: MasteryView[];
-  /** Flagged by the weakness score (or needing a foundation), weakest first: the weak topics. */
+  /** The weak topics (isWeakTopic), weakest first. */
   needsWork: MasteryView[];
   /** Was strong or mastered and has faded: a quick review brings it back. */
   refresh: MasteryView[];
@@ -227,7 +226,7 @@ export const getMasterySummary = cache(async (filters: { materialId?: string } =
     strong: practiced.filter((row) => row.status === "strong"),
     mastered: practiced.filter((row) => row.status === "mastered"),
     needsWork: practiced
-      .filter((row) => row.status === "weak" || isWeak(Number(row.weakness)))
+      .filter(isWeakTopic)
       .sort((a, b) => Number(b.weakness) - Number(a.weakness) || Number(a.mastery) - Number(b.mastery)),
     refresh: practiced.filter(needsRefresh).sort((a, b) => Number(a.recall ?? 1) - Number(b.recall ?? 1)),
     dueForReview: practiced.filter((row) => row.next_review_at && row.next_review_at <= now && row.status !== "weak").sort((a, b) => Number(a.retrieval_strength) - Number(b.retrieval_strength)),

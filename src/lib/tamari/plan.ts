@@ -25,7 +25,7 @@ export type TamariPlanInput = {
   overdue: string[];
   /** Practiced concepts to work on, highest priority first (weakness, fading, the exam's scope). */
   weak: string[];
-  /** Some of them are weak topics (flagged weak, under 60% or holding a confident mistake): a "Weak Topic Quiz". */
+  /** Some of them are weak topics (adaptive/mastery isWeakTopic): a "Weak Topic Quiz". */
   weakTopics?: boolean;
   /** Concepts never studied that outrank the practiced ones, and the method the rule table picks for them. */
   fresh?: { names: string[]; method: SmartBlock["method"] } | null;

@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import { BLOCK_METHODS, examInScope, isWeakTopic, methodFor, rankConcepts } from "@/lib/adaptive/focus";
+import { BLOCK_METHODS, examInScope, isWeakConcept, methodFor, rankConcepts } from "@/lib/adaptive/focus";
 import { conceptsPerPlan } from "@/lib/engine/priority";
 import { countDueCards } from "@/lib/flashcards/queries";
 import { getPreferences } from "@/lib/preferences/queries";
@@ -141,7 +141,7 @@ async function planContext(request: { materialId: string | null; minutes: number
       exam: examFor,
       overdue,
       weak: focus.map((concept) => concept.name),
-      weakTopics: focus.some(isWeakTopic),
+      weakTopics: focus.some(isWeakConcept),
       fresh,
       misconception,
       repeated: repeated ? { name: repeated.name, count: repeated.count } : null,
