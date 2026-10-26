@@ -94,8 +94,28 @@ describe("analysis schema", () => {
       summary: "s",
       difficulty: "hard",
       estimated_study_minutes: "30",
-      recommended_methods: [{ method: "osmosis", reason: "nope" }],
+      recommended_methods: [{ method: "osmosis", reason: "nope" }, { method: "flashcards", reason: "Definitions to memorize." }],
     });
-    expect(parsed.success).toBe(false);
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.recommended_methods.map((item) => item.method)).toEqual(["flashcards"]);
+  });
+
+  it("keeps the rest of an analysis when one item breaks a limit", () => {
+    const parsed = analysisResponseSchema.safeParse({
+      summary: `${"Photosynthesis makes sugar. ".repeat(50)}`,
+      difficulty: "beginner",
+      estimated_study_minutes: 40,
+      main_topics: Array.from({ length: 13 }, (_, index) => ({ title: `Topic ${index + 1}`, description: null })),
+      definitions: [{ term: "Osmosis", definition: "x".repeat(801) }, { term: "Diffusion", definition: "The spreading of particles from high to low concentration." }],
+      key_concepts: [{ name: "Chlorophyll", explanation: "A green pigment.", category: "memorization" }, { name: "", explanation: "No name." }],
+    });
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.main_topics).toHaveLength(12);
+    expect(parsed.data.definitions.map((item) => item.term)).toEqual(["Diffusion"]);
+    expect(parsed.data.key_concepts.map((item) => item.name)).toEqual(["Chlorophyll"]);
+    // Cut at a sentence, within the limit.
+    expect(parsed.data.summary.length).toBeLessThanOrEqual(1200);
+    expect(parsed.data.summary.endsWith("sugar.")).toBe(true);
   });
 });

@@ -21,47 +21,52 @@ const optionalText = (max: number) =>
 export const conceptCategorySchema = z.enum(["memorization", "understanding", "calculation", "application"]);
 export type ConceptCategory = z.infer<typeof conceptCategorySchema>;
 
+/** Per-item text limits, stated in the analysis prompt too. */
+export const ANALYSIS_LIMITS = { title: 120, description: 300, explanation: 500, definition: 800, fact: 500, expression: 300, reason: 300 } as const;
+
+/**
+ * A list where an item that breaks a rule (too long, missing a field) is left out, and a list longer than the
+ * maximum is cut to it, instead of the whole analysis failing over one item: the material's other definitions
+ * and facts are still worth having.
+ */
+function lenientList<T extends z.ZodType>(item: T, max: number) {
+  return z
+    .array(z.unknown())
+    .catch([])
+    .default([])
+    .transform((items) =>
+      items.flatMap((value) => {
+        const parsed = item.safeParse(value);
+        return parsed.success ? [parsed.data as z.output<T>] : [];
+      }).slice(0, max),
+    );
+}
+
 export const analysisDataSchema = z.object({
-  main_topics: z
-    .array(z.object({ title: shortText(120), description: optionalText(300) }))
-    .max(12)
-    .default([]),
-  key_concepts: z
-    .array(
-      z.object({
-        name: shortText(120),
-        explanation: shortText(400),
-        category: conceptCategorySchema.catch("understanding"),
-      }),
-    )
-    .max(20)
-    .default([]),
-  definitions: z
-    .array(z.object({ term: shortText(120), definition: shortText(500) }))
-    .max(25)
-    .default([]),
-  formulas: z
-    .array(z.object({ name: optionalText(120), expression: shortText(300), meaning: optionalText(300) }))
-    .max(20)
-    .default([]),
-  important_facts: z.array(shortText(400)).max(15).default([]),
-  exam_topics: z
-    .array(z.object({ topic: shortText(120), why: optionalText(300) }))
-    .max(10)
-    .default([]),
-  recommended_methods: z
-    .array(z.object({ method: z.enum(STUDY_METHOD_IDS), reason: shortText(300) }))
-    .max(5)
-    .default([]),
-  subject_guess: optionalText(80).default(null),
-  language: optionalText(40).default(null),
+  main_topics: lenientList(z.object({ title: shortText(ANALYSIS_LIMITS.title), description: optionalText(ANALYSIS_LIMITS.description) }), 12),
+  key_concepts: lenientList(
+    z.object({
+      name: shortText(ANALYSIS_LIMITS.title),
+      explanation: shortText(ANALYSIS_LIMITS.explanation),
+      category: conceptCategorySchema.catch("understanding"),
+    }),
+    20,
+  ),
+  definitions: lenientList(z.object({ term: shortText(ANALYSIS_LIMITS.title), definition: shortText(ANALYSIS_LIMITS.definition) }), 25),
+  formulas: lenientList(z.object({ name: optionalText(ANALYSIS_LIMITS.title), expression: shortText(ANALYSIS_LIMITS.expression), meaning: optionalText(ANALYSIS_LIMITS.description) }), 20),
+  important_facts: lenientList(shortText(ANALYSIS_LIMITS.fact), 15),
+  exam_topics: lenientList(z.object({ topic: shortText(ANALYSIS_LIMITS.title), why: optionalText(ANALYSIS_LIMITS.description) }), 10),
+  recommended_methods: lenientList(z.object({ method: z.enum(STUDY_METHOD_IDS), reason: shortText(ANALYSIS_LIMITS.reason) }), 5),
+  subject_guess: optionalText(80).catch(null).default(null),
+  language: optionalText(40).catch(null).default(null),
 });
 
 export type AnalysisData = z.infer<typeof analysisDataSchema>;
 
 /** Full model response: the data payload plus the promoted scalar fields. */
 export const analysisResponseSchema = analysisDataSchema.extend({
-  summary: shortText(1200),
+  // A summary that runs long is cut at a sentence rather than failing the analysis.
+  summary: z.string().trim().min(1).transform((value) => (value.length <= 1200 ? value : `${value.slice(0, 1200).replace(/[.!?][^.!?]*$/, (end) => end[0])}`.trim())),
   difficulty: z.enum(["beginner", "intermediate", "advanced"]).catch("intermediate"),
   estimated_study_minutes: z.coerce.number().int().min(5).max(6000).catch(45),
 });

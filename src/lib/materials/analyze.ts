@@ -2,7 +2,7 @@ import "server-only";
 
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
-import { analysisResponseSchema, type AnalysisResponse } from "@/lib/materials/analysis-schema";
+import { ANALYSIS_LIMITS, analysisResponseSchema, type AnalysisResponse } from "@/lib/materials/analysis-schema";
 import { percentRead } from "@/lib/materials/coverage";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import { focusTerms, scoreChunk } from "@/lib/tutor/context";
@@ -53,11 +53,11 @@ function schemaDescription(): string {
   return `JSON schema (all keys required; use [] when nothing applies):
 {
   "summary": string (2-4 sentences, max 1200 chars),
-  "main_topics": [{ "title": string, "description": string | null }] (max 12, in material order),
-  "key_concepts": [{ "name": string, "explanation": string, "category": "memorization" | "understanding" | "calculation" | "application" }] (max 20),
-  "definitions": [{ "term": string, "definition": string }] (max 25, only definitions stated in the material),
-  "formulas": [{ "name": string | null, "expression": string, "meaning": string | null }] (max 20, exactly as written),
-  "important_facts": [string] (max 15: dates, numbers, processes, relationships, examples worth remembering),
+  "main_topics": [{ "title": string, "description": string | null }] (max 12, in material order; title max ${ANALYSIS_LIMITS.title} chars, description max ${ANALYSIS_LIMITS.description}),
+  "key_concepts": [{ "name": string, "explanation": string, "category": "memorization" | "understanding" | "calculation" | "application" }] (max 20; explanation max ${ANALYSIS_LIMITS.explanation} chars),
+  "definitions": [{ "term": string, "definition": string }] (max 25, only definitions stated in the material, in its words; definition max ${ANALYSIS_LIMITS.definition} chars),
+  "formulas": [{ "name": string | null, "expression": string, "meaning": string | null }] (max 20, exactly as written; expression max ${ANALYSIS_LIMITS.expression} chars),
+  "important_facts": [string] (max 15: dates, numbers, processes, relationships, examples worth remembering; each max ${ANALYSIS_LIMITS.fact} chars),
   "exam_topics": [{ "topic": string, "why": string | null }] (max 10, what an examiner would most likely ask),
   "recommended_methods": [{ "method": ${methods}, "reason": string }] (2-4 items),
   "difficulty": "beginner" | "intermediate" | "advanced",

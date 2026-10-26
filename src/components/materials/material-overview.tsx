@@ -173,7 +173,7 @@ export function MaterialOverview({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {data.definitions.length > 0 && (
-          <Section title="Definitions" description="Exactly as the material states them.">
+          <Section title="Definitions" description="As your material defines them.">
             <dl className="flex flex-col gap-3">
               {data.definitions.map((item, index) => (
                 <div key={`${item.term}-${index}`}>
