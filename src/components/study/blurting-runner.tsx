@@ -216,6 +216,11 @@ export function BlurtingRunner({ session, methodName, parentSessionId = null, pa
                 </p>
               )
             )}
+            {rounds.length > 1 && (
+              <p className="text-sm text-muted-foreground">
+                Your first attempt counts ({Math.round(rounds[0].score)}% remembered): it is what you recalled on your own. The second shows how much you filled in after seeing the gaps.
+              </p>
+            )}
             <div className="rounded-lg bg-primary-soft/50 p-4 text-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">The source section</p>
               <p className="mt-1 whitespace-pre-wrap">{source}</p>

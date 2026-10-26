@@ -350,27 +350,27 @@ export async function compareBlurtItem(input: { itemId: string; text: string; re
   // couldn't be checked ends the section: the checked one stands.
   const final = round >= BLURT_MAX_ROUNDS || !comparison || comparison.score >= 90;
   const rounds = comparison ? [...previous, { ...comparison, round }] : previous;
-  const lastChecked = rounds[rounds.length - 1];
-  const best = Math.max(...rounds.map((entry) => entry.score));
+  // The first attempt is what counts: it is what the student recalled on their own. The retry comes right
+  // after the comparison named the gaps, so it shows the gaps being filled, not recall.
+  const first = rounds[0];
+  const isCorrect = first.score >= PASS_SCORE.blurt;
   const now = new Date().toISOString();
   const stored = await storeItemAttempt(supabase, item, {
     response: input.text.slice(0, 8000),
     analysis: { rounds } as unknown as Json,
-    score: best,
-    is_correct: final ? best >= PASS_SCORE.blurt : null,
+    score: first.score,
+    is_correct: final ? isCorrect : null,
     response_ms: input.responseMs,
     answered_at: final ? now : null,
   });
   // A double submit (or a second tab) stored this round first: its round stands.
   if (!stored) return storedBlurtRound(await reloadItem(supabase, item.id));
   if (final) {
-    const isCorrect = best >= PASS_SCORE.blurt;
+    const gaps = first.forgotten_important.length ? first.forgotten_important : first.missing;
     await settleAnsweredItem(supabase, item, session, {
       isCorrect,
       response: input.text,
-      mistake: lastChecked.forgotten_important.length
-        ? { question: `Blurt everything you remember about: ${item.prompt}`, correctAnswer: `Forgotten: ${lastChecked.forgotten_important.join("; ")}`, explanation: lastChecked.feedback }
-        : null,
+      mistake: gaps.length ? { question: `Blurt everything you remember about: ${item.prompt}`, correctAnswer: `Forgotten at first: ${gaps.slice(0, 8).join("; ")}`, explanation: first.feedback } : null,
     });
   } else {
     await supabase.from("study_sessions").update({ last_active_at: now }).eq("id", session.id);
