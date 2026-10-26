@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { z } from "zod";
 
+import { refreshMastery } from "@/lib/adaptive/engine";
 import { ServiceError } from "@/lib/errors";
 import { reviewCard, sessionReviewCounts, type ReviewResult } from "@/lib/flashcards/service";
 import { routes } from "@/lib/routes";
@@ -201,8 +203,12 @@ export async function deleteDeckAction(deckId: string): Promise<FlashcardActionR
   const parsed = uuid.safeParse(deckId);
   if (!parsed.success) return { ok: false, message: "Invalid deck." };
   const supabase = await createClient();
+  // Its reviews go with it: the concepts they counted toward are worked out again without them.
+  const { data: cards } = await supabase.from("flashcards").select("concept_id").eq("deck_id", parsed.data).not("concept_id", "is", null).limit(500);
   const { error } = await supabase.from("flashcard_decks").delete().eq("id", parsed.data);
   if (error) return { ok: false, message: "The deck could not be deleted." };
+  const conceptIds = [...new Set((cards ?? []).map((card) => card.concept_id).filter((id): id is string => Boolean(id)))];
+  if (conceptIds.length > 0) after(() => refreshMastery(conceptIds));
   revalidate();
   return { ok: true };
 }

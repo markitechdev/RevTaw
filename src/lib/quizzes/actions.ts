@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { z } from "zod";
 
 import { refreshMastery } from "@/lib/adaptive/engine";
@@ -126,8 +127,12 @@ export async function deleteQuizAction(quizId: string): Promise<QuizActionResult
   const parsed = uuid.safeParse(quizId);
   if (!parsed.success) return { ok: false, message: "Invalid quiz." };
   const supabase = await createClient();
+  // Its answers go with it: the concepts they counted toward are worked out again without them.
+  const { data: questions } = await supabase.from("quiz_questions").select("concept_id").eq("quiz_id", parsed.data).not("concept_id", "is", null).limit(500);
   const { error } = await supabase.from("quizzes").delete().eq("id", parsed.data);
   if (error) return { ok: false, message: "The quiz could not be deleted." };
+  const conceptIds = [...new Set((questions ?? []).map((question) => question.concept_id).filter((id): id is string => Boolean(id)))];
+  if (conceptIds.length > 0) after(() => refreshMastery(conceptIds));
   revalidateQuiz();
   return { ok: true };
 }
