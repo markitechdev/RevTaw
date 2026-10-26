@@ -135,9 +135,10 @@ export function finalizeQuestions(questions: GeneratedQuestion[], config: QuizCo
     seen.add(key);
     kept.push(question);
   }
+  // Only the types the student chose: a quiz short of questions says so (populateQuiz) rather than
+  // filling up with a type they didn't ask for.
   const wanted = new Set(config.questionTypes);
-  const matching = kept.filter((question) => wanted.has(question.type));
-  const pool = matching.length >= Math.min(config.questionCount, 3) ? matching : kept;
+  const pool = kept.filter((question) => wanted.has(question.type));
   // Take each type's planned share first, so a mixed quiz really contains every
   // selected type even when the model over-produces the first ones, then fill
   // any shortfall with the rest; the model's order (types interleaved) is kept.

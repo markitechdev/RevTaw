@@ -194,6 +194,12 @@ describe("mixed quizzes keep every selected type", () => {
     expect(final.filter((item) => item.type === "identification")).toHaveLength(2);
   });
 
+  it("never fills up with a type the student didn't choose", () => {
+    const generated = [question("identification", 1), question("multiple_choice", 1), question("multiple_choice", 2), question("true_false", 1)];
+    const config: QuizConfig = { ...DEFAULT_QUIZ_CONFIG, questionCount: 4, questionTypes: ["identification"] };
+    expect(finalizeQuestions(generated as never, config).map((item) => item.type)).toEqual(["identification"]);
+  });
+
   it("asks for at least one question per selected type", () => {
     expect(typeCoverageError({ questionCount: 3, questionTypes: ["multiple_choice", "true_false", "essay", "scenario"] })).toMatch(/4 question types need at least 4 questions/);
     expect(typeCoverageError({ questionCount: 4, questionTypes: ["multiple_choice", "true_false", "essay", "scenario"] })).toBeNull();
