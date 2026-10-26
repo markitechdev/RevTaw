@@ -34,7 +34,7 @@ export type TamariPlanInput = {
   misconception: string | null;
   /** The concept missed most often lately. */
   repeated: { name: string; count: number } | null;
-  /** Open mistakes (in the material, or everywhere without one). */
+  /** Open mistakes the plan's Error Review retests: all of the material's, or all of them without one. */
   openMistakes: number;
   dueCards: number;
 };
@@ -287,9 +287,9 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
           label: "Mistake Review",
           minutes,
           reason: say(lang, {
-            taglish: `${input.openMistakes} mali sa notebook mo. Balikan natin para hindi na maulit.`,
-            en: `${input.openMistakes} open mistake${input.openMistakes === 1 ? "" : "s"} in your notebook. Let's make sure ${input.openMistakes === 1 ? "it doesn't" : "they don't"} come back.`,
-            fil: `${input.openMistakes} mali sa notebook mo. Balikan natin para hindi na maulit.`,
+            taglish: `${input.openMistakes} mali mula sa ${material.title} sa notebook mo. Balikan natin para hindi na maulit.`,
+            en: `${input.openMistakes} open mistake${input.openMistakes === 1 ? "" : "s"} from ${material.title} in your notebook. Let's make sure ${input.openMistakes === 1 ? "it doesn't" : "they don't"} come back.`,
+            fil: `${input.openMistakes} mali mula sa ${material.title} sa notebook mo. Balikan natin para hindi na maulit.`,
           }),
           concepts: [],
           ...pending,

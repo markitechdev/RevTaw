@@ -42,6 +42,9 @@ describe("planTamariBlocks", () => {
     expect(recall.reason).toBe("Stacks and Queues — malapit nang makalimutan. Balikan muna natin.");
     expect(quiz).toMatchObject({ method: "practice_testing", focus: "Binary Trees, Recursion", questionCount: 8 });
     expect(feynman.reason).toBe("Tatlong beses na nating namiss ang Binary Trees. Tara, explain mo sakin.");
+    // The same count, and the same scope, as the notebook the Error Review block retests.
+    expect(draft.blocks[3].reason).toBe("4 mali mula sa Data Structures sa notebook mo. Balikan natin para hindi na maulit.");
+    expect(planTamariBlocks({ ...base, lang: "en" }).blocks[3].reason).toBe("4 open mistakes from Data Structures in your notebook. Let's make sure they don't come back.");
     expect(draft.intro).toBe("Ako na bahala. 20 minutes, 5 blocks sa Data Structures.");
   });
 
