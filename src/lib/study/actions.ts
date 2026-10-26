@@ -280,7 +280,9 @@ export async function startSmartBlockAction(input: { sessionId: string; key: str
       goal: session.goal,
       plannedMinutes: block.minutes,
       questionCount: block.questionCount,
-      timed: true,
+      // A plan's quiz is practice, not an exam: no clock that submits blank answers (a 3-question retest
+      // had 2 minutes). An exam simulation block keeps its timer.
+      timed: false,
       // A Pomodoro block runs its own length, not the 25/5 default.
       ...(block.method === "pomodoro" ? pomodoroSplit(block.minutes) : {}),
       focus,
