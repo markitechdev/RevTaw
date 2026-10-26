@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { gradeHeuristically, quizHeuristically } from "@/lib/ai/providers/mock";
 import { finalizeQuestions, quizResponseSchema } from "@/lib/quizzes/generate";
+import { MaterialText } from "@/lib/quizzes/grounding";
 import { gradeObjective, nearMiss, normalizeText, textMatches } from "@/lib/quizzes/grade";
 import { parseQuizConfig } from "@/lib/quizzes/schemas";
 import { answerNote, DEFAULT_QUIZ_CONFIG, describeAnswer, distributeQuestions, typeCoverageError, type QuizConfig } from "@/lib/quizzes/types";
@@ -162,6 +163,70 @@ describe("finalizeQuestions", () => {
   });
 });
 
+describe("questions checked against the material and each other", () => {
+  const material = new MaterialText([
+    "Photosynthesis is the process by which green plants convert light energy into chemical energy.",
+    "The Calvin cycle takes place in the stroma of the chloroplast. It fixes carbon dioxide into sugar using ATP and NADPH.",
+    "Ang potosintesis ay nagaganap sa kloroplast.",
+  ]);
+  const config: QuizConfig = { ...DEFAULT_QUIZ_CONFIG, questionCount: 10, questionTypes: ["identification", "true_false", "multiple_choice"] };
+  const identification = (prompt: string, accepted: string[], quote: string) => ({ type: "identification" as const, difficulty: "easy" as const, prompt, answer: { accepted }, explanation: "Because.", concept: "Calvin cycle", source_excerpt: quote });
+
+  it("keeps a question whose quote is in the material, word for word or loosely", () => {
+    const kept = finalizeQuestions(
+      [
+        identification("Where does the Calvin cycle take place?", ["stroma"], "The Calvin cycle takes place in the stroma of the chloroplast."),
+        identification("What process converts light energy into chemical energy?", ["photosynthesis"], "photosynthesis is how green plants turn light energy into chemical energy"),
+      ] as never,
+      config,
+      { material },
+    );
+    expect(kept).toHaveLength(2);
+    // A loose quote is replaced by the material's own sentence.
+    expect(kept[1].source_excerpt).toBe("Photosynthesis is the process by which green plants convert light energy into chemical energy.");
+  });
+
+  it("drops a question whose quote or named answer the material doesn't have", () => {
+    const kept = finalizeQuestions(
+      [
+        identification("Who discovered the Calvin cycle?", ["Melvin Calvin"], "The cycle was discovered in 1950 by Melvin Calvin."),
+        identification("What molecule stores the energy?", ["glucose"], "It fixes carbon dioxide into sugar using ATP and NADPH."),
+        identification("Where does the Calvin cycle take place?", ["stroma"], ""),
+      ] as never,
+      config,
+      { material },
+    );
+    expect(kept).toEqual([]);
+  });
+
+  it("drops duplicates in any script, true/false twins and two questions with the same answer", () => {
+    const tf = (prompt: string, value: boolean) => ({ type: "true_false" as const, difficulty: "easy" as const, prompt, answer: { value }, explanation: "Because.", concept: "Calvin cycle", source_excerpt: "The Calvin cycle takes place in the stroma of the chloroplast." });
+    const kept = finalizeQuestions(
+      [
+        identification("Saan nagaganap ang potosintesis?", ["kloroplast"], "Ang potosintesis ay nagaganap sa kloroplast."),
+        identification("Saan nagaganap ang potosintesis??", ["kloroplast"], "Ang potosintesis ay nagaganap sa kloroplast."),
+        tf("The Calvin cycle takes place in the stroma.", true),
+        tf("The Calvin cycle takes place in the thylakoid.", false),
+        identification("Name the part of the chloroplast where carbon dioxide is fixed.", ["stroma"], "The Calvin cycle takes place in the stroma of the chloroplast."),
+        identification("Which region of the chloroplast holds the Calvin cycle?", ["Stroma"], "The Calvin cycle takes place in the stroma of the chloroplast."),
+      ] as never,
+      config,
+      { material },
+    );
+    expect(kept.map((question) => question.prompt)).toEqual(["Saan nagaganap ang potosintesis?", "The Calvin cycle takes place in the stroma.", "Name the part of the chloroplast where carbon dioxide is fixed."]);
+  });
+
+  it("uses a repeat of an earlier quiz only when nothing new is left", () => {
+    const previous = ["Where does the Calvin cycle take place?"];
+    const questions = [
+      identification("Where does the Calvin cycle take place?", ["stroma"], "The Calvin cycle takes place in the stroma of the chloroplast."),
+      identification("What process converts light energy into chemical energy?", ["photosynthesis"], "Photosynthesis is the process by which green plants convert light energy into chemical energy."),
+    ];
+    expect(finalizeQuestions(questions as never, { ...config, questionCount: 1 }, { material, previous }).map((question) => question.prompt)).toEqual(["What process converts light energy into chemical energy?"]);
+    expect(finalizeQuestions(questions as never, { ...config, questionCount: 2 }, { material, previous })).toHaveLength(2);
+  });
+});
+
 describe("answer notes", () => {
   it("says why a wrong choice is wrong and gives the true version of a false statement", () => {
     expect(answerNote({ option_id: "a", rationales: { a: "Right.", b: "Oxygen is released, not fixed." } }, { option_id: "b" })).toEqual({ label: "Why your choice is wrong", text: "Oxygen is released, not fixed." });
@@ -234,10 +299,10 @@ student answer: I do not know.`;
 describe("mixed quizzes keep every selected type", () => {
   const question = (type: "multiple_choice" | "true_false" | "identification", index: number) =>
     type === "multiple_choice"
-      ? { type, difficulty: "easy" as const, prompt: `Which option ${index}?`, options: [{ id: "a", text: "A" }, { id: "b", text: "B" }, { id: "c", text: "C" }, { id: "d", text: "D" }], answer: { option_id: "a" }, explanation: "Because.", concept: "Topic", source_excerpt: "Quote." }
+      ? { type, difficulty: "easy" as const, prompt: `Which option ${index}?`, options: ["A", "B", "C", "D"].map((letter) => ({ id: letter.toLowerCase(), text: `${letter}${index}` })), answer: { option_id: "a" }, explanation: "Because.", concept: "Topic", source_excerpt: "Quote." }
       : type === "true_false"
         ? { type, difficulty: "easy" as const, prompt: `Is statement ${index} true?`, answer: { value: true }, explanation: "Because.", concept: "Topic", source_excerpt: "Quote." }
-        : { type, difficulty: "easy" as const, prompt: `Name thing ${index}.`, answer: { accepted: ["Thing"] }, explanation: "Because.", concept: "Topic", source_excerpt: "Quote." };
+        : { type, difficulty: "easy" as const, prompt: `Name thing ${index}.`, answer: { accepted: [`Thing ${index}`] }, explanation: "Because.", concept: "Topic", source_excerpt: "Quote." };
 
   it("takes each type's share even when the model front-loads one type", () => {
     const generated = [

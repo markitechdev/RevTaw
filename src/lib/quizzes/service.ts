@@ -95,7 +95,16 @@ async function populateQuiz(
       config.difficulty === "adaptive"
         ? { targets: await difficultyTargets(context.material.id), focusConcepts: await weakConceptNames(context.material.id, 4), fallback: await defaultDifficulty() }
         : null;
-    const result = await generateQuiz(context.material.title, context.chunks, config, context.student, adaptive);
+    // The latest questions of the student's other quizzes on this material, so a new quiz asks new things.
+    const { data: earlier } = await supabase
+      .from("quiz_questions")
+      .select("prompt, quiz:quizzes!quiz_questions_quiz_fk!inner(material_id)")
+      .eq("quiz.material_id", context.material.id)
+      .neq("quiz_id", quizId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    const previous = (earlier ?? []).map((row) => row.prompt);
+    const result = await generateQuiz(context.material.title, context.chunks, config, context.student, adaptive, { previous });
     if (result.questions.length === 0) {
       throw new ServiceError("No usable questions could be written from this material. Try a different type or a longer material.", 422);
     }

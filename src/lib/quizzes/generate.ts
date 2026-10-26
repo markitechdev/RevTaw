@@ -6,6 +6,7 @@ import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
+import { MaterialText, matchWords, overlap } from "@/lib/quizzes/grounding";
 import { optionSchema } from "@/lib/quizzes/schemas";
 import { normalizeText } from "@/lib/quizzes/text-match";
 import { distributeQuestions, QUESTION_TYPE_BY_ID, QUESTION_TYPE_IDS, type QuizConfig } from "@/lib/quizzes/types";
@@ -126,10 +127,6 @@ function studentLine(student: StudentContext): string {
   );
 }
 
-function normalizePrompt(prompt: string): string {
-  return prompt.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
 /** Options that make a multiple-choice answer a matter of test-taking rather than of the material. */
 const CATCH_ALL_OPTION = /\b(?:all|none|neither|both) of (?:the )?(?:above|these|them)\b|^(?:all|none) (?:of )?(?:the )?above\.?$|^both [a-f] and [a-f]\.?$|lahat ng (?:nabanggit|nasa itaas)|wala sa (?:nabanggit|mga ito|nasa itaas)/i;
 const OPTION_IDS = ["a", "b", "c", "d", "e", "f"];
@@ -176,26 +173,62 @@ function tidyTrueFalse(question: TrueFalseQuestion): TrueFalseQuestion | null {
   return { ...question, answer: { value: false, correction } };
 }
 
+/** The answer a question asks for, when it is one term or option ("Chlorophyll"): two questions with the same one test the same thing. */
+function answerKey(question: GeneratedQuestion): string | null {
+  if (question.type === "multiple_choice") return matchWords(question.options.find((option) => option.id === question.answer.option_id)?.text ?? "").join(" ") || null;
+  if (question.type === "identification" || question.type === "fill_blank") return matchWords(question.answer.accepted[0] ?? "").join(" ") || null;
+  return null;
+}
+
 /**
- * Validates and tidies the model output: drops duplicates and questions whose
- * answer does not fit their type, then trims to the requested count.
+ * Whether two questions are the same question: nearly the same words (a true/false pair that differs in one
+ * detail counts, since one gives the other away), or the same type asking for the same answer.
  */
-export function finalizeQuestions(questions: GeneratedQuestion[], config: QuizConfig): GeneratedQuestion[] {
-  const seen = new Set<string>();
+function sameQuestion(a: GeneratedQuestion, b: GeneratedQuestion): boolean {
+  const similar = overlap(a.prompt, b.prompt);
+  if (similar >= (a.type === "true_false" && b.type === "true_false" ? 0.6 : 0.8)) return true;
+  const key = answerKey(a);
+  return key !== null && a.type === b.type && key === answerKey(b);
+}
+
+export type FinalizeContext = {
+  /** The material the questions must come from: their quotes are checked against it, and named answers must be in it. */
+  material?: MaterialText;
+  /** Questions of the student's earlier quizzes on this material: a near repeat is used only when nothing new is left. */
+  previous?: string[];
+};
+
+/**
+ * Validates and tidies the model output, then trims it to the requested count:
+ * - drops questions whose answer doesn't fit their type, and duplicates (in any script);
+ * - with the material: drops a question whose supporting quote isn't in it (a made-up source), replacing a
+ *   loosely quoted one with the material's own sentence, and an identification or fill-in question whose
+ *   answer isn't a term the material uses;
+ * - keeps near repeats of earlier quizzes for last.
+ */
+export function finalizeQuestions(questions: GeneratedQuestion[], config: QuizConfig, context: FinalizeContext = {}): GeneratedQuestion[] {
   const kept: GeneratedQuestion[] = [];
   for (const generated of questions) {
-    const key = normalizePrompt(generated.prompt);
-    if (!key || seen.has(key)) continue;
-    const question = generated.type === "multiple_choice" ? tidyChoiceQuestion(generated) : generated.type === "true_false" ? tidyTrueFalse(generated) : generated;
+    if (matchWords(generated.prompt).length === 0) continue;
+    let question = generated.type === "multiple_choice" ? tidyChoiceQuestion(generated) : generated.type === "true_false" ? tidyTrueFalse(generated) : generated;
     if (!question) continue;
     if (question.type === "fill_blank" && !/_{2,}/.test(question.prompt)) continue;
-    seen.add(key);
-    kept.push(question);
+    if (context.material) {
+      const quote = context.material.ground(question.source_excerpt ?? "");
+      if (!quote) continue;
+      question = { ...question, source_excerpt: quote };
+      if ((question.type === "identification" || question.type === "fill_blank") && !question.answer.accepted.some((term) => context.material?.has(term))) continue;
+    }
+    const candidate = question;
+    if (kept.some((other) => sameQuestion(other, candidate))) continue;
+    kept.push(candidate);
   }
   // Only the types the student chose: a quiz short of questions says so (populateQuiz) rather than
-  // filling up with a type they didn't ask for.
+  // filling up with a type they didn't ask for. New questions come before repeats of earlier quizzes.
   const wanted = new Set(config.questionTypes);
-  const pool = kept.filter((question) => wanted.has(question.type));
+  const chosen = kept.filter((question) => wanted.has(question.type));
+  const repeats = new Set(chosen.filter((question) => (context.previous ?? []).some((prompt) => overlap(prompt, question.prompt) >= 0.8)));
+  const pool = [...chosen.filter((question) => !repeats.has(question)), ...chosen.filter((question) => repeats.has(question))];
   // Take each type's planned share first, so a mixed quiz really contains every
   // selected type even when the model over-produces the first ones, then fill
   // any shortfall with the rest; the model's order (types interleaved) is kept.
@@ -217,9 +250,12 @@ export async function generateQuiz(
   config: QuizConfig,
   student: StudentContext,
   adaptive: AdaptiveTargets | null = null,
+  options: { previous?: string[] } = {},
 ): Promise<GenerateQuizResult> {
   const provider = getAiProvider("strong");
   const { transcript, coverageRatio } = buildTranscript(chunks);
+  // The latest earlier questions, short, so the model can steer clear of them.
+  const previous = (options.previous ?? []).slice(0, 25).map((prompt) => (prompt.length > 160 ? `${prompt.slice(0, 157)}…` : prompt).replace(/\s+/g, " "));
   const plan = distributeQuestions(config.questionCount, config.questionTypes);
   const difficulty: QuestionDifficulty | "mixed" | "adaptive" = config.difficulty;
   const difficultyRule =
@@ -254,7 +290,7 @@ ${adaptive?.focusConcepts.length ? `- Give about 40% of the questions to these c
 
   const user = `Material title: ${materialTitle}
 Student: ${studentLine(student)}
-${config.focus ? `Focus only on this topic/chapter if the material covers it: ${config.focus}\n` : ""}${coverageRatio < 1 ? `Note: only the first ${Math.round(coverageRatio * 100)}% of the material is included; cover what you can see.\n` : ""}
+${config.focus ? `Focus only on this topic/chapter if the material covers it: ${config.focus}\n` : ""}${coverageRatio < 1 ? `Note: only the first ${Math.round(coverageRatio * 100)}% of the material is included; cover what you can see.\n` : ""}${previous.length ? `The student's earlier quizzes on this material already asked these; write different questions (other facts, or the same idea from a new angle):\n${previous.map((prompt) => `- ${prompt}`).join("\n")}\n` : ""}
 Plan (produce exactly these counts, ${config.questionCount} questions in total):
 ${plan.map((item) => `- ${item.type}: ${item.count}`).join("\n")}
 
@@ -289,7 +325,7 @@ ${transcript}
 
   return {
     title: clampTitle(result.data.title),
-    questions: finalizeQuestions(result.data.questions, config),
+    questions: finalizeQuestions(result.data.questions, config, { material: new MaterialText(chunks.map((chunk) => chunk.content)), previous: options.previous }),
     provider: result.raw.provider,
     model: result.raw.model,
     coverageRatio,
