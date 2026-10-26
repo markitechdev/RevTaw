@@ -7,9 +7,10 @@ import type { TamariLanguage } from "@/lib/tamari/lines";
  * Tamari's time-boxed plan (companion doc §5–§6): "20 minutes lang ako.
  * Bahala ka na." becomes a short run of blocks sized to the minutes, built
  * from what the student's data says — fading concepts first, then the
- * highest-priority topics as a quiz (or, when concepts never studied come
- * first, the method the rule table picks for them), one concept to explain,
- * the mistake notebook and a last retest. This file only decides the blocks;
+ * highest-priority topics as a quiz (when concepts never studied come first,
+ * the method the rule table picks for them, next to the quiz while some
+ * topics are weak), one concept to explain, the mistake notebook and a last
+ * retest. This file only decides the blocks;
  * lib/adaptive/smart.ts ranks the concepts (research doc §10–§11) and saves
  * the plan. Pure and client-safe.
  */
@@ -186,11 +187,13 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
 
     const fresh = input.fresh && input.fresh.names.length > 0 ? { names: input.fresh.names.slice(0, 4), method: input.fresh.method } : null;
     const weakTopics = weak.length > 0 && input.weakTopics !== false;
+    // Concepts never studied come first: the rule table's method for them takes the quiz's place, unless
+    // some topics are weak, which keep their quiz next to it (the two share its time).
+    const learnAndQuiz = fresh !== null && weakTopics;
     if (fresh) {
-      // Concepts never studied come first: the rule table's method for them takes the quiz's place.
       slots.push({
         key: "learn",
-        share: 0.35,
+        share: learnAndQuiz ? 0.25 : 0.35,
         min: 3,
         block: (minutes) => ({
           key: "learn",
@@ -202,10 +205,11 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
           ...pending,
         }),
       });
-    } else {
+    }
+    if (!fresh || learnAndQuiz) {
       slots.push({
         key: "quiz",
-        share: 0.35,
+        share: learnAndQuiz ? 0.25 : 0.35,
         min: 3,
         block: (minutes) => ({
           key: "quiz",
@@ -335,8 +339,9 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
       }),
     });
 
-    // Too many blocks, or not enough minutes for each one's minimum: drop the least essential first.
-    const dropOrder = ["feynman", "retest", "cards", "mistakes", "recall"];
+    // Too many blocks, or not enough minutes for each one's minimum: drop the least essential first (with
+    // a learn block and a quiz, the quiz on weak topics stays longest).
+    const dropOrder = ["feynman", "retest", "cards", "mistakes", "recall", ...(learnAndQuiz ? ["learn"] : [])];
     const fits = () => head.length + slots.length <= maxBlocks(total) && slots.reduce((sum, slot) => sum + slot.min, 0) <= total - reserved;
     for (const key of dropOrder) {
       if (fits()) break;

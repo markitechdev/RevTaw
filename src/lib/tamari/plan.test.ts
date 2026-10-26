@@ -82,14 +82,29 @@ describe("planTamariBlocks", () => {
   });
 
   it("starts concepts never studied with the rule table's method, in the quiz's place", () => {
-    const draft = planTamariBlocks({ ...base, lang: "en", exam: { title: "Midterm", daysLeft: 3 }, fresh: { names: ["Graphs", "Heaps"], method: "chunking" } });
+    const draft = planTamariBlocks({ ...base, lang: "en", weakTopics: false, exam: { title: "Midterm", daysLeft: 3 }, fresh: { names: ["Graphs", "Heaps"], method: "chunking" } });
     expect(draft.blocks.map((block) => block.key)).toEqual(["recall", "learn", "feynman", "mistakes", "retest"]);
     const learn = draft.blocks[1];
     expect(learn).toMatchObject({ method: "chunking", label: "Chunking", concepts: ["Graphs", "Heaps"], minutes: 7 });
     expect(learn.reason).toBe("Graphs and Heaps are new to you. Small pieces first, then a few easy questions on each.");
-    expect(planTamariBlocks({ ...base, lang: "taglish", fresh: { names: ["Graphs"], method: "blurting" } }).blocks[1].reason).toBe(
+    expect(planTamariBlocks({ ...base, lang: "taglish", weakTopics: false, fresh: { names: ["Graphs"], method: "blurting" } }).blocks[1].reason).toBe(
       "Bago pa sa'yo ang Graphs. Basahin mo, tapos isulat lahat ng naaalala mo.",
     );
+  });
+
+  it("keeps the Weak Topic Quiz next to concepts never studied while some topics are weak", () => {
+    const input = { ...base, lang: "en" as const, fresh: { names: ["Graphs", "Heaps"], method: "chunking" as const } };
+    const draft = planTamariBlocks(input);
+    expect(draft.blocks.map((block) => block.key)).toEqual(["recall", "learn", "quiz", "mistakes", "retest"]);
+    expect(draft.blocks.find((block) => block.key === "quiz")).toMatchObject({ label: "Weak Topic Quiz", focus: "Binary Trees, Recursion" });
+    for (const minutes of [10, 15, 20, 30, 45, 60]) {
+      const blocks = planTamariBlocks({ ...input, minutes }).blocks;
+      expect(blocks.reduce((sum, block) => sum + block.minutes, 0)).toBe(minutes);
+      expect(blocks.some((block) => block.key === "quiz")).toBe(true);
+      expect(blocks.some((block) => block.key === "learn")).toBe(true);
+    }
+    // Five minutes hold one block: the quiz on the weak topics.
+    expect(shape({ ...input, minutes: 5 })).toEqual(["quiz:5"]);
   });
 
   it("works without a material: the notebook and cards, else a plain focus block", () => {
