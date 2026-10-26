@@ -55,7 +55,7 @@ export async function startPreTesting(supabase: Client, userId: string, input: F
   const blocks: SmartBlock[] = [
     { key: PRE_TEST_KEYS.pre, method: "practice_testing", minutes: testMinutes, reason: "A short diagnostic before you study: it shows which concepts need your attention.", concepts: [], status: "pending", childSessionId: null, questionCount, materialId: context.material.id, focus: null },
     { key: PRE_TEST_KEYS.study, method: studyMethod, minutes: studyMinutes, reason: "Study the concepts the pre-test exposed. The focus list fills in once the pre-test is submitted.", concepts: [], status: "pending", childSessionId: null, materialId: context.material.id },
-    { key: PRE_TEST_KEYS.post, method: "practice_testing", minutes: testMinutes, reason: "The same concepts again, after studying — the difference is your improvement.", concepts: [], status: "pending", childSessionId: null, questionCount, materialId: context.material.id, focus: null },
+    { key: PRE_TEST_KEYS.post, method: "practice_testing", minutes: testMinutes, reason: "The same concepts again: compare with the pre-test to see what changed.", concepts: [], status: "pending", childSessionId: null, questionCount, materialId: context.material.id, focus: null },
   ];
   const plan = smartPlanSchema.parse({ blocks, materialId: context.material.id, minutes: input.plannedMinutes });
   const { id } = await createSession(supabase, userId, {
@@ -173,6 +173,8 @@ export async function completePreTesting(sessionId: string, options: { stopped?:
   const answered = summaries.reduce((sum, summary) => sum + summary.questionsAnswered, 0);
   const correct = summaries.reduce((sum, summary) => sum + summary.correct, 0);
   const done = view.blocks.filter((block) => block.status === "done").length;
+  // The study block can be skipped (the post-test waits for it otherwise): then any change comes from the tests alone.
+  const skippedStudy = view.blocks.find((block) => block.key === PRE_TEST_KEYS.study)?.status === "skipped";
   const improved = changes.filter((change) => change.before !== null && change.after !== null && change.after > change.before).map((change) => change.concept);
   const stillWeak = changes.filter((change) => (change.after ?? change.before ?? 100) < 100).map((change) => change.concept);
   const weak = posttest ? stillWeak : (pretest?.attention ?? [...new Set(summaries.flatMap((summary) => summary.weakConcepts))]);
@@ -192,8 +194,10 @@ export async function completePreTesting(sessionId: string, options: { stopped?:
         : !posttest
           ? "The post-test was not taken, so there is no before-and-after yet. Take a practice test on the same concepts tomorrow to measure the gain."
           : improvement !== null && improvement > 0
-            ? `Up ${Math.round(improvement)} points after one study block${improved.length ? ` (${improved.slice(0, 2).join(", ")} improved)` : ""}. Schedule a review in three days to check it held.`
-            : "No gain yet — the study block did not reach the concepts you missed. Try a Feynman or error-review session on them, then test again.",
+            ? `Up ${Math.round(improvement)} points ${skippedStudy ? "on the second test, without the study block" : "after one study block"}${improved.length ? ` (${improved.slice(0, 2).join(", ")} improved)` : ""}. Schedule a review in three days to check it held.`
+            : skippedStudy
+              ? "No gain yet, and the study block was skipped. Study the concepts you missed (a Feynman or active recall session), then test again."
+              : "No gain yet on these concepts. Try a Feynman or error-review session on the ones you missed, then test again.",
     nextReviewAt: summaries.map((summary) => summary.nextReviewAt).filter((value): value is string => Boolean(value)).sort()[0] ?? null,
     extra: { blocksDone: done, blocksTotal: view.blocks.length, ...(pretest ? { preScore: pretest.preScore } : {}), ...(posttest ? { postScore: posttest.postScore } : {}), ...(improvement !== null ? { improvement } : {}), changes },
     abandoned: Boolean(options.stopped) || done === 0,

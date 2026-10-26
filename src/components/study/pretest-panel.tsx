@@ -16,7 +16,7 @@ export function BeforeAfterTable({ changes, className }: { changes: ConceptChang
   return (
     <div className={cn("overflow-x-auto rounded-lg border border-border", className)}>
       <table className="w-full text-left text-sm">
-        <caption className="sr-only">Accuracy per concept before and after studying</caption>
+        <caption className="sr-only">Accuracy per concept on the pre-test and the post-test</caption>
         <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
             <th scope="col" className="px-3 py-2 font-medium">
