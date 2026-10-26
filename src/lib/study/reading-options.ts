@@ -30,6 +30,8 @@ export type ReadingState = {
   readSections: number[];
   /** Cornell notes: the student's notes, one per section. */
   notes: string[];
+  /** The student's questions their section doesn't answer: set aside rather than recited against something else. */
+  unanswered: Array<{ section: number; question: string }>;
 };
 
 export const MAX_QUESTIONS_PER_SECTION = 3;
@@ -48,6 +50,7 @@ export function readReadingState(value: unknown): ReadingState | null {
     expectations: typeof state.expectations === "string" ? state.expectations : null,
     readSections: Array.isArray(state.readSections) ? state.readSections.filter((value) => typeof value === "number") : [],
     notes: Array.isArray(state.notes) ? state.notes.map((note) => (typeof note === "string" ? note : "")) : [],
+    unanswered: Array.isArray(state.unanswered) ? state.unanswered.filter((entry) => entry && typeof entry.question === "string" && typeof entry.section === "number") : [],
   };
 }
 

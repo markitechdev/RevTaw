@@ -299,6 +299,11 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
       />
       <Stepper method={method} stage={stage} />
       {error && <Alert tone="error">{error}</Alert>}
+      {(stage === "read" || stage === "recite") && state.unanswered.length > 0 && (
+        <Alert tone="info">
+          Your material doesn&apos;t answer {state.unanswered.length === 1 ? "this question" : "these questions"}, so {state.unanswered.length === 1 ? "it isn't" : "they aren't"} recited: {state.unanswered.map((entry) => `“${entry.question}”`).join(", ")}.
+        </Alert>
+      )}
 
       {stage === "survey" && (
         <Panel title={`${labels.survey} the chapter`} icon={Eye} intro="Skim before you read: the outline, the main idea and the key concepts. It gives your reading a map.">

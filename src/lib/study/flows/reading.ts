@@ -68,6 +68,7 @@ export async function startGuidedReading(supabase: Client, userId: string, input
     expectations: null,
     readSections: [],
     notes: [],
+    unanswered: [],
   };
   const sessionId = await openSession(supabase, userId, {
     method,
@@ -148,12 +149,16 @@ export async function advanceReading(input: AdvanceReadingInput): Promise<Readin
       if ([...perSection.values()].some((value) => value > MAX_QUESTIONS_PER_SECTION)) throw new SessionError(`Keep it to ${MAX_QUESTIONS_PER_SECTION} questions per section.`, 400);
       const answers = await answerReadingQuestions({ materialTitle: session.title, sections: state.sections, questions });
       const byIndex = new Map(answers.answers.map((answer) => [answer.index, answer]));
-      const headings = [...new Set(questions.map((entry) => state.sections[entry.section].heading).filter(titled))];
+      // A question its section doesn't answer can't be recited fairly: it is set aside, and the student is told,
+      // instead of being graded later against whatever else the section says.
+      const answered = questions.map((entry, index) => ({ entry, answer: byIndex.get(index) })).filter(({ answer }) => answer?.covered !== false);
+      if (answered.length === 0) throw new SessionError(`These sections don't answer ${questions.length === 1 ? "your question" : "any of your questions"}. Ask about what the headings cover, or use a suggested question.`, 422);
+      state.unanswered = questions.filter((_, index) => byIndex.get(index)?.covered === false);
+      const headings = [...new Set(answered.map(({ entry }) => state.sections[entry.section].heading).filter(titled))];
       const context = await loadMaterialContext(supabase, session.material_id!);
       const concepts = await conceptsFor(supabase, session.user_id, context, headings);
       const start = await nextPosition(supabase, session.id);
-      const rows: ItemRow[] = questions.map((entry, index) => {
-        const answer = byIndex.get(index);
+      const rows: ItemRow[] = answered.map(({ entry, answer }, index) => {
         const heading = state.sections[entry.section].heading;
         return {
           session_id: session.id,
@@ -166,7 +171,7 @@ export async function advanceReading(input: AdvanceReadingInput): Promise<Readin
           key_points: (answer?.key_points ?? []) as unknown as Json,
           source_excerpt: null,
           format: "question",
-          analysis: { section: entry.section, covered: answer?.covered ?? true } as unknown as Json,
+          analysis: { section: entry.section } as unknown as Json,
         };
       });
       await insertItems(supabase, rows);
