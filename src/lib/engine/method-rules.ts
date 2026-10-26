@@ -14,6 +14,12 @@ export type MethodContext = {
   state: ConceptState;
   category: ConceptCategory;
   openMisconception: boolean;
+  /**
+   * Whether the misconception's mistake was made on an earlier day, so a retest can clear it now. A mistake
+   * from today can't be cleared until tomorrow (mistakes/retest.ts): then the idea is fixed first, by
+   * explaining it, and the retest waits. Taken as true when not known.
+   */
+  misconceptionDue?: boolean;
   /** Days until the nearest exam that covers the concept. */
   daysToExam: number | null;
   minutes: number;
@@ -120,18 +126,29 @@ function stateRow(state: ConceptState, category: ConceptCategory, minutes: numbe
   }
 }
 
+/**
+ * What to do about a misconception with the method picked for it. `due`: its mistake is from an earlier day,
+ * so a right retest clears it now; one from today counts only from tomorrow (mistakes/retest.ts).
+ */
+export function misconceptionAdvice(method: StudyMethodId, due: boolean): string {
+  if (method === "error_review") return due ? "retest it now, and read why the right answer is right" : "a retest now shows why the right answer is right, and a right answer counts from tomorrow";
+  return due ? "fix the idea behind it by explaining it, then retest it" : "fix the idea behind it today by explaining it, and retest it tomorrow, when a right answer counts";
+}
+
 /** Picks the method for one concept, with the rule and a one-line reason. */
 export function chooseMethod(context: MethodContext): MethodPick {
   const prefer = new Set<StudyMethodId>();
   const remove = new Set<StudyMethodId>(context.excluded ?? []);
-  let forced: { methods: StudyMethodId[]; reason: string; rule: string } | null = null;
+  let forced: { methods: StudyMethodId[]; reason: string | ((method: StudyMethodId) => string); rule: string } | null = null;
 
   if (context.disengaged) {
     forced = { methods: ["pomodoro"], reason: "Lots of quick guesses: take a short break, then switch to a different kind of practice.", rule: "disengaged" };
   } else if (context.openMisconception) {
+    // A misconception from today is explained first: a retest can't clear it until tomorrow.
+    const due = context.misconceptionDue !== false;
     forced = {
-      methods: context.minutes >= 15 ? ["error_review", "feynman", "teach_back"] : ["error_review"],
-      reason: "You were sure, but the answer was wrong: fix the idea behind the mistake, then retest it on another day.",
+      methods: context.minutes >= 15 ? (due ? ["error_review", "feynman", "teach_back"] : ["feynman", "teach_back", "error_review"]) : ["error_review"],
+      reason: (method) => `You were sure, but the answer was wrong${due && method === "error_review" ? " on an earlier day" : ""}: ${misconceptionAdvice(method, due)}.`,
       rule: "misconception",
     };
     remove.add("practice_testing");
@@ -154,7 +171,7 @@ export function chooseMethod(context: MethodContext): MethodPick {
 
   if (forced) {
     const method = forced.methods.find(usable);
-    if (method) return { method, reason: forced.reason, rule: forced.rule };
+    if (method) return { method, reason: typeof forced.reason === "string" ? forced.reason : forced.reason(method), rule: forced.rule };
   }
 
   const row = stateRow(context.state, context.category, context.minutes, Boolean(context.longChapter));

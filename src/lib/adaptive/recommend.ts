@@ -5,8 +5,9 @@ import { cache } from "react";
 import { getMasterySummary, type MasteryView } from "@/lib/adaptive/engine";
 import { methodFor, rankConcepts, type RankedConcept } from "@/lib/adaptive/focus";
 import { ENGINE } from "@/lib/engine/config";
+import { misconceptionAdvice } from "@/lib/engine/method-rules";
 import { countDueCards } from "@/lib/flashcards/queries";
-import { countMistakesDue } from "@/lib/quizzes/queries";
+import { conceptsMissedToday, countMistakesDue } from "@/lib/quizzes/queries";
 import { routes } from "@/lib/routes";
 import { BUILDER_METHOD_IDS, methodName } from "@/lib/study/catalog";
 import type { StudyMethodId } from "@/lib/study/methods";
@@ -67,7 +68,7 @@ function standing(concept: RankedConcept): string {
 /** Ranked list of what to do next (research doc §10–§11): the top concepts by priority, each with the rule table's method and why. */
 export const getRecommendations = cache(async (limit = 4): Promise<Recommendation[]> => {
   // Mistakes whose retest can count today (missed before today): today's come up tomorrow.
-  const [summary, ranked, dueCards, { due: openMistakes }] = await Promise.all([getMasterySummary(), rankConcepts({ includeUnpracticed: true }), countDueCards(), countMistakesDue()]);
+  const [summary, ranked, dueCards, { due: openMistakes }, missedToday] = await Promise.all([getMasterySummary(), rankConcepts({ includeUnpracticed: true }), countDueCards(), countMistakesDue(), conceptsMissedToday()]);
   const items: Recommendation[] = [];
 
   // The two highest-priority concepts, plus the worst open misconception: a confident error is fixed first.
@@ -75,12 +76,13 @@ export const getRecommendations = cache(async (limit = 4): Promise<Recommendatio
   const misconception = ranked.filter((concept) => (concept.row?.misconceptions ?? 0) > 0).sort((a, b) => b.row!.misconceptions - a.row!.misconceptions)[0];
   if (misconception && !top.some((concept) => concept.id === misconception.id)) top.push(misconception);
   top.forEach((concept, index) => {
-    const pick = methodFor(concept, RECOMMENDED_MINUTES, { allowed: STARTABLE, dueCards: dueCards > 0 });
+    // A misconception missed today is explained first and retested tomorrow, when a right answer can clear it.
+    const due = !missedToday.has(concept.id);
+    const pick = methodFor(concept, RECOMMENDED_MINUTES, { allowed: STARTABLE, dueCards: dueCards > 0, misconceptionDue: due });
     const confident = concept.row?.misconceptions ?? 0;
     const misconceived = `You answered ${confident} ${concept.name} question${confident === 1 ? "" : "s"} wrong while feeling confident — a sign of a misconception rather than a memory gap`;
     // The misconception rule's own reason ("You were sure, but the answer was wrong: …") would say it twice.
-    const reason =
-      confident === 0 ? `${standing(concept)} ${pick.reason}` : pick.rule === "misconception" ? `${misconceived}: fix the idea behind the mistake, then retest it on another day.` : `${misconceived}. ${pick.reason}`;
+    const reason = confident === 0 ? `${standing(concept)} ${pick.reason}` : pick.rule === "misconception" ? `${misconceived}: ${misconceptionAdvice(pick.method, due)}.` : `${misconceived}. ${pick.reason}`;
     items.push({
       id: `concept:${concept.id}`,
       title: confident > 0 ? `Clear up ${concept.name}` : concept.row ? `${methodName(pick.method)} for ${concept.name}` : `Start ${concept.name} with ${methodName(pick.method)}`,

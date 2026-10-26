@@ -413,6 +413,20 @@ export async function retestCutoff(): Promise<string> {
 }
 
 /**
+ * The concepts with an open mistake last missed today: a right answer on them counts only from tomorrow (a
+ * misconception among them is explained first, method-rules.ts misconceptionDue).
+ */
+export const conceptsMissedToday = cache(async (): Promise<Set<string>> => {
+  const supabase = await createClient();
+  const cutoff = await retestCutoff();
+  const rows = await readPages(
+    (from, to) => supabase.from("mistakes").select("concept_id").is("resolved_at", null).gte("last_missed_at", cutoff).not("concept_id", "is", null).order("id").range(from, to),
+    5000,
+  );
+  return new Set(rows.flatMap((row) => (row.concept_id ? [row.concept_id] : [])));
+});
+
+/**
  * Open mistakes by when a retest can count (one material's, or all of them): `due` were last missed before
  * today, the student's day, so a right retest today marks them learned; `today` were missed today and are due
  * tomorrow (mistakes/retest.ts: a retest counts only on a later day than the miss).

@@ -7,6 +7,7 @@ import { conceptMaterialIds, isWeakTopic } from "@/lib/adaptive/mastery";
 import { normalizeConceptName } from "@/lib/concepts/service";
 import { parseAnalysisData, type ConceptCategory } from "@/lib/materials/analysis-schema";
 import { chooseMethod } from "@/lib/engine/method-rules";
+import { conceptsMissedToday } from "@/lib/quizzes/queries";
 import { routes } from "@/lib/routes";
 import { BUILDER_METHOD_IDS, methodName } from "@/lib/study/catalog";
 import type { StudyMethodId } from "@/lib/study/methods";
@@ -41,9 +42,12 @@ export type MasteryMap = { subjects: MapSubject[]; total: number; counts: Record
 /** The map links can start any session the study builder runs, except Tamari's own plan. */
 const STARTABLE: ReadonlySet<StudyMethodId> = new Set(BUILDER_METHOD_IDS.filter((id) => id !== "smart_study"));
 
-/** The session the rule table picks for one concept (research doc §11), with its reason. */
-export function recommendForConcept(row: Pick<MasteryView, "status" | "misconceptions">, category: ConceptCategory | null, materialId: string | null): MapConcept["recommendation"] {
-  const pick = chooseMethod({ state: row.status, category: category ?? "understanding", openMisconception: row.misconceptions > 0, daysToExam: null, minutes: 15, allowed: STARTABLE });
+/**
+ * The session the rule table picks for one concept (research doc §11), with its reason. `mistakeDue`: none of
+ * its open mistakes was missed today, so a retest can clear them now (a misconception from today is explained first).
+ */
+export function recommendForConcept(row: Pick<MasteryView, "status" | "misconceptions">, category: ConceptCategory | null, materialId: string | null, mistakeDue: boolean): MapConcept["recommendation"] {
+  const pick = chooseMethod({ state: row.status, category: category ?? "understanding", openMisconception: row.misconceptions > 0, misconceptionDue: mistakeDue, daysToExam: null, minutes: 15, allowed: STARTABLE });
   const params = new URLSearchParams({ method: pick.method });
   if (materialId) params.set("material", materialId);
   const href = pick.method === "spaced_repetition" || pick.method === "flashcards" ? `${routes.flashcards}/review` : `${routes.study}?${params.toString()}`;
@@ -60,7 +64,8 @@ function emptyCounts(): Record<MasteryStatus, number> {
 
 export const getMasteryMap = cache(async (): Promise<MasteryMap> => {
   const supabase = await createClient();
-  const rows = (await listMastery()).filter((row) => row.attempts > 0 && row.concept);
+  const [listed, missedToday] = await Promise.all([listMastery(), conceptsMissedToday()]);
+  const rows = listed.filter((row) => row.attempts > 0 && row.concept);
   const materialIds = [...new Set(rows.flatMap((row) => conceptMaterialIds(row.concept)))];
   const [{ data: materials }, { data: analyses }] = await Promise.all([
     materialIds.length ? supabase.from("materials").select("id, title, subject:subjects!materials_subject_fk(id, name)").in("id", materialIds) : Promise.resolve({ data: [] as Array<{ id: string; title: string; subject: unknown }> }),
@@ -94,7 +99,7 @@ export const getMasteryMap = cache(async (): Promise<MasteryMap> => {
         attempts: row.attempts,
         misconceptions: row.misconceptions,
         category,
-        recommendation: recommendForConcept(row, category, materialId),
+        recommendation: recommendForConcept(row, category, materialId, !missedToday.has(concept.id)),
       });
       materialEntry.counts[row.status] += 1;
       if (isWeakTopic(row)) materialEntry.weakTopics += 1;

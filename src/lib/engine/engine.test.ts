@@ -243,6 +243,19 @@ describe("method rules (§11)", () => {
 
   it("fixes a misconception first, and keeps short sessions short", () => {
     expect(chooseMethod({ state: "learning", category: "understanding", openMisconception: true, daysToExam: null, minutes: 20 }).method).toBe("error_review");
+    // A misconception from today: a retest can't clear it until tomorrow, so the idea is explained first.
+    const today = chooseMethod({ state: "learning", category: "understanding", openMisconception: true, misconceptionDue: false, daysToExam: null, minutes: 20 });
+    expect(today.method).toBe("feynman");
+    expect(today.reason).toMatch(/retest it tomorrow/);
+    expect(chooseMethod({ state: "learning", category: "understanding", openMisconception: true, misconceptionDue: true, daysToExam: null, minutes: 20 }).reason).toMatch(/earlier day: retest it now/);
+    // A short session retests even a misconception from today, and says the retest counts from tomorrow.
+    const short = chooseMethod({ state: "learning", category: "understanding", openMisconception: true, misconceptionDue: false, daysToExam: null, minutes: 12 });
+    expect(short.method).toBe("error_review");
+    expect(short.reason).toMatch(/counts from tomorrow/);
+    // A due misconception with Error Review turned off is explained, and the reason doesn't promise a retest now.
+    const explained = chooseMethod({ state: "learning", category: "understanding", openMisconception: true, misconceptionDue: true, daysToExam: null, minutes: 20, excluded: ["error_review"] });
+    expect(explained.method).toBe("feynman");
+    expect(explained.reason).not.toMatch(/retest it now/);
     expect(chooseMethod({ state: "learning", category: "understanding", openMisconception: true, daysToExam: null, minutes: 10, excluded: ["error_review"] }).method).not.toBe("feynman");
     expect(chooseMethod({ state: "weak", category: "calculation", openMisconception: false, daysToExam: null, minutes: 30 }).method).toBe("worked_examples");
     expect(chooseMethod({ state: "learning", category: "memorization", openMisconception: false, daysToExam: null, minutes: 20 }).method).toBe("flashcards");

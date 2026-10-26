@@ -162,11 +162,12 @@ export function isWeakConcept(concept: FocusConcept): boolean {
 export const BLOCK_METHODS: ReadonlySet<StudyMethodId> = new Set(BUILDER_METHOD_IDS.filter((id) => !PLAN_METHODS.has(id)));
 
 /** The method the rule table picks for a concept, with its one-line reason. */
-export function methodFor(concept: FocusConcept, minutes: number, options: { allowed?: ReadonlySet<StudyMethodId>; dueCards?: boolean } = {}): MethodPick {
+export function methodFor(concept: FocusConcept, minutes: number, options: { allowed?: ReadonlySet<StudyMethodId>; dueCards?: boolean; misconceptionDue?: boolean } = {}): MethodPick {
   return chooseMethod({
     state: concept.state,
     category: concept.category,
     openMisconception: (concept.row?.misconceptions ?? 0) > 0,
+    misconceptionDue: options.misconceptionDue,
     daysToExam: concept.daysToExam,
     minutes,
     allowed: options.allowed,
