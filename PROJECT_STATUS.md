@@ -4,7 +4,7 @@ Living record of what exists, what is being built and what comes next. Read
 this first in every development session, then `package.json`,
 `supabase/migrations/`, `src/lib/routes.ts` and the relevant components.
 
-_Last updated: 2026-10-26 (the study system review round, Tamari's smarter round, the Ollama Cloud round, Tamari's evaluation round, the unfinished sessions round, the email design round, Tamari's chat round and fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
+_Last updated: 2026-10-26 (the Resend countdown, the study system review round, Tamari's smarter round, the Ollama Cloud round, Tamari's evaluation round, the unfinished sessions round, the email design round, Tamari's chat round and fixes from the live site, after the launch review round, the performance round, the Archive round, the learning engine round, the API integrations round, the UI/UX phase and Phases 1–10)_
 
 ## Completed
 
@@ -553,6 +553,19 @@ model that uploaded text is data. What changed:
 
 ### After launch (fixes from the live site)
 
+- **Resend waits a minute, with a countdown** — on "Check your inbox", the
+  Resend button waits 60 seconds after every verification email (the
+  sign-up's and each resend's) and counts down on the button ("Resend email
+  in 45s", read out as seconds; when the wait ends, screen readers hear
+  once that another email can be asked for). The wait is kept with the
+  address in the pending-verification cookie (`resendAt`,
+  `src/lib/auth/resend-cooldown.ts`), so a reload, or signing in to the
+  unverified account (which sends nothing), keeps counting. The server
+  counts the same minute per address, sign-up included: a resend asked for
+  too early (another tab or device) is refused with the seconds left, and
+  the button counts those down. A minute is also Supabase's default minimum
+  between emails to one user, so the page no longer says "a new link is on
+  its way" for an email Supabase would refuse.
 - **Unfinished flashcard reviews** — a deck review (`flashcards`) or a
   due-card review (`spaced_repetition`) left before the end stays in
   progress, so Home's "Continue" and the Study page's "Resume" offered it,
@@ -645,7 +658,7 @@ commit each, with migrations 0025–0033.
   the student presses Confirm, so mail scanners that open links change
   nothing, and only the four link types RevTaw sends are accepted; "Forgot
   password" and "Resend" answer the same for every address (3 reset emails
-  per address an hour); a new password without the old one only from a
+  per address an hour, one verification email a minute); a new password without the old one only from a
   session that signed in through an email link in the last 15 minutes;
   session cookies are HttpOnly, SameSite=Lax and Secure where the site runs
   on https.
@@ -2526,7 +2539,11 @@ Flows verified end to end against a local Supabase-compatible stack
 (PostgreSQL 16 + PostgREST + an Auth emulator):
 
 - Register → verify → sign in → sign out → forgot → reset → sign in again
-- Unconfirmed sign-in, resend verification with rate limit, expired/used links
+- Unconfirmed sign-in, resend verification (the minute's countdown after
+  sign-up and after each resend, kept through a reload and an unverified
+  sign-in, picked up from the server when it refuses an early resend, and
+  announced when it ends), expired/used links; the countdown fits at 320 px
+  and passes axe in light and dark (`resend-look`)
 - Open-redirect protection on `next`
 - Onboarding gating and validation, preference edits, profile edits
 - Change password (re-auth, other sessions revoked), delete account (cascade

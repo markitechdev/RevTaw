@@ -85,7 +85,8 @@ each job's last run). Errors and slow requests are in Vercel's Logs.
 
 ## What works today
 
-- Accounts, onboarding and settings (Phase 1)
+- Accounts, onboarding and settings (Phase 1); "Resend verification email"
+  counts down the minute before another email can go
 - Materials: upload PDF/DOCX/images/notes, extraction, AI analysis with
   study-method recommendations, organization by subject and folder (Phase 2);
   Delete moves a material to the Archive for 30 days, and deleting it
