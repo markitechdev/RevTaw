@@ -35,6 +35,8 @@ export async function recomputeMasteryFor(supabase: Client, userId: string, conc
   const ids = conceptIds ? [...new Set(conceptIds.filter(Boolean))] : null;
   if (ids && ids.length === 0) return 0;
 
+  // When this run reads the evidence: rows are stamped with it, so a run that read later wins (below).
+  const readAt = new Date();
   const read = await collectEvidence(supabase, userId, ids);
   let evidence = read.byConcept;
   let targets = ids ?? [...evidence.keys()];
@@ -61,7 +63,7 @@ export async function recomputeMasteryFor(supabase: Client, userId: string, conc
   targets = targets.filter((conceptId) => !(cutOff.has(conceptId) && !evidence.has(conceptId)));
   if (targets.length === 0) return 0;
   const context = await loadModelContext(supabase, userId, targets);
-  const now = options.now ?? new Date();
+  const now = options.now ?? readAt;
   const rows = targets.map((conceptId) => {
     const entry = evidence.get(conceptId) ?? { events: [], openMistakes: 0 };
     const previous = context.previous.get(conceptId);
@@ -113,10 +115,16 @@ export async function recomputeMasteryFor(supabase: Client, userId: string, conc
       fsrs_lapses: model.fsrs?.lapses ?? 0,
       fsrs_last_review: model.fsrs?.lastReview ?? null,
       model_version: ENGINE.modelVersion,
-      computed_at: now.toISOString(),
+      // The time the evidence was read (not the `now` recall is worked out for), so overlapping runs order right.
+      computed_at: readAt.toISOString(),
     };
   });
-  for (const batch of chunked(rows, 500)) {
+  // Two runs can overlap (a page's stale refresh and the recompute after an answer): a run that read the
+  // evidence after this one did has already written fresher rows, so this one leaves those alone.
+  const { data: fresher } = await supabase.from("concept_mastery").select("concept_id").eq("user_id", userId).gt("computed_at", readAt.toISOString()).limit(10_000);
+  const newer = new Set((fresher ?? []).map((row) => row.concept_id));
+  const writes = newer.size > 0 ? rows.filter((row) => !newer.has(row.concept_id)) : rows;
+  for (const batch of chunked(writes, 500)) {
     const { error } = await supabase.from("concept_mastery").upsert(batch, { onConflict: "user_id,concept_id" });
     if (error) {
       console.error("concept_mastery: upsert failed", error.message);
@@ -125,13 +133,13 @@ export async function recomputeMasteryFor(supabase: Client, userId: string, conc
   }
   // First-time mastery earns XP (§31); the award key makes a concept count once.
   if (options.awardXp !== false) {
-    const mastered = rows.filter((row) => row.status === "mastered").map((row) => row.concept_id);
+    const mastered = writes.filter((row) => row.status === "mastered").map((row) => row.concept_id);
     if (mastered.length > 0) {
       const { data: names } = await supabase.from("concepts").select("id, name").eq("user_id", userId).in("id", mastered);
       await awardMasteredXp(supabase, (names ?? []).map((concept) => ({ id: concept.id, name: concept.name })));
     }
   }
-  return rows.length;
+  return writes.length;
 }
 
 /**
