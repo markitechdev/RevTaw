@@ -76,13 +76,14 @@ export const getRecommendations = cache(async (limit = 4): Promise<Recommendatio
   top.forEach((concept, index) => {
     const pick = methodFor(concept, RECOMMENDED_MINUTES, { allowed: STARTABLE, dueCards: dueCards > 0 });
     const confident = concept.row?.misconceptions ?? 0;
+    const misconceived = `You answered ${confident} ${concept.name} question${confident === 1 ? "" : "s"} wrong while feeling confident — a sign of a misconception rather than a memory gap`;
+    // The misconception rule's own reason ("You were sure, but the answer was wrong: …") would say it twice.
+    const reason =
+      confident === 0 ? `${standing(concept)} ${pick.reason}` : pick.rule === "misconception" ? `${misconceived}: fix the idea behind the mistake, then retest it on another day.` : `${misconceived}. ${pick.reason}`;
     items.push({
       id: `concept:${concept.id}`,
       title: confident > 0 ? `Clear up ${concept.name}` : concept.row ? `${methodName(pick.method)} for ${concept.name}` : `Start ${concept.name} with ${methodName(pick.method)}`,
-      reason:
-        confident > 0
-          ? `You answered ${confident} ${concept.name} question${confident === 1 ? "" : "s"} wrong while feeling confident — a sign of a misconception rather than a memory gap. ${pick.reason}`
-          : `${standing(concept)} ${pick.reason}`,
+      reason,
       method: pick.method,
       minutes: RECOMMENDED_MINUTES,
       href: sessionHref(pick.method, concept.materialId),
