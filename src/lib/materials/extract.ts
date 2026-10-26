@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getAiProvider } from "@/lib/ai";
+import { charsetOf, decodeText, type TextEncoding } from "@/lib/materials/detect";
 import { EXTRACTION_LIMITS, extractInSandbox, SandboxError, type SandboxKind, type SandboxOutput } from "@/lib/materials/extract-sandbox";
 import type { MaterialSource } from "@/lib/supabase/database.types";
 
@@ -46,7 +47,7 @@ export async function extractText(
     case "doc":
       return extractDoc(bytes);
     case "text":
-      return extractPlainText(bytes);
+      return extractPlainText(bytes, charsetOf(mime));
     case "image":
       return extractImage(bytes, mime);
   }
@@ -105,8 +106,8 @@ async function extractDoc(bytes: Uint8Array): Promise<ExtractionResult> {
   return { sections: [{ page: null, text }], pageCount: null, method: "doc", truncated: result.truncated };
 }
 
-function extractPlainText(bytes: Uint8Array): ExtractionResult {
-  const decoded = new TextDecoder("utf-8").decode(bytes);
+function extractPlainText(bytes: Uint8Array, encoding: TextEncoding): ExtractionResult {
+  const decoded = decodeText(bytes, encoding);
   const truncated = decoded.length > EXTRACTION_LIMITS.maxChars;
   const text = normalizeWhitespace(truncated ? decoded.slice(0, EXTRACTION_LIMITS.maxChars) : decoded);
   if (text.length === 0) {

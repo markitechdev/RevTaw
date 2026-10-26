@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { STORAGE_BUCKET } from "@/lib/materials/constants";
+import { charsetOf } from "@/lib/materials/detect";
 import { safeFilename } from "@/lib/materials/storage";
 import { localRateLimit } from "@/lib/rate-limit";
 import { FILE_RESPONSE_CSP } from "@/lib/security/csp";
@@ -68,12 +69,14 @@ export async function GET(_request: Request, context: RouteContext<"/api/materia
   }
 
   const mime = material.mime_type ?? "application/octet-stream";
-  const inline = INLINE_TYPES.has(mime);
+  // A text file keeps the charset it was detected in ("text/plain; charset=windows-1252"); UTF-8 otherwise.
+  const baseType = mime.split(";")[0].trim();
+  const inline = INLINE_TYPES.has(baseType);
   const filename = safeFilename(material.original_filename ?? "material").replace(/"/g, "");
 
   return new Response(body, {
     headers: {
-      "content-type": mime.startsWith("text/") ? `${mime}; charset=utf-8` : mime,
+      "content-type": baseType.startsWith("text/") ? `${baseType}; charset=${charsetOf(mime)}` : baseType,
       "content-disposition": `${inline ? "inline" : "attachment"}; filename="${filename}"`,
       "cache-control": "private, no-store",
       "x-content-type-options": "nosniff",

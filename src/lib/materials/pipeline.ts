@@ -89,7 +89,9 @@ export async function processMaterial(
       return fail(
         supabase,
         material.id,
-        "The file content does not match its type. Please upload a PDF, Word document, image or text file.",
+        material.source === "text" && !detected
+          ? "This file couldn't be read as text. Save it as plain text and upload it again, or paste the notes instead."
+          : "The file content does not match its type. Please upload a PDF, Word document, image or text file.",
       );
     }
 
