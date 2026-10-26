@@ -4,7 +4,7 @@ import { isAiError } from "@/lib/ai";
 import { materialConceptNames } from "@/lib/concepts/service";
 import { ServiceError } from "@/lib/errors";
 import { claimForRetry, retryRefusal } from "@/lib/generation/retry";
-import type { AnalysisChunkInput } from "@/lib/materials/analyze";
+import { coverageDetail, type AnalysisChunkInput } from "@/lib/materials/analyze";
 import { generateReviewer, regenerateSection, type ReviewerSectionDraft } from "@/lib/reviewers/generate";
 import { REVIEWER_KIND_BY_ID } from "@/lib/reviewers/kinds";
 import type { ReviewerKind } from "@/lib/supabase/database.types";
@@ -98,7 +98,7 @@ export async function createReviewer(materialId: string, kind: ReviewerKind): Pr
     const { error: sectionsError } = await supabase.from("reviewer_sections").insert(rows);
     if (sectionsError) throw new Error(`reviewer_sections: insert failed: ${sectionsError.message}`);
 
-    const detail = result.coverageRatio < 1 ? `Built from the first ${Math.round(result.coverageRatio * 100)}% of a very long material.` : null;
+    const detail = coverageDetail(result.coverageRatio, false, "");
     const { error: readyError } = await supabase
       .from("reviewers")
       .update({
@@ -142,12 +142,14 @@ export async function retryReviewer(reviewerId: string): Promise<{ status: "read
       })),
     );
     if (sectionsError) throw new Error(`reviewer_sections: insert failed: ${sectionsError.message}`);
+    // A retried reviewer of a long material says what it was built from, like a first try.
+    const detail = coverageDetail(result.coverageRatio, false, "");
     const { error: readyError } = await supabase
       .from("reviewers")
-      .update({ title: clampTitle(result.response.title), status: "ready", status_detail: null, provider: result.provider, model: result.model })
+      .update({ title: clampTitle(result.response.title), status: "ready", status_detail: detail, provider: result.provider, model: result.model })
       .eq("id", reviewer.id);
     if (readyError) throw new Error(`reviewers: ready update failed: ${readyError.message}`);
-    return { status: "ready", detail: null };
+    return { status: "ready", detail };
   } catch (generationError) {
     console.error(`reviewers: retry for ${reviewer.id} failed`, generationError);
     const detail = friendlyGenerationFailure(generationError);

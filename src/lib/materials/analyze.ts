@@ -3,6 +3,7 @@ import "server-only";
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
 import { analysisResponseSchema, type AnalysisResponse } from "@/lib/materials/analysis-schema";
+import { percentRead } from "@/lib/materials/coverage";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import { focusTerms, scoreChunk } from "@/lib/tutor/context";
 import { CORE_STUDY_METHODS } from "@/lib/study/methods";
@@ -98,7 +99,7 @@ function sectionLabel(chunk: AnalysisChunkInput): string {
 /** The note that tells a generator how much of a long material it sees (empty when it sees all of it). */
 export function coverageNote(coverageRatio: number, focused: boolean): string {
   if (coverageRatio >= 1) return "";
-  const share = Math.round(coverageRatio * 100);
+  const share = percentRead(coverageRatio);
   return focused
     ? `Note: the material is too long to include whole; below are the sections that match the focus and as much of the rest as fits (${share}% of it); cover what you can see.\n`
     : `Note: only the first ${share}% of the material is included; cover what you can see.\n`;
@@ -107,7 +108,7 @@ export function coverageNote(coverageRatio: number, focused: boolean): string {
 /** The same for the student, on what was made from a long material. */
 export function coverageDetail(coverageRatio: number, focused: boolean, focusLabel: string): string | null {
   if (coverageRatio >= 1) return null;
-  const share = Math.round(coverageRatio * 100);
+  const share = percentRead(coverageRatio);
   return focused ? `Built from ${share}% of a very long material, ${focusLabel} first.` : `Built from the first ${share}% of a very long material.`;
 }
 
@@ -189,7 +190,7 @@ export async function analyzeMaterial(
 
   const userPrompt = `Material title: ${title}
 Student: ${studentLine || "not specified"}
-${coverageRatio < 1 ? `Note: only the first ${Math.round(coverageRatio * 100)}% of the material is included below; base the analysis on what you can see.\n` : ""}
+${coverageRatio < 1 ? `Note: only the first ${percentRead(coverageRatio)}% of the material is included below; base the analysis on what you can see.\n` : ""}
 ${schemaDescription()}
 
 <material>

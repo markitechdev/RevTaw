@@ -6,6 +6,7 @@ import { isAiError } from "@/lib/ai";
 import { track } from "@/lib/analytics/server";
 import { isStaleMaterial } from "@/lib/generation/stale";
 import { analyzeMaterial, type AnalysisChunkInput } from "@/lib/materials/analyze";
+import { percentRead } from "@/lib/materials/coverage";
 import { chunkSections, countWords } from "@/lib/materials/chunk";
 import { MAX_FILE_BYTES } from "@/lib/materials/constants";
 import { detectMaterialType } from "@/lib/materials/detect";
@@ -108,17 +109,20 @@ export async function processMaterial(
     await replaceChunks(supabase, material.id, material.user_id, chunks);
 
     const wordCount = countWords(extraction.sections.map((section) => section.text).join("\n"));
+    // How the file was read, kept apart from the analysis result so Re-analyze doesn't erase it.
+    const extractionNote = [extraction.truncated ? truncationNote(extraction) : null, ...(extraction.notes ?? [])].filter(Boolean).join(" ").slice(0, 2000) || null;
     await setStatus(supabase, material.id, "analyzing", null, {
       content_hash: contentHash,
       mime_type: detected.mime,
       file_size: byteLength,
       page_count: extraction.pageCount,
       word_count: wordCount,
+      extraction_note: extractionNote,
     });
 
     // Embedding runs beside the analysis; if it fails, search uses words until the backfill job catches up.
     const [analysisDetail] = await Promise.all([runAnalysis(supabase, material, chunks), embedMaterialQuietly(supabase, material.id)]);
-    const detail = [analysisDetail, extraction.truncated ? truncationNote(extraction) : null, ...(extraction.notes ?? [])].filter(Boolean).join(" ") || null;
+    const detail = statusDetail(analysisDetail, extractionNote);
     await setStatus(supabase, material.id, "ready", detail);
     track(material.user_id, "material_processed", { source: material.source, status: "ready", method: extraction.method, chunks: chunks.length });
     return { status: "ready", detail };
@@ -178,8 +182,14 @@ export async function reanalyzeMaterial(materialId: string): Promise<ProcessOutc
     // Materials processed before Tamari's search get their embeddings here too.
     embedMaterialQuietly(supabase, material.id),
   ]);
-  await setStatus(supabase, material.id, "ready", detail);
-  return { status: "ready", detail };
+  const combined = statusDetail(detail, material.extraction_note);
+  await setStatus(supabase, material.id, "ready", combined);
+  return { status: "ready", detail: combined };
+}
+
+/** What the student reads under a material: the analysis result, then how the file was read. */
+function statusDetail(analysisDetail: string | null, extractionNote: string | null): string | null {
+  return [analysisDetail, extractionNote].filter(Boolean).join(" ").slice(0, 2000) || null;
 }
 
 /**
@@ -223,9 +233,7 @@ async function runAnalysis(
       model: result.model,
     });
     if (error) throw new Error(`material_analyses: upsert failed: ${error.message}`);
-    return result.coverageRatio < 1
-      ? `Analyzed the first ${Math.round(result.coverageRatio * 100)}% of a very long material.`
-      : null;
+    return result.coverageRatio < 1 ? `Analyzed the first ${percentRead(result.coverageRatio)}% of a very long material.` : null;
   } catch (error) {
     if (isAiError(error) && error.code === "not_configured") {
       return ANALYSIS_UNAVAILABLE_DETAIL;
@@ -251,8 +259,8 @@ function isRecentlyInFlight(material: Material): boolean {
 
 /** Tells the student that a very long file was only read in part (EXTRACTION_LIMITS). */
 function truncationNote(extraction: ExtractionResult): string {
-  const lastPage = extraction.sections.at(-1)?.page;
-  if (lastPage && extraction.pageCount) return `RevTaw read the first ${lastPage} of ${extraction.pageCount} pages; split the file to study the rest.`;
+  const pagesRead = extraction.pagesRead ?? extraction.sections.at(-1)?.page;
+  if (pagesRead && extraction.pageCount) return `RevTaw read the first ${pagesRead} of ${extraction.pageCount} pages; split the file to study the rest.`;
   return "RevTaw read the first part of this file; split it to study the rest.";
 }
 
@@ -329,7 +337,7 @@ async function reuseIdenticalMaterial(
 ): Promise<ProcessOutcome | null> {
   const { data: twin } = await supabase
     .from("materials")
-    .select("id, title, mime_type, file_size, page_count, word_count")
+    .select("id, title, mime_type, file_size, page_count, word_count, extraction_note")
     .eq("content_hash", contentHash)
     .eq("status", "ready")
     .neq("id", material.id)
@@ -379,13 +387,14 @@ async function reuseIdenticalMaterial(
     });
   }
 
-  const detail = `Identical to "${twin.title}" — reused its extracted text${analysis ? " and analysis" : ""}.`;
+  const detail = statusDetail(`Identical to "${twin.title}" — reused its extracted text${analysis ? " and analysis" : ""}.`, twin.extraction_note);
   await setStatus(supabase, material.id, "ready", detail, {
     content_hash: contentHash,
     mime_type: twin.mime_type,
     file_size: twin.file_size,
     page_count: twin.page_count,
     word_count: twin.word_count,
+    extraction_note: twin.extraction_note,
   });
   return { status: "ready", detail };
 }

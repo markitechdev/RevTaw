@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { getAiProvider } from "@/lib/ai";
 import { generateJson } from "@/lib/ai/json";
-import { buildTranscript, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
+import { buildTranscript, coverageNote, type AnalysisChunkInput, type StudentContext } from "@/lib/materials/analyze";
 import { EDUCATION_LEVEL_LABEL, STUDY_GOAL_LABEL } from "@/lib/profile/options";
 import { REVIEWER_KIND_BY_ID } from "@/lib/reviewers/kinds";
 import type { ReviewerKind } from "@/lib/supabase/database.types";
@@ -70,7 +70,7 @@ ${GROUNDING_RULES}`;
 
   const user = `Material title: ${materialTitle}
 Student: ${studentLine(student)}
-${coverageRatio < 1 ? `Note: only the first ${Math.round(coverageRatio * 100)}% of the material is included; cover what you can see.\n` : ""}
+${coverageNote(coverageRatio, false)}
 JSON schema:
 {
   "title": string (max 160 chars, e.g. "Arrays — Complete Reviewer"),

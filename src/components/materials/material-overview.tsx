@@ -9,6 +9,7 @@ import { TINT } from "@/components/ui/tint";
 import { CONCEPT_CATEGORY_LABEL, type ConceptCategory } from "@/lib/materials/analysis-schema";
 import type { MaterialAnalysisView } from "@/lib/materials/queries";
 import { formatSessionMinutes } from "@/lib/profile/options";
+import { percentRead } from "@/lib/materials/coverage";
 import { STUDY_METHOD_BY_ID } from "@/lib/study/methods";
 import type { MaterialStatus } from "@/lib/supabase/database.types";
 
@@ -85,7 +86,7 @@ export function MaterialOverview({
               </Badge>
             )}
             {analysis.coverageRatio < 1 && (
-              <Badge tone="warning">Covers the first {Math.round(analysis.coverageRatio * 100)}% of the text</Badge>
+              <Badge tone="warning">Covers the first {percentRead(analysis.coverageRatio)}% of the text</Badge>
             )}
           </div>
         </CardContent>
@@ -211,7 +212,7 @@ export function MaterialOverview({
 
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
         <span>
-          Analyzed with {analysis.provider} ({analysis.model}) ·{" "}
+          Analyzed by Tamari ·{" "}
           {new Date(analysis.updatedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
           {statusDetail ? ` · ${statusDetail}` : ""}
         </span>

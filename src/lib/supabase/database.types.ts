@@ -166,6 +166,7 @@ type MaterialsRow = {
   content_hash: string | null;
   status: MaterialStatus;
   status_detail: string | null;
+  extraction_note: string | null;
   processing_attempts: number;
   last_processed_at: string | null;
   page_count: number | null;
@@ -395,6 +396,8 @@ type FlashcardDecksRow = {
   provider: string | null;
   model: string | null;
   card_count: number;
+  requested_count: number | null;
+  focus: string | null;
   created_at: string;
   updated_at: string;
 };

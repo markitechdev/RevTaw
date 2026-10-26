@@ -17,8 +17,10 @@ export type ExtractionResult = {
   pageCount: number | null;
   /** How the text was obtained; shown to the student for transparency. */
   method: "pdf-text" | "docx" | "doc" | "plain-text" | "ai-vision";
-  /** True when only the first part was read (EXTRACTION_LIMITS: pages or characters). */
+  /** True when only the first part was read (EXTRACTION_LIMITS: pages or characters, or an image's text cut off). */
   truncated?: boolean;
+  /** PDF pages read, counted whether or not they had text (a long file stops at EXTRACTION_LIMITS.maxPages). */
+  pagesRead?: number;
   /** What the student should know about how the text was read (equations converted, pictures skipped). */
   notes?: string[];
 };
@@ -116,7 +118,7 @@ async function extractPdf(bytes: Uint8Array): Promise<ExtractionResult> {
         `${unreadable.length === 1 ? `Page ${unreadable[0]} has` : `Pages ${pageList(unreadable)} have`} no readable text (scanned or image-only), so nothing was made from ${unreadable.length === 1 ? "it" : "them"}. To include ${unreadable.length === 1 ? "it" : "them"}, upload ${unreadable.length === 1 ? "that page" : "those pages"} as photos or screenshots.`,
       ]
     : [];
-  return { sections, pageCount: result.total, method: "pdf-text", truncated: result.truncated, ...(notes.length ? { notes } : {}) };
+  return { sections, pageCount: result.total, pagesRead: result.pages.length, method: "pdf-text", truncated: result.truncated, ...(notes.length ? { notes } : {}) };
 }
 
 async function extractDocx(bytes: Uint8Array): Promise<ExtractionResult> {
@@ -165,8 +167,10 @@ async function extractImage(bytes: Uint8Array, mime: string): Promise<Extraction
     task: "ocr_image",
     system:
       "You transcribe study materials from images for a student. Return the complete text exactly as written, " +
-      "preserving headings, lists, formulas and table rows (one row per line). Describe diagrams briefly in " +
-      "square brackets, e.g. [Diagram: water cycle with evaporation and condensation]. Do not add commentary. " +
+      "preserving headings, lists, formulas and table rows (one row per line, cells separated by ' | '). Describe " +
+      "diagrams briefly in square brackets, e.g. [Diagram: water cycle with evaporation and condensation]. Where a " +
+      "word, number or symbol can't be read with confidence, write [unclear] in its place: never guess, the student " +
+      "will study this text as written. Do not add commentary. " +
       "If the image contains no readable text, reply with exactly: NO_TEXT_FOUND",
     messages: [
       {
@@ -188,7 +192,13 @@ async function extractImage(bytes: Uint8Array, mime: string): Promise<Extraction
       "vision model found no text",
     );
   }
-  return { sections: [{ page: 1, text }], pageCount: 1, method: "ai-vision" };
+  // The model stopped at its output cap: the rest of the image's text is missing.
+  const cut = /^(length|max_tokens)$/i.test(result.stopReason ?? "");
+  const unclear = (text.match(/\[unclear\]/gi) ?? []).length;
+  const notes = [
+    `This text was read from the image by AI: check names, numbers and formulas against the picture.${unclear ? ` ${unclear === 1 ? "One part" : `${unclear} parts`} couldn't be read and ${unclear === 1 ? "is" : "are"} marked [unclear].` : ""}${cut ? " The image held more text than could be read at once; crop it into smaller pictures to read the rest." : ""}`,
+  ];
+  return { sections: [{ page: 1, text }], pageCount: 1, method: "ai-vision", truncated: false, notes };
 }
 
 /** Collapses runs of blank lines and trailing spaces while keeping paragraphs. */
