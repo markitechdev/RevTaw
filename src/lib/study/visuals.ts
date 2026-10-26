@@ -46,9 +46,8 @@ export function seededShuffle<T>(items: readonly T[], seed: string): T[] {
   return result;
 }
 
-/** Length of the longest increasing run of positions: how much of the order is right. */
-export function orderScore(order: number[]): number {
-  if (order.length === 0) return 0;
+/** The longest increasing run of positions: how many items already stand in the right relative order. */
+function inOrderCount(order: number[]): number {
   const tails: number[] = [];
   for (const value of order) {
     let low = 0;
@@ -60,7 +59,41 @@ export function orderScore(order: number[]): number {
     }
     tails[low] = value;
   }
-  return Math.round((tails.length / order.length) * 100);
+  return tails.length;
+}
+
+/** Share of the order that is right (its longest increasing run of positions). */
+export function orderScore(order: number[]): number {
+  if (order.length === 0) return 0;
+  return Math.round((inOrderCount(order) / order.length) * 100);
+}
+
+/**
+ * Where a "put it back in order" exercise starts: of a few seeded shuffles, the one with the least already in
+ * order, so the starting order itself earns (almost) nothing. Deterministic: the same on the server and in
+ * the browser.
+ */
+export function rebuildStart(count: number, seed: string): number[] {
+  const indices = Array.from({ length: count }, (_, index) => index);
+  let best = seededShuffle(indices, seed);
+  for (let attempt = 1; attempt < 12 && inOrderCount(best) > 1; attempt += 1) {
+    const candidate = seededShuffle(indices, `${seed}:${attempt}`);
+    if (inOrderCount(candidate) < inOrderCount(best)) best = candidate;
+  }
+  return best;
+}
+
+/**
+ * An order scored for what the student put in order: 0 for handing the starting order back (or making it
+ * worse), 100 when every item is in place, and the share of the remaining distance in between.
+ */
+export function rebuildOrderScore(order: number[], start: number[]): number {
+  const total = order.length;
+  if (total === 0) return 0;
+  const got = inOrderCount(order);
+  if (got === total) return 100;
+  const base = Math.min(inOrderCount(start), total - 1);
+  return Math.max(0, Math.round(((got - base) / (total - base)) * 100));
 }
 
 /** Table cells hidden in the rebuild exercise: every other body cell after the first column. */
@@ -107,8 +140,11 @@ export function cellMatches(given: string, expected: string): boolean {
   return recallsItem(given, expected);
 }
 
-/** Grades a rebuild against the visual; marks say which parts were right. */
-export function gradeVisual(visual: Visual, answer: VisualAnswer): { score: number; marks: boolean[] } {
+/**
+ * Grades a rebuild against the visual; marks say which parts were right. `seed` (the item's id) gives the
+ * order a "put it back in order" exercise started from, so the score counts only what the student fixed.
+ */
+export function gradeVisual(visual: Visual, answer: VisualAnswer, seed?: string): { score: number; marks: boolean[] } {
   switch (visual.type) {
     case "flowchart":
     case "timeline": {
@@ -116,7 +152,8 @@ export function gradeVisual(visual: Visual, answer: VisualAnswer): { score: numb
       const order = answer.kind === "order" ? answer.order : [];
       const valid = order.length === count && new Set(order).size === count && order.every((value) => value >= 0 && value < count);
       if (!valid) return { score: 0, marks: Array.from({ length: count }, () => false) };
-      return { score: orderScore(order), marks: order.map((value, index) => value === index) };
+      const score = seed === undefined ? orderScore(order) : rebuildOrderScore(order, rebuildStart(count, seed));
+      return { score, marks: order.map((value, index) => value === index) };
     }
     case "table": {
       const blanks = tableBlanks(visual);

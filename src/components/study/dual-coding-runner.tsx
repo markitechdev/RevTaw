@@ -18,7 +18,7 @@ import { TINT } from "@/components/ui/tint";
 import type { VisualCheck } from "@/lib/study/flows/visual";
 import { checkVisualAction } from "@/lib/study/method-actions";
 import type { SessionDetail } from "@/lib/study/queries";
-import { hierarchyPairs, rebuildPrompt, seededShuffle, tableBlanks, VISUAL_TYPE_LABEL, type DualView, type Visual, type VisualAnswer, type VisualTopic } from "@/lib/study/visuals";
+import { hierarchyPairs, rebuildPrompt, rebuildStart, seededShuffle, tableBlanks, VISUAL_TYPE_LABEL, type DualView, type Visual, type VisualAnswer, type VisualTopic } from "@/lib/study/visuals";
 import { cn } from "@/lib/utils";
 
 type Item = SessionDetail["items"][number];
@@ -61,10 +61,10 @@ function OrderExercise({ labels, order, onChange, marks }: { labels: string[]; o
   );
 }
 
-/** The starting answer of a rebuild: steps and events begin shuffled (same order on every render). */
+/** The starting answer of a rebuild: steps and events begin shuffled, as far from the right order as practical (same on every render and on the server). */
 function initialAnswer(visual: Visual, seed: string): VisualAnswer | null {
-  if (visual.type === "flowchart") return { kind: "order", order: seededShuffle(visual.steps.map((_, index) => index), seed) };
-  if (visual.type === "timeline") return { kind: "order", order: seededShuffle(visual.events.map((_, index) => index), seed) };
+  if (visual.type === "flowchart") return { kind: "order", order: rebuildStart(visual.steps.length, seed) };
+  if (visual.type === "timeline") return { kind: "order", order: rebuildStart(visual.events.length, seed) };
   return null;
 }
 

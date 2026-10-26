@@ -79,7 +79,8 @@ export async function checkVisualItem(input: { itemId: string; answer: VisualAns
   const analysis = (item.analysis as { topic?: VisualTopic; check?: VisualCheck } | null) ?? {};
   if (!analysis.topic) throw new SessionError("This visual is incomplete.", 422);
   if (item.answered_at && analysis.check) return analysis.check;
-  const graded = gradeVisual(analysis.topic.visual, input.answer);
+  // Orders are scored from where the exercise started (the item's seeded shuffle), so an untouched order earns nothing.
+  const graded = gradeVisual(analysis.topic.visual, input.answer, item.id);
   const check: VisualCheck = { ...graded, isCorrect: graded.score >= PASS_SCORE.visual };
   await recordItemResult(supabase, item, session, {
     response: JSON.stringify(input.answer),

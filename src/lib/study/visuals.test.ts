@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { visualsHeuristically } from "@/lib/ai/providers/mock-study";
 import { visualSetSchema } from "@/lib/study/prompts/visual";
-import { cellMatches, gradeVisual, hierarchyPairs, orderScore, seededShuffle, tableBlanks, visualAsText, type Visual } from "@/lib/study/visuals";
+import { cellMatches, gradeVisual, hierarchyPairs, orderScore, rebuildOrderScore, rebuildStart, seededShuffle, tableBlanks, visualAsText, type Visual } from "@/lib/study/visuals";
 
 describe("dual-coding visuals", () => {
   it("shuffles deterministically and never returns the original order", () => {
@@ -16,6 +16,20 @@ describe("dual-coding visuals", () => {
     expect(orderScore([0, 1, 2, 3])).toBe(100);
     expect(orderScore([1, 0, 2, 3])).toBe(75);
     expect(orderScore([3, 2, 1, 0])).toBe(25);
+  });
+
+  it("gives no credit for handing back the starting order", () => {
+    for (const [count, seed] of [[3, "item-a"], [5, "item-b"], [6, "item-c"], [8, "item-d"]] as const) {
+      const start = rebuildStart(count, seed);
+      expect(start).toEqual(rebuildStart(count, seed));
+      expect([...start].sort((a, b) => a - b)).toEqual(Array.from({ length: count }, (_, index) => index));
+      expect(rebuildOrderScore(start, start)).toBe(0);
+      const flow: Visual = { type: "flowchart", steps: Array.from({ length: count }, (_, index) => ({ label: `Step ${index}` })) };
+      expect(gradeVisual(flow, { kind: "order", order: start }, seed).score).toBe(0);
+      expect(gradeVisual(flow, { kind: "order", order: Array.from({ length: count }, (_, index) => index) }, seed).score).toBe(100);
+    }
+    // One step left out of place after fixing the rest: most of the way.
+    expect(rebuildOrderScore([0, 1, 2, 4, 3], [4, 3, 2, 1, 0])).toBe(75);
   });
 
   it("grades every kind of rebuild", () => {
