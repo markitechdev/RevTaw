@@ -3,6 +3,7 @@ import "server-only";
 import { completeSmartSession } from "@/lib/adaptive/smart";
 import { sessionReviewCounts } from "@/lib/flashcards/service";
 import { isPlanMethod, isTestMethod, isTutorMethod } from "@/lib/study/catalog";
+import { activeSeconds } from "@/lib/study/focus";
 import { completePreTesting } from "@/lib/study/flows/pretest";
 import { completeItemSession, syncPracticeTesting } from "@/lib/study/service";
 import { completeSession, SessionError, suggestNext } from "@/lib/study/sessions";
@@ -21,10 +22,10 @@ type Client = Awaited<ReturnType<typeof createClient>>;
  * row-level security, and only ids and titles go back to the page, never a row.
  */
 
-/** A session ended from the list counts the span it was active as studied, up to three hours. */
+/** A session ended from the list counts at most the span it was active, up to three hours. */
 const MAX_ENDED_FOCUS_SECONDS = 3 * 3600;
 
-function activeSeconds(session: Pick<StudySession, "started_at" | "last_active_at">): number {
+function endedSpan(session: Pick<StudySession, "started_at" | "last_active_at">): number {
   const seconds = Math.round((new Date(session.last_active_at).getTime() - new Date(session.started_at).getTime()) / 1000);
   return Math.max(0, Math.min(seconds, MAX_ENDED_FOCUS_SECONDS));
 }
@@ -90,14 +91,15 @@ async function stopSession(supabase: Client, session: StudySession, withBlocks: 
     return;
   }
   // Recall, Feynman, error review and the other item flows: the answered items make the summary.
-  await completeItemSession(session.id, activeSeconds(session), true);
+  await completeItemSession(session.id, endedSpan(session), true);
 }
 
 async function stopReview(supabase: Client, session: StudySession): Promise<void> {
-  const { reviewed, again } = await sessionReviewCounts(supabase, session.id);
+  const { reviewed, again, reviewedAt } = await sessionReviewCounts(supabase, session.id);
   const correct = Math.max(0, reviewed - again);
   await completeSession(supabase, session.id, {
-    focusSeconds: activeSeconds(session),
+    // The time spent rating cards, up to the last rating.
+    focusSeconds: Math.min(endedSpan(session), activeSeconds(session.started_at, reviewedAt, new Date(reviewedAt.at(-1) ?? session.started_at))),
     topics: [],
     questionsAnswered: reviewed,
     correct,
@@ -130,7 +132,7 @@ async function stopPomodoro(supabase: Client, session: StudySession): Promise<vo
 
 async function stopUnsubmittedTest(supabase: Client, session: StudySession): Promise<void> {
   // The attempt's own time so far: the session carries it, as it would after a submit.
-  let focus = activeSeconds(session);
+  let focus = endedSpan(session);
   if (session.quiz_attempt_id) {
     const { data: attempt } = await supabase.from("quiz_attempts").select("started_at, updated_at, time_limit_seconds").eq("id", session.quiz_attempt_id).maybeSingle();
     if (attempt) {

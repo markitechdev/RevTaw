@@ -107,14 +107,14 @@ export type ReviewResult = {
  * cards reviewed, and cards whose first rating in the session was "Don't know" (a card that comes back later in
  * the session counts once, as the review screen shows it).
  */
-export async function sessionReviewCounts(supabase: Client, sessionId: string): Promise<{ reviewed: number; again: number }> {
+export async function sessionReviewCounts(supabase: Client, sessionId: string): Promise<{ reviewed: number; again: number; reviewedAt: string[] }> {
   const rows = await readPages(
-    (from, to) => supabase.from("flashcard_reviews").select("card_id, rating").eq("session_id", sessionId).order("reviewed_at").order("id").range(from, to),
+    (from, to) => supabase.from("flashcard_reviews").select("card_id, rating, reviewed_at").eq("session_id", sessionId).order("reviewed_at").order("id").range(from, to),
     5000,
   );
   const first = new Map<string, string>();
   for (const row of rows) if (!first.has(row.card_id)) first.set(row.card_id, row.rating);
-  return { reviewed: first.size, again: [...first.values()].filter((rating) => rating === "again").length };
+  return { reviewed: first.size, again: [...first.values()].filter((rating) => rating === "again").length, reviewedAt: rows.map((row) => row.reviewed_at) };
 }
 
 /** Applies a rating: updates the card's schedule, logs the review and updates the session counters. */

@@ -192,7 +192,9 @@ export async function selfCheckAction(input: { itemId: string; mark: SelfCheck }
 export async function completeSessionAction(input: { sessionId: string; focusSeconds: number | null; abandoned?: boolean }): Promise<StudyActionResult<SessionSummary>> {
   const user = await getCurrentUser();
   if (!user) redirect(routes.login);
-  const parsed = z.object({ sessionId: uuid, focusSeconds: z.number().int().min(0).max(86_400).nullable(), abandoned: z.boolean().optional() }).safeParse(input);
+  // The browser sends the time since the session started, however long ago that was (a session resumed the
+  // next day): the server counts the time actually spent answering.
+  const parsed = z.object({ sessionId: uuid, focusSeconds: z.number().int().min(0).nullable(), abandoned: z.boolean().optional() }).safeParse(input);
   if (!parsed.success) return { ok: false, message: "Invalid session." };
   try {
     const summary = await completeItemSession(parsed.data.sessionId, parsed.data.focusSeconds, parsed.data.abandoned);

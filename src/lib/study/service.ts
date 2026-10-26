@@ -19,6 +19,7 @@ import { startFadedExamples, startPracticeProblems, startWorkedExamples } from "
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
 import { isTutorMethod, METHOD_BEHAVIOR, TEST_METHOD_IDS, type BuilderMethodId, type TestMethodId } from "@/lib/study/catalog";
 import { signatureForStart, startUnlessDuplicate, type SessionDuplicate } from "@/lib/study/duplicates";
+import { activeSeconds } from "@/lib/study/focus";
 import { loadOpenItem, recordItemResult, recordUngradedItem, reloadItem, settleAnsweredItem, storeItemAttempt } from "@/lib/study/items";
 import type { StudyMethodId } from "@/lib/study/methods";
 import type { ProblemDifficulty } from "@/lib/study/prompts/problems";
@@ -630,7 +631,11 @@ function itemSessionNext(method: StudyMethodId, accuracy: number | null, weak: s
   }
 }
 
-/** Closes an item-based session (the recall-style methods, Feynman, error review and the other item flows) with its summary. */
+/**
+ * Closes an item-based session (the recall-style methods, Feynman, error review and the other item flows)
+ * with its summary. Its focus time is the time spent answering (activeSeconds), or the browser's figure when
+ * that is lower.
+ */
 export async function completeItemSession(sessionId: string, focusSeconds: number | null, abandoned = false): Promise<SessionSummary> {
   const supabase = await createClient();
   const session = await loadSession(supabase, sessionId);
@@ -662,8 +667,9 @@ export async function completeItemSession(sessionId: string, focusSeconds: numbe
   const strong = ratesQuestions ? [] : [...byConcept.entries()].filter(([, value]) => value.correct === value.total && value.total > 0).map(([name]) => name);
   const accuracy = graded.length ? correct / graded.length : null;
   const method = session.method as StudyMethodId;
+  const studied = activeSeconds(session.started_at, (items ?? []).map((item) => item.answered_at));
   return completeSession(supabase, sessionId, {
-    focusSeconds: focusSeconds ?? undefined,
+    focusSeconds: Math.min(studied, focusSeconds ?? studied),
     topics: [...byConcept.keys()],
     questionsAnswered: graded.length,
     correct,

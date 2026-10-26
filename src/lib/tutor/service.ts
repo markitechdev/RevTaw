@@ -10,6 +10,7 @@ import { track } from "@/lib/analytics/server";
 import { ensureConcepts, normalizeConceptName } from "@/lib/concepts/service";
 import { ServiceError } from "@/lib/errors";
 import { parsePreferences } from "@/lib/preferences/schema";
+import { activeSeconds } from "@/lib/study/focus";
 import { completeSession, createSession, loadSession, SessionError, type SessionSummary } from "@/lib/study/sessions";
 import type { Json, StudySession, TutorMode } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
@@ -680,11 +681,13 @@ export async function completeTutorSession(sessionId: string, options: { stopped
   const history = (rows ?? []).map((row) => ({ role: row.role as "user" | "assistant", content: row.content }));
   const studentTurns = history.filter((turn) => turn.role === "user").length;
 
+  // The time spent in the conversation: from the start to each message, a long pause counted as a break.
+  const { data: times } = await supabase.from("tutor_messages").select("created_at").eq("conversation_id", state.conversationId).order("created_at").limit(2000);
+  const messageTimes = (times ?? []).map((row) => row.created_at);
   if (options.stopped) {
-    const last = rows?.at(-1)?.created_at;
-    const span = last ? Math.round((new Date(last).getTime() - new Date(session.started_at).getTime()) / 1000) : 0;
+    const last = messageTimes.at(-1);
     return completeSession(supabase, sessionId, {
-      focusSeconds: Math.max(0, Math.min(span, 3 * 3600)),
+      focusSeconds: Math.min(3 * 3600, activeSeconds(session.started_at, messageTimes, new Date(last ?? session.started_at))),
       topics: [],
       questionsAnswered: 0,
       correct: 0,
@@ -716,6 +719,7 @@ export async function completeTutorSession(sessionId: string, options: { stopped
     }
   }
   return completeSession(supabase, sessionId, {
+    focusSeconds: activeSeconds(session.started_at, messageTimes),
     topics: evaluation?.concepts_covered ?? [],
     questionsAnswered: 0,
     correct: 0,

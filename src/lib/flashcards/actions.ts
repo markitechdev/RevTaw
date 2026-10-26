@@ -10,6 +10,7 @@ import { ServiceError } from "@/lib/errors";
 import { reviewCard, sessionReviewCounts, type ReviewResult } from "@/lib/flashcards/service";
 import { routes } from "@/lib/routes";
 import { startUnlessDuplicate } from "@/lib/study/duplicates";
+import { activeSeconds } from "@/lib/study/focus";
 import type { SessionDuplicate } from "@/lib/study/session-duplicate";
 import { completeSession, createSession, sessionTitle, suggestNext, type SessionSummary } from "@/lib/study/sessions";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
@@ -112,7 +113,9 @@ export async function finishReviewSessionAction(input: {
   const parsed = z
     .object({
       sessionId: uuid,
-      focusSeconds: z.number().int().min(0).max(86_400),
+      // The time since the review started, however long ago (a review resumed the next day): the server
+      // counts the time spent rating cards.
+      focusSeconds: z.number().int().min(0),
       reviewed: z.number().int().min(0).max(1000),
       again: z.number().int().min(0).max(1000),
       topics: z.array(z.string().max(120)).max(30),
@@ -125,11 +128,13 @@ export async function finishReviewSessionAction(input: {
   try {
     const supabase = await createClient();
     // Counted from the ratings the server saved during the session, not from what the browser reports.
-    const { reviewed, again } = await sessionReviewCounts(supabase, parsed.data.sessionId);
+    const { reviewed, again, reviewedAt } = await sessionReviewCounts(supabase, parsed.data.sessionId);
     const correct = Math.max(0, reviewed - again);
     const accuracy = reviewed > 0 ? correct / reviewed : null;
+    const { data: started } = await supabase.from("study_sessions").select("started_at").eq("id", parsed.data.sessionId).maybeSingle();
+    const studied = started ? activeSeconds(started.started_at, reviewedAt) : parsed.data.focusSeconds;
     const summary = await completeSession(supabase, parsed.data.sessionId, {
-      focusSeconds: parsed.data.focusSeconds,
+      focusSeconds: Math.min(studied, parsed.data.focusSeconds),
       topics: parsed.data.topics,
       questionsAnswered: reviewed,
       correct,

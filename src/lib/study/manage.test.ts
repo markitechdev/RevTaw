@@ -10,7 +10,7 @@ const deps = vi.hoisted(() => ({
   completePreTesting: vi.fn(async () => ({})),
   completeTutorSession: vi.fn(async () => ({})),
   syncPracticeTesting: vi.fn(async (): Promise<object | null> => null),
-  sessionReviewCounts: vi.fn(async () => ({ reviewed: 8, again: 2 })),
+  sessionReviewCounts: vi.fn(async () => ({ reviewed: 8, again: 2, reviewedAt: [] as string[] })),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => deps.db.client }));
