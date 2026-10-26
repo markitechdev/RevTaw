@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { ChipGroup } from "@/components/ui/chip-group";
 import { Textarea } from "@/components/ui/input";
-import { isTrueFalse, retestViewOf } from "@/lib/mistakes/retest";
+import { isTrueFalse, RETEST_OUTCOME_TEXT, retestViewOf } from "@/lib/mistakes/retest";
 import { CONFIDENCE_LEVELS, optionLetter } from "@/lib/quizzes/types";
 import { routes } from "@/lib/routes";
 import { RETRIEVAL_FORMAT_LABEL, type RetrievalFormat } from "@/lib/study/formats";
@@ -261,6 +261,7 @@ export function RecallRunner({ session, methodName, parentSessionId = null, pare
         ) : (
           <div className="flex flex-col gap-4">
             <RecallVerdict itemId={item.id} result={showing} />
+            {showing.comparison && showing.retest && <p className="text-sm text-muted-foreground">{RETEST_OUTCOME_TEXT[showing.retest]}</p>}
 
             <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="rounded-lg bg-muted/60 p-3 text-sm">

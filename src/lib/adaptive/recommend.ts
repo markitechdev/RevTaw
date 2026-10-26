@@ -97,7 +97,7 @@ export const getRecommendations = cache(async (limit = 4): Promise<Recommendatio
     items.push({
       id: "mistakes",
       title: `Retest ${openMistakes} open mistake${openMistakes === 1 ? "" : "s"}`,
-      reason: "A retest shows whether each one is fixed. Until then they count toward their concepts' weak-topic score; a correct retest marks them learned.",
+      reason: "A retest shows whether each one is fixed. Until then they count toward their concepts' weak-topic score; a right retest on a later day than the miss marks one learned.",
       method: "error_review",
       minutes: Math.min(20, Math.max(5, openMistakes * 2)),
       href: sessionHref("error_review", null),

@@ -23,13 +23,17 @@ export type RetestMistake = {
 
 const RETEST_COLUMNS = "id, question_text, correct_answer, explanation, concept_id, material_id, choices, context, material:materials!mistakes_material_fk(title)";
 
-/** Open entries to retest (of one material, or all), the newest first. */
+/**
+ * Open entries to retest (of one material, or all), the longest-standing miss first: a missed retest dates
+ * its miss again, so it waits behind the others, and the mistakes just made come last instead of first.
+ */
 export async function mistakesToRetest(supabase: Client, options: { materialId: string | null; limit: number }): Promise<RetestMistake[]> {
   let query = supabase
     .from("mistakes")
     .select(RETEST_COLUMNS)
     .is("resolved_at", null)
-    .order("created_at", { ascending: false })
+    .order("last_missed_at", { ascending: true })
+    .order("created_at", { ascending: true })
     .order("id")
     .limit(Math.max(1, options.limit));
   if (options.materialId) query = query.eq("material_id", options.materialId);

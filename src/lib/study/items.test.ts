@@ -11,6 +11,7 @@ vi.mock("@/lib/gamification/service", () => ({ awardSessionXp: vi.fn() }));
 vi.mock("@/lib/planner/service", () => ({ completeTaskForSession: vi.fn() }));
 const server = vi.hoisted(() => ({ createClient: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => server);
+vi.mock("@/lib/profile/queries", () => ({ getCurrentUserWithProfile: vi.fn(async () => ({ user: { id: "u1" }, profile: { timezone: "UTC" } })) }));
 
 const { recordItemResult, recordUngradedItem, selfCheckItem, storeItemAttempt } = await import("@/lib/study/items");
 
@@ -24,18 +25,25 @@ function matches(row: Record<string, unknown>, filters: Filter[]): boolean {
  * One study item in memory. An update applies only when every filter matches the row as it is at that
  * moment, as Postgres does for two updates of one row: the second sees the first one's answer.
  */
-function fakeClient(row: { id: string; attempts: number; answered_at: string | null } & Record<string, unknown>, sessionRow: Record<string, unknown> = { id: "s1", user_id: "u1", material_id: "m1", status: "in_progress" }) {
+function fakeClient(
+  row: { id: string; attempts: number; answered_at: string | null } & Record<string, unknown>,
+  sessionRow: Record<string, unknown> = { id: "s1", user_id: "u1", material_id: "m1", status: "in_progress" },
+  /** The notebook entry a retest reads. */
+  notebookRow: Record<string, unknown> | null = null,
+) {
   const updates: Array<{ values: Record<string, unknown>; filters: Filter[] }> = [];
   const rpcs: Array<{ name: string; args: Record<string, unknown> }> = [];
   const mistakes: Array<Record<string, unknown>> = [];
   const resolved: string[] = [];
+  const missed: string[] = [];
   const client = {
     from(table: string) {
       if (table === "mistakes") {
         return {
           insert: async (values: Record<string, unknown>) => (mistakes.push(values), { error: null }),
-          update: () => {
-            const chain = { eq: (_column: string, value: string) => (resolved.push(value), chain), is: async () => ({ error: null }) };
+          select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: notebookRow ? { ...notebookRow } : null }) }) }),
+          update: (values: Record<string, unknown>) => {
+            const chain = { eq: (_column: string, value: string) => ((values.resolved_at ? resolved : missed).push(value), chain), is: async () => ({ error: null }) };
             return chain;
           },
         };
@@ -65,7 +73,7 @@ function fakeClient(row: { id: string; attempts: number; answered_at: string | n
     },
     rpc: async (name: string, args: Record<string, unknown>) => (rpcs.push({ name, args }), { error: null }),
   };
-  return { client: client as never, row, updates, rpcs, mistakes, resolved };
+  return { client: client as never, row, updates, rpcs, mistakes, resolved, missed };
 }
 
 const item = { id: "item-1", session_id: "s1", position: 2, attempts: 0, concept_id: "concept-1", material_id: "m1", answered_at: null } as unknown as StudySessionItem;
@@ -131,7 +139,7 @@ describe("an answer Tamari couldn't check", () => {
     const { client, row, rpcs, mistakes } = fakeClient(answered);
     server.createClient.mockResolvedValue(client);
     const marks = await Promise.all([selfCheckItem({ itemId: "item-1", mark: "incorrect" }), selfCheckItem({ itemId: "item-1", mark: "incorrect" })]);
-    expect(marks).toEqual([{ mark: "incorrect" }, { mark: "incorrect" }]);
+    expect(marks).toEqual([{ mark: "incorrect", retest: null }, { mark: "incorrect", retest: null }]);
     expect(row).toMatchObject({ is_correct: false, analysis: { ungraded: { selfCheck: "incorrect" } } });
     expect(rpcs).toEqual([{ name: "count_session_grade", args: { p_session_id: "s1", p_correct: false } }]);
     expect(mistakes).toHaveLength(1);
@@ -140,15 +148,34 @@ describe("an answer Tamari couldn't check", () => {
     expect(engine.refreshMastery).toHaveBeenCalledTimes(1);
   });
 
-  it("marks a retested mistake learned when the student got it right", async () => {
-    const answered = { id: "item-1", session_id: "s1", attempts: 1, answered_at: "2026-10-24T10:00:00Z", is_correct: null, concept_id: null, material_id: null, response: "Red and blue", analysis: { ungraded: { selfCheck: null, mistake: null, retestedMistakeId: "mistake-9" } } };
-    const { client, rpcs, mistakes, resolved } = fakeClient(answered);
+  const retested = { id: "item-1", session_id: "s1", attempts: 1, answered_at: "2026-10-24T10:00:00Z", is_correct: null, concept_id: null, material_id: null, response: "Red and blue", analysis: { ungraded: { selfCheck: null, mistake: null, retestedMistakeId: "mistake-9" } } };
+
+  it("marks a retested mistake learned when the student got it right on a later day than the miss", async () => {
+    const { client, row, rpcs, mistakes, resolved } = fakeClient({ ...retested }, undefined, { last_missed_at: "2020-01-01T10:00:00Z", resolved_at: null });
     server.createClient.mockResolvedValue(client);
-    expect(await selfCheckItem({ itemId: "item-1", mark: "correct" })).toEqual({ mark: "correct" });
+    expect(await selfCheckItem({ itemId: "item-1", mark: "correct" })).toEqual({ mark: "correct", retest: "cleared" });
     expect(rpcs).toEqual([{ name: "count_session_grade", args: { p_session_id: "s1", p_correct: true } }]);
     expect(resolved).toEqual(["mistake-9"]);
+    expect(row).toMatchObject({ analysis: { retestOutcome: "cleared" } });
     expect(mistakes).toEqual([]);
     expect(engine.refreshMastery).not.toHaveBeenCalled();
+  });
+
+  it("keeps a retested mistake open when it was right on the day of the miss", async () => {
+    const { client, resolved, missed } = fakeClient({ ...retested }, undefined, { last_missed_at: new Date().toISOString(), resolved_at: null });
+    server.createClient.mockResolvedValue(client);
+    expect(await selfCheckItem({ itemId: "item-1", mark: "correct" })).toEqual({ mark: "correct", retest: "kept" });
+    expect(resolved).toEqual([]);
+    expect(missed).toEqual([]);
+  });
+
+  it("dates the miss again when the retest was wrong, filing nothing new", async () => {
+    const { client, resolved, missed, mistakes } = fakeClient({ ...retested }, undefined, { last_missed_at: "2020-01-01T10:00:00Z", resolved_at: null });
+    server.createClient.mockResolvedValue(client);
+    expect(await selfCheckItem({ itemId: "item-1", mark: "incorrect" })).toEqual({ mark: "incorrect", retest: "missed" });
+    expect(missed).toEqual(["mistake-9"]);
+    expect(resolved).toEqual([]);
+    expect(mistakes).toEqual([]);
   });
 
   it("refuses to mark an answer Tamari did check", async () => {

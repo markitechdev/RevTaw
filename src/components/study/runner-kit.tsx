@@ -10,6 +10,7 @@ import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { TINT } from "@/components/ui/tint";
+import { RETEST_OUTCOME_TEXT, type RetestOutcome } from "@/lib/mistakes/retest";
 import { routes } from "@/lib/routes";
 import { answerRecallAction, completeSessionAction, selfCheckAction } from "@/lib/study/actions";
 import type { SessionDetail } from "@/lib/study/queries";
@@ -157,8 +158,22 @@ export function VerdictBox({ score, passAt = PASS_SCORE.recall, verdict, title, 
  * In place of the verdict when Tamari couldn't check an answer (lib/study/results.ts): the student compares it
  * with the model answer and marks it. Nothing counts (the session's tally, the notebook, mastery) until they do.
  */
-export function UngradedCheck({ itemId, initial, against = "the model answer", onMarked }: { itemId: string; initial: SelfCheck | null; against?: string; onMarked?: (mark: SelfCheck) => void }) {
+export function UngradedCheck({
+  itemId,
+  initial,
+  initialRetest = null,
+  against = "the model answer",
+  onMarked,
+}: {
+  itemId: string;
+  initial: SelfCheck | null;
+  /** A retest of a notebook entry: what the mark did to the entry. */
+  initialRetest?: RetestOutcome | null;
+  against?: string;
+  onMarked?: (mark: SelfCheck) => void;
+}) {
   const [mark, setMark] = useState<SelfCheck | null>(initial);
+  const [retest, setRetest] = useState<RetestOutcome | null>(initialRetest);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -171,6 +186,7 @@ export function UngradedCheck({ itemId, initial, against = "the model answer", o
         return;
       }
       setMark(result.data.mark);
+      setRetest(result.data.retest);
       onMarked?.(result.data.mark);
     });
   };
@@ -182,7 +198,7 @@ export function UngradedCheck({ itemId, initial, against = "the model answer", o
         {mark ? `Checked by you: ${mark === "correct" ? "right" : "not yet"}` : "Check this one yourself"}
       </p>
       {mark ? (
-        <p className="mt-1">{mark === "correct" ? "Counted as right." : "Counted as not yet right. Try it again in your next review."}</p>
+        <p className="mt-1">{retest ? RETEST_OUTCOME_TEXT[retest] : mark === "correct" ? "Counted as right." : "Counted as not yet right. Try it again in your next review."}</p>
       ) : (
         <>
           <p className="mt-1">Tamari couldn&apos;t check this. Compare your answer with {against} and mark it. Only your mark counts.</p>
@@ -207,7 +223,7 @@ export function UngradedCheck({ itemId, initial, against = "the model answer", o
 
 /** The result of a checked answer, or the self-check of one Tamari couldn't check. */
 export function RecallVerdict({ itemId, result, passAt = PASS_SCORE.recall }: { itemId: string; result: RecallItemResult; passAt?: number }) {
-  if (!result.comparison) return <UngradedCheck itemId={itemId} initial={result.ungraded?.selfCheck ?? null} />;
+  if (!result.comparison) return <UngradedCheck itemId={itemId} initial={result.ungraded?.selfCheck ?? null} initialRetest={result.retest} />;
   return (
     <VerdictBox score={result.comparison.score} passAt={passAt}>
       <p className="mt-2">{result.comparison.feedback}</p>

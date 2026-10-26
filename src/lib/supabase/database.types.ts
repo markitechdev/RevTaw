@@ -344,6 +344,8 @@ type MistakesRow = {
   choices: Json | null;
   /** What the question needs that isn't in it: a case's text, a scenario's situation and options (0040). */
   context: string | null;
+  /** When the student last got it wrong; a retest clears the mistake only on a later day (0040). */
+  last_missed_at: string;
   created_at: string;
   updated_at: string;
 };

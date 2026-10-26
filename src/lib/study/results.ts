@@ -1,3 +1,4 @@
+import { retestOutcomeOf, type RetestOutcome } from "@/lib/mistakes/retest";
 import type { RecallComparison } from "@/lib/study/ai";
 import type { MistakeType } from "@/lib/supabase/database.types";
 
@@ -58,6 +59,8 @@ export type RecallItemResult = {
   ungraded: UngradedView | null;
   modelAnswer: string;
   sourceExcerpt: string | null;
+  /** A retest of a notebook entry: what it did to the entry; null for other items, or before a self-check. */
+  retest: RetestOutcome | null;
 };
 
 type StoredRecallItem = { answered_at: string | null; analysis: unknown; is_correct: boolean | null; model_answer: string | null; source_excerpt: string | null };
@@ -69,5 +72,5 @@ export function recallResultOf(item: StoredRecallItem): RecallItemResult | null 
   const analysis = item.analysis as { score?: unknown } | null;
   const comparison = !ungraded && analysis && typeof analysis.score === "number" ? (analysis as unknown as RecallComparison) : null;
   if (!ungraded && !comparison) return null;
-  return { comparison, isCorrect: item.is_correct, ungraded, modelAnswer: item.model_answer ?? "", sourceExcerpt: item.source_excerpt };
+  return { comparison, isCorrect: item.is_correct, ungraded, modelAnswer: item.model_answer ?? "", sourceExcerpt: item.source_excerpt, retest: retestOutcomeOf(item.analysis) };
 }

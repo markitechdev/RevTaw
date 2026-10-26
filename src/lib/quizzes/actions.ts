@@ -152,8 +152,10 @@ export async function updateMistakeAction(input: z.input<typeof mistakeUpdateSch
   const parsed = mistakeUpdateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Invalid update." };
   const supabase = await createClient();
-  const patch: { resolved_at?: string | null; error_type?: z.infer<typeof mistakeUpdateSchema>["errorType"] } = {};
+  const patch: { resolved_at?: string | null; last_missed_at?: string; error_type?: z.infer<typeof mistakeUpdateSchema>["errorType"] } = {};
   if (parsed.data.resolved !== undefined) patch.resolved_at = parsed.data.resolved ? new Date().toISOString() : null;
+  // Reopened: the student doesn't know it after all, so a retest clears it only on a later day than this.
+  if (parsed.data.resolved === false) patch.last_missed_at = new Date().toISOString();
   if (parsed.data.errorType) patch.error_type = parsed.data.errorType;
   const { data, error } = await supabase.from("mistakes").update(patch).eq("id", parsed.data.mistakeId).select("concept_id").maybeSingle();
   if (error) return { ok: false, message: "The mistake could not be updated." };

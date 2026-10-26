@@ -51,10 +51,16 @@ export async function addMistake(supabase: Client, mistake: NewMistake): Promise
   if (error) console.error("mistakes: save failed", error.message);
 }
 
-/** Marks a notebook entry learned: the student got it right on a retest. */
+/** Marks a notebook entry learned: the student got it right on a retest, on a later day than the miss. */
 export async function resolveMistake(supabase: Client, mistakeId: string): Promise<void> {
   const { error } = await supabase.from("mistakes").update({ resolved_at: new Date().toISOString() }).eq("id", mistakeId).is("resolved_at", null);
   if (error) console.error("mistakes: resolve failed", error.message);
+}
+
+/** A retest of an open entry was missed: its miss is dated now, so retests take the older ones first. */
+export async function markMissedAgain(supabase: Client, mistakeId: string): Promise<void> {
+  const { error } = await supabase.from("mistakes").update({ last_missed_at: new Date().toISOString() }).eq("id", mistakeId).is("resolved_at", null);
+  if (error) console.error("mistakes: miss failed", error.message);
 }
 
 /** Takes a quiz question's entry out again: the student marked their answer correct against the model answer. */

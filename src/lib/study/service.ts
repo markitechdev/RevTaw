@@ -20,7 +20,7 @@ import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions
 import { isTutorMethod, METHOD_BEHAVIOR, TEST_METHOD_IDS, type BuilderMethodId, type TestMethodId } from "@/lib/study/catalog";
 import { signatureForStart, startUnlessDuplicate, type SessionDuplicate } from "@/lib/study/duplicates";
 import { activeSeconds } from "@/lib/study/focus";
-import { insertItems, loadOpenItem, recordItemResult, recordUngradedItem, reloadItem, settleAnsweredItem, storeItemAttempt } from "@/lib/study/items";
+import { insertItems, loadOpenItem, recordItemResult, recordUngradedItem, reloadItem, retestOutcomeFor, settleAnsweredItem, storeItemAttempt } from "@/lib/study/items";
 import { mistakesToRetest, retestItem } from "@/lib/study/retests";
 import type { StudyMethodId } from "@/lib/study/methods";
 import type { ProblemDifficulty } from "@/lib/study/prompts/problems";
@@ -432,23 +432,26 @@ export async function answerRecallItem(input: { itemId: string; response: string
       mistake: retest ? null : { question: item.prompt, correctAnswer: item.model_answer ?? "", explanation: "" },
     });
     if (!stored) return storedRecallResult(await reloadItem(supabase, item.id));
-    return { comparison: null, isCorrect: null, ungraded: { selfCheck: null }, ...result };
+    return { comparison: null, isCorrect: null, ungraded: { selfCheck: null }, ...result, retest: null };
   }
   const isCorrect = countsAsCorrect(comparison.verdict);
+  // A retested mistake is learned when answered right on a later day than its last miss, and otherwise stays
+  // open; any other wrong answer is filed.
+  const outcome = retest ? await retestOutcomeFor(supabase, retest, isCorrect) : null;
   const stored = await recordItemResult(supabase, item, session, {
     response: input.response,
-    analysis: { ...carried, ...comparison } as unknown as Json,
+    analysis: { ...carried, ...comparison, ...(outcome ? { retestOutcome: outcome } : {}) } as unknown as Json,
     score: comparison.score,
     isCorrect,
     confidence: input.confidence,
     responseMs: input.responseMs,
-    // A retested mistake is learned when answered correctly and otherwise stays open; any other wrong answer is filed.
     retestedMistakeId: retest,
+    retestOutcome: outcome,
     mistake: retest ? null : { question: item.prompt, correctAnswer: item.model_answer ?? "", explanation: comparison.feedback },
   });
   // A double submit (or a second tab) answered first: its answer stands.
   if (!stored) return storedRecallResult(await reloadItem(supabase, item.id));
-  return { comparison, isCorrect, ungraded: null, ...result };
+  return { comparison, isCorrect, ungraded: null, ...result, retest: outcome };
 }
 
 /** The result of a recall item that is already answered. */
@@ -583,7 +586,8 @@ async function nextFlashcardDue(supabase: Client): Promise<string | null> {
 function itemSessionNext(method: StudyMethodId, accuracy: number | null, weak: string[]): string {
   switch (method) {
     case "error_review":
-      return accuracy !== null && accuracy >= 0.8 ? "Most of those mistakes are learned now. Take a practice test to confirm it under exam conditions." : suggestNext(accuracy, weak, "active_recall");
+      // A retest clears a mistake only on a later day than the miss (lib/mistakes/retest.ts), so "learned" isn't promised here.
+      return accuracy !== null && accuracy >= 0.8 ? "You got most of them right. Right answers to mistakes from earlier days cleared them from your notebook; today's misses stay until you get them right on another day." : suggestNext(accuracy, weak, "active_recall");
     case "blurting":
       return accuracy !== null && accuracy >= 0.8 ? "Strong recall after reading. Blurt again in three days to check it held." : weak[0] ? `Re-read the section on ${weak[0]}, then blurt it again tomorrow before looking.` : "Re-read the sections you forgot, then blurt them again tomorrow.";
     case "question_generation":

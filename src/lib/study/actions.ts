@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { completeSmartSession, getSmartSessionView, markSmartBlock, parseSmartPlan } from "@/lib/adaptive/smart";
 import { track } from "@/lib/analytics/server";
+import type { RetestOutcome } from "@/lib/mistakes/retest";
 import { routes } from "@/lib/routes";
 import { actionFailure, revalidateStudy, uuid, type StudyActionResult } from "@/lib/study/action-helpers";
 import { BLURT_MAX_ROUNDS, compareBlurtItem, evaluateQuestionItem, type BlurtResult, type EvaluatedQuestion } from "@/lib/study/advanced";
@@ -176,7 +177,7 @@ export async function analyzeFeynmanAction(input: { itemId: string; explanation:
 }
 
 /** The student's own mark for an answer Tamari couldn't check, after comparing it with the model answer. */
-export async function selfCheckAction(input: { itemId: string; mark: SelfCheck }): Promise<StudyActionResult<{ mark: SelfCheck }>> {
+export async function selfCheckAction(input: { itemId: string; mark: SelfCheck }): Promise<StudyActionResult<{ mark: SelfCheck; retest: RetestOutcome | null }>> {
   const user = await getCurrentUser();
   if (!user) redirect(routes.login);
   const parsed = z.object({ itemId: uuid, mark: z.enum(["correct", "incorrect"]) }).safeParse(input);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { choiceComparison, cleanChoices, isTrueFalse, retestViewFor, retestViewOf } from "@/lib/mistakes/retest";
+import { choiceComparison, cleanChoices, isTrueFalse, retestClears, retestOutcomeOf, retestViewFor, retestViewOf } from "@/lib/mistakes/retest";
 
 describe("cleanChoices", () => {
   it("keeps 2–8 distinct, non-empty options in order", () => {
@@ -64,11 +64,33 @@ describe("choiceComparison", () => {
   });
 });
 
+describe("retestClears", () => {
+  it("clears only on a later day than the miss", () => {
+    expect(retestClears("2026-10-26T01:00:00Z", new Date("2026-10-26T20:00:00Z"), "UTC")).toBe(false);
+    expect(retestClears("2026-10-25T23:00:00Z", new Date("2026-10-26T00:30:00Z"), "UTC")).toBe(true);
+  });
+
+  it("goes by the student's calendar day (Manila when it isn't set)", () => {
+    // 15:30 UTC is 23:30 in Manila; 16:30 UTC is 00:30 the next day there, the same day in UTC.
+    expect(retestClears("2026-10-26T15:30:00Z", new Date("2026-10-26T16:30:00Z"), "Asia/Manila")).toBe(true);
+    expect(retestClears("2026-10-26T15:30:00Z", new Date("2026-10-26T16:30:00Z"), null)).toBe(true);
+    expect(retestClears("2026-10-26T15:30:00Z", new Date("2026-10-26T16:30:00Z"), "UTC")).toBe(false);
+  });
+});
+
 describe("isTrueFalse", () => {
   it("is true only for True then False", () => {
     expect(isTrueFalse(["True", "False"])).toBe(true);
     expect(isTrueFalse(["False", "True"])).toBe(false);
     expect(isTrueFalse(["True", "False", "Maybe"])).toBe(false);
     expect(isTrueFalse(null)).toBe(false);
+  });
+});
+
+describe("retestOutcomeOf", () => {
+  it("reads a stored outcome and ignores anything else", () => {
+    expect(retestOutcomeOf({ retestOutcome: "kept" })).toBe("kept");
+    expect(retestOutcomeOf({ retestOutcome: "learned" })).toBeNull();
+    expect(retestOutcomeOf([])).toBeNull();
   });
 });

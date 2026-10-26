@@ -1,3 +1,4 @@
+import { dateIn } from "@/lib/planner/dates";
 import type { RecallComparison } from "@/lib/study/ai";
 import { PASS_SCORE, verdictFor } from "@/lib/study/verdict";
 
@@ -9,6 +10,8 @@ import { PASS_SCORE, verdictFor } from "@/lib/study/verdict";
  *   with its choices, and the pick is checked against the right one; "Which of these is NOT…?" can't be
  *   answered without them.
  * - Whatever else a question needs (a case's text, a scenario's situation and options) is shown with it.
+ * - A right retest marks the mistake learned only on a later day than the last miss: a retest minutes
+ *   after the miss shows what was just read, not what was learned.
  */
 
 /** An option is a line, not a paragraph. */
@@ -87,3 +90,28 @@ export function choiceComparison(picked: string, correct: string): RecallCompari
     verdict: verdictFor(score, PASS_SCORE.recall),
   };
 }
+
+/**
+ * What a retest did to its notebook entry:
+ * - "cleared": right on a later day than the last miss, so the mistake is learned;
+ * - "kept": right, but on the day of the miss, so it stays until a right retest on another day;
+ * - "missed": wrong, so it stays and its miss is dated now (it comes back after the older ones).
+ */
+export type RetestOutcome = "cleared" | "kept" | "missed";
+
+/** Whether a right retest at `now` clears a mistake last missed at `lastMissedAt`: on a later day, the student's. */
+export function retestClears(lastMissedAt: string, now: Date, timezone: string | null): boolean {
+  return dateIn(now, timezone) > dateIn(lastMissedAt, timezone);
+}
+
+export function retestOutcomeOf(analysis: unknown): RetestOutcome | null {
+  if (!analysis || typeof analysis !== "object" || Array.isArray(analysis)) return null;
+  const value = (analysis as { retestOutcome?: unknown }).retestOutcome;
+  return value === "cleared" || value === "kept" || value === "missed" ? value : null;
+}
+
+export const RETEST_OUTCOME_TEXT: Record<RetestOutcome, string> = {
+  cleared: "Learned: this mistake leaves your notebook.",
+  kept: "Right. It stays in your notebook until you get it right on another day: that's when it counts as learned.",
+  missed: "It stays in your notebook and comes back in a later review.",
+};

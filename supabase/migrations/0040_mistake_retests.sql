@@ -1,5 +1,5 @@
 -- 0040_mistake_retests.sql
--- What a retest of a notebook mistake needs.
+-- What a retest of a notebook mistake needs, and when it counts as learned.
 --
 --   * mistakes.choices: the options of a question answered by picking one
 --     (multiple choice, two statements, true or false), so its retest shows
@@ -7,13 +7,26 @@
 --     answered without them.
 --   * mistakes.context: what the question needs that isn't in it, such as a
 --     case's text, or a scenario's situation and options.
+--   * mistakes.last_missed_at: when the student last got it wrong (when it
+--     was filed, or a retest they missed). A right retest marks the mistake
+--     learned only on a later day than that, so a retest minutes after the
+--     miss no longer clears it; retests take the longest-standing misses
+--     first.
 --
--- Backfilled: the choices of quiz mistakes from their questions. The table's
--- row-level security already covers the new columns.
+-- Backfilled: last_missed_at from created_at, and the choices of quiz
+-- mistakes from their questions. The table's row-level security already
+-- covers the new columns.
 
 alter table public.mistakes
   add column if not exists choices jsonb,
-  add column if not exists context text;
+  add column if not exists context text,
+  add column if not exists last_missed_at timestamptz;
+
+update public.mistakes set last_missed_at = created_at where last_missed_at is null;
+
+alter table public.mistakes
+  alter column last_missed_at set default now(),
+  alter column last_missed_at set not null;
 
 alter table public.mistakes drop constraint if exists mistakes_choices_shape;
 alter table public.mistakes add constraint mistakes_choices_shape
@@ -23,10 +36,17 @@ alter table public.mistakes drop constraint if exists mistakes_context_length;
 alter table public.mistakes add constraint mistakes_context_length
   check (char_length(context) <= 4000);
 
+-- Retests read a student's open mistakes, longest-standing miss first.
+create index if not exists mistakes_user_open_missed_idx
+  on public.mistakes (user_id, last_missed_at)
+  where resolved_at is null;
+
 comment on column public.mistakes.choices is
   'Options of a question answered by picking one (multiple choice, two statements, true/false), in order; null otherwise.';
 comment on column public.mistakes.context is
   'What the question needs that is not in it (a case''s text, a scenario''s situation and options); null when nothing.';
+comment on column public.mistakes.last_missed_at is
+  'When the student last got it wrong. A retest marks the mistake learned only when it is right on a later day.';
 
 -- The choices of quiz mistakes made before this migration, from their questions (multiple choice and two
 -- statements keep their options in quiz_questions.options; true/false is always True, False).

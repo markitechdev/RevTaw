@@ -2,7 +2,9 @@ import "server-only";
 
 import { refreshMastery } from "@/lib/adaptive/engine";
 import { ensureConcepts } from "@/lib/concepts/service";
-import { addMistake, resolveMistake } from "@/lib/mistakes/notebook";
+import { addMistake, markMissedAgain, resolveMistake } from "@/lib/mistakes/notebook";
+import { retestClears, retestOutcomeOf, type RetestOutcome } from "@/lib/mistakes/retest";
+import { getCurrentUserWithProfile } from "@/lib/profile/queries";
 import { loadMaterialContext } from "@/lib/reviewers/service";
 import { SELF_CHECK_EXPLANATION, ungradedOf, withUngraded, type PendingMistake, type SelfCheck } from "@/lib/study/results";
 import { countSessionAnswer, countSessionGrade, createSession, type CreateSessionInput, loadSession, SessionError } from "@/lib/study/sessions";
@@ -73,8 +75,9 @@ export type ItemResult = {
   confidence?: ConfidenceLevel | null;
   /** Filed in the mistake notebook when the answer is wrong. */
   mistake?: PendingMistake | null;
-  /** The notebook mistake this item retests: marked learned when the answer is right (a wrong answer leaves it open). */
+  /** The notebook mistake this item retests (a wrong answer leaves it open); what the retest did to it. */
   retestedMistakeId?: string | null;
+  retestOutcome?: RetestOutcome | null;
 };
 
 type ItemUpdate = Database["public"]["Tables"]["study_session_items"]["Update"];
@@ -102,11 +105,11 @@ export async function storeItemAttempt(supabase: Client, item: StudySessionItem,
  * depends on it): the session counters, the mistake notebook and the
  * concept's mastery. Only the request that stored the answer calls this.
  */
-export async function settleAnsweredItem(supabase: Client, item: StudySessionItem, session: StudySession, result: Pick<ItemResult, "isCorrect" | "response" | "mistake" | "retestedMistakeId">): Promise<void> {
+export async function settleAnsweredItem(supabase: Client, item: StudySessionItem, session: StudySession, result: Pick<ItemResult, "isCorrect" | "response" | "mistake" | "retestedMistakeId" | "retestOutcome">): Promise<void> {
   await countSessionAnswer(supabase, session.id, { correct: result.isCorrect, index: item.position + 1 });
 
-  if (result.isCorrect && result.retestedMistakeId) {
-    await resolveMistake(supabase, result.retestedMistakeId);
+  if (result.retestedMistakeId) {
+    await applyRetestOutcome(supabase, result.retestedMistakeId, result.retestOutcome ?? (result.isCorrect ? "kept" : "missed"));
   } else if (!result.isCorrect && result.mistake) {
     await addMistake(supabase, {
       userId: session.user_id,
@@ -122,6 +125,26 @@ export async function settleAnsweredItem(supabase: Client, item: StudySessionIte
     });
   }
   if (item.concept_id) await refreshMastery([item.concept_id]);
+}
+
+/**
+ * What a retest does to its notebook entry (lib/mistakes/retest.ts): a right answer clears it only on a later
+ * day than its last miss, the student's; a wrong one keeps it open.
+ */
+export async function retestOutcomeFor(supabase: Client, mistakeId: string, isCorrect: boolean): Promise<RetestOutcome> {
+  if (!isCorrect) return "missed";
+  const [{ data: mistake }, { profile }] = await Promise.all([
+    supabase.from("mistakes").select("last_missed_at, resolved_at").eq("id", mistakeId).maybeSingle(),
+    getCurrentUserWithProfile(),
+  ]);
+  // Marked learned meanwhile (from the notebook), or gone: nothing is left to keep open.
+  if (!mistake || mistake.resolved_at) return "cleared";
+  return retestClears(mistake.last_missed_at, new Date(), profile?.timezone ?? null) ? "cleared" : "kept";
+}
+
+async function applyRetestOutcome(supabase: Client, mistakeId: string, outcome: RetestOutcome): Promise<void> {
+  if (outcome === "cleared") await resolveMistake(supabase, mistakeId);
+  else if (outcome === "missed") await markMissedAgain(supabase, mistakeId);
 }
 
 /**
@@ -172,16 +195,19 @@ export async function recordUngradedItem(
 /**
  * The student's own mark for an answer Tamari couldn't check, given after comparing it with the model answer.
  * From now on it counts like a checked answer: in the session's tally, in the notebook ("not yet" files the
- * mistake; "I got it" on a retest marks the retested mistake learned) and in the concept's mastery.
+ * mistake; on a retest, "I got it" clears the notebook entry on a later day than its miss) and in the concept's
+ * mastery. `retest`: what the mark did to the retested entry.
  */
-export async function selfCheckItem(input: { itemId: string; mark: SelfCheck }): Promise<{ mark: SelfCheck }> {
+export async function selfCheckItem(input: { itemId: string; mark: SelfCheck }): Promise<{ mark: SelfCheck; retest: RetestOutcome | null }> {
   const supabase = await createClient();
   const { item, session } = await loadOpenItem(supabase, input.itemId);
   const ungraded = ungradedOf(item.analysis);
   if (!item.answered_at || !ungraded) throw new SessionError("Only an answer Tamari couldn't check can be marked.", 409);
-  if (ungraded.selfCheck) return { mark: ungraded.selfCheck };
+  if (ungraded.selfCheck) return { mark: ungraded.selfCheck, retest: retestOutcomeOf(item.analysis) };
   const isCorrect = input.mark === "correct";
-  const analysis = { ...(item.analysis as Record<string, unknown>), ungraded: { ...ungraded, selfCheck: input.mark } };
+  // A retest's mark decides what happens to its notebook entry, as a checked answer would.
+  const outcome = ungraded.retestedMistakeId ? await retestOutcomeFor(supabase, ungraded.retestedMistakeId, isCorrect) : null;
+  const analysis = { ...(item.analysis as Record<string, unknown>), ungraded: { ...ungraded, selfCheck: input.mark }, ...(outcome ? { retestOutcome: outcome } : {}) };
   // Only while it is still unmarked, so of two clicks (or tabs) exactly one counts.
   const { data: updated, error } = await supabase
     .from("study_session_items")
@@ -191,11 +217,14 @@ export async function selfCheckItem(input: { itemId: string; mark: SelfCheck }):
     .not("answered_at", "is", null)
     .select("id");
   if (error) throw new Error(`study_session_items: self-check failed: ${error.message}`);
-  if (!updated?.length) return { mark: ungradedOf((await reloadItem(supabase, item.id)).analysis)?.selfCheck ?? input.mark };
+  if (!updated?.length) {
+    const marked = await reloadItem(supabase, item.id);
+    return { mark: ungradedOf(marked.analysis)?.selfCheck ?? input.mark, retest: retestOutcomeOf(marked.analysis) };
+  }
 
   await countSessionGrade(supabase, session.id, isCorrect);
-  if (isCorrect && ungraded.retestedMistakeId) {
-    await resolveMistake(supabase, ungraded.retestedMistakeId);
+  if (ungraded.retestedMistakeId) {
+    await applyRetestOutcome(supabase, ungraded.retestedMistakeId, outcome ?? (isCorrect ? "kept" : "missed"));
   } else if (!isCorrect && ungraded.mistake) {
     await addMistake(supabase, {
       userId: session.user_id,
@@ -211,7 +240,7 @@ export async function selfCheckItem(input: { itemId: string; mark: SelfCheck }):
     });
   }
   if (item.concept_id) await refreshMastery([item.concept_id]);
-  return { mark: input.mark };
+  return { mark: input.mark, retest: outcome };
 }
 
 /** An item as it is now (after a submit lost to another one). */

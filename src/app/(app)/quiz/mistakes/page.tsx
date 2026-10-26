@@ -31,7 +31,7 @@ export default async function MistakesPage({ searchParams }: PageProps<"/quiz/mi
     <div className="flex flex-col gap-6">
       <PageHeader back={{ href: routes.quiz, label: "Quizzes" }}
         title="Mistake notebook"
-        description="Every incorrect quiz answer lands here automatically with the correct answer and the reason. Classify what went wrong, then mark it learned once you can answer it cold."
+        description="Wrong answers from your quizzes and study sessions land here with the correct answer and the reason. Classify what went wrong, then retest it with Error Review: a right answer on a later day than the miss marks it learned. You can also mark it learned yourself once you can answer it cold."
         actions={
           <>
             {!showResolved && mistakes.length > 0 && (
