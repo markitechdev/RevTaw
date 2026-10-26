@@ -80,17 +80,24 @@ describe("planTamariBlocks", () => {
   });
 
   it("calls it a plain quiz when the top concepts aren't weak topics", () => {
-    const quiz = planTamariBlocks({ ...base, lang: "en", weakTopics: false }).blocks.find((block) => block.key === "quiz");
+    const quiz = planTamariBlocks({ ...base, lang: "en", weakTopics: [] }).blocks.find((block) => block.key === "quiz");
     expect(quiz).toMatchObject({ label: "Quiz", reason: "A quiz on Binary Trees and Recursion: what's next to practice." });
   });
 
+  it("calls only the weak topics weak, and the rest what's next to practice", () => {
+    const quiz = (input: TamariPlanInput) => planTamariBlocks(input).blocks.find((block) => block.key === "quiz");
+    expect(quiz({ ...base, lang: "en", weakTopics: ["Recursion"] })).toMatchObject({ label: "Weak Topic Quiz", focus: "Binary Trees, Recursion", reason: "A quiz on your weak topic: Recursion, plus what's next to practice: Binary Trees." });
+    expect(quiz({ ...base, weakTopics: ["Recursion"] })?.reason).toBe("Quiz sa mahina mong topic: Recursion, pati ang susunod na dapat i-practice: Binary Trees.");
+    expect(quiz({ ...base, lang: "en", weakTopics: ["Binary Trees", "Recursion"] })?.reason).toBe("A quiz on your weak topics: Binary Trees and Recursion.");
+  });
+
   it("starts concepts never studied with the rule table's method, in the quiz's place", () => {
-    const draft = planTamariBlocks({ ...base, lang: "en", weakTopics: false, exam: { title: "Midterm", daysLeft: 3 }, fresh: { names: ["Graphs", "Heaps"], method: "chunking" } });
+    const draft = planTamariBlocks({ ...base, lang: "en", weakTopics: [], exam: { title: "Midterm", daysLeft: 3 }, fresh: { names: ["Graphs", "Heaps"], method: "chunking" } });
     expect(draft.blocks.map((block) => block.key)).toEqual(["recall", "learn", "feynman", "mistakes", "retest"]);
     const learn = draft.blocks[1];
     expect(learn).toMatchObject({ method: "chunking", label: "Chunking", concepts: ["Graphs", "Heaps"], minutes: 7 });
     expect(learn.reason).toBe("Graphs and Heaps are new to you. Small pieces first, then a few easy questions on each.");
-    expect(planTamariBlocks({ ...base, lang: "taglish", weakTopics: false, fresh: { names: ["Graphs"], method: "blurting" } }).blocks[1].reason).toBe(
+    expect(planTamariBlocks({ ...base, lang: "taglish", weakTopics: [], fresh: { names: ["Graphs"], method: "blurting" } }).blocks[1].reason).toBe(
       "Bago pa sa'yo ang Graphs. Basahin mo, tapos isulat lahat ng naaalala mo.",
     );
   });

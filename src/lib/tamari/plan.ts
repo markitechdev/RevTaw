@@ -26,8 +26,8 @@ export type TamariPlanInput = {
   overdue: string[];
   /** Practiced concepts to work on, highest priority first (weakness, fading, the exam's scope). */
   weak: string[];
-  /** Some of them are weak topics (adaptive/mastery isWeakTopic): a "Weak Topic Quiz". */
-  weakTopics?: boolean;
+  /** The ones among `weak` that are weak topics (adaptive/mastery isWeakTopic), for a "Weak Topic Quiz"; all of them when left out. */
+  weakTopics?: string[];
   /** Concepts never studied that outrank the practiced ones, and the method the rule table picks for them. */
   fresh?: { names: string[]; method: SmartBlock["method"] } | null;
   /** A concept answered confidently but wrongly. */
@@ -186,7 +186,11 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
     });
 
     const fresh = input.fresh && input.fresh.names.length > 0 ? { names: input.fresh.names.slice(0, 4), method: input.fresh.method } : null;
-    const weakTopics = weak.length > 0 && input.weakTopics !== false;
+    // The quiz names as weak only the weak topics among them; the rest are what's next to practice.
+    const listed = input.weakTopics;
+    const weakNames = listed ? weak.filter((name) => listed.includes(name)) : weak;
+    const nextNames = weak.filter((name) => !weakNames.includes(name));
+    const weakTopics = weakNames.length > 0;
     // Concepts never studied come first: the rule table's method for them takes the quiz's place, unless
     // some topics are weak, which keep their quiz next to it (the two share its time).
     const learnAndQuiz = fresh !== null && weakTopics;
@@ -218,9 +222,9 @@ export function planTamariBlocks(input: TamariPlanInput): TamariPlanDraft {
           minutes,
           reason: weakTopics
             ? say(lang, {
-                taglish: `Quiz sa mga mahina mong topic: ${list(weak)}.`,
-                en: `A quiz on your weakest topics: ${list(weak)}.`,
-                fil: `Quiz sa mga mahina mong paksa: ${listFil(weak)}.`,
+                taglish: `Quiz sa ${weakNames.length === 1 ? "" : "mga "}mahina mong topic: ${list(weakNames)}${nextNames.length ? `, pati ang susunod na dapat i-practice: ${list(nextNames)}` : ""}.`,
+                en: `A quiz on your weak topic${weakNames.length === 1 ? "" : "s"}: ${list(weakNames)}${nextNames.length ? `, plus what's next to practice: ${list(nextNames)}` : ""}.`,
+                fil: `Quiz sa ${weakNames.length === 1 ? "" : "mga "}mahina mong paksa: ${listFil(weakNames)}${nextNames.length ? `, pati ang susunod na dapat sanayin: ${listFil(nextNames)}` : ""}.`,
               })
             : weak.length > 0
               ? say(lang, {

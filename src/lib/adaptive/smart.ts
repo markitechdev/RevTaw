@@ -146,7 +146,7 @@ async function planContext(request: { materialId: string | null; minutes: number
       exam: examFor,
       overdue,
       weak: focus.map((concept) => concept.name),
-      weakTopics: focus.some(isWeakConcept),
+      weakTopics: focus.filter(isWeakConcept).map((concept) => concept.name),
       fresh,
       misconception,
       repeated: repeated ? { name: repeated.name, count: repeated.count } : null,
