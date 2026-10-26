@@ -104,7 +104,8 @@ export const recallComparisonSchema = z.object({
   score: z.number().min(0).max(100),
   correct_points: points,
   missing_points: points,
-  incorrect_points: points,
+  // Each carries its reason; a long one is shortened rather than failing the whole check.
+  incorrect_points: z.array(z.string().trim().min(1).transform((value) => (value.length > 400 ? `${value.slice(0, 399).trimEnd()}…` : value))).max(10),
   feedback: text(1500),
 });
 
@@ -117,16 +118,19 @@ export async function compareRecallAnswer(input: {
   modelAnswer: string;
   keyPoints: string[];
   studentAnswer: string;
+  /** The prompt's retrieval format: an "example" prompt may ask for the student's own example. */
+  format?: string | null;
 }): Promise<{ comparison: RecallComparison; provider: string; model: string }> {
   const provider = getAiProvider("strong");
+  const example = input.format === "example";
   const system = `You are RevTaw's fair, encouraging recall checker for "${input.materialTitle}".
-Compare the student's answer with the model answer and key points only — never reward facts outside them.
+Compare the student's answer with the model answer and key points only — never reward facts outside them${example ? " (an example of the student's own is judged as below)" : ""}.
 - "correct_points": key points the student covered (wording may differ).
 - "missing_points": key points not covered.
-- "incorrect_points": statements in the student's answer that contradict the model answer.
+- "incorrect_points": each statement in the student's answer that contradicts the model answer, written as "<what the student said> — <why it is wrong: what the material says instead>", under 250 characters.
 - "score": 0-100: the share of key points covered, minus clear errors; 0 for a blank or off-topic answer.
-- "feedback": 1-3 sentences to the student: what was right, what to add, one tip. Plain words.
-Respond with JSON only.`;
+- "feedback": 1-3 sentences to the student, in plain words: what was right; for anything wrong or missing, the correct idea and the reasoning behind it, not just "add X"; one tip.
+${example ? `- The question asks for an example. When it asks for one of the student's own (or any example), an example that fits the material's definition and key points counts as correct even if the model answer uses another one; one that doesn't fit is incorrect, and the feedback says which part of the definition it breaks. When it asks for an example the material gives, only the material's examples count.\n` : ""}Respond with JSON only.`;
   const user = `Question: ${input.prompt}
 Model answer: ${input.modelAnswer}
 Key points:

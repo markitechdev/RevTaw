@@ -411,6 +411,7 @@ export async function answerRecallItem(input: { itemId: string; response: string
         modelAnswer: item.model_answer ?? "",
         keyPoints,
         studentAnswer: input.response,
+        format: item.format,
       });
       comparison = result.comparison;
     } catch (error) {
