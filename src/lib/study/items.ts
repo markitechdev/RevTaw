@@ -4,7 +4,8 @@ import { refreshMastery } from "@/lib/adaptive/engine";
 import { ensureConcepts } from "@/lib/concepts/service";
 import { addMistake, resolveMistake } from "@/lib/mistakes/notebook";
 import { loadMaterialContext } from "@/lib/reviewers/service";
-import { countSessionAnswer, createSession, type CreateSessionInput, loadSession, SessionError } from "@/lib/study/sessions";
+import { SELF_CHECK_EXPLANATION, ungradedOf, withUngraded, type PendingMistake, type SelfCheck } from "@/lib/study/results";
+import { countSessionAnswer, countSessionGrade, createSession, type CreateSessionInput, loadSession, SessionError } from "@/lib/study/sessions";
 import type { ConfidenceLevel, Database, Json, MistakeType, SessionGoal, SessionItemKind, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -63,7 +64,8 @@ export async function openSession(supabase: Client, userId: string, input: Omit<
 export type ItemResult = {
   response: string | null;
   analysis: Json;
-  score: number;
+  /** null when part of the answer couldn't be scored (a scenario whose reasoning Tamari couldn't check). */
+  score: number | null;
   isCorrect: boolean;
   responseMs: number | null;
   confidence?: ConfidenceLevel | null;
@@ -128,7 +130,7 @@ export async function recordItemResult(supabase: Client, item: StudySessionItem,
     response: result.response?.slice(0, 8000) ?? null,
     analysis: result.analysis,
     is_correct: result.isCorrect,
-    score: Math.max(0, Math.min(100, Math.round(result.score))),
+    score: result.score === null ? null : Math.max(0, Math.min(100, Math.round(result.score))),
     confidence: result.confidence ?? null,
     response_ms: result.responseMs,
     answered_at: new Date().toISOString(),
@@ -136,6 +138,74 @@ export async function recordItemResult(supabase: Client, item: StudySessionItem,
   if (!stored) return false;
   await settleAnsweredItem(supabase, item, session, result);
   return true;
+}
+
+/**
+ * Stores an answer Tamari couldn't check (lib/study/results.ts): answered, without a grade. It counts as
+ * answered but not as right or wrong; the notebook and mastery wait for the student's own mark
+ * (selfCheckItem). Returns false when the item had already been answered (a double submit).
+ */
+export async function recordUngradedItem(
+  supabase: Client,
+  item: StudySessionItem,
+  session: StudySession,
+  result: { response: string | null; analysis: Record<string, unknown>; responseMs: number | null; confidence?: ConfidenceLevel | null; mistake?: PendingMistake | null; retestedMistakeId?: string | null },
+): Promise<boolean> {
+  const stored = await storeItemAttempt(supabase, item, {
+    response: result.response?.slice(0, 8000) ?? null,
+    analysis: withUngraded(result.analysis, result) as unknown as Json,
+    is_correct: null,
+    score: null,
+    confidence: result.confidence ?? null,
+    response_ms: result.responseMs,
+    answered_at: new Date().toISOString(),
+  });
+  if (!stored) return false;
+  await countSessionAnswer(supabase, session.id, { correct: null, index: item.position + 1 });
+  return true;
+}
+
+/**
+ * The student's own mark for an answer Tamari couldn't check, given after comparing it with the model answer.
+ * From now on it counts like a checked answer: in the session's tally, in the notebook ("not yet" files the
+ * mistake; "I got it" on a retest marks the retested mistake learned) and in the concept's mastery.
+ */
+export async function selfCheckItem(input: { itemId: string; mark: SelfCheck }): Promise<{ mark: SelfCheck }> {
+  const supabase = await createClient();
+  const { item, session } = await loadOpenItem(supabase, input.itemId);
+  const ungraded = ungradedOf(item.analysis);
+  if (!item.answered_at || !ungraded) throw new SessionError("Only an answer Tamari couldn't check can be marked.", 409);
+  if (ungraded.selfCheck) return { mark: ungraded.selfCheck };
+  const isCorrect = input.mark === "correct";
+  const analysis = { ...(item.analysis as Record<string, unknown>), ungraded: { ...ungraded, selfCheck: input.mark } };
+  // Only while it is still unmarked, so of two clicks (or tabs) exactly one counts.
+  const { data: updated, error } = await supabase
+    .from("study_session_items")
+    .update({ is_correct: isCorrect, analysis: analysis as unknown as Json })
+    .eq("id", item.id)
+    .is("is_correct", null)
+    .not("answered_at", "is", null)
+    .select("id");
+  if (error) throw new Error(`study_session_items: self-check failed: ${error.message}`);
+  if (!updated?.length) return { mark: ungradedOf((await reloadItem(supabase, item.id)).analysis)?.selfCheck ?? input.mark };
+
+  await countSessionGrade(supabase, session.id, isCorrect);
+  if (isCorrect && ungraded.retestedMistakeId) {
+    await resolveMistake(supabase, ungraded.retestedMistakeId);
+  } else if (!isCorrect && ungraded.mistake) {
+    await addMistake(supabase, {
+      userId: session.user_id,
+      conceptId: item.concept_id,
+      materialId: item.material_id ?? session.material_id,
+      question: ungraded.mistake.question,
+      studentAnswer: item.response || null,
+      correctAnswer: ungraded.mistake.correctAnswer,
+      explanation: ungraded.mistake.explanation || SELF_CHECK_EXPLANATION,
+      errorType: ungraded.mistake.errorType,
+    });
+  }
+  if (item.concept_id) await refreshMastery([item.concept_id]);
+  return { mark: input.mark };
 }
 
 /** An item as it is now (after a submit lost to another one). */

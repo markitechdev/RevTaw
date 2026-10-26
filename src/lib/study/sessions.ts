@@ -100,9 +100,16 @@ function secondsSince(startedAt: string, now: Date = new Date()): number {
  * Counts one answer in a session still in progress, in one statement in the database (migration 0031), so
  * answers saved at the same moment all count. With an index it also moves the resume point forward.
  */
-export async function countSessionAnswer(supabase: Client, sessionId: string, answer: { correct: boolean; index?: number }): Promise<void> {
+/** Counts one answer (`correct: null`: answered, but Tamari couldn't check it, so it is neither right nor wrong yet). */
+export async function countSessionAnswer(supabase: Client, sessionId: string, answer: { correct: boolean | null; index?: number }): Promise<void> {
   const { error } = await supabase.rpc("count_session_answer", { p_session_id: sessionId, p_correct: answer.correct, p_index: answer.index ?? null });
   if (error) console.error("study_sessions: count answer failed", error.message);
+}
+
+/** Counts the grade of an answer already counted as answered: the student's mark for one Tamari couldn't check. */
+export async function countSessionGrade(supabase: Client, sessionId: string, correct: boolean): Promise<void> {
+  const { error } = await supabase.rpc("count_session_grade", { p_session_id: sessionId, p_correct: correct });
+  if (error) console.error("study_sessions: count grade failed", error.message);
 }
 
 export async function updateSessionState(

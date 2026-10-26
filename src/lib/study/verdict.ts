@@ -43,9 +43,11 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
 
 /**
  * A scenario counts as correct when the best option was chosen and justified (flows/applied.ts): a right choice
- * with a weak justification is "Partly there", a wrong choice is "Not yet" whatever the reasoning.
+ * with a weak justification is "Partly there", a wrong choice is "Not yet" whatever the reasoning. When the
+ * reasoning couldn't be checked (no score), the choice alone decides.
  */
-export function scenarioVerdict(result: { isCorrect: boolean; correctChoice: boolean; score: number }): Verdict {
-  if (result.isCorrect) return result.score >= 80 ? "correct" : "mostly";
+export function scenarioVerdict(result: { isCorrect: boolean; correctChoice: boolean; score: number | null }): Verdict {
+  // A null score: the reasoning couldn't be checked, so the choice alone decided.
+  if (result.isCorrect) return result.score === null || result.score >= 80 ? "correct" : "mostly";
   return result.correctChoice ? "partial" : "incorrect";
 }

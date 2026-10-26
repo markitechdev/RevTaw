@@ -4,7 +4,7 @@ import { defaultDifficulty, difficultyTargets, weakConceptNames } from "@/lib/ad
 import { isAiError } from "@/lib/ai";
 import { normalizeConceptName } from "@/lib/concepts/service";
 import { loadMaterialContext } from "@/lib/reviewers/service";
-import { conceptsFor, insertItems, loadOpenItem, openSession, recordItemResult, type Client, type FlowStartInput, type FlowStartResult, type ItemRow, type MaterialContext } from "@/lib/study/items";
+import { conceptsFor, insertItems, loadOpenItem, openSession, recordItemResult, recordUngradedItem, reloadItem, type Client, type FlowStartInput, type FlowStartResult, type ItemRow, type MaterialContext } from "@/lib/study/items";
 import {
   evaluateProblemAnswer,
   formatSolution,
@@ -18,6 +18,7 @@ import {
   type SolutionStep,
 } from "@/lib/study/prompts/problems";
 import { FADE_LEVELS, fadeFormat, fadeSchedule, givenStepCount } from "@/lib/study/problem-options";
+import { ungradedView, type UngradedView } from "@/lib/study/results";
 import { SessionError, sessionTitle } from "@/lib/study/sessions";
 import { PASS_SCORE } from "@/lib/study/verdict";
 import type { Json, StudySessionItem } from "@/lib/supabase/database.types";
@@ -43,7 +44,8 @@ export type ProblemAnalysis = {
   evaluation?: ProblemEvaluation;
 };
 
-export type ProblemResult = { evaluation: ProblemEvaluation; solution: Solution | null; isCorrect: boolean; heldNext: boolean };
+/** `evaluation` is null when Tamari couldn't check the working: the student marks it against the solution (`ungraded`). */
+export type ProblemResult = { evaluation: ProblemEvaluation | null; solution: Solution | null; isCorrect: boolean | null; ungraded: UngradedView | null; heldNext: boolean };
 
 export function parseSolution(value: string | null): Solution | null {
   if (!value) return null;
@@ -206,10 +208,10 @@ export async function evaluateProblemItem(input: { itemId: string; work: string;
   if (item.kind !== "problem") throw new SessionError("This item is not a problem.", 400);
   const solution = parseSolution(item.model_answer);
   const stored = (item.analysis as ProblemAnalysis | null) ?? {};
-  if (item.answered_at && stored.evaluation) return { evaluation: stored.evaluation, solution, isCorrect: Boolean(item.is_correct), heldNext: false };
+  if (item.answered_at) return storedProblemResult(item, solution);
   if (!solution) throw new SessionError("This problem has no reference solution.", 422);
 
-  let evaluation: ProblemEvaluation;
+  let evaluation: ProblemEvaluation | null;
   try {
     evaluation = (
       await evaluateProblemAnswer({
@@ -223,7 +225,14 @@ export async function evaluateProblemItem(input: { itemId: string; work: string;
     ).evaluation;
   } catch (error) {
     if (!isAiError(error)) throw error;
-    evaluation = { score: 50, final_answer_correct: false, correct_steps: [], errors: [], error_type: "unclassified", feedback: "Tamari can't check this right now, so compare your working with the solution yourself." };
+    evaluation = null;
+  }
+  const mistake = { question: item.prompt, correctAnswer: formatSolution(solution), explanation: evaluation?.feedback ?? "", errorType: evaluation?.error_type ?? ("unclassified" as const) };
+  if (!evaluation) {
+    // Tamari couldn't check the working: the solution is shown and the student marks it themselves.
+    const recorded = await recordUngradedItem(supabase, item, session, { response: input.work, analysis: stored, responseMs: input.responseMs, mistake });
+    if (!recorded) return storedProblemResult(await reloadItem(supabase, item.id), solution);
+    return { evaluation: null, solution, isCorrect: null, ungraded: { selfCheck: null }, heldNext: false };
   }
   const isCorrect = evaluation.score >= PASS_SCORE.problem;
   const recorded = await recordItemResult(supabase, item, session, {
@@ -232,8 +241,17 @@ export async function evaluateProblemItem(input: { itemId: string; work: string;
     score: evaluation.score,
     isCorrect,
     responseMs: input.responseMs,
-    mistake: { question: item.prompt, correctAnswer: formatSolution(solution), explanation: evaluation.feedback, errorType: evaluation.error_type },
+    mistake,
   });
-  const heldNext = recorded && session.method === "faded_worked_examples" && evaluation.score < 50 && stored.faded ? await holdNextFade(supabase, item, stored.faded.level) : false;
-  return { evaluation, solution, isCorrect, heldNext };
+  if (!recorded) return storedProblemResult(await reloadItem(supabase, item.id), solution);
+  const heldNext = session.method === "faded_worked_examples" && evaluation.score < 50 && stored.faded ? await holdNextFade(supabase, item, stored.faded.level) : false;
+  return { evaluation, solution, isCorrect, ungraded: null, heldNext };
+}
+
+/** The stored result of an answered problem. */
+function storedProblemResult(item: StudySessionItem, solution: Solution | null): ProblemResult {
+  const ungraded = ungradedView(item.analysis);
+  const evaluation = (item.analysis as ProblemAnalysis | null)?.evaluation ?? null;
+  if (!ungraded && !evaluation) throw new SessionError("This problem is already being checked.", 409);
+  return { evaluation: ungraded ? null : evaluation, solution, isCorrect: item.is_correct, ungraded, heldNext: false };
 }

@@ -6,9 +6,10 @@ import { parseAnalysisData } from "@/lib/materials/analysis-schema";
 import { loadMaterialContext } from "@/lib/reviewers/service";
 import { materialSections } from "@/lib/study/advanced";
 import { compareBlurt, type BlurtComparison } from "@/lib/study/ai";
-import { conceptsFor, insertItems, openSession, recordItemResult, type Client, type FlowStartInput, type FlowStartResult, type ItemRow } from "@/lib/study/items";
+import { conceptsFor, insertItems, openSession, recordItemResult, recordUngradedItem, type Client, type FlowStartInput, type FlowStartResult, type ItemRow } from "@/lib/study/items";
 import { answerReadingQuestions, generateReflectQuestions } from "@/lib/study/prompts/reading";
 import { MAX_QUESTIONS_PER_SECTION, READING_STAGES, readReadingState, type ReadingMethod, type ReadingStage, type ReadingState } from "@/lib/study/reading-options";
+import type { UngradedView } from "@/lib/study/results";
 import { loadSession, SessionError, sessionTitle } from "@/lib/study/sessions";
 import { PASS_SCORE } from "@/lib/study/verdict";
 import type { Json, StudySession } from "@/lib/supabase/database.types";
@@ -184,7 +185,8 @@ export async function markSectionRead(input: { sessionId: string; section: numbe
   return state.readSections;
 }
 
-export type ReadingSummaryResult = { comparison: BlurtComparison };
+/** `comparison` is null when Tamari couldn't check the summary: the student marks it against the sections (`ungraded`). */
+export type ReadingSummaryResult = { comparison: BlurtComparison | null; itemId: string; ungraded: UngradedView | null };
 
 /** Review: the student's own summary of the chapter, compared with the sections. */
 export async function submitReadingSummary(input: { sessionId: string; summary: string; responseMs: number | null }): Promise<ReadingSummaryResult> {
@@ -193,12 +195,12 @@ export async function submitReadingSummary(input: { sessionId: string; summary: 
   if (state.stage !== "review") throw new SessionError("Write the summary in the Review stage.", 409);
   const source = state.sections.map((section) => `${section.heading}\n${section.text}`).join("\n\n").slice(0, 6000);
   const keyPoints = [...state.survey.concepts, ...state.sections.map((section) => section.heading).filter(titled)].filter((value, index, all) => all.indexOf(value) === index).slice(0, 10);
-  let comparison: BlurtComparison;
+  let comparison: BlurtComparison | null;
   try {
     comparison = (await compareBlurt({ materialTitle: session.title, topic: "the whole reading", source, keyPoints, studentText: input.summary, attempt: 2 })).comparison;
   } catch (error) {
     if (!isAiError(error)) throw error;
-    comparison = { remembered: [], missing: [], incorrect: [], forgotten_important: [], score: 50, feedback: "Tamari can't check this right now, so compare your summary with the sections yourself." };
+    comparison = null;
   }
   const position = await nextPosition(supabase, session.id);
   const { data: inserted, error } = await supabase
@@ -207,8 +209,13 @@ export async function submitReadingSummary(input: { sessionId: string; summary: 
     .select("*")
     .single();
   if (error || !inserted) throw new Error(`study_session_items: insert failed: ${error?.message}`);
-  await recordItemResult(supabase, inserted, session, { response: input.summary, analysis: comparison as unknown as Json, score: comparison.score, isCorrect: comparison.score >= PASS_SCORE.recall, responseMs: input.responseMs, mistake: null });
+  if (comparison) {
+    await recordItemResult(supabase, inserted, session, { response: input.summary, analysis: comparison as unknown as Json, score: comparison.score, isCorrect: comparison.score >= PASS_SCORE.recall, responseMs: input.responseMs, mistake: null });
+  } else {
+    // Tamari couldn't check the summary: the student marks it against the sections themselves.
+    await recordUngradedItem(supabase, inserted, session, { response: input.summary, analysis: {}, responseMs: input.responseMs, mistake: null });
+  }
   state.stage = "done";
   await saveState(supabase, { ...session, state: { ...((session.state as Record<string, unknown>) ?? {}), index: position + 1 } as Json }, state);
-  return { comparison };
+  return { comparison, itemId: inserted.id, ungraded: comparison ? null : { selfCheck: null } };
 }

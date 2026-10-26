@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
-import { PointList, RunnerDone, RunnerSummary, useSessionCompletion, VerdictBox, type RunnerProps } from "@/components/study/runner-kit";
+import { PointList, RunnerDone, RunnerSummary, UngradedCheck, useSessionCompletion, VerdictBox, type RunnerProps } from "@/components/study/runner-kit";
 import { PASS_SCORE } from "@/lib/study/verdict";
 import { SessionHeader } from "@/components/study/session-header";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import type { ProblemAnalysis, ProblemResult } from "@/lib/study/flows/problems"
 import { evaluateProblemAction, saveItemDraftAction } from "@/lib/study/method-actions";
 import { fadeLabel, PROBLEM_DIFFICULTY_LABEL, readSolution, type ProblemDifficulty, type SolutionView } from "@/lib/study/problem-options";
 import type { SessionDetail } from "@/lib/study/queries";
+import { ungradedView } from "@/lib/study/results";
 
 type Item = SessionDetail["items"][number];
 
@@ -24,9 +25,13 @@ function analysisOf(item: Item | undefined): ProblemAnalysis {
 
 function storedResults(items: Item[]): Record<string, ProblemResult> {
   return Object.fromEntries(
-    items
-      .filter((item) => item.answered_at && analysisOf(item).evaluation)
-      .map((item) => [item.id, { evaluation: analysisOf(item).evaluation!, solution: readSolution(item.model_answer), isCorrect: Boolean(item.is_correct), heldNext: false } as ProblemResult]),
+    items.flatMap((item) => {
+      if (!item.answered_at) return [];
+      const ungraded = ungradedView(item.analysis);
+      const evaluation = ungraded ? null : (analysisOf(item).evaluation ?? null);
+      if (!ungraded && !evaluation) return [];
+      return [[item.id, { evaluation, solution: readSolution(item.model_answer), isCorrect: item.is_correct, ungraded, heldNext: false } as ProblemResult] as const];
+    }),
   );
 }
 
@@ -216,14 +221,20 @@ export function ProblemRunner({ session, methodName, parentSessionId = null, par
               </>
             ) : (
               <>
-                <VerdictBox score={result.evaluation.score} passAt={PASS_SCORE.problem}>
-                  <p className="mt-2">{result.evaluation.feedback}</p>
-                  <p className="mt-2 text-muted-foreground">Final answer: {result.evaluation.final_answer_correct ? "matches the solution." : "does not match the solution yet."}</p>
-                </VerdictBox>
-                <div className="grid gap-3 text-sm sm:grid-cols-2">
-                  <PointList title="What you got right" items={result.evaluation.correct_steps} tone="success" />
-                  <PointList title="Where it went wrong" items={result.evaluation.errors.map((entry) => `${entry.step} — ${entry.issue}`)} tone="danger" />
-                </div>
+                {result.evaluation ? (
+                  <>
+                    <VerdictBox score={result.evaluation.score} passAt={PASS_SCORE.problem}>
+                      <p className="mt-2">{result.evaluation.feedback}</p>
+                      <p className="mt-2 text-muted-foreground">Final answer: {result.evaluation.final_answer_correct ? "matches the solution." : "does not match the solution yet."}</p>
+                    </VerdictBox>
+                    <div className="grid gap-3 text-sm sm:grid-cols-2">
+                      <PointList title="What you got right" items={result.evaluation.correct_steps} tone="success" />
+                      <PointList title="Where it went wrong" items={result.evaluation.errors.map((entry) => `${entry.step} — ${entry.issue}`)} tone="danger" />
+                    </div>
+                  </>
+                ) : (
+                  <UngradedCheck itemId={item.id} initial={result.ungraded?.selfCheck ?? null} against="the solution below" />
+                )}
                 {result.solution && (
                   <div className="flex flex-col gap-2">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Solution</p>

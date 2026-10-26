@@ -15,6 +15,8 @@ export { parseTranscriptSections } from "@/lib/ai/providers/mock-text";
  * Never enabled in production unless AI_PROVIDER=mock is set explicitly.
  */
 const failedOnce = new Set<string>();
+/** The tasks that check a student's answer (the MOCK_UNAVAILABLE hook). */
+const CHECKING_TASKS: ReadonlySet<string> = new Set(["recall_compare", "feynman_analyze", "blurting_compare", "question_evaluate", "problem_evaluate", "scenario_evaluate", "case_evaluate", "grade_answers"]);
 
 export class MockProvider implements AiProvider {
   readonly name = "mock";
@@ -27,6 +29,8 @@ export class MockProvider implements AiProvider {
     // Drop the transcript's bracketed section labels so they don't leak into "facts".
     const material = rawMaterial.replace(/^\[(?:Section|Not included)[^\]]*\]\s*$/gm, "");
     const task = options.task ?? inferTask(options);
+    // Test hook: an answer containing MOCK_UNAVAILABLE can't be checked, as when every provider is down.
+    if (CHECKING_TASKS.has(task) && userText.includes("MOCK_UNAVAILABLE")) throw new AiError("provider_error", "mock: unavailable on purpose", true);
     // Test hook: a tutor question containing MOCK_FAIL_ONCE fails the first time it is asked, then works.
     if (task === "tutor_reply" && userText.includes("MOCK_FAIL_ONCE")) {
       const key = extractTag(userText, "student_message") ?? userText;

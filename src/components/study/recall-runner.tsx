@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
-import { VerdictBox } from "@/components/study/runner-kit";
+import { RecallVerdict } from "@/components/study/runner-kit";
 import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
@@ -18,10 +18,9 @@ import { routes } from "@/lib/routes";
 import { RETRIEVAL_FORMAT_LABEL, type RetrievalFormat } from "@/lib/study/formats";
 import { answerRecallAction, completeSessionAction } from "@/lib/study/actions";
 import type { SessionDetail } from "@/lib/study/queries";
-import type { RecallItemResult } from "@/lib/study/service";
+import { recallResultOf, type RecallItemResult } from "@/lib/study/results";
 import type { SessionSummary } from "@/lib/study/sessions";
 import type { ConfidenceLevel } from "@/lib/supabase/database.types";
-import { PASS_SCORE } from "@/lib/study/verdict";
 
 type Stored = RecallItemResult;
 
@@ -61,19 +60,10 @@ export function RecallRunner({ session, methodName, parentSessionId = null, pare
   const [response, setResponse] = useState("");
   const [confidence, setConfidence] = useState<ConfidenceLevel | null>(null);
   const [results, setResults] = useState<Record<string, Stored>>(() =>
-    Object.fromEntries(
-      items
-        .filter((item) => item.answered_at && item.analysis)
-        .map((item) => [
-          item.id,
-          {
-            comparison: item.analysis as unknown as Stored["comparison"],
-            isCorrect: Boolean(item.is_correct),
-            modelAnswer: item.model_answer ?? "",
-            sourceExcerpt: item.source_excerpt,
-          },
-        ]),
-    ),
+    Object.fromEntries(items.flatMap((item) => {
+      const stored = recallResultOf(item);
+      return stored ? [[item.id, stored] as const] : [];
+    })),
   );
   const [revealed, setRevealed] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -236,9 +226,7 @@ export function RecallRunner({ session, methodName, parentSessionId = null, pare
           </>
         ) : (
           <div className="flex flex-col gap-4">
-            <VerdictBox score={showing.comparison.score} passAt={PASS_SCORE.recall}>
-              <p className="mt-2">{showing.comparison.feedback}</p>
-            </VerdictBox>
+            <RecallVerdict itemId={item.id} result={showing} />
 
             <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="rounded-lg bg-muted/60 p-3 text-sm">
@@ -251,7 +239,7 @@ export function RecallRunner({ session, methodName, parentSessionId = null, pare
               </div>
             </dl>
 
-            {(showing.comparison.correct_points.length > 0 || showing.comparison.missing_points.length > 0 || showing.comparison.incorrect_points.length > 0) && (
+            {showing.comparison && (showing.comparison.correct_points.length > 0 || showing.comparison.missing_points.length > 0 || showing.comparison.incorrect_points.length > 0) && (
               <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
                 <div>
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-success">You covered</p>

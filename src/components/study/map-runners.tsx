@@ -14,7 +14,7 @@ import { TINT } from "@/components/ui/tint";
 import type { LinkQuestion, LinkResult, MapView } from "@/lib/study/flows/maps";
 import { CONCEPT_RELATIONS, RELATION_LABEL, type ConceptMapData, type ConceptRelation, type MindMapData, type MindNode } from "@/lib/study/maps";
 import { answerLinkAction, quizBranchAction, startLinkTestAction } from "@/lib/study/method-actions";
-import type { RecallItemResult } from "@/lib/study/service";
+import { recallResultOf, type RecallItemResult } from "@/lib/study/results";
 import { cn } from "@/lib/utils";
 
 type BranchQuestion = { id: string; prompt: string; branch: string; result: RecallItemResult | null };
@@ -32,7 +32,7 @@ export function MindMapRunner({ session, methodName, map, parentSessionId = null
         id: item.id,
         prompt: item.prompt,
         branch: (item.analysis as { branchLabel?: string } | null)?.branchLabel ?? "",
-        result: item.answered_at && (item.analysis as { verdict?: string } | null)?.verdict ? { comparison: item.analysis as unknown as RecallItemResult["comparison"], isCorrect: Boolean(item.is_correct), modelAnswer: item.model_answer ?? "", sourceExcerpt: item.source_excerpt } : null,
+        result: recallResultOf(item),
       })),
   );
   const [busy, setBusy] = useState<string | null>(null);

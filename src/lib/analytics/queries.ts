@@ -115,6 +115,8 @@ export const getAnalyticsOverview = cache(async (): Promise<AnalyticsOverview> =
   const tally = (answeredAt: string | null, isCorrect: boolean | null, level: ConfidenceLevel | null, questionDifficulty: QuestionDifficulty | null) => {
     if (!answeredAt) return;
     bump(day(answeredAt), { answered: 1, correct: isCorrect ? 1 : 0 });
+    // Accuracy counts only answers with a result (not one still waiting for a check).
+    if (isCorrect === null) return;
     if (questionDifficulty) {
       const entry = difficulty.get(questionDifficulty)!;
       entry.answered += 1;
@@ -153,7 +155,7 @@ export const getAnalyticsOverview = cache(async (): Promise<AnalyticsOverview> =
       focusMinutes: Math.round(points.reduce((sum, point) => sum + point.focusMinutes, 0)),
       // Every answer ever given, counted exactly (the difficulty and confidence breakdowns read the latest 3,000 of each kind).
       questions: counts.answered,
-      accuracy: accuracyOf(counts.answered, counts.correct),
+      accuracy: accuracyOf(counts.graded, counts.correct),
       averageScore,
       cards: points.reduce((sum, point) => sum + point.cards, 0),
     },

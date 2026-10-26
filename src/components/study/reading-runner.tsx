@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
 import { ScheduleReviewsButton } from "@/components/planner/schedule-reviews-button";
-import { PointList, RunnerSummary, useSessionCompletion, VerdictBox, type RunnerProps } from "@/components/study/runner-kit";
+import { PointList, RecallVerdict, RunnerSummary, UngradedCheck, useSessionCompletion, VerdictBox, type RunnerProps } from "@/components/study/runner-kit";
 import { PASS_SCORE } from "@/lib/study/verdict";
 import { SessionHeader } from "@/components/study/session-header";
 import { Badge } from "@/components/ui/badge";
@@ -15,10 +15,11 @@ import { Input, Textarea } from "@/components/ui/input";
 import { TINT } from "@/components/ui/tint";
 import { answerRecallAction } from "@/lib/study/actions";
 import type { BlurtComparison } from "@/lib/study/ai";
+import type { ReadingSummaryResult } from "@/lib/study/flows/reading";
 import { advanceReadingAction, markSectionReadAction, submitReadingSummaryAction } from "@/lib/study/method-actions";
 import type { SessionDetail } from "@/lib/study/queries";
 import { MAX_QUESTIONS_PER_SECTION, READING_STAGE_LABEL, READING_STAGES, readReadingState, suggestQuestion, type ReadingMethod, type ReadingStage, type ReadingState } from "@/lib/study/reading-options";
-import type { RecallItemResult } from "@/lib/study/service";
+import { recallResultOf, ungradedView, type RecallItemResult } from "@/lib/study/results";
 import { cn } from "@/lib/utils";
 
 type Item = SessionDetail["items"][number];
@@ -82,7 +83,10 @@ function AnswerStep({ items, label, onDone, doneLabel, sections }: { items: Item
   const [index, setIndex] = useState(() => Math.max(0, items.findIndex((item) => !item.answered_at)));
   const [response, setResponse] = useState("");
   const [results, setResults] = useState<Record<string, RecallItemResult>>(() =>
-    Object.fromEntries(items.filter((item) => item.answered_at && item.analysis).map((item) => [item.id, { comparison: item.analysis as unknown as RecallItemResult["comparison"], isCorrect: Boolean(item.is_correct), modelAnswer: item.model_answer ?? "", sourceExcerpt: null }])),
+    Object.fromEntries(items.flatMap((item) => {
+      const stored = recallResultOf(item);
+      return stored ? [[item.id, stored] as const] : [];
+    })),
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -135,13 +139,13 @@ function AnswerStep({ items, label, onDone, doneLabel, sections }: { items: Item
         </>
       ) : (
         <>
-          <VerdictBox score={result.comparison.score} passAt={PASS_SCORE.recall}>
-            <p className="mt-2">{result.comparison.feedback}</p>
-          </VerdictBox>
-          <div className="grid gap-3 text-sm sm:grid-cols-2">
-            <PointList title="You covered" items={result.comparison.correct_points} tone="success" />
-            <PointList title="Missing" items={result.comparison.missing_points} tone="danger" />
-          </div>
+          <RecallVerdict itemId={item.id} result={result} />
+          {result.comparison && (
+            <div className="grid gap-3 text-sm sm:grid-cols-2">
+              <PointList title="You covered" items={result.comparison.correct_points} tone="success" />
+              <PointList title="Missing" items={result.comparison.missing_points} tone="danger" />
+            </div>
+          )}
           <div className="rounded-lg bg-success-soft/50 p-3 text-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">From the material</p>
             <p className="mt-1 whitespace-pre-wrap">{result.modelAnswer}</p>
@@ -191,9 +195,11 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
     return unread === -1 ? 0 : unread;
   });
   const [summaryText, setSummaryText] = useState("");
-  const [comparison, setComparison] = useState<BlurtComparison | null>(() => {
+  const [summaryResult, setSummaryResult] = useState<ReadingSummaryResult | null>(() => {
     const done = session.items.find((item) => item.format === "summary" && item.answered_at);
-    return done ? (done.analysis as unknown as BlurtComparison) : null;
+    if (!done) return null;
+    const ungraded = ungradedView(done.analysis);
+    return { itemId: done.id, comparison: ungraded ? null : (done.analysis as unknown as BlurtComparison), ungraded };
   });
   const [reread, setReread] = useState<number | null>(null);
   const shownAt = useRef<number>(0);
@@ -246,7 +252,7 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
         setError(result.message);
         return;
       }
-      setComparison(result.data.comparison);
+      setSummaryResult(result.data);
       setStage("done");
     });
   };
@@ -462,7 +468,7 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
               <SectionText text={state.sections[reread].text} />
             </div>
           )}
-          {!comparison ? (
+          {!summaryResult ? (
             <>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="reading-summary" className="text-sm font-medium">
@@ -479,13 +485,19 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
             </>
           ) : (
             <>
-              <VerdictBox score={comparison.score} passAt={PASS_SCORE.recall}>
-                <p className="mt-2">{comparison.feedback}</p>
-              </VerdictBox>
-              <div className="grid gap-3 text-sm sm:grid-cols-2">
-                <PointList title="In your summary" items={comparison.remembered} tone="success" />
-                <PointList title="Left out" items={comparison.missing} tone="danger" />
-              </div>
+              {summaryResult.comparison ? (
+                <>
+                  <VerdictBox score={summaryResult.comparison.score} passAt={PASS_SCORE.recall}>
+                    <p className="mt-2">{summaryResult.comparison.feedback}</p>
+                  </VerdictBox>
+                  <div className="grid gap-3 text-sm sm:grid-cols-2">
+                    <PointList title="In your summary" items={summaryResult.comparison.remembered} tone="success" />
+                    <PointList title="Left out" items={summaryResult.comparison.missing} tone="danger" />
+                  </div>
+                </>
+              ) : (
+                <UngradedCheck itemId={summaryResult.itemId} initial={summaryResult.ungraded?.selfCheck ?? null} against="the sections above" />
+              )}
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
                 {session.material_id ? <ScheduleReviewsButton materialId={session.material_id} variant="secondary" size="sm" /> : <span />}
                 <Button type="button" size="sm" loading={ending} onClick={() => finish()}>

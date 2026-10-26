@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 function storedQuestions(session: SessionDetail): EvaluatedQuestion[] {
   return session.items
     .filter((item) => item.kind === "question" && item.analysis)
-    .map((item) => ({ itemId: item.id, question: item.prompt, expectedAnswer: item.response, evaluation: item.analysis as unknown as EvaluatedQuestion["evaluation"] }));
+    .map((item) => ({ itemId: item.id, question: item.prompt, expectedAnswer: item.response, evaluation: (item.analysis as { unrated?: boolean }).unrated ? null : (item.analysis as unknown as EvaluatedQuestion["evaluation"]) }));
 }
 
 function scoreTone(value: number): BadgeTone {
@@ -79,7 +79,8 @@ export function QuestionGenRunner({ session, methodName, parentSessionId = null,
 
   if (summary) {
     const stored = summary.extra?.averageQuality;
-    const average = typeof stored === "number" ? stored : questions.length ? Math.round(questions.reduce((sum, entry) => sum + entry.evaluation.overall, 0) / questions.length) : null;
+    const rated = questions.flatMap((entry) => (entry.evaluation ? [entry.evaluation.overall] : []));
+    const average = typeof stored === "number" ? stored : rated.length ? Math.round(rated.reduce((sum, overall) => sum + overall, 0) / rated.length) : null;
     return (
       <SessionSummaryCard
         title={`${methodName} complete`}
@@ -147,6 +148,19 @@ export function QuestionGenRunner({ session, methodName, parentSessionId = null,
             {[...questions].reverse().map((entry, reverseIndex) => {
               const number = questions.length - reverseIndex;
               const evaluation = entry.evaluation;
+              if (!evaluation) {
+                return (
+                  <article key={entry.itemId} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <p className="font-medium">
+                        {number}. {entry.question}
+                      </p>
+                      <Badge tone="neutral">Not rated</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Tamari couldn&apos;t rate this question right now. It&apos;s saved, and it doesn&apos;t count toward your average.</p>
+                  </article>
+                );
+              }
               return (
                 <article key={entry.itemId} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">

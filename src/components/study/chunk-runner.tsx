@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
-import { VerdictBox } from "@/components/study/runner-kit";
+import { RecallVerdict } from "@/components/study/runner-kit";
 import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
@@ -15,9 +15,8 @@ import { Textarea } from "@/components/ui/input";
 import { routes } from "@/lib/routes";
 import { answerRecallAction, completeSessionAction } from "@/lib/study/actions";
 import type { SessionDetail } from "@/lib/study/queries";
-import type { RecallItemResult } from "@/lib/study/service";
+import type { RecallItemResult } from "@/lib/study/results";
 import type { SessionSummary } from "@/lib/study/sessions";
-import { PASS_SCORE } from "@/lib/study/verdict";
 
 type ChunkText = { title: string; main_idea: string; details: string[]; mini_summary: string };
 
@@ -197,9 +196,7 @@ export function ChunkRunner({ session, methodName, parentSessionId = null, paren
               </>
             ) : (
               <>
-                <VerdictBox score={result.comparison.score} passAt={PASS_SCORE.recall}>
-                  <p className="mt-2">{result.comparison.feedback}</p>
-                </VerdictBox>
+                <RecallVerdict itemId={item.id} result={result} />
                 <div className="rounded-lg bg-success-soft/50 p-3 text-sm">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Model answer</p>
                   <p className="mt-1 whitespace-pre-wrap">{result.modelAnswer}</p>

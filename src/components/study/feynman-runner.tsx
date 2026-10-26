@@ -6,12 +6,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
-import { VerdictBox } from "@/components/study/runner-kit";
+import { UngradedCheck, VerdictBox } from "@/components/study/runner-kit";
 import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
+import { TINT } from "@/components/ui/tint";
 import { routes } from "@/lib/routes";
 import { analyzeFeynmanAction, completeSessionAction } from "@/lib/study/actions";
 import type { SessionDetail } from "@/lib/study/queries";
@@ -19,7 +20,7 @@ import type { FeynmanRoundResult } from "@/lib/study/service";
 import type { SessionSummary } from "@/lib/study/sessions";
 import { PASS_SCORE } from "@/lib/study/verdict";
 
-type RoundRecord = { round: number } & FeynmanRoundResult["analysis"];
+type RoundRecord = { round: number } & NonNullable<FeynmanRoundResult["analysis"]>;
 
 function storedRounds(item: SessionDetail["items"][number]): RoundRecord[] {
   const analysis = item.analysis as { rounds?: RoundRecord[] } | null;
@@ -75,7 +76,8 @@ export function FeynmanRunner({ session, methodName, parentSessionId = null, par
         setError(result.message);
         return;
       }
-      setRounds((state) => [...state, { round: result.data.round, ...result.data.analysis }]);
+      const analysis = result.data.analysis;
+      if (analysis) setRounds((state) => [...state, { round: result.data.round, ...analysis }]);
       if (result.data.final) setFinalResult(result.data);
     });
   };
@@ -214,6 +216,15 @@ export function FeynmanRunner({ session, methodName, parentSessionId = null, par
           </>
         ) : (
           <div className="flex flex-col gap-4">
+            {finalResult.ungraded ? (
+              <UngradedCheck itemId={item.id} initial={finalResult.ungraded.selfCheck} against="the ideal explanation below" />
+            ) : (
+              !finalResult.analysis && (
+                <p className={`rounded-lg border p-3 text-sm ${TINT.warning}`} role="status">
+                  Tamari couldn&apos;t check this attempt, so your first attempt&apos;s result stands.
+                </p>
+              )
+            )}
             <div className="rounded-lg bg-primary-soft/50 p-4 text-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">Ideal explanation</p>
               <p className="mt-1 whitespace-pre-wrap">{finalResult.idealExplanation}</p>

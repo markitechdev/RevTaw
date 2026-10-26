@@ -6,20 +6,22 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
-import { VerdictBox } from "@/components/study/runner-kit";
+import { UngradedCheck, VerdictBox } from "@/components/study/runner-kit";
 import { SessionHeader } from "@/components/study/session-header";
 import { SessionSummaryCard } from "@/components/study/session-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
+import { TINT } from "@/components/ui/tint";
 import { routes } from "@/lib/routes";
 import { compareBlurtAction, completeSessionAction } from "@/lib/study/actions";
 import type { BlurtResult } from "@/lib/study/advanced";
 import type { SessionDetail } from "@/lib/study/queries";
+import { ungradedView, type UngradedView } from "@/lib/study/results";
 import type { SessionSummary } from "@/lib/study/sessions";
 import { PASS_SCORE } from "@/lib/study/verdict";
 
-type Round = BlurtResult["analysis"] & { round: number };
+type Round = NonNullable<BlurtResult["analysis"]> & { round: number };
 
 function storedRounds(item: SessionDetail["items"][number]): Round[] {
   return ((item.analysis as { rounds?: Round[] } | null)?.rounds ?? []) as Round[];
@@ -41,6 +43,8 @@ export function BlurtingRunner({ session, methodName, parentSessionId = null, pa
   const [text, setText] = useState(() => item?.response ?? "");
   const [rounds, setRounds] = useState<Round[]>(() => (item ? storedRounds(item) : []));
   const [source, setSource] = useState<string | null>(() => (item?.answered_at ? item.model_answer : null));
+  // Set when the last attempt couldn't be checked: the student's own mark (a first attempt), or the first attempt's result stands.
+  const [unchecked, setUnchecked] = useState<{ ungraded: UngradedView | null } | null>(() => (item?.answered_at && ungradedView(item.analysis) ? { ungraded: ungradedView(item.analysis) } : null));
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [pending, startTransition] = useTransition();
@@ -74,7 +78,9 @@ export function BlurtingRunner({ session, methodName, parentSessionId = null, pa
         setError(result.message);
         return;
       }
-      setRounds((state) => [...state, { ...result.data.analysis, round: result.data.round }]);
+      const analysis = result.data.analysis;
+      if (analysis) setRounds((state) => [...state, { ...analysis, round: result.data.round }]);
+      else setUnchecked({ ungraded: result.data.ungraded });
       if (result.data.final) setSource(result.data.source);
     });
   };
@@ -84,6 +90,7 @@ export function BlurtingRunner({ session, methodName, parentSessionId = null, pa
     setRounds(nextIndex < items.length ? storedRounds(items[nextIndex]) : []);
     setText(nextIndex < items.length ? (items[nextIndex].response ?? "") : "");
     setSource(null);
+    setUnchecked(null);
     if (nextIndex >= items.length) finish();
     else setIndex(nextIndex);
   };
@@ -197,6 +204,15 @@ export function BlurtingRunner({ session, methodName, parentSessionId = null, pa
           </>
         ) : (
           <div className="flex flex-col gap-4">
+            {unchecked?.ungraded ? (
+              <UngradedCheck itemId={item.id} initial={unchecked.ungraded.selfCheck} against="the source section below" />
+            ) : (
+              unchecked && (
+                <p className={`rounded-lg border p-3 text-sm ${TINT.warning}`} role="status">
+                  Tamari couldn&apos;t check this attempt, so your first attempt&apos;s result stands.
+                </p>
+              )
+            )}
             <div className="rounded-lg bg-primary-soft/50 p-4 text-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">The source section</p>
               <p className="mt-1 whitespace-pre-wrap">{source}</p>

@@ -4,7 +4,7 @@ import { ArrowRight, Briefcase, Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Alert } from "@/components/forms/form-alert";
-import { PointList, RunnerDone, RunnerSummary, useSessionCompletion, VerdictBox, type RunnerProps } from "@/components/study/runner-kit";
+import { PointList, RunnerDone, RunnerSummary, UngradedCheck, useSessionCompletion, VerdictBox, type RunnerProps } from "@/components/study/runner-kit";
 import { PASS_SCORE } from "@/lib/study/verdict";
 import { SessionHeader } from "@/components/study/session-header";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import type { CaseResult, CaseView } from "@/lib/study/flows/applied";
 import { evaluateCaseAction, saveItemDraftAction } from "@/lib/study/method-actions";
 import type { CaseAnswer, CaseField } from "@/lib/study/prompts/applied";
 import type { SessionDetail } from "@/lib/study/queries";
+import { ungradedView } from "@/lib/study/results";
 
 type Item = SessionDetail["items"][number];
 
@@ -42,10 +43,11 @@ function answerOf(item: Item | undefined): CaseAnswer {
 }
 
 function storedResult(item: Item): CaseResult | null {
-  const evaluation = (item.analysis as { evaluation?: CaseResult["evaluation"] } | null)?.evaluation;
-  if (!item.answered_at || !evaluation || !item.model_answer) return null;
+  const ungraded = ungradedView(item.analysis);
+  const evaluation = ungraded ? null : ((item.analysis as { evaluation?: CaseResult["evaluation"] } | null)?.evaluation ?? null);
+  if (!item.answered_at || (!evaluation && !ungraded) || !item.model_answer) return null;
   try {
-    return { evaluation, model: JSON.parse(item.model_answer) as CaseResult["model"], isCorrect: Boolean(item.is_correct) };
+    return { evaluation, model: JSON.parse(item.model_answer) as CaseResult["model"], isCorrect: item.is_correct, ungraded };
   } catch {
     return null;
   }
@@ -174,26 +176,35 @@ export function CaseRunner({ session, methodName, parentSessionId = null, parent
             </>
           ) : (
             <>
-              <VerdictBox score={result.evaluation.overall} passAt={PASS_SCORE.case}>
-                <p className="mt-2">{result.evaluation.feedback}</p>
-              </VerdictBox>
+              {result.evaluation ? (
+                <VerdictBox score={result.evaluation.overall} passAt={PASS_SCORE.case}>
+                  <p className="mt-2">{result.evaluation.feedback}</p>
+                </VerdictBox>
+              ) : (
+                <UngradedCheck itemId={item.id} initial={result.ungraded?.selfCheck ?? null} against="the expert analysis below" />
+              )}
               <ul className="flex flex-col gap-3">
-                {FIELDS.map((field) => (
-                  <li key={field.id} className="rounded-lg border border-border p-3 text-sm">
-                    <p className="flex flex-wrap items-center justify-between gap-2 font-medium">
-                      {field.label}
-                      <Badge tone={tone(result.evaluation.fields[field.id].score)}>{Math.round(result.evaluation.fields[field.id].score)}%</Badge>
-                    </p>
-                    <p className="mt-1 whitespace-pre-wrap text-muted-foreground">You: {answer[field.id] || "—"}</p>
-                    <p className="mt-1 whitespace-pre-wrap">Expert: {expertText(result, field.id)}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{result.evaluation.fields[field.id].feedback}</p>
-                  </li>
-                ))}
+                {FIELDS.map((field) => {
+                  const fieldCheck = result.evaluation?.fields[field.id] ?? null;
+                  return (
+                    <li key={field.id} className="rounded-lg border border-border p-3 text-sm">
+                      <p className="flex flex-wrap items-center justify-between gap-2 font-medium">
+                        {field.label}
+                        {fieldCheck && <Badge tone={tone(fieldCheck.score)}>{Math.round(fieldCheck.score)}%</Badge>}
+                      </p>
+                      <p className="mt-1 whitespace-pre-wrap text-muted-foreground">You: {answer[field.id] || "—"}</p>
+                      <p className="mt-1 whitespace-pre-wrap">Expert: {expertText(result, field.id)}</p>
+                      {fieldCheck && <p className="mt-1 text-xs text-muted-foreground">{fieldCheck.feedback}</p>}
+                    </li>
+                  );
+                })}
               </ul>
-              <div className="grid gap-3 text-sm sm:grid-cols-2">
-                <PointList title="Strengths" items={result.evaluation.strengths} tone="success" />
-                <PointList title="Gaps" items={result.evaluation.gaps} tone="danger" />
-              </div>
+              {result.evaluation && (
+                <div className="grid gap-3 text-sm sm:grid-cols-2">
+                  <PointList title="Strengths" items={result.evaluation.strengths} tone="success" />
+                  <PointList title="Gaps" items={result.evaluation.gaps} tone="danger" />
+                </div>
+              )}
               <div className="flex justify-end border-t border-border pt-4">
                 <Button type="button" size="sm" onClick={next} loading={ending}>
                   {index + 1 >= items.length ? "Finish session" : "Next case"}

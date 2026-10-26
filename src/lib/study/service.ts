@@ -19,11 +19,12 @@ import { startFadedExamples, startPracticeProblems, startWorkedExamples } from "
 import { analyzeFeynmanExplanation, compareRecallAnswer, generateRecallQuestions, pickFeynmanConcepts, type FeynmanAnalysis, type RecallComparison } from "@/lib/study/ai";
 import { isTutorMethod, METHOD_BEHAVIOR, TEST_METHOD_IDS, type BuilderMethodId, type TestMethodId } from "@/lib/study/catalog";
 import { signatureForStart, startUnlessDuplicate, type SessionDuplicate } from "@/lib/study/duplicates";
-import { loadOpenItem, recordItemResult, reloadItem, settleAnsweredItem, storeItemAttempt } from "@/lib/study/items";
+import { loadOpenItem, recordItemResult, recordUngradedItem, reloadItem, settleAnsweredItem, storeItemAttempt } from "@/lib/study/items";
 import type { StudyMethodId } from "@/lib/study/methods";
 import type { ProblemDifficulty } from "@/lib/study/prompts/problems";
 import { completeSession, createSession, loadSession, SessionError, sessionTitle, suggestNext, updateSessionState, type SessionSummary } from "@/lib/study/sessions";
-import { countsAsCorrect, PASS_SCORE, verdictFor } from "@/lib/study/verdict";
+import { recallResultOf, ungradedView, type RecallItemResult, type UngradedView } from "@/lib/study/results";
+import { countsAsCorrect, PASS_SCORE } from "@/lib/study/verdict";
 import type { ConfidenceLevel, Json, SessionGoal, StudySession, StudySessionItem } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { startTutorSession } from "@/lib/tutor/service";
@@ -400,12 +401,7 @@ async function startPomodoro(supabase: Client, userId: string, input: StartSessi
 // Recall / error-review items
 // ---------------------------------------------------------------------------
 
-export type RecallItemResult = {
-  comparison: RecallComparison;
-  isCorrect: boolean;
-  modelAnswer: string;
-  sourceExcerpt: string | null;
-};
+export type { RecallItemResult } from "@/lib/study/results";
 
 /** Item kinds answered through the recall comparison (the other kinds have their own flows). */
 const RECALL_FLOW_KINDS: ReadonlyArray<StudySessionItem["kind"]> = ["recall", "mistake", "chunk", "stage"];
@@ -418,7 +414,7 @@ export async function answerRecallItem(input: { itemId: string; response: string
   if (item.answered_at) return storedRecallResult(item);
 
   const keyPoints = Array.isArray(item.key_points) ? (item.key_points as string[]) : [];
-  let comparison: RecallComparison;
+  let comparison: RecallComparison | null;
   try {
     const result = await compareRecallAnswer({
       materialTitle: session.title,
@@ -430,20 +426,26 @@ export async function answerRecallItem(input: { itemId: string; response: string
     comparison = result.comparison;
   } catch (error) {
     if (!isAiError(error)) throw error;
-    // Without AI the student still sees the model answer; nothing is scored.
-    comparison = {
-      verdict: verdictFor(50, PASS_SCORE.recall),
-      score: 50,
-      correct_points: [],
-      missing_points: [],
-      incorrect_points: [],
-      feedback: "Tamari can't check this right now, so compare your answer with the model answer yourself.",
-    };
+    comparison = null;
   }
-  const isCorrect = countsAsCorrect(comparison.verdict);
   // Items keep what they carried before the answer (a chunk's reading text, a guided-reading question's section).
   const carried = (item.analysis && typeof item.analysis === "object" && !Array.isArray(item.analysis) ? item.analysis : {}) as Record<string, unknown>;
   const retest = item.kind === "mistake" && item.source_mistake_id ? item.source_mistake_id : null;
+  const result = { modelAnswer: item.model_answer ?? "", sourceExcerpt: item.source_excerpt };
+  if (!comparison) {
+    // Tamari couldn't check it: the student sees the model answer and marks the answer themselves.
+    const stored = await recordUngradedItem(supabase, item, session, {
+      response: input.response,
+      analysis: carried,
+      confidence: input.confidence,
+      responseMs: input.responseMs,
+      retestedMistakeId: retest,
+      mistake: retest ? null : { question: item.prompt, correctAnswer: item.model_answer ?? "", explanation: "" },
+    });
+    if (!stored) return storedRecallResult(await reloadItem(supabase, item.id));
+    return { comparison: null, isCorrect: null, ungraded: { selfCheck: null }, ...result };
+  }
+  const isCorrect = countsAsCorrect(comparison.verdict);
   const stored = await recordItemResult(supabase, item, session, {
     response: input.response,
     analysis: { ...carried, ...comparison } as unknown as Json,
@@ -457,13 +459,14 @@ export async function answerRecallItem(input: { itemId: string; response: string
   });
   // A double submit (or a second tab) answered first: its answer stands.
   if (!stored) return storedRecallResult(await reloadItem(supabase, item.id));
-  return { comparison, isCorrect, modelAnswer: item.model_answer ?? "", sourceExcerpt: item.source_excerpt };
+  return { comparison, isCorrect, ungraded: null, ...result };
 }
 
 /** The result of a recall item that is already answered. */
 function storedRecallResult(item: StudySessionItem): RecallItemResult {
-  if (!item.answered_at || !(item.analysis as { verdict?: string } | null)?.verdict) throw new SessionError("This item is already answered.", 409);
-  return { comparison: item.analysis as unknown as RecallComparison, isCorrect: Boolean(item.is_correct), modelAnswer: item.model_answer ?? "", sourceExcerpt: item.source_excerpt };
+  const result = recallResultOf(item);
+  if (!result) throw new SessionError("This item is already answered.", 409);
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -471,9 +474,14 @@ function storedRecallResult(item: StudySessionItem): RecallItemResult {
 // ---------------------------------------------------------------------------
 
 export type FeynmanRoundResult = {
-  analysis: FeynmanAnalysis;
+  /**
+   * null when Tamari couldn't check this attempt; it ends the concept either way. A first attempt is then
+   * marked by the student (`ungraded`); after a checked first attempt, that check stands (`ungraded` null).
+   */
+  analysis: FeynmanAnalysis | null;
   round: number;
   final: boolean;
+  ungraded: UngradedView | null;
   idealExplanation: string | null;
   sourceExcerpt: string | null;
 };
@@ -489,7 +497,7 @@ export async function analyzeFeynmanItem(input: { itemId: string; explanation: s
 
   const round = item.attempts + 1;
   const keyPoints = Array.isArray(item.key_points) ? (item.key_points as string[]) : [];
-  let analysis: FeynmanAnalysis;
+  let analysis: FeynmanAnalysis | null;
   try {
     const result = await analyzeFeynmanExplanation({
       materialTitle: session.title,
@@ -502,52 +510,62 @@ export async function analyzeFeynmanItem(input: { itemId: string; explanation: s
     analysis = result.analysis;
   } catch (error) {
     if (!isAiError(error)) throw error;
-    analysis = {
-      score: 50,
-      correct_concepts: [],
-      missing_concepts: [],
-      incorrect_ideas: [],
-      unnecessary_complexity: [],
-      feedback: "Tamari can't check this right now, so compare your explanation with the ideal one yourself.",
-      improve_prompt: "Re-read the source and add anything you skipped.",
-    };
+    analysis = null;
+  }
+  const now = new Date().toISOString();
+  const previous = ((item.analysis as unknown as { rounds?: unknown[] } | null)?.rounds ?? []) as Array<FeynmanAnalysis & { round: number }>;
+  const responseMs = (item.response_ms ?? 0) + (input.responseMs ?? 0);
+  const reveal = { idealExplanation: item.model_answer, sourceExcerpt: item.source_excerpt };
+  const mistake = (explanation: string) => ({ question: `Explain ${item.prompt} to a beginner.`, correctAnswer: item.model_answer ?? "", explanation, errorType: "misunderstood_concept" as const });
+  if (!analysis) {
+    const earlier = previous[previous.length - 1];
+    if (!earlier) {
+      // Without a check there is no feedback to improve on: this attempt ends the concept, the ideal
+      // explanation is shown and the student marks their explanation against it.
+      const stored = await recordUngradedItem(supabase, item, session, { response: input.explanation, analysis: { rounds: [], final: true }, responseMs, mistake: mistake("") });
+      if (!stored) return storedFeynmanRound(await reloadItem(supabase, item.id));
+      return { analysis: null, round, final: true, ungraded: { selfCheck: null }, ...reveal };
+    }
+    // The improved explanation couldn't be checked: the first attempt's check stands.
+    const isCorrect = earlier.score >= PASS_SCORE.feynman;
+    const stored = await storeItemAttempt(supabase, item, { response: input.explanation.slice(0, 8000), analysis: { rounds: previous, final: true } as unknown as Json, is_correct: isCorrect, score: earlier.score, response_ms: responseMs, answered_at: now });
+    if (!stored) return storedFeynmanRound(await reloadItem(supabase, item.id));
+    await settleAnsweredItem(supabase, item, session, { isCorrect, response: input.explanation, mistake: mistake(earlier.feedback) });
+    return { analysis: null, round, final: true, ungraded: null, ...reveal };
   }
   const final = round >= FEYNMAN_MAX_ROUNDS || analysis.score >= 85;
   const isCorrect = analysis.score >= PASS_SCORE.feynman;
-  const now = new Date().toISOString();
-  const previous = (item.analysis as unknown as { rounds?: unknown[] } | null)?.rounds ?? [];
   const stored = await storeItemAttempt(supabase, item, {
     response: input.explanation.slice(0, 8000),
     analysis: { rounds: [...previous, { round, ...analysis }], final } as unknown as Json,
     is_correct: isCorrect,
     score: analysis.score,
-    response_ms: (item.response_ms ?? 0) + (input.responseMs ?? 0),
+    response_ms: responseMs,
     answered_at: final ? now : null,
   });
   // A double submit (or a second tab) stored this round first: its round stands.
   if (!stored) return storedFeynmanRound(await reloadItem(supabase, item.id));
 
   if (final) {
-    await settleAnsweredItem(supabase, item, session, {
-      isCorrect,
-      response: input.explanation,
-      mistake: { question: `Explain ${item.prompt} to a beginner.`, correctAnswer: item.model_answer ?? "", explanation: analysis.feedback, errorType: "misunderstood_concept" },
-    });
+    await settleAnsweredItem(supabase, item, session, { isCorrect, response: input.explanation, mistake: mistake(analysis.feedback) });
   } else {
     await supabase.from("study_sessions").update({ last_active_at: now }).eq("id", session.id);
   }
 
-  return { analysis, round, final, idealExplanation: final ? item.model_answer : null, sourceExcerpt: final ? item.source_excerpt : null };
+  return { analysis, round, final, ungraded: null, idealExplanation: final ? reveal.idealExplanation : null, sourceExcerpt: final ? reveal.sourceExcerpt : null };
 }
 
 /** The latest stored round of a Feynman item. */
 function storedFeynmanRound(item: StudySessionItem): FeynmanRoundResult {
+  const final = Boolean(item.answered_at);
+  const reveal = { idealExplanation: final ? item.model_answer : null, sourceExcerpt: final ? item.source_excerpt : null };
+  const ungraded = ungradedView(item.analysis);
+  if (ungraded && final) return { analysis: null, round: item.attempts, final, ungraded, ...reveal };
   const rounds = (item.analysis as unknown as { rounds?: Array<FeynmanAnalysis & { round: number }> } | null)?.rounds ?? [];
   const last = rounds[rounds.length - 1];
   if (!last) throw new SessionError("This explanation is already being checked.", 409);
   const { round, ...analysis } = last;
-  const final = Boolean(item.answered_at);
-  return { analysis, round, final, idealExplanation: final ? item.model_answer : null, sourceExcerpt: final ? item.source_excerpt : null };
+  return { analysis, round, final, ungraded: null, ...reveal };
 }
 
 // ---------------------------------------------------------------------------
@@ -620,31 +638,40 @@ export async function completeItemSession(sessionId: string, focusSeconds: numbe
     .eq("session_id", sessionId)
     .order("position");
   const answered = (items ?? []).filter((item) => item.answered_at);
+  // An answer Tamari couldn't check, and the student didn't mark, is neither right nor wrong: left out of the counts.
+  const graded = answered.filter((item) => item.is_correct !== null);
+  const ungraded = answered.length - graded.length;
   // Question generation keeps the average quality of the student's questions for the summary page.
   const scores = answered.map((item) => item.score).filter((score): score is number => typeof score === "number");
-  const extra = session.method === "question_generation" && scores.length ? { averageQuality: Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) } : undefined;
+  const averageQuality = session.method === "question_generation" && scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : null;
+  const extra = averageQuality !== null || ungraded > 0 ? { ...(averageQuality !== null ? { averageQuality } : {}), ...(ungraded > 0 ? { ungraded } : {}) } : undefined;
   const byConcept = new Map<string, { correct: number; total: number }>();
-  for (const item of answered) {
+  for (const item of graded) {
     const name = (item.concept as unknown as { name: string } | null)?.name ?? item.prompt.slice(0, 40);
     const entry = byConcept.get(name) ?? { correct: 0, total: 0 };
     entry.total += 1;
     if (item.is_correct) entry.correct += 1;
     byConcept.set(name, entry);
   }
-  const correct = answered.filter((item) => item.is_correct).length;
+  const correct = graded.filter((item) => item.is_correct).length;
   const weak = [...byConcept.entries()].filter(([, value]) => value.correct < value.total).map(([name]) => name);
   const strong = [...byConcept.entries()].filter(([, value]) => value.correct === value.total && value.total > 0).map(([name]) => name);
-  const accuracy = answered.length ? correct / answered.length : null;
+  const accuracy = graded.length ? correct / graded.length : null;
   const method = session.method as StudyMethodId;
   return completeSession(supabase, sessionId, {
     focusSeconds: focusSeconds ?? undefined,
     topics: [...byConcept.keys()],
-    questionsAnswered: answered.length,
+    questionsAnswered: graded.length,
     correct,
-    incorrect: answered.length - correct,
+    incorrect: graded.length - correct,
     weakConcepts: weak,
     strongConcepts: strong,
-    suggestedNext: answered.length === 0 ? "Nothing was answered this time. Try a shorter session so it is easy to finish." : itemSessionNext(method, accuracy, weak),
+    suggestedNext:
+      answered.length === 0
+        ? "Nothing was answered this time. Try a shorter session so it is easy to finish."
+        : graded.length === 0
+          ? "Tamari couldn't check these answers, so they aren't counted. Repeat this session later to track your progress."
+          : itemSessionNext(method, accuracy, weak),
     nextReviewAt: await nextFlashcardDue(supabase),
     abandoned,
     extra,

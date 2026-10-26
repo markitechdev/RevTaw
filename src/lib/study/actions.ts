@@ -11,6 +11,8 @@ import { compareBlurtItem, evaluateQuestionItem, type BlurtResult, type Evaluate
 import { BUILDER_METHOD_IDS } from "@/lib/study/catalog";
 import { PROBLEM_DIFFICULTIES } from "@/lib/study/problem-options";
 import { completePreTesting } from "@/lib/study/flows/pretest";
+import { selfCheckItem } from "@/lib/study/items";
+import type { SelfCheck } from "@/lib/study/results";
 import { deleteRoutine, saveRoutine, startRoutine, type RoutineFormInput } from "@/lib/study/routines";
 import {
   analyzeFeynmanItem,
@@ -169,6 +171,21 @@ export async function analyzeFeynmanAction(input: { itemId: string; explanation:
     return { ok: true, data: result };
   } catch (error) {
     return failure(error, "Your explanation could not be analyzed. Please try again.");
+  }
+}
+
+/** The student's own mark for an answer Tamari couldn't check, after comparing it with the model answer. */
+export async function selfCheckAction(input: { itemId: string; mark: SelfCheck }): Promise<StudyActionResult<{ mark: SelfCheck }>> {
+  const user = await getCurrentUser();
+  if (!user) redirect(routes.login);
+  const parsed = z.object({ itemId: uuid, mark: z.enum(["correct", "incorrect"]) }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "That mark could not be saved." };
+  try {
+    const result = await selfCheckItem(parsed.data);
+    revalidate();
+    return { ok: true, data: result };
+  } catch (error) {
+    return failure(error, "Your mark could not be saved. Please try again.");
   }
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleCheck, CircleDashed, CircleX } from "lucide-react";
+import { CircleCheck, CircleDashed, CircleHelp, CircleX } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
@@ -11,9 +11,9 @@ import { Button, buttonClasses } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { TINT } from "@/components/ui/tint";
 import { routes } from "@/lib/routes";
-import { answerRecallAction, completeSessionAction } from "@/lib/study/actions";
+import { answerRecallAction, completeSessionAction, selfCheckAction } from "@/lib/study/actions";
 import type { SessionDetail } from "@/lib/study/queries";
-import type { RecallItemResult } from "@/lib/study/service";
+import type { RecallItemResult, SelfCheck } from "@/lib/study/results";
 import type { SessionSummary } from "@/lib/study/sessions";
 import { PASS_SCORE, VERDICT_LABEL, verdictFor, type Verdict } from "@/lib/study/verdict";
 import { cn } from "@/lib/utils";
@@ -113,10 +113,11 @@ export function RunnerDone({ session, methodName, message, ending, onFinish }: {
 /**
  * Colored result box; the verdict is spelled out so status never relies on color alone (§41). It comes from the
  * score by the same rule that decided what was stored (lib/study/verdict.ts), so "Correct" and "Mostly right"
- * are exactly the answers counted as correct. `verdict` is for exercises whose result isn't the score alone.
+ * are exactly the answers counted as correct. `verdict` is for exercises whose result isn't the score alone
+ * (then `score` may be null: nothing to show as a percentage).
  */
-export function VerdictBox({ score, passAt = PASS_SCORE.recall, verdict, title, scoreLabel, children }: { score: number; passAt?: number; verdict?: Verdict; title?: string; scoreLabel?: string; children?: ReactNode }) {
-  const shown = verdict ?? verdictFor(score, passAt);
+export function VerdictBox({ score, passAt = PASS_SCORE.recall, verdict, title, scoreLabel, children }: { score: number | null; passAt?: number; verdict?: Verdict; title?: string; scoreLabel?: string; children?: ReactNode }) {
+  const shown = verdict ?? verdictFor(score ?? 0, passAt);
   const good = shown === "correct" || shown === "mostly";
   return (
     <div className={cn("rounded-lg border p-4 text-sm", good && TINT.success, shown === "partial" && TINT.warning, shown === "incorrect" && TINT.danger)} role="status">
@@ -129,10 +130,76 @@ export function VerdictBox({ score, passAt = PASS_SCORE.recall, verdict, title, 
           <CircleX className="h-4 w-4 text-danger" aria-hidden="true" />
         )}
         {title ? `${title}: ${VERDICT_LABEL[shown]}` : VERDICT_LABEL[shown]}
-        <span className="font-normal text-muted-foreground">· {Math.round(score)}%{scoreLabel ? ` ${scoreLabel}` : ""}</span>
+        {score !== null && (
+          <span className="font-normal text-muted-foreground">
+            · {Math.round(score)}%{scoreLabel ? ` ${scoreLabel}` : ""}
+          </span>
+        )}
       </p>
       {children}
     </div>
+  );
+}
+
+/**
+ * In place of the verdict when Tamari couldn't check an answer (lib/study/results.ts): the student compares it
+ * with the model answer and marks it. Nothing counts (the session's tally, the notebook, mastery) until they do.
+ */
+export function UngradedCheck({ itemId, initial, against = "the model answer", onMarked }: { itemId: string; initial: SelfCheck | null; against?: string; onMarked?: (mark: SelfCheck) => void }) {
+  const [mark, setMark] = useState<SelfCheck | null>(initial);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const choose = (value: SelfCheck) => {
+    setError(null);
+    startTransition(async () => {
+      const result = await selfCheckAction({ itemId, mark: value });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setMark(result.data.mark);
+      onMarked?.(result.data.mark);
+    });
+  };
+
+  return (
+    <div className={cn("rounded-lg border p-4 text-sm", TINT.warning)} role="status">
+      <p className="flex items-center gap-2 font-semibold">
+        <CircleHelp className="h-4 w-4 text-warning" aria-hidden="true" />
+        {mark ? `Checked by you: ${mark === "correct" ? "right" : "not yet"}` : "Check this one yourself"}
+      </p>
+      {mark ? (
+        <p className="mt-1">{mark === "correct" ? "Counted as right." : "Counted as not yet right. Try it again in your next review."}</p>
+      ) : (
+        <>
+          <p className="mt-1">Tamari couldn&apos;t check this. Compare your answer with {against} and mark it. Only your mark counts.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button type="button" size="sm" variant="secondary" disabled={pending} onClick={() => choose("correct")}>
+              I got it right
+            </Button>
+            <Button type="button" size="sm" variant="secondary" disabled={pending} onClick={() => choose("incorrect")}>
+              Not yet
+            </Button>
+          </div>
+        </>
+      )}
+      {error && (
+        <p className="mt-2 text-danger" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** The result of a checked answer, or the self-check of one Tamari couldn't check. */
+export function RecallVerdict({ itemId, result, passAt = PASS_SCORE.recall }: { itemId: string; result: RecallItemResult; passAt?: number }) {
+  if (!result.comparison) return <UngradedCheck itemId={itemId} initial={result.ungraded?.selfCheck ?? null} />;
+  return (
+    <VerdictBox score={result.comparison.score} passAt={passAt}>
+      <p className="mt-2">{result.comparison.feedback}</p>
+    </VerdictBox>
   );
 }
 
@@ -189,9 +256,7 @@ export function RecallCard({ itemId, prompt, initial, onAnswered }: { itemId: st
         </>
       ) : (
         <>
-          <VerdictBox score={result.comparison.score}>
-            <p className="mt-1">{result.comparison.feedback}</p>
-          </VerdictBox>
+          <RecallVerdict itemId={itemId} result={result} />
           <p className="rounded-lg bg-success-soft/50 p-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">From the material: </span>
             {result.modelAnswer}

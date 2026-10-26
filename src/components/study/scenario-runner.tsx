@@ -185,17 +185,24 @@ export function ScenarioRunner({ session, methodName, parentSessionId = null, pa
         ) : (
           <>
             <VerdictBox verdict={scenarioVerdict(result)} score={result.score}>
-              <p className="mt-2">{result.correctChoice ? "You picked the best action." : "Another action was better here."} {result.evaluation.feedback}</p>
+              <p className="mt-2">
+                {result.correctChoice ? "You picked the best action." : "Another action was better here."}{" "}
+                {result.evaluation ? result.evaluation.feedback : "Tamari couldn't check your reasoning this time, so only your choice counts. Compare your reasons with the rationale below."}
+              </p>
             </VerdictBox>
             <div className="rounded-lg bg-success-soft/50 p-3 text-sm">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Why the best action is best</p>
               <p className="mt-1 whitespace-pre-wrap">{result.rationale}</p>
             </div>
-            <div className="grid gap-3 text-sm sm:grid-cols-2">
-              <PointList title="Your reasoning — strengths" items={result.evaluation.strengths} tone="success" />
-              <PointList title="Your reasoning — gaps" items={result.evaluation.gaps} tone="danger" />
-            </div>
-            <p className="text-xs text-muted-foreground">Justification score: {Math.round(result.evaluation.justification_score)}%</p>
+            {result.evaluation && (
+              <>
+                <div className="grid gap-3 text-sm sm:grid-cols-2">
+                  <PointList title="Your reasoning — strengths" items={result.evaluation.strengths} tone="success" />
+                  <PointList title="Your reasoning — gaps" items={result.evaluation.gaps} tone="danger" />
+                </div>
+                <p className="text-xs text-muted-foreground">Justification score: {Math.round(result.evaluation.justification_score)}%</p>
+              </>
+            )}
             <div className="flex justify-end border-t border-border pt-4">
               <Button type="button" size="sm" onClick={next} loading={ending}>
                 {index + 1 >= items.length ? "Finish session" : "Next scenario"}

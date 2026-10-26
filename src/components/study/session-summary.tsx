@@ -44,6 +44,8 @@ export function SessionSummaryCard({
   headingLevel?: "h1" | "h2";
 }) {
   const accuracy = summary.accuracy === null ? null : Math.round(summary.accuracy * 100);
+  // Answers Tamari couldn't check and the student didn't mark (lib/study/results.ts): left out of the counts.
+  const unchecked = typeof summary.extra?.ungraded === "number" ? summary.extra.ungraded : 0;
   const improvement = summary.improvement === null ? null : Math.round(summary.improvement * 100);
   const stats: Array<{ label: string; value: string; icon?: typeof Clock; tone?: string }> = [
     { label: "Duration", value: formatSeconds(summary.durationSeconds), icon: Clock },
@@ -73,6 +75,12 @@ export function SessionSummaryCard({
             </div>
           ))}
         </dl>
+
+        {unchecked > 0 && (
+          <p className="text-sm text-muted-foreground">
+            {unchecked === 1 ? "1 answer wasn't checked, so it isn't counted." : `${unchecked} answers weren't checked, so they aren't counted.`}
+          </p>
+        )}
 
         {improvement !== null && (
           <p className={cn("flex items-center gap-1.5 text-sm", improvement >= 0 ? "text-success" : "text-danger")}>

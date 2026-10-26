@@ -4,7 +4,8 @@ import { cache } from "react";
 
 import { createClient } from "@/lib/supabase/server";
 
-export type AnswerCounts = { answered: number; correct: number };
+/** `graded`: the answers with a result (an answer not yet checked, or not yet marked by the student, has none). */
+export type AnswerCounts = { answered: number; graded: number; correct: number };
 
 async function count(query: PromiseLike<{ count: number | null; error: { message: string } | null }>): Promise<number> {
   const { count: value, error } = await query;
@@ -19,11 +20,13 @@ async function count(query: PromiseLike<{ count: number | null; error: { message
  */
 export const getAnswerCounts = cache(async (): Promise<AnswerCounts> => {
   const supabase = await createClient();
-  const [questions, correctQuestions, items, correctItems] = await Promise.all([
+  const [questions, gradedQuestions, correctQuestions, items, gradedItems, correctItems] = await Promise.all([
     count(supabase.from("quiz_answers").select("id", { count: "exact", head: true })),
+    count(supabase.from("quiz_answers").select("id", { count: "exact", head: true }).not("is_correct", "is", null)),
     count(supabase.from("quiz_answers").select("id", { count: "exact", head: true }).eq("is_correct", true)),
     count(supabase.from("study_session_items").select("id", { count: "exact", head: true }).not("answered_at", "is", null)),
+    count(supabase.from("study_session_items").select("id", { count: "exact", head: true }).not("answered_at", "is", null).not("is_correct", "is", null)),
     count(supabase.from("study_session_items").select("id", { count: "exact", head: true }).not("answered_at", "is", null).eq("is_correct", true)),
   ]);
-  return { answered: questions + items, correct: correctQuestions + correctItems };
+  return { answered: questions + items, graded: gradedQuestions + gradedItems, correct: correctQuestions + correctItems };
 });

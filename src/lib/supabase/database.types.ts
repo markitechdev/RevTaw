@@ -1445,7 +1445,11 @@ export type Database = {
         Returns: Array<{ weighted: number; answers: number }>;
       };
       count_session_answer: {
-        Args: { p_session_id: string; p_correct: boolean; p_index?: number | null };
+        Args: { p_session_id: string; p_correct: boolean | null; p_index?: number | null };
+        Returns: undefined;
+      };
+      count_session_grade: {
+        Args: { p_session_id: string; p_correct: boolean };
         Returns: undefined;
       };
       stale_mastery_students: {

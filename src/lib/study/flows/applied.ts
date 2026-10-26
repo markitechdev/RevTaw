@@ -4,7 +4,7 @@ import { weakConceptNames } from "@/lib/adaptive/engine";
 import { isAiError } from "@/lib/ai";
 import { normalizeConceptName } from "@/lib/concepts/service";
 import { loadMaterialContext } from "@/lib/reviewers/service";
-import { conceptsFor, insertItems, loadOpenItem, openSession, recordItemResult, type Client, type FlowStartInput, type FlowStartResult } from "@/lib/study/items";
+import { conceptsFor, insertItems, loadOpenItem, openSession, recordItemResult, recordUngradedItem, reloadItem, type Client, type FlowStartInput, type FlowStartResult } from "@/lib/study/items";
 import {
   CASE_FIELDS,
   evaluateCaseAnalysis,
@@ -16,6 +16,7 @@ import {
   type CaseModel,
   type JustificationEvaluation,
 } from "@/lib/study/prompts/applied";
+import { ungradedView, type UngradedView } from "@/lib/study/results";
 import { SessionError, sessionTitle } from "@/lib/study/sessions";
 import { PASS_SCORE } from "@/lib/study/verdict";
 import type { Json } from "@/lib/supabase/database.types";
@@ -35,15 +36,18 @@ export type ScenarioResult = {
   chosen: number;
   best: number;
   correctChoice: boolean;
-  score: number;
+  /** null when the justification couldn't be checked: then the choice alone decides `isCorrect`. */
+  score: number | null;
   isCorrect: boolean;
   rationale: string;
   optionFeedback: string[];
-  evaluation: JustificationEvaluation;
+  /** null when Tamari couldn't check the justification. */
+  evaluation: JustificationEvaluation | null;
 };
 
 export type CaseView = { title: string; text: string; task: string };
-export type CaseResult = { evaluation: CaseEvaluation; model: CaseModel; isCorrect: boolean };
+/** `evaluation` is null when Tamari couldn't check the analysis: the student marks it against the expert one (`ungraded`). */
+export type CaseResult = { evaluation: CaseEvaluation | null; model: CaseModel; isCorrect: boolean | null; ungraded: UngradedView | null };
 
 function parseJson<T>(value: string | null): T | null {
   if (!value) return null;
@@ -112,7 +116,7 @@ export async function evaluateScenarioItem(input: { itemId: string; choice: numb
   if (item.answered_at && stored) return stored;
 
   const correctChoice = input.choice === key.best_option;
-  let evaluation: JustificationEvaluation;
+  let evaluation: JustificationEvaluation | null;
   try {
     evaluation = (
       await evaluateJustification({
@@ -128,10 +132,11 @@ export async function evaluateScenarioItem(input: { itemId: string; choice: numb
     ).evaluation;
   } catch (error) {
     if (!isAiError(error)) throw error;
-    evaluation = { justification_score: 50, strengths: [], gaps: [], feedback: "Tamari can't check this right now, so compare your reasoning with the rationale yourself." };
+    // The choice is checked without AI; the reasoning isn't scored, so the choice alone decides.
+    evaluation = null;
   }
-  const score = scenarioScore(correctChoice, evaluation.justification_score);
-  const isCorrect = correctChoice && evaluation.justification_score >= 40;
+  const score = evaluation ? scenarioScore(correctChoice, evaluation.justification_score) : null;
+  const isCorrect = correctChoice && (evaluation === null || evaluation.justification_score >= 40);
   const result: ScenarioResult = { chosen: input.choice, best: key.best_option, correctChoice, score, isCorrect, rationale: key.rationale, optionFeedback: key.option_feedback, evaluation };
   await recordItemResult(supabase, item, session, {
     response: `${view.options[input.choice]}\n\n${input.justification}`,
@@ -142,7 +147,7 @@ export async function evaluateScenarioItem(input: { itemId: string; choice: numb
     mistake: {
       question: `${view.situation}\n${view.question}`,
       correctAnswer: `${view.options[key.best_option]} — ${key.rationale}`,
-      explanation: evaluation.feedback,
+      explanation: evaluation?.feedback ?? key.rationale,
       errorType: correctChoice ? "misunderstood_concept" : "confused_concepts",
     },
   });
@@ -200,26 +205,40 @@ export async function evaluateCaseItem(input: { itemId: string; answer: CaseAnsw
   const view = (item.analysis as { case?: CaseView } | null)?.case;
   const model = parseJson<CaseModel>(item.model_answer);
   if (!view || !model) throw new SessionError("This case is incomplete.", 422);
-  const stored = (item.analysis as { evaluation?: CaseEvaluation } | null)?.evaluation;
-  if (item.answered_at && stored) return { evaluation: stored, model, isCorrect: Boolean(item.is_correct) };
+  if (item.answered_at) return storedCaseResult(item, model);
 
   const answer = Object.fromEntries(CASE_FIELDS.map((field) => [field, (input.answer[field] ?? "").trim().slice(0, 3000)])) as CaseAnswer;
-  let evaluation: CaseEvaluation;
+  let evaluation: CaseEvaluation | null;
   try {
     evaluation = (await evaluateCaseAnalysis({ materialTitle: session.title, caseText: view.text, model, answer })).evaluation;
   } catch (error) {
     if (!isAiError(error)) throw error;
-    const neutral = { score: 50, feedback: "Not checked — Tamari can't check this right now." };
-    evaluation = { fields: { problem: neutral, evidence: neutral, solutions: neutral, best_solution: neutral, justification: neutral }, overall: 50, strengths: [], gaps: [], feedback: "Tamari can't check this right now, so compare your analysis with the expert one yourself." };
+    evaluation = null;
+  }
+  const mistake = { question: `${view.title}: ${view.task}`, correctAnswer: `Problem: ${model.problem}\nBest solution: ${model.best_solution}\nJustification: ${model.justification}`, explanation: evaluation?.feedback ?? "", errorType: "misunderstood_concept" as const };
+  if (!evaluation) {
+    // Tamari couldn't check the analysis: the expert analysis is shown and the student marks theirs against it.
+    const stored = await recordUngradedItem(supabase, item, session, { response: JSON.stringify(answer), analysis: { case: view }, responseMs: input.responseMs, mistake });
+    if (!stored) return storedCaseResult(await reloadItem(supabase, item.id), model);
+    return { evaluation: null, model, isCorrect: null, ungraded: { selfCheck: null } };
   }
   const isCorrect = evaluation.overall >= PASS_SCORE.case;
-  await recordItemResult(supabase, item, session, {
+  const stored = await recordItemResult(supabase, item, session, {
     response: JSON.stringify(answer),
     analysis: { case: view, evaluation } as unknown as Json,
     score: evaluation.overall,
     isCorrect,
     responseMs: input.responseMs,
-    mistake: { question: `${view.title}: ${view.task}`, correctAnswer: `Problem: ${model.problem}\nBest solution: ${model.best_solution}\nJustification: ${model.justification}`, explanation: evaluation.feedback, errorType: "misunderstood_concept" },
+    mistake,
   });
-  return { evaluation, model, isCorrect };
+  if (!stored) return storedCaseResult(await reloadItem(supabase, item.id), model);
+  return { evaluation, model, isCorrect, ungraded: null };
+}
+
+/** The stored result of an answered case. */
+function storedCaseResult(item: { analysis: unknown; is_correct: boolean | null }, model: CaseModel): CaseResult {
+  const ungraded = ungradedView(item.analysis);
+  const evaluation = (item.analysis as { evaluation?: CaseEvaluation } | null)?.evaluation ?? null;
+  if (!ungraded && !evaluation) throw new SessionError("This case is already being checked.", 409);
+  return { evaluation: ungraded ? null : evaluation, model, isCorrect: item.is_correct, ungraded };
 }

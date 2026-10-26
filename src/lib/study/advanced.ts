@@ -16,7 +16,8 @@ import {
 } from "@/lib/study/ai";
 import { RAPID_REVIEW_MINUTES } from "@/lib/study/catalog";
 import { RETRIEVAL_FORMATS, type RetrievalFormat } from "@/lib/study/formats";
-import { conceptsFor, insertItems, loadOpenItem, openSession, reloadItem, settleAnsweredItem, storeItemAttempt, type Client, type FlowStartInput, type FlowStartResult, type ItemRow, type MaterialContext } from "@/lib/study/items";
+import { conceptsFor, insertItems, loadOpenItem, openSession, recordUngradedItem, reloadItem, settleAnsweredItem, storeItemAttempt, type Client, type FlowStartInput, type FlowStartResult, type ItemRow, type MaterialContext } from "@/lib/study/items";
+import { ungradedView, type UngradedView } from "@/lib/study/results";
 import { countSessionAnswer, loadSession, SessionError, sessionTitle } from "@/lib/study/sessions";
 import { PASS_SCORE } from "@/lib/study/verdict";
 import type { Json, SessionItemKind, StudySessionItem } from "@/lib/supabase/database.types";
@@ -307,7 +308,11 @@ export async function startBlurting(supabase: Client, userId: string, input: Adv
 
 export const BLURT_MAX_ROUNDS = 2;
 
-export type BlurtResult = { analysis: BlurtComparison; round: number; final: boolean; source: string | null };
+/**
+ * `analysis` is null when Tamari couldn't check this attempt; it ends the section either way. A first attempt
+ * is then marked by the student (`ungraded`); after a checked first attempt, that check stands.
+ */
+export type BlurtResult = { analysis: BlurtComparison | null; round: number; final: boolean; ungraded: UngradedView | null; source: string | null };
 
 /** Compares one blurt attempt with the section; the source is revealed only after the last round. */
 export async function compareBlurtItem(input: { itemId: string; text: string; responseMs: number | null }): Promise<BlurtResult> {
@@ -315,21 +320,37 @@ export async function compareBlurtItem(input: { itemId: string; text: string; re
   const { item, session } = await loadOpenItem(supabase, input.itemId);
   if (item.kind !== "blurt") throw new SessionError("This item is not a blurt.", 400);
   const previous = ((item.analysis as { rounds?: BlurtRound[] } | null)?.rounds ?? []) as BlurtRound[];
+  if (item.answered_at) return storedBlurtRound(item);
   if (previous.length >= BLURT_MAX_ROUNDS) {
     const last = previous[previous.length - 1];
-    return { analysis: last, round: last.round, final: true, source: item.model_answer };
+    return { analysis: last, round: last.round, final: true, ungraded: null, source: item.model_answer };
   }
   const round = previous.length + 1;
-  let comparison: BlurtComparison;
+  let checked: BlurtComparison | null;
   try {
-    comparison = (await compareBlurt({ materialTitle: session.title, topic: item.prompt, source: item.model_answer ?? "", keyPoints: Array.isArray(item.key_points) ? (item.key_points as string[]) : [], studentText: input.text, attempt: round })).comparison;
+    checked = (await compareBlurt({ materialTitle: session.title, topic: item.prompt, source: item.model_answer ?? "", keyPoints: Array.isArray(item.key_points) ? (item.key_points as string[]) : [], studentText: input.text, attempt: round })).comparison;
   } catch (error) {
     if (!isAiError(error)) throw error;
-    comparison = { remembered: [], missing: [], incorrect: [], forgotten_important: [], score: 50, feedback: "Tamari can't check this right now, so compare your text with the source yourself." };
+    checked = null;
   }
-  // A near-complete first blurt needs no retry; otherwise the student gets one more go.
-  const final = round >= BLURT_MAX_ROUNDS || comparison.score >= 90;
-  const rounds = [...previous, { ...comparison, round }];
+  if (!checked && previous.length === 0) {
+    // Tamari couldn't check the first attempt: there is nothing to improve on, so the source is shown now
+    // and the student marks their blurt against it.
+    const stored = await recordUngradedItem(supabase, item, session, {
+      response: input.text,
+      analysis: { rounds: [] },
+      responseMs: input.responseMs,
+      mistake: { question: `Blurt everything you remember about: ${item.prompt}`, correctAnswer: (item.model_answer ?? "").slice(0, 2000), explanation: "" },
+    });
+    if (!stored) return storedBlurtRound(await reloadItem(supabase, item.id));
+    return { analysis: null, round, final: true, ungraded: { selfCheck: null }, source: item.model_answer };
+  }
+  const comparison = checked;
+  // A near-complete first blurt needs no retry; otherwise the student gets one more go. An attempt that
+  // couldn't be checked ends the section: the checked one stands.
+  const final = round >= BLURT_MAX_ROUNDS || !comparison || comparison.score >= 90;
+  const rounds = comparison ? [...previous, { ...comparison, round }] : previous;
+  const lastChecked = rounds[rounds.length - 1];
   const best = Math.max(...rounds.map((entry) => entry.score));
   const now = new Date().toISOString();
   const stored = await storeItemAttempt(supabase, item, {
@@ -347,23 +368,26 @@ export async function compareBlurtItem(input: { itemId: string; text: string; re
     await settleAnsweredItem(supabase, item, session, {
       isCorrect,
       response: input.text,
-      mistake: comparison.forgotten_important.length
-        ? { question: `Blurt everything you remember about: ${item.prompt}`, correctAnswer: `Forgotten: ${comparison.forgotten_important.join("; ")}`, explanation: comparison.feedback }
+      mistake: lastChecked.forgotten_important.length
+        ? { question: `Blurt everything you remember about: ${item.prompt}`, correctAnswer: `Forgotten: ${lastChecked.forgotten_important.join("; ")}`, explanation: lastChecked.feedback }
         : null,
     });
   } else {
     await supabase.from("study_sessions").update({ last_active_at: now }).eq("id", session.id);
   }
-  return { analysis: comparison, round, final, source: final ? item.model_answer : null };
+  return { analysis: comparison, round, final, ungraded: null, source: final ? item.model_answer : null };
 }
 
 /** The latest stored round of a blurt item. */
 function storedBlurtRound(item: StudySessionItem): BlurtResult {
+  const final = Boolean(item.answered_at);
+  const source = final ? item.model_answer : null;
+  const ungraded = ungradedView(item.analysis);
+  if (ungraded && final) return { analysis: null, round: item.attempts, final, ungraded, source };
   const rounds = ((item.analysis as { rounds?: BlurtRound[] } | null)?.rounds ?? []) as BlurtRound[];
   const last = rounds[rounds.length - 1];
   if (!last) throw new SessionError("This blurt is already being checked.", 409);
-  const final = Boolean(item.answered_at);
-  return { analysis: last, round: last.round, final, source: final ? item.model_answer : null };
+  return { analysis: last, round: last.round, final, ungraded: null, source };
 }
 
 // ---------------------------------------------------------------------------
@@ -424,7 +448,8 @@ export async function startQuestionGeneration(supabase: Client, userId: string, 
   return { sessionId, redirect: `/study/${sessionId}` };
 }
 
-export type EvaluatedQuestion = { itemId: string; question: string; expectedAnswer: string | null; evaluation: QuestionEvaluation };
+/** `evaluation` is null when Tamari couldn't rate the question: it is saved without a rating and not counted. */
+export type EvaluatedQuestion = { itemId: string; question: string; expectedAnswer: string | null; evaluation: QuestionEvaluation | null };
 
 /** Evaluates one student-written question and stores it as a session item. */
 export async function evaluateQuestionItem(input: { sessionId: string; question: string; expectedAnswer: string | null; responseMs: number | null }): Promise<EvaluatedQuestion> {
@@ -433,17 +458,18 @@ export async function evaluateQuestionItem(input: { sessionId: string; question:
   if (session.status !== "in_progress") throw new SessionError("This session is already finished.", 409);
   if (session.method !== "question_generation" || !session.material_id) throw new SessionError("This session does not take questions.", 400);
   const context = await loadMaterialContext(supabase, session.material_id);
-  let evaluation: QuestionEvaluation;
+  let evaluation: QuestionEvaluation | null;
   try {
     evaluation = (await evaluateStudentQuestion({ materialTitle: context.material.title, chunks: context.chunks, question: input.question, expectedAnswer: input.expectedAnswer })).evaluation;
   } catch (error) {
     if (!isAiError(error)) throw error;
-    evaluation = { relevance: 50, clarity: 50, accuracy: 50, difficulty: "medium", overall: 50, feedback: "Tamari can't rate this right now; the question was saved without a rating.", improved_question: input.question, model_answer: input.expectedAnswer ?? "", concept: "general" };
+    // Saved without a rating: no made-up scores, no concept guessed, and it doesn't count as good or weak.
+    evaluation = null;
   }
-  const concepts = await conceptsFor(supabase, session.user_id, context, [evaluation.concept]);
+  const concepts = evaluation ? await conceptsFor(supabase, session.user_id, context, [evaluation.concept]) : new Map<string, string>();
   const { count } = await supabase.from("study_session_items").select("id", { count: "exact", head: true }).eq("session_id", session.id);
   const position = count ?? 0;
-  const good = evaluation.overall >= 60;
+  const good = evaluation ? evaluation.overall >= 60 : null;
   const now = new Date().toISOString();
   const { data: item, error } = await supabase
     .from("study_session_items")
@@ -452,18 +478,18 @@ export async function evaluateQuestionItem(input: { sessionId: string; question:
       user_id: session.user_id,
       position,
       kind: "question",
-      concept_id: concepts.get(normalizeConceptName(evaluation.concept)) ?? null,
+      concept_id: evaluation ? (concepts.get(normalizeConceptName(evaluation.concept)) ?? null) : null,
       prompt: input.question.slice(0, 4000),
-      model_answer: evaluation.model_answer.slice(0, 4000),
+      model_answer: evaluation ? evaluation.model_answer.slice(0, 4000) : (input.expectedAnswer?.slice(0, 4000) ?? null),
       key_points: [] as unknown as Json,
       response: input.expectedAnswer?.slice(0, 8000) ?? null,
-      analysis: evaluation as unknown as Json,
+      analysis: (evaluation ?? { unrated: true }) as unknown as Json,
       is_correct: good,
-      score: evaluation.overall,
+      score: evaluation?.overall ?? null,
       response_ms: input.responseMs,
       attempts: 1,
       answered_at: now,
-      format: evaluation.difficulty,
+      format: evaluation?.difficulty ?? null,
     })
     .select("id")
     .single();
