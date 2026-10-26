@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, BookOpenCheck, Check, Eye, Lightbulb, ListChecks, Plus, Sparkles, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpenCheck, Check, Eye, Lightbulb, ListChecks, NotebookPen, Plus, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -16,9 +16,9 @@ import { TINT } from "@/components/ui/tint";
 import { answerRecallAction } from "@/lib/study/actions";
 import type { BlurtComparison } from "@/lib/study/ai";
 import type { ReadingSummaryResult } from "@/lib/study/flows/reading";
-import { advanceReadingAction, markSectionReadAction, submitReadingSummaryAction } from "@/lib/study/method-actions";
+import { advanceReadingAction, markSectionReadAction, saveReadingNotesAction, submitReadingSummaryAction } from "@/lib/study/method-actions";
 import type { SessionDetail } from "@/lib/study/queries";
-import { MAX_QUESTIONS_PER_SECTION, READING_STAGE_LABEL, READING_STAGES, readReadingState, suggestQuestion, type ReadingMethod, type ReadingStage, type ReadingState } from "@/lib/study/reading-options";
+import { MAX_QUESTIONS_PER_SECTION, MIN_NOTE_CHARS, READING_STAGE_LABEL, READING_STAGES, readReadingState, suggestQuestion, type ReadingMethod, type ReadingStage, type ReadingState } from "@/lib/study/reading-options";
 import { recallResultOf, ungradedView, type RecallItemResult } from "@/lib/study/results";
 import { cn } from "@/lib/utils";
 
@@ -179,15 +179,22 @@ function AnswerStep({ items, label, onDone, onAnswered, doneLabel, sections }: {
 
 /**
  * SQ3R / PQ4R (§16): a stage-by-stage guide — Survey/Preview, Question, Read,
- * (Reflect), Recite, Review. The stage and progress are saved on the server,
- * so a refresh comes back to the same place.
+ * (Reflect), Recite, Review. Cornell notes: Notes, Cues, Recite, Summary. The
+ * stage and progress are saved on the server, so a refresh comes back to the
+ * same place.
  */
 export function ReadingRunner({ session, methodName, parentSessionId = null, parentLabel = "Back to Tamari's plan" }: RunnerProps) {
   const router = useRouter();
   const method = session.method as ReadingMethod;
   const initial = readReadingState(session.state);
   const { summary, stoppedEarly, ending, error, setError, finish, pending, startTransition } = useSessionCompletion(session);
-  const [stage, setStage] = useState<ReadingStage>(initial?.stage ?? "survey");
+  const cornell = method === "cornell_notes";
+  const [stage, setStage] = useState<ReadingStage>(initial?.stage ?? (cornell ? "notes" : "survey"));
+  const [notes, setNotes] = useState<string[]>(() => (initial?.sections ?? []).map((_, index) => initial?.notes[index] ?? ""));
+  const [noteIndex, setNoteIndex] = useState(() => {
+    const open = (initial?.sections ?? []).findIndex((_, index) => (initial?.notes[index] ?? "").trim().length < MIN_NOTE_CHARS);
+    return open === -1 ? 0 : open;
+  });
   const [expectations, setExpectations] = useState(initial?.expectations ?? "");
   const [questions, setQuestions] = useState<string[][]>(() => (initial?.sections ?? []).map(() => [""]));
   const [readSections, setReadSections] = useState<number[]>(initial?.readSections ?? []);
@@ -220,7 +227,7 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
   const reflectItems = session.items.filter((item) => item.kind === "stage" && item.format === "reflect");
   const answeredCount = answeredItems.answered;
 
-  const advance = (to: ReadingStage, payload: { expectations?: string; questions?: Array<{ section: number; question: string }> } = {}) => {
+  const advance = (to: ReadingStage, payload: { expectations?: string; questions?: Array<{ section: number; question: string }>; notes?: string[] } = {}) => {
     setError(null);
     startTransition(async () => {
       const result = await advanceReadingAction({ sessionId: session.id, to, ...payload });
@@ -231,6 +238,17 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
       setStage(result.data.stage);
       router.refresh();
     });
+  };
+
+  // Notes are kept on the server as the student moves between sections, so a refresh doesn't lose them.
+  const saveNotes = () => {
+    void saveReadingNotesAction({ sessionId: session.id, notes }).then((result) => {
+      if (!result.ok) setError(result.message);
+    });
+  };
+  const goToNote = (index: number) => {
+    saveNotes();
+    setNoteIndex(index);
   };
 
   const markRead = (section: number) => {
@@ -262,6 +280,10 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
 
   const writtenQuestions = questions.flatMap((list, section) => list.map((question) => ({ section, question: question.trim() }))).filter((entry) => entry.question.length >= 5);
   const afterRead: ReadingStage = method === "pq4r" ? "reflect" : "recite";
+  // Cornell's cues are written after the notes, so they go straight to Recite.
+  const afterQuestion: ReadingStage = cornell ? "recite" : "read";
+  const notesDone = state.sections.every((_, index) => (notes[index] ?? "").trim().length >= MIN_NOTE_CHARS);
+  const summaryItem = session.items.find((item) => item.format === "summary" && item.answered_at);
 
   return (
     <div className="flex flex-col gap-4">
@@ -313,16 +335,74 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
         </Panel>
       )}
 
+      {stage === "notes" && (
+        <Panel
+          title={`Notes: ${state.sections[noteIndex]?.heading ?? ""}`}
+          icon={NotebookPen}
+          intro={`Section ${noteIndex + 1} of ${state.sections.length}. Read it, then write the main ideas in your own words: short phrases, your own examples, abbreviations. Rephrasing is what makes notes stick; copying doesn't.`}
+        >
+          <SectionText text={state.sections[noteIndex]?.text ?? ""} />
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="cornell-notes" className="text-sm font-medium">
+              Your notes on this section
+            </label>
+            <Textarea
+              id="cornell-notes"
+              rows={7}
+              maxLength={4000}
+              value={notes[noteIndex] ?? ""}
+              disabled={pending}
+              onBlur={saveNotes}
+              onChange={(event) => setNotes((state) => state.map((note, index) => (index === noteIndex ? event.target.value : note)))}
+            />
+            <p className="text-xs text-muted-foreground">{(notes[noteIndex] ?? "").trim().length < MIN_NOTE_CHARS ? `A few lines at least (${MIN_NOTE_CHARS} characters).` : "Saved as you move between sections."}</p>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
+            <span className="text-xs text-muted-foreground" role="status">
+              {state.sections.filter((_, index) => (notes[index] ?? "").trim().length >= MIN_NOTE_CHARS).length} of {state.sections.length} sections noted
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="ghost" size="sm" disabled={noteIndex === 0 || pending} onClick={() => goToNote(noteIndex - 1)}>
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                Previous
+              </Button>
+              {noteIndex + 1 < state.sections.length && (
+                <Button type="button" variant="secondary" size="sm" disabled={pending} onClick={() => goToNote(noteIndex + 1)}>
+                  Next section
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              )}
+              {notesDone && (
+                <Button type="button" size="sm" loading={pending} onClick={() => advance("question", { notes })}>
+                  Next: {labels.question}
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </Panel>
+      )}
+
       {stage === "question" && (
-        <Panel title="Turn headings into questions" icon={Lightbulb} intro="Write the questions each section should answer. You will read to answer them, then answer them from memory.">
+        <Panel
+          title={cornell ? "Write cues for your notes" : "Turn headings into questions"}
+          icon={Lightbulb}
+          intro={cornell ? "In the cue column, write the questions your notes answer. Next your notes are covered and you answer the cues from memory." : "Write the questions each section should answer. You will read to answer them, then answer them from memory."}
+        >
           <ol className="flex flex-col gap-4">
             {state.sections.map((section, sectionIndexValue) => (
               <li key={section.heading} className="flex flex-col gap-2 rounded-lg border border-border p-3">
                 <p className="font-medium">{section.heading}</p>
+                {cornell && notes[sectionIndexValue] && (
+                  <div className="rounded-lg bg-muted/60 p-3 text-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your notes</p>
+                    <p className="mt-1 whitespace-pre-wrap">{notes[sectionIndexValue]}</p>
+                  </div>
+                )}
                 {questions[sectionIndexValue].map((question, questionIndex) => (
                   <div key={questionIndex} className="flex items-center gap-2">
                     <Input
-                      aria-label={`Question ${questionIndex + 1} for ${section.heading}`}
+                      aria-label={`${cornell ? "Cue" : "Question"} ${questionIndex + 1} for ${section.heading}`}
                       value={question}
                       maxLength={300}
                       disabled={pending}
@@ -355,7 +435,7 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
                     }
                   >
                     <Sparkles className="h-4 w-4" aria-hidden="true" />
-                    Suggest a question
+                    {cornell ? "Suggest a cue" : "Suggest a question"}
                   </Button>
                   {questions[sectionIndexValue].length < MAX_QUESTIONS_PER_SECTION && (
                     <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setQuestions((state) => state.map((list, index) => (index === sectionIndexValue ? [...list, ""] : list)))}>
@@ -374,9 +454,12 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
             </p>
           )}
           <div className="flex items-center justify-between gap-2 border-t border-border pt-4">
-            <span className="text-xs text-muted-foreground">{writtenQuestions.length} question{writtenQuestions.length === 1 ? "" : "s"}</span>
-            <Button type="button" size="sm" loading={pending} disabled={writtenQuestions.length === 0} onClick={() => advance("read", { questions: writtenQuestions })}>
-              Next: {labels.read}
+            <span className="text-xs text-muted-foreground">
+              {writtenQuestions.length} {cornell ? "cue" : "question"}
+              {writtenQuestions.length === 1 ? "" : "s"}
+            </span>
+            <Button type="button" size="sm" loading={pending} disabled={writtenQuestions.length === 0} onClick={() => advance(afterQuestion, { questions: writtenQuestions })}>
+              Next: {labels[afterQuestion as "read" | "recite"]}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
@@ -442,13 +525,17 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
       )}
 
       {stage === "recite" && (
-        <Panel title="Recite from memory" icon={ListChecks} intro="The text is hidden. Answer your own questions out of your head, then compare.">
+        <Panel title="Recite from memory" icon={ListChecks} intro={cornell ? "Your notes are covered. Answer each cue out of your head, then compare with the material." : "The text is hidden. Answer your own questions out of your head, then compare."}>
           {questionItems.length > 0 ? <AnswerStep key="recite" items={questionItems} label="Recite" sections={state.sections} doneLabel={`Next: ${labels.review}`} onDone={() => advance("review")} onAnswered={answeredItems.markAnswered} /> : <p className="text-sm text-muted-foreground">Loading your questions…</p>}
         </Panel>
       )}
 
       {(stage === "review" || stage === "done") && (
-        <Panel title="Review" icon={ListChecks} intro="See what stuck, re-read what did not, and summarize the chapter in your own words.">
+        <Panel
+          title={cornell ? "Summary" : "Review"}
+          icon={ListChecks}
+          intro={cornell ? "See which cues you answered, re-read what didn't stick, then write the summary at the bottom of your page: the lesson in a few sentences, without looking." : "See what stuck, re-read what did not, and summarize the chapter in your own words."}
+        >
           <ul className="flex flex-col gap-1.5 text-sm">
             {questionItems.map((item) => {
               const section = (item.analysis as { section?: number } | null)?.section ?? 0;
@@ -475,7 +562,7 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
             <>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="reading-summary" className="text-sm font-medium">
-                  Summarize the chapter without looking
+                  {cornell ? "Summarize the sections without looking" : "Summarize the chapter without looking"}
                 </label>
                 <Textarea id="reading-summary" rows={5} maxLength={6000} value={summaryText} disabled={pending} onChange={(event) => setSummaryText(event.target.value)} />
               </div>
@@ -500,6 +587,32 @@ export function ReadingRunner({ session, methodName, parentSessionId = null, par
                 </>
               ) : (
                 <UngradedCheck itemId={summaryResult.itemId} initial={summaryResult.ungraded?.selfCheck ?? null} against="the sections above" />
+              )}
+              {cornell && (
+                <section aria-labelledby="cornell-page" className="flex flex-col gap-3 rounded-lg border border-border p-3">
+                  <h3 id="cornell-page" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Your Cornell page
+                  </h3>
+                  {state.sections.map((section, index) => (
+                    <div key={section.heading} className="grid gap-3 border-b border-border pb-3 text-sm sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+                      <ul className="list-disc space-y-0.5 pl-4" aria-label={`Cues for ${section.heading}`}>
+                        {questionItems
+                          .filter((item) => (item.analysis as { section?: number } | null)?.section === index)
+                          .map((item) => (
+                            <li key={item.id}>{item.prompt}</li>
+                          ))}
+                      </ul>
+                      <div>
+                        <p className="font-medium">{section.heading}</p>
+                        <p className="mt-1 whitespace-pre-wrap">{notes[index]}</p>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="text-sm">
+                    <p className="font-medium">Summary</p>
+                    <p className="mt-1 whitespace-pre-wrap">{summaryText.trim() || summaryItem?.response || ""}</p>
+                  </div>
+                </section>
               )}
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
                 {session.material_id ? <ScheduleReviewsButton materialId={session.material_id} variant="secondary" size="sm" /> : <span />}

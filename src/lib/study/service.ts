@@ -191,6 +191,7 @@ async function startSessionInner(userId: string, input: StartSessionInput): Prom
       return startCases(supabase, userId, input);
     case "sq3r":
     case "pq4r":
+    case "cornell_notes":
       return startGuidedReading(supabase, userId, input, input.method);
     case "dual_coding":
       return startDualCoding(supabase, userId, input);
@@ -612,6 +613,8 @@ function itemSessionNext(method: StudyMethodId, accuracy: number | null, weak: s
     case "sq3r":
     case "pq4r":
       return accuracy !== null && accuracy >= 0.8 ? "You can recite this chapter. Schedule the 1-3-7-14 reviews so it stays." : "Re-read the sections behind the questions you missed, then recite them again tomorrow.";
+    case "cornell_notes":
+      return accuracy !== null && accuracy >= 0.8 ? "Your cues bring the notes back. Cover the notes and answer the cues again in a few days." : "Re-read the sections behind the cues you missed, then cover your notes and answer the cues again tomorrow.";
     case "scenario_based":
       return accuracy !== null && accuracy >= 0.8 ? "Good judgment. Try a case-based session for longer, multi-step situations." : "Re-read the rationale for the scenarios you missed, then try new scenarios tomorrow.";
     case "case_based":

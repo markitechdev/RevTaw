@@ -55,7 +55,7 @@ export const STUDY_METHODS: ReadonlyArray<StudyMethod> = [
   { id: "feynman", name: "Feynman Technique", summary: "Explain a concept as if teaching a beginner, then fix the gaps.", bestFor: "Concepts you can recognize but not explain" },
   { id: "blurting", name: "Blurting", summary: "Write everything you remember, then compare with the source.", bestFor: "Checking what actually stuck after reading" },
   { id: "pomodoro", name: "Pomodoro", summary: "Focused intervals with short breaks.", bestFor: "Long study blocks and avoiding burnout" },
-  { id: "cornell_notes", name: "Cornell Notes", summary: "Cues, notes and a summary in one structured page.", bestFor: "Lectures and dense reading" },
+  { id: "cornell_notes", name: "Cornell Notes", summary: "Your notes, cue questions and a summary on one page, then the cues answered with the notes covered.", bestFor: "Lectures and dense reading" },
   { id: "retrieval_practice", name: "Retrieval Practice", summary: "Short recall exercises in many formats.", bestFor: "Strengthening memory of key points" },
   { id: "practice_testing", name: "Practice Testing", summary: "Timed or untimed tests without hints.", bestFor: "Exam readiness" },
   { id: "interleaving", name: "Interleaving", summary: "Mix related topics instead of drilling one at a time.", bestFor: "Wide syllabi and telling similar ideas apart" },

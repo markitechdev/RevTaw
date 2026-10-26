@@ -61,6 +61,7 @@ const PREPARING: Partial<Record<BuilderMethodId, string>> = {
   case_based: "writing the cases",
   sq3r: "preparing the chapter",
   pq4r: "preparing the chapter",
+  cornell_notes: "preparing the sections",
   dual_coding: "drawing the visuals",
   mind_mapping: "drawing the map",
   concept_mapping: "drawing the map",

@@ -8,7 +8,7 @@ import { routes } from "@/lib/routes";
 import { actionFailure, revalidateStudy, uuid, type StudyActionResult } from "@/lib/study/action-helpers";
 import { evaluateCaseItem, evaluateScenarioItem, type CaseResult, type ScenarioResult } from "@/lib/study/flows/applied";
 import { evaluateProblemItem, type ProblemResult } from "@/lib/study/flows/problems";
-import { advanceReading, markSectionRead, submitReadingSummary, type ReadingSummaryResult } from "@/lib/study/flows/reading";
+import { advanceReading, markSectionRead, saveReadingNotes, submitReadingSummary, type ReadingSummaryResult } from "@/lib/study/flows/reading";
 import { answerLink, quizBranch, saveMap, startLinkTest, type BranchQuestion, type LinkQuestion, type LinkResult } from "@/lib/study/flows/maps";
 import { addOwnMnemonic, answerLoci, checkStoryRetell, createMnemonic, deleteMnemonic, deletePalace, placeConcepts, practiceMnemonic, savePalace, saveMnemonicOption, setMnemonicFavorite, startWalk, updateMnemonic } from "@/lib/study/flows/memory";
 import { checkVisualItem, type VisualCheck } from "@/lib/study/flows/visual";
@@ -81,9 +81,9 @@ export async function evaluateCaseAction(input: { itemId: string; answer: z.inpu
   }
 }
 
-const readingStage = z.enum(["survey", "question", "read", "reflect", "recite", "review", "done"]);
+const readingStage = z.enum(["survey", "notes", "question", "read", "reflect", "recite", "review", "done"]);
 
-export async function advanceReadingAction(input: { sessionId: string; to: z.input<typeof readingStage>; expectations?: string | null; questions?: Array<{ section: number; question: string }> }): Promise<StudyActionResult<{ stage: ReadingStage }>> {
+export async function advanceReadingAction(input: { sessionId: string; to: z.input<typeof readingStage>; expectations?: string | null; questions?: Array<{ section: number; question: string }>; notes?: string[] }): Promise<StudyActionResult<{ stage: ReadingStage }>> {
   await requireUser();
   const parsed = z
     .object({
@@ -91,6 +91,7 @@ export async function advanceReadingAction(input: { sessionId: string; to: z.inp
       to: readingStage,
       expectations: z.string().max(1000).nullable().optional(),
       questions: z.array(z.object({ section: z.number().int().min(0).max(20), question: z.string().max(300) })).max(30).optional(),
+      notes: z.array(z.string().max(4000)).max(20).optional(),
     })
     .safeParse(input);
   if (!parsed.success) return { ok: false, message: "That stage could not be saved." };
@@ -100,6 +101,18 @@ export async function advanceReadingAction(input: { sessionId: string; to: z.inp
     return { ok: true, data: { stage } };
   } catch (error) {
     return actionFailure(error, "The next stage could not be prepared. Please try again.");
+  }
+}
+
+export async function saveReadingNotesAction(input: { sessionId: string; notes: string[] }): Promise<StudyActionResult> {
+  await requireUser();
+  const parsed = z.object({ sessionId: uuid, notes: z.array(z.string().max(4000)).max(20) }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Your notes could not be saved." };
+  try {
+    await saveReadingNotes(parsed.data);
+    return { ok: true, data: undefined };
+  } catch (error) {
+    return actionFailure(error, "Your notes could not be saved.");
   }
 }
 

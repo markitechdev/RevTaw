@@ -8,7 +8,7 @@ import { materialSections } from "@/lib/study/advanced";
 import { compareBlurt, type BlurtComparison } from "@/lib/study/ai";
 import { conceptsFor, insertItems, openSession, recordItemResult, recordUngradedItem, type Client, type FlowStartInput, type FlowStartResult, type ItemRow } from "@/lib/study/items";
 import { answerReadingQuestions, generateReflectQuestions } from "@/lib/study/prompts/reading";
-import { MAX_QUESTIONS_PER_SECTION, READING_STAGES, readReadingState, type ReadingMethod, type ReadingStage, type ReadingState } from "@/lib/study/reading-options";
+import { isReadingMethod, MAX_QUESTIONS_PER_SECTION, MIN_NOTE_CHARS, READING_STAGES, readReadingState, type ReadingMethod, type ReadingStage, type ReadingState } from "@/lib/study/reading-options";
 import type { UngradedView } from "@/lib/study/results";
 import { mentions, pickSectionIndices } from "@/lib/study/sections";
 import { loadSession, SessionError, sessionTitle } from "@/lib/study/sessions";
@@ -17,15 +17,18 @@ import type { Json, StudySession } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * SQ3R and PQ4R (§16): RevTaw guides the student through every stage instead
- * of describing them. The stage, the sections being read and what was marked
- * read live in `study_sessions.state`, so a refresh resumes at the same stage.
- * The student's questions (answered from memory in Recite) and PQ4R's
- * conceptual Reflect questions are `stage` items graded like recall prompts;
- * the closing summary is a `stage` item compared with the sections.
+ * SQ3R, PQ4R and Cornell notes (§16): RevTaw guides the student through every
+ * stage instead of describing them. The stage, the sections being read and
+ * what was marked read live in `study_sessions.state`, so a refresh resumes at
+ * the same stage. The student's questions (Cornell's cues, answered from
+ * memory in Recite) and PQ4R's conceptual Reflect questions are `stage` items
+ * graded like recall prompts; the closing summary is a `stage` item compared
+ * with the sections. Cornell notes start with the student's own notes on each
+ * section, which they then write cues for.
  */
 
 const SECTION_CHARS = 6000;
+const NOTE_CHARS = 4000;
 
 function titled(heading: string): boolean {
   return !/^Part \d+$/.test(heading);
@@ -35,11 +38,12 @@ export async function startGuidedReading(supabase: Client, userId: string, input
   const context = await loadMaterialContext(supabase, input.materialId!);
   const all = materialSections(context.chunks);
   if (all.length === 0) throw new SessionError("This material is too short for a guided reading.", 422);
-  const count = Math.max(2, Math.min(6, Math.round(input.plannedMinutes / 8)));
+  // Taking notes takes longer per section than reading for questions.
+  const count = method === "cornell_notes" ? Math.max(1, Math.min(4, Math.round(input.plannedMinutes / 10))) : Math.max(2, Math.min(6, Math.round(input.plannedMinutes / 8)));
   const [{ data: analysisRow }, { data: earlier }] = await Promise.all([
     supabase.from("material_analyses").select("summary, data").eq("material_id", context.material.id).maybeSingle(),
     // What earlier readings of this material marked read, so this one picks up after it.
-    supabase.from("study_sessions").select("state").eq("user_id", userId).eq("material_id", context.material.id).in("method", ["sq3r", "pq4r"]).order("started_at", { ascending: false }).limit(20),
+    supabase.from("study_sessions").select("state").eq("user_id", userId).eq("material_id", context.material.id).in("method", ["sq3r", "pq4r", "cornell_notes"]).order("started_at", { ascending: false }).limit(20),
   ]);
   const analysis = analysisRow ? parseAnalysisData(analysisRow.data) : null;
   const readHeadings = new Set(
@@ -58,11 +62,12 @@ export async function startGuidedReading(supabase: Client, userId: string, input
   // The key concepts these sections cover: the survey points to them and the review grades against them.
   const covered = (analysis?.key_concepts ?? []).filter((concept) => sections.some((section) => mentions(`${section.heading}\n${section.text}`, concept.name)));
   const state: ReadingState = {
-    stage: "survey",
+    stage: method === "cornell_notes" ? "notes" : "survey",
     sections,
     survey: { summary: analysisRow?.summary ?? null, concepts: covered.map((concept) => concept.name).slice(0, 10) },
     expectations: null,
     readSections: [],
+    notes: [],
   };
   const sessionId = await openSession(supabase, userId, {
     method,
@@ -79,10 +84,10 @@ export async function startGuidedReading(supabase: Client, userId: string, input
 async function loadReading(supabase: Client, sessionId: string): Promise<{ session: StudySession; state: ReadingState; method: ReadingMethod }> {
   const session = await loadSession(supabase, sessionId);
   if (session.status !== "in_progress") throw new SessionError("This session is already finished.", 409);
-  if (session.method !== "sq3r" && session.method !== "pq4r") throw new SessionError("This is not a guided reading session.", 400);
+  if (!isReadingMethod(session.method)) throw new SessionError("This is not a guided reading session.", 400);
   const state = readReadingState(session.state);
   if (!state) throw new SessionError("This reading session has no sections.", 422);
-  return { session, state, method: session.method };
+  return { session, state, method: session.method as ReadingMethod };
 }
 
 async function saveState(supabase: Client, session: StudySession, state: ReadingState): Promise<void> {
@@ -108,6 +113,8 @@ export type AdvanceReadingInput = {
   to: ReadingStage;
   expectations?: string | null;
   questions?: Array<{ section: number; question: string }>;
+  /** Cornell notes: the student's notes, one per section. */
+  notes?: string[];
 };
 
 /** Moves to the next stage after checking the current one is done; returns the new stage. */
@@ -122,6 +129,15 @@ export async function advanceReading(input: AdvanceReadingInput): Promise<Readin
     case "survey":
       state.expectations = input.expectations?.trim().slice(0, 1000) || null;
       break;
+    case "notes": {
+      const notes = state.sections.map((_, index) => (input.notes?.[index] ?? "").trim().slice(0, NOTE_CHARS));
+      const missing = notes.findIndex((note) => note.length < MIN_NOTE_CHARS);
+      if (missing !== -1) throw new SessionError(`Take notes on “${state.sections[missing].heading}” first, in your own words.`, 400);
+      state.notes = notes;
+      // Noted means read: the next guided reading of this material starts after these sections.
+      state.readSections = state.sections.map((_, index) => index);
+      break;
+    }
     case "question": {
       const questions = (input.questions ?? [])
         .map((entry) => ({ section: entry.section, question: entry.question.trim().slice(0, 300) }))
@@ -193,6 +209,15 @@ export async function advanceReading(input: AdvanceReadingInput): Promise<Readin
   state.stage = input.to;
   await saveState(supabase, session, state);
   return input.to;
+}
+
+/** Cornell notes: keeps the notes written so far, so a refresh (or another device) doesn't lose them. */
+export async function saveReadingNotes(input: { sessionId: string; notes: string[] }): Promise<void> {
+  const supabase = await createClient();
+  const { session, state } = await loadReading(supabase, input.sessionId);
+  if (state.stage !== "notes") return;
+  state.notes = state.sections.map((_, index) => (input.notes[index] ?? "").slice(0, NOTE_CHARS));
+  await saveState(supabase, session, state);
 }
 
 export async function markSectionRead(input: { sessionId: string; section: number }): Promise<number[]> {

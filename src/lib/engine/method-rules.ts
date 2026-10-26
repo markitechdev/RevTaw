@@ -141,7 +141,7 @@ export function chooseMethod(context: MethodContext): MethodPick {
     prefer.add("practice_testing");
     if (context.minutes >= 30) prefer.add("exam_simulation");
     if (context.minutes <= 15) prefer.add("rapid_review");
-    for (const method of ["memory_palace", "mind_mapping", "sq3r", "pq4r"] as const) remove.add(method);
+    for (const method of ["memory_palace", "mind_mapping", "sq3r", "pq4r", "cornell_notes"] as const) remove.add(method);
   }
   if (context.minutes <= 10) {
     for (const method of ["rapid_review", "active_recall"] as const) prefer.add(method);
