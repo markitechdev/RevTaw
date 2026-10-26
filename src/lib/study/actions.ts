@@ -11,6 +11,7 @@ import { actionFailure, revalidateStudy, uuid, type StudyActionResult } from "@/
 import { BLURT_MAX_ROUNDS, compareBlurtItem, evaluateQuestionItem, type BlurtResult, type EvaluatedQuestion } from "@/lib/study/advanced";
 import { BUILDER_METHOD_IDS } from "@/lib/study/catalog";
 import { PROBLEM_DIFFICULTIES } from "@/lib/study/problem-options";
+import { pomodoroSplit } from "@/lib/study/pomodoro";
 import { completePreTesting } from "@/lib/study/flows/pretest";
 import { selfCheckItem } from "@/lib/study/items";
 import type { SelfCheck } from "@/lib/study/results";
@@ -280,6 +281,8 @@ export async function startSmartBlockAction(input: { sessionId: string; key: str
       plannedMinutes: block.minutes,
       questionCount: block.questionCount,
       timed: true,
+      // A Pomodoro block runs its own length, not the 25/5 default.
+      ...(block.method === "pomodoro" ? pomodoroSplit(block.minutes) : {}),
       focus,
       focusConcepts: block.concepts.length > 0 ? block.concepts : undefined,
       parentSessionId: session.id,

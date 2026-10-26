@@ -15,6 +15,7 @@ import type { ActivityInput, ExamFormInput, GoalFormInput } from "@/lib/planner/
 import { routes } from "@/lib/routes";
 import { isBuilderMethod, isTestMethod, type BuilderMethodId } from "@/lib/study/catalog";
 import { withStartLock } from "@/lib/study/duplicates";
+import { pomodoroSplit } from "@/lib/study/pomodoro";
 import { startPlannedSession } from "@/lib/study/service";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -174,8 +175,7 @@ async function startTask(userId: string, taskId: string): Promise<PlannerActionR
     plannedMinutes: minutes,
     questionCount: isTestMethod(method) ? Math.max(5, Math.min(30, Math.round(minutes / 1.5))) : undefined,
     timed: isTestMethod(method) ? true : undefined,
-    workMinutes: method === "pomodoro" ? Math.min(60, minutes) : undefined,
-    breakMinutes: method === "pomodoro" ? 5 : undefined,
+    ...(method === "pomodoro" ? pomodoroSplit(minutes) : {}),
     topic: method === "pomodoro" ? task.title.replace(/^Focused study:\s*/, "").slice(0, 120) : undefined,
     taskId: task.id,
   });
